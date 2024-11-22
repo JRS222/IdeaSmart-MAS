@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parts Management Documentation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <nav id="sidebar">
+            <div class="nav-header">Table of Contents</div>
+            <ul>
+                <li><a href="#introduction" class="nav-link">Introduction</a></li>
+                <li><a href="#parts-books" class="nav-link">Parts Books</a></li>
+                <li><a href="#call-logs" class="nav-link">Call Logs</a></li>
+                <li><a href="#labor-log" class="nav-link">Labor Log</a></li>
+                <li><a href="#actions" class="nav-link">Actions</a></li>
+                <li><a href="#search" class="nav-link">Search</a></li>
+                <li><a href="#powershell" class="nav-link">PowerShell</a></li>
+                <li><a href="#improvements" class="nav-link">Post-Approval Changes</a></li>
+                <li><a href="#conclusion" class="nav-link">Conclusion</a></li>
+            </ul>
+        </nav>
+
+        <main id="content">
+            <hr />
+<h1 id="advanced-parts-management-software-revolutionizing-equipment-maintenance-efficiency">Advanced Parts Management Software: Revolutionizing Equipment Maintenance Efficiency</h1>
+<h2 id="introduction">Introduction</h2>
+<p>In equipment maintenance, where every second of downtime can be costly, efficiency and accuracy are paramount. Technicians need to identify, locate, and manage parts quickly and precisely. Our <strong>Advanced Parts Management Software</strong> does just that—streamlining parts and equipment management to enable faster, smarter work. This comprehensive software provides centralized data, automated processes, and user-friendly tools, empowering your team to tackle maintenance challenges with unparalleled efficiency.</p>
+<hr />
+<h2 id="parts-books"><strong>1. Parts Books Tab</strong></h2>
+<h3 id="purpose">Purpose</h3>
+<p>The <strong>Parts Books Tab</strong> serves as the central repository for accessing detailed parts books tailored to each machine. Each book includes essential columns such as stock numbers, descriptions, and reference figures. This data is organized in a way that streamlines parts identification and retrieval, ensuring technicians can quickly find what they need without sifting through multiple resources.</p>
+<div class="image-container">
+<img src="images/Pasted image 20241112112945.png" alt="Pasted image 20241112112945.png">
+</div>
+<p><em>FIGURE 1.1 Parts Books Tab</em></p>
+<div class="image-container">
+<img src="images/Pasted image 20241112214752.png" alt="Pasted image 20241112214752.png">
+</div>
+<p><em>Figure 1.2 Parts Book Sample (AFCS200)</em></p>
+<div class="image-container">
+<img src="images/Pasted image 20241113064159.png" alt="Pasted image 20241113064159.png">
+</div>
+<p><em>Figure 1.3 Parts Room Sample</em></p>
+<h3 id="distinctions-between-parts-books-and-parts-room-files">Distinctions Between Parts Books and Parts Room Files</h3>
+<p>While the <strong>Parts Room</strong> file consolidates information across all parts books for a holistic view, each <strong>Parts Book</strong> file focuses on the unique data relevant to a specific machine. This targeted structure provides efficiency and precision when working on individual machines.</p>
+<h3 id="column-breakdown-in-parts-book-files">Column Breakdown in Parts Book Files</h3>
+<h4 id="key-columns">Key Columns</h4>
+<ul>
+<li><strong>NO.</strong>: This column lists the part number within the specific figure referenced in the <strong>REF.</strong> column. It allows technicians to directly correlate the part with its illustration in the handbook, making it easy to identify within diagrams.</li>
+</ul>
+<div class="mermaid-container">
+<div class="mermaid">
+flowchart TD
+    A[Start] --> B[Parse Figure HTML]
+    B --> C{Item Number Present?}
+    C -->|Yes| D[Extract Item Number]
+    C -->|No| E[Generate Sequential Number]
+    D --> F{Valid Format?}
+    F -->|Yes| G[Store in NO. Column]
+    F -->|No| H[Format Correction]
+    E --> G
+    H --> G
+    G --> I[End]
+</div>
+</div>
+<p><em>Figure 1.4 NO. Column Logic</em></p>
+<ul>
+<li><strong>STOCK NO.</strong>: Displays the standardized <strong>NSN</strong> or <strong>NSL</strong> (Not Stocked Locally) label. NSNs allow cross-referencing with the national stockroom, while NSLs identify parts that may not be immediately available but can be sourced or ordered as needed.</li>
+</ul>
+<div class="mermaid-container">
+<div class="mermaid">
+flowchart TD
+    A[Start] --> B[Parse Figure HTML]
+    B --> C{Stock Number Present?}
+    C -->|Yes| D[Extract Stock Number]
+    C -->|No| E{Is NSL Part?}
+    D --> F{Format Check}
+    E -->|Yes| G[Mark as NSL]
+    E -->|No| H[Research Required]
+    F -->|Valid| I[Store in STOCK NO. Column]
+    F -->|Invalid| J[Format Correction]
+    G --> I
+    H --> K[Manual Entry]
+    J --> I
+    K --> I
+    I --> L[End]
+</div>
+</div>
+<p><em>Figure 1.5 NSN Column Logic</em></p>
+<ul>
+<li><strong>PART DESCRIPTION</strong>: Contains detailed information about the part, such as specifications (e.g., "Screw, cap, hexagon head, steel, zinc coated, class 8.8, M8 x 1.25 x 30 mm long"). This ensures that technicians can verify they are selecting the correct part without ambiguity.</li>
+</ul>
+<div class="mermaid-container">
+<div class="mermaid">
+flowchart TD
+    A[Start] --> B[Parse Figure HTML]
+    B --> C{Description Present?}
+    C -->|Yes| D[Extract Description]
+    C -->|No| E[Research Required]
+    D --> F{Format Check}
+    F -->|Valid| G[Clean Special Characters]
+    F -->|Invalid| H[Format Correction]
+    E --> I[Manual Entry]
+    G --> J[Store in PART DESCRIPTION Column]
+    H --> J
+    I --> J
+    J --> K{Length Check}
+    K -->|Too Long| L[Truncate]
+    K -->|OK| M[End]
+    L --> M
+</div>
+</div>
+<p><em>Figure 1.6 Description Column Logic</em></p>
+<ul>
+<li>
+<p><strong>PART NO.</strong>: This column lists the OEM information. It allows easy cross-referencing with suppliers and manufacturers.</p>
+</li>
+<li>
+<p><strong>REF.</strong>: Specifies the figure references (e.g., "Figure 2-10") within the handbook where the part can be found. This column is essential for directing technicians to the exact figure that includes the part, saving time and reducing errors.</p>
+</li>
+</ul>
+<div class="mermaid-container">
+<div class="mermaid">
+flowchart TD
+    A[Start] --> B[Get Figure Number]
+    B --> C{Valid Format?}
+    C -->|Yes| D[Extract Section-Figure]
+    C -->|No| E[Format Correction]
+    D --> F{HTML File Exists?}
+    F -->|Yes| G[Create Hyperlink]
+    F -->|No| H[Store Text Only]
+    E --> I[Manual Review]
+    G --> J[Store in REF. Column]
+    H --> J
+    I --> J
+    J --> K[End]
+</div>
+</div>
+<p><em>Figure 1.7 Reference Column Logic</em></p>
+<ul>
+<li>
+<p><strong>QTY</strong>: Indicates the quantity on hand or required, streamlining inventory planning and ensuring that parts are in stock or requested in advance.</p>
+</li>
+<li>
+<p><strong>LOCATION</strong>: Shows the storage location or notes that a part is not stocked locally, aiding in quick retrieval or sourcing decisions.</p>
+</li>
+</ul>
+<div class="mermaid-container">
+<div class="mermaid">
+flowchart TD
+    A[Start Cell Population] --> B[Load Parts Room CSV]
+    B --> C{Process Each Row in Section}
+
+    C --> D{Match by STOCK NO.?}
+    D -->|Yes| E[Copy Location from Parts Room]
+    D -->|No| F{Match by PART NO.?}
+
+    F -->|Yes| G{Multiple OEM Matches?}
+    F -->|No| H[Set Not Stocked Locally]
+
+    G -->|Yes| I[Use First Match Location]
+    G -->|No| J[Use Single Match Location]
+
+    E --> K[Write to Location Column]
+    H --> K
+    I --> K
+    J --> K
+
+    K --> L{More Rows?}
+    L -->|Yes| C
+    L -->|No| M[End]
+
+    style H fill:#f9f,stroke:#333
+    style E fill:#9f9,stroke:#333
+</div>
+</div>
+<p><em>Figure 1.8 Location Column Logic</em></p>
+<ul>
+<li><strong>CAGE</strong>: Provides the Commercial and Government Entity (CAGE) code, essential for identifying the part's manufacturer or supplier.</li>
+</ul>
+<h3 id="column-breakdown-in-parts-room-files">Column Breakdown in Parts Room Files</h3>
+<h4 id="key-columns_1">Key Columns</h4>
+<ul>
+<li>
+<p><strong>PART NO.</strong>: Identifies the unique part number associated with each item. This enables quick cross-referencing between parts books and inventory files to ensure the correct part is available.</p>
+</li>
+<li>
+<p><strong>DESCRIPTION</strong>: Details the part characteristics, such as type and specifications. It’s crucial for ensuring technicians have the necessary information for parts selection.</p>
+</li>
+<li>
+<p><strong>STOCK NO.</strong>: Lists the National Stock Number (NSN) if applicable. This column is essential for inventory verification and identifying parts that align with national standards.</p>
+</li>
+</ul>
+<div class="mermaid-container">
+<div class="mermaid">
+flowchart TD
+    A[Start] --> B{Is part in EMARS?}
+    B -->|Yes| C[Extract NSN from EMARS]
+    B -->|No| D{Is it a standard part?}
+    D -->|Yes| E[Use Standard NSN]
+    D -->|No| F[Mark as NSL]
+    C --> G[Store in Part NSN Column]
+    E --> G
+    F --> G
+    G --> H{Changed NSN?}
+    H -->|Yes| I[Move old NSN to 'Changed Part NSN' column]
+    H -->|No| J[End]
+    I --> J
+</div>
+</div>
+<p><em>Figure 1.9 STOCK NO. Column Logic</em></p>
+<ul>
+<li>
+<p><strong>QTY</strong>: Displays the quantity on hand, facilitating inventory tracking and restocking when necessary.</p>
+</li>
+<li>
+<p><strong>LOCATION</strong>: Indicates where the part is stored within the facility or notes that it is not locally stocked, aiding in efficient retrieval and stock tracking.</p>
+</li>
+<li>
+<p><strong>CAGE</strong>: Lists the Commercial and Government Entity (CAGE) code for the part’s supplier, essential for sourcing and procurement.</p>
+</li>
+<li>
+<p><strong>New Parts Book Reference Columns</strong>: Columns that allow a user to quickly cross-reference between the Parts Volume and his Site. Particularly useful when you have a part you need to replace and the only part number you can find is on a part nearby. </p>
+</li>
+</ul>
+<div class="mermaid-container">
+<div class="mermaid">
+flowchart TD
+    A[Start] --> B[Process New Parts Book]
+    B --> C[Create New Column for Book]
+    C --> D{For Each Part in Book}
+    D --> E{Match with Parts Room?}
+
+    E -->|NSN Match| F[Get All Figures for Part]
+    E -->|OEM Match| G[Check Changed NSN]
+    E -->|No Match| H[Skip Part]
+
+    F --> I[Format as Figure References]
+    G --> J{Valid NSN Change?}
+    J -->|Yes| K[Update Part NSN]
+    J -->|No| L[Mark Changed NSN]
+
+    K --> I
+    L --> I
+
+    I --> M{Existing References?}
+    M -->|Yes| N[Append New References]
+    M -->|No| O[Create New Reference]
+
+    N --> P[Format References]
+    O --> P
+
+    P --> Q{More Parts?}
+    Q -->|Yes| D
+    Q -->|No| R[Save Updates]
+
+    H --> Q
+
+    R --> S[Update Excel File]
+    S --> T[End]
+
+    P --> U[Sort Figure Numbers]
+    U --> V[Group by Section]
+    V --> W[Separate by Pipe]
+    W --> X[Format: X-Y pipe A-B pipe C-D]
+</div>
+</div>
+<p><em>Figure 1.10 Book Reference Column Logic</em></p>
+<hr />
+<h3 id="dynamic-integration-with-the-parts-room-file">Dynamic Integration with the Parts Room File</h3>
+<p>When a new parts book is created, its name is added as a column in the <strong>Parts Room</strong> file. This enables technicians to see, at a glance, which parts appear across different machines and specific figures within each book. For example, if a part is featured in multiple figures within a book, these figures (e.g., "Figure 2-11 | Figure 2-8") are populated in the respective book-specific column. This helps technicians focus on relevant sections, saving valuable time during diagnostics and repair.</p>
+<h3 id="benefits">Benefits</h3>
+<ul>
+<li>
+<p><strong>Targeted Information Access</strong>: Enables technicians to quickly locate machine-specific data within each parts book.</p>
+</li>
+<li>
+<p><strong>Enhanced Cross-Referencing</strong>: With book-specific columns in the <strong>Parts Room</strong>, technicians can see exactly which figures to consult, improving efficiency and accuracy.</p>
+</li>
+<li>
+<p><strong>Simplified Navigation</strong>: Figure references in the <strong>Parts Book</strong> files link directly to the parts diagrams, minimizing the time spent navigating complex manuals.</p>
+</li>
+</ul>
+<hr />
+<h2 id="call-logs"><strong>2. Call Logs Tab</strong></h2>
+<h3 id="purpose_1">Purpose</h3>
+<p>The <strong>Call Logs Tab</strong> provides structured access to service calls, ensuring efficient maintenance tracking. It logs essential call details, updates statuses, and automates labor transfers, ensuring that crucial data is always available for analysis.</p>
+<h3 id="key-features">Key Features</h3>
+<ul>
+<li>
+<p><strong>Recent Calls List</strong>: Displays machine identifiers, causes, actions, timestamps, and notes, keeping the team informed about issues and resolutions in real time.</p>
+</li>
+<li>
+<p><strong>Automatic Labor Log Transfer</strong>: Moves calls over 30 minutes into the <strong>Labor Log Tab</strong> for more detailed tracking. This automation ensures that significant maintenance activities are captured without extra steps.</p>
+</li>
+<li>
+<p><strong>End-of-Shift Reporting</strong>: Simplifies the reporting process by consolidating all calls and activities at the end of each shift. This feature encourages technicians to accurately document calls, enhancing long-term data reliability.</p>
+</li>
+</ul>
+<div class="image-container">
+<img src="images/Pasted image 20241114045740.png" alt="Pasted image 20241114045740.png">
+</div>
+<p><em>Figure 2.1 Call Logs Tab</em></p>
+<h3 id="benefits_1">Benefits</h3>
+<ul>
+<li>
+<p><strong>Improved Communication</strong>: Keeps team members updated on equipment status, preventing miscommunications.</p>
+</li>
+<li>
+<p><strong>Efficient Documentation</strong>: Automates logging for convenience and accuracy.</p>
+</li>
+<li>
+<p><strong>Enhanced Accountability</strong>: Tracks every action, supporting performance assessments.</p>
+</li>
+</ul>
+<div class="image-container">
+<img src="images/Pasted image 20241114045932.png" alt="Pasted image 20241114045932.png">
+</div>
+<p><em>Figure 2.2  Call Log Adding Window</em></p>
+<div class="image-container">
+<img src="images/Pasted image 20241114050252.png" alt="Pasted image 20241114050252.png">
+</div>
+<p><em>Figure 2.3 Adding a new machine to the options for calls</em></p>
+<hr />
+<h2 id="labor-log"><strong>3. Labor Log Tab</strong></h2>
+<h3 id="purpose_2">Purpose</h3>
+<p>The <strong>Labor Log Tab</strong> is a powerful tool for creating work orders, tracking parts usage, and enabling detailed records. It includes search capabilities designed for parts retrieval and is integrated with EMARS for seamless work order management. Any Call Log that is over 30 minutes gets moved to the Labor Log view as well and tells the user that they need a work order number. This also allows them to utilize the adding of parts.</p>
+<div class="image-container">
+<img src="images/Pasted image 20241115030201.png" alt="Pasted image 20241115030201.png">
+</div>
+<p><em>Figure 3.1 Labor Log Tab</em></p>
+<h3 id="key-features_1">Key Features</h3>
+<ul>
+<li><strong>Create Work Orders</strong>: With fields for the <strong>Date</strong>, <strong>Work Order</strong>, <strong>Description</strong>, <strong>Machine</strong>, <strong>Duration</strong>, <strong>Parts</strong>, and <strong>Notes</strong> work orders are auto-populated with the parts database. Technicians can then add work-specific details and seamlessly integrate with EMARS.</li>
+</ul>
+<div class="image-container">
+<img src="images/Pasted image 20241115030401.png" alt="Pasted image 20241115030401.png">
+</div>
+<p><em>Figure 3.2 Adding a labor log</em></p>
+<ul>
+<li><strong>Search for Parts</strong>: The built-in parts search saves technicians time by enabling quick retrieval from the current parts database.</li>
+</ul>
+<div class="image-container">
+<img src="images/Pasted image 20241115030646.png" alt="Pasted image 20241115030646.png">
+</div>
+<p><em>Figure 3.3 Searching for a part</em></p>
+<div class="image-container">
+<img src="images/Pasted image 20241115030818.png" alt="Pasted image 20241115030818.png">
+</div>
+<p><em>FIgure 3.4 Adding a part to a work order</em></p>
+<div class="image-container">
+<img src="images/Pasted image 20241115030954.png" alt="Pasted image 20241115030954.png">
+</div>
+<p><em>Figure 3.5 Prompt to add part. This will come up for each part.</em></p>
+<div class="image-container">
+<img src="images/Pasted image 20241115031155.png" alt="Pasted image 20241115031155.png">
+</div>
+<p><em>Figure 3.6 Once you have selected you parts it populates</em></p>
+<div class="image-container">
+<img src="images/Pasted image 20241115031436.png" alt="Pasted image 20241115031436.png">
+</div>
+<p><em>Figure 3.7 How it populates the parts it goes</em> <NSN>&lt;(quantity)&gt;-<Location>, <NSN>&lt;(quantity)&gt;-<Location></p>
+<div class="mermaid-container">
+<div class="mermaid">
+flowchart TB
+    subgraph Initialize[Startup Process]
+        IConfig[Initialize Configuration] -->|Load Paths| Paths[Get File Paths]
+        Paths -->|Check Files| Files[Load Call/Labor Files]
+        Files -->|Initialize| Views[Create Call/Labor Views]
+    end
+
+    subgraph CallLog[Call Log Data Loading]
+        Import[Import CallLogs.csv] -->|Read Entries| CallData[Create Call Log Objects]
+        CallData -->|For Each Entry| Process[Process Each Call]
+        Process -->|Check Duration| Qualify{Qualifies for Labor Log?}
+        Qualify -->|No: < 30min| Skip[Skip Entry]
+        Qualify -->|Yes: >= 30min| UniqueCheck
+    end
+
+    subgraph Validation[Entry Validation]
+        UniqueCheck{Check If Unique} -->|Create Key| Key["Create uniqueKey:
+        Date_Machine_TimeDown"]
+        Key --> Hash[Check processedCallLogs Hash]
+        Hash --> Exists{Entry Exists?}
+        Exists -->|Yes| SkipDupe[Skip Duplicate]
+        Exists -->|No| CreateEntry[Create Labor Entry]
+    end
+
+    subgraph LaborEntry[Labor Log Entry Creation]
+        CreateEntry --> Duration[Calculate Duration]
+        Duration -->|"timeUp - timeDown
+        / 60 (hours)"| DurFormat[Format Duration]
+
+        DurFormat --> BuildEntry[Build Labor Entry]
+
+        subgraph Mapping[Column Mapping]
+            direction TB
+            BuildEntry --> C1[Date: log.Date]
+            BuildEntry --> C2["Work Order: 'Need W/O #'"]
+            BuildEntry --> C3["Description: 
+            Cause/Action/Noun Combined"]
+            BuildEntry --> C4[Machine: log.Machine]
+            BuildEntry --> C5["Duration: 
+            Calculated Hours"]
+            BuildEntry --> C6["Parts: Empty"]
+            BuildEntry --> C7[Notes: log.Notes]
+        end
+    end
+
+    subgraph Save[Save Process]
+        BuildEntry --> AddItem[Add to Labor ListView]
+        AddItem --> SaveCSV[Save to LaborLogs.csv]
+        SaveCSV --> UpdateHash[Update processedCallLogs]
+    end
+
+    Save --> Final[Process Next Entry]
+    Final --> Process
+
+    style Mapping fill:#e1f5fe,stroke:#b3e5fc
+    style Initialize fill:#e8f5e9,stroke:#c8e6c9
+    style Validation fill:#fff3e0,stroke:#ffe0b2
+</div>
+</div>
+<p><em>Figure 3.8 How call logs are moved and how columns are populated</em></p>
+<p>The most important parts are color-coded:
+- Green: Initialization process
+- Blue: Column mapping
+- Orange: Validation process</p>
+<ul>
+<li><strong>Enhance Reporting</strong> with data for audits and budgeting.</li>
+</ul>
+<h3 id="benefits_2">Benefits</h3>
+<ul>
+<li>
+<p><strong>Comprehensive Tracking</strong>: Ensures complete, accurate labor logs.</p>
+</li>
+<li>
+<p><strong>Time Savings</strong>: Simplifies work order creation and documentation.</p>
+</li>
+<li>
+<p><strong>Data Insights</strong>: Offers historical data to improve maintenance planning.</p>
+</li>
+</ul>
+<hr />
+<h2 id="actions"><strong>4. Actions Tab</strong></h2>
+<h3 id="purpose_3">Purpose</h3>
+<p>The <strong>Actions Tab</strong> serves as a <strong>temporary hub</strong> for actions that have not yet been assigned to specific tabs but remain integral to the workflow. It also includes features that connect and streamline various components of the program. This ensures ongoing functionality while providing a centralized workspace for fast, automated tasks.</p>
+<div class="image-container">
+<img src="images/Pasted image 20241115033215.png" alt="Pasted image 20241115033215.png">
+</div>
+<p><em>Figure 4.1 Quick look at the Actions tab</em></p>
+<h3 id="key-features_2">Key Features</h3>
+<h2 id="workflow"><strong>Workflow Bridge</strong>: Facilitates steps that involve multiple features of the software, tying together interconnected processes in a single interface.</h2>
+<h2 id="search"><strong>5. Search Tab</strong></h2>
+<h3 id="purpose_4">Purpose</h3>
+<p>The <strong>Search Tab</strong> offers flexible, fast search capabilities for technicians. Parts can be located using NSNs, OEM numbers, or descriptions, significantly speeding up parts retrieval.</p>
+<h3 id="key-features_3">Key Features</h3>
+<ul>
+<li>
+<p><strong>Wildcard Search</strong>: Enables flexible search terms with wildcards, allowing technicians to find parts even with incomplete data.</p>
+</li>
+<li>
+<p><strong>Cross-Reference Capabilities</strong>: Cross-references NSNs with OEM numbers and descriptions, providing all possible options.</p>
+</li>
+<li>
+<p><strong>Multi-Location Search</strong>: Extends searches to local and national stockrooms and nearby facilities, improving the chances of finding parts quickly.</p>
+</li>
+<li>
+<p><strong>Cross-Referenced Figures</strong>: For parts in multiple handbooks, results show relevant figures and allow quick access. This feature reduces manual handbook navigation drastically.</p>
+</li>
+</ul>
+<h3 id="how-it-works">How it works:</h3>
+<h1 id="search-pattern-reference">Search Pattern Reference</h1>
+<h2 id="cross-reference-search-specifics">Cross Reference Search Specifics</h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Search Target</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NSN</td>
+<td>STOCK NO.</td>
+<td>Matches against Parts Books' STOCK NO. field</td>
+</tr>
+<tr>
+<td>Part No</td>
+<td>PART NO.</td>
+<td>Matches against Parts Books' PART NO. field</td>
+</tr>
+<tr>
+<td>Description</td>
+<td>PART DESCRIPTION</td>
+<td>Matches against Parts Books' PART DESCRIPTION field</td>
+</tr>
+</tbody>
+</table>
+<h2 id="cross-reference-display-fields">Cross Reference Display Fields</h2>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Source</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>REF</td>
+<td>Section reference</td>
+<td>From Parts Book section reference</td>
+</tr>
+<tr>
+<td>STOCK NO.</td>
+<td>Parts Book data</td>
+<td>NSN from Parts Book</td>
+</tr>
+<tr>
+<td>PART NO.</td>
+<td>Parts Book data</td>
+<td>Manufacturer part number</td>
+</tr>
+<tr>
+<td>Location</td>
+<td>Parts Book data</td>
+<td>Location if available</td>
+</tr>
+<tr>
+<td>QTY</td>
+<td>Not applicable</td>
+<td>Cross reference doesn't track quantity</td>
+</tr>
+</tbody>
+</table>
+<h2 id="cross-reference-search-behavior">Cross Reference Search Behavior</h2>
+<ul>
+<li>Searches all sections in all configured Parts Books</li>
+<li>REF numbers preserved for figure lookup</li>
+<li>Matches must meet all provided search criteria (AND logic)</li>
+<li>Empty search fields match all entries in that field</li>
+<li>Search is performed across all configured Parts Books simultaneously</li>
+<li>Results include book and section information for reference</li>
+</ul>
+<h2 id="view-specific-search-comparisons">View-Specific Search Comparisons</h2>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Main Parts Room</th>
+<th>Same Day Parts</th>
+<th>Cross Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Source Display</td>
+<td>CSV Name</td>
+<td>Site Name</td>
+<td>Book Name</td>
+</tr>
+<tr>
+<td>QTY Available</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>No</td>
+</tr>
+<tr>
+<td>Location Info</td>
+<td>Current</td>
+<td>Current</td>
+<td>From Manual</td>
+</tr>
+<tr>
+<td>Part Number Source</td>
+<td>OEM Fields</td>
+<td>OEM Fields</td>
+<td>PART NO. Field</td>
+</tr>
+<tr>
+<td>NSN Format</td>
+<td>Current</td>
+<td>Current</td>
+<td>Manual Format</td>
+</tr>
+<tr>
+<td>Results Update</td>
+<td>Real-time</td>
+<td>Real-time</td>
+<td>Static</td>
+</tr>
+</tbody>
+</table>
+<h2 id="search-field-interactions-across-views">Search Field Interactions Across Views</h2>
+<table>
+<thead>
+<tr>
+<th>Search Type</th>
+<th>Main Parts Room</th>
+<th>Same Day Parts</th>
+<th>Cross Reference</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NSN Only</td>
+<td>Searches Part (NSN)</td>
+<td>Searches Part (NSN)</td>
+<td>Searches STOCK NO.</td>
+</tr>
+<tr>
+<td>Part No Only</td>
+<td>Searches OEM fields</td>
+<td>Searches OEM fields</td>
+<td>Searches PART NO.</td>
+</tr>
+<tr>
+<td>Description Only</td>
+<td>Searches Description</td>
+<td>Searches Description</td>
+<td>Searches PART DESCRIPTION</td>
+</tr>
+<tr>
+<td>Combined</td>
+<td>AND logic between fields</td>
+<td>AND logic between fields</td>
+<td>AND logic between fields</td>
+</tr>
+</tbody>
+</table>
+<h2 id="important-notes">Important Notes:</h2>
+<ol>
+<li>All three views are searched simultaneously</li>
+<li>Each view maintains its own result set</li>
+<li>Cross Reference results don't include quantity information</li>
+<li>Location information means different things in different views</li>
+<li>Part numbers are matched differently in Cross Reference vs. other views</li>
+<li>Results are displayed in separate sections of the interface</li>
+<li>Search terms are applied consistently across all views but may match different fields</li>
+</ol>
+<div class="mermaid-container">
+<div class="mermaid">
+flowchart TB
+    subgraph Input[Search Input Fields]
+        NSN[NSN Search Box]
+        PartNo[Part Number Search Box]
+        Desc[Description Search Box]
+    end
+
+    subgraph MainPartsRoom[Main Parts Room Search]
+        MPR[Main Parts Room CSV] -->|For Each Row| MPRFilter{Filter Criteria}
+        MPRFilter -->|NSN Match| MPRNSN{NSN Check}
+        MPRFilter -->|Part No Match| MPRPN{Part No Check}
+        MPRFilter -->|Description Match| MPRDesc{Desc Check}
+
+        MPRNSN -->|Yes| MPRNext[Next Filter]
+        MPRNSN -->|No| MPRSkip[Skip Row]
+
+        MPRPN -->|Match Any OEM Field| MPRNext
+        MPRPN -->|No Match| MPRSkip
+
+        MPRDesc -->|Yes| MPRAdd[Add to Results]
+        MPRDesc -->|No| MPRSkip
+
+        MPRAdd -->|Display Fields| MPRShow["Show:
+        - Source (CSV Name)
+        - STOCK NO.
+        - PART NO.
+        - Location
+        - QTY"]
+    end
+
+    subgraph SameDay[Same Day Parts Room Search]
+        SDR[Same Day Room CSVs] -->|For Each CSV| SDSite[Process Each Site]
+        SDSite -->|For Each Row| SDFilter{Filter Criteria}
+        SDFilter -->|NSN Match| SDNSN{NSN Check}
+        SDFilter -->|Part No Match| SDPN{Part No Check}
+        SDFilter -->|Description Match| SDDesc{Desc Check}
+
+        SDNSN -->|Yes| SDNext[Next Filter]
+        SDNSN -->|No| SDSkip[Skip Row]
+
+        SDPN -->|Match Any OEM Field| SDNext
+        SDPN -->|No Match| SDSkip
+
+        SDDesc -->|Yes| SDAdd[Add to Results]
+        SDDesc -->|No| SDSkip
+
+        SDAdd -->|Display Fields| SDShow["Show:
+        - Source (Site Name)
+        - STOCK NO.
+        - PART NO.
+        - Location
+        - QTY"]
+    end
+
+    subgraph CrossRef[Cross Reference Search]
+        direction TB
+        CR[Parts Books] -->|For Each Book| CRBook[Process Each Book]
+        CRBook -->|Load Sections| CRSection[Process Each Section]
+        CRSection -->|For Each Row| CRFilter{Filter Criteria}
+
+        CRFilter -->|NSN Match| CRNSN{Check STOCK NO.}
+        CRFilter -->|Part No Match| CRPN{Check PART NO.}
+        CRFilter -->|Description Match| CRDesc{Check PART DESCRIPTION}
+
+        CRNSN -->|Yes| CRNext[Continue to Next Check]
+        CRNSN -->|No| CRSkip[Skip Entry]
+
+        CRPN -->|Yes| CRNext
+        CRPN -->|No| CRSkip
+
+        CRDesc -->|Yes| CRAdd[Add to Results]
+        CRDesc -->|No| CRSkip
+
+        CRAdd -->|Display Fields| CRShow["Show:
+        - Handbook
+        - REF.
+        - STOCK NO.
+        - PART NO.
+        - Location
+        - QTY"]
+    end
+
+    Input -->|Search Criteria| MainPartsRoom
+    Input -->|Search Criteria| SameDay
+    Input -->|Search Criteria| CrossRef
+
+    style Input fill:#e1f5fe
+    style MainPartsRoom fill:#e8f5e9
+    style SameDay fill:#fff3e0
+    style CrossRef fill:#f3e5f5
+
+    subgraph SearchNotes[Search Processing Notes]
+        direction TB
+        Note1["• All searches case-insensitive"]
+        Note2["• Wildcards (*) allowed in all fields"]
+        Note3["• Empty fields match everything"]
+        Note4["• NSN search ignores hyphens"]
+        Note5["• Part No matches any OEM field"]
+        Note6["• Fields combined with AND logic"]
+    end
+</div>
+</div>
+<div class="image-container">
+<img src="images/Pasted image 20241115071149.png" alt="Pasted image 20241115071149.png">
+</div>
+<h4 id="oem-search-example"><em>OEM Search Example</em></h4>
+<div class="image-container">
+<img src="images/Pasted image 20241115071608.png" alt="Pasted image 20241115071608.png">
+</div>
+<h4 id="nsn-search-example"><em>NSN Search Example</em></h4>
+<div class="image-container">
+<img src="images/Pasted image 20241115072114.png" alt="Pasted image 20241115072114.png">
+</div>
+<h4 id="description-search-example"><em>Description Search Example</em></h4>
+<div class="image-container">
+<img src="images/Pasted image 20241121220445.png" alt="Pasted image 20241121220445.png">
+</div>
+<div class="image-container">
+<img src="images/Pasted image 20241121221124.png" alt="Pasted image 20241121221124.png">
+</div>
+
+<p>By selecting any number of parts and clicking "Open Figures" it will open directly to the drawing. This is much, much faster than navigating slowly through the website. I can put in a partial number or a number of a nearby part and open, instantly, any drawing I suspect that could be helpful.</p>
+<div class="mermaid-container">
+<div class="mermaid">
+flowchart TB
+    subgraph UserAction[User Interaction]
+        Start([Start]) --> Button[Click 'Open Figures' Button]
+        Button --> GetRef[Get Reference from Row]
+        GetRef --> ParseRef[Parse Figure Reference]
+    end
+
+    subgraph ReferenceProcessing[Reference Processing]
+        ParseRef --> Split[Split Multiple References]
+        Split --> Valid{Valid References?}
+        Valid -->|No| Error[Show Error Message]
+        Valid -->|Yes| Process[Process Each Reference]
+    end
+
+    subgraph FileHandling[File Handling]
+        Process --> BuildPath[Build File Path]
+        BuildPath --> CheckFile{File Exists?}
+        CheckFile -->|No| NotFound[Show Not Found Error]
+        CheckFile -->|Yes| LoadHTML[Load HTML File]
+    end
+
+    subgraph Display[Display Processing]
+        LoadHTML --> ExtractFig[Extract Figure Content]
+        ExtractFig --> CreateWindow[Create New Window]
+        CreateWindow --> RenderFig[Render Figure]
+        RenderFig --> AddControls[Add Navigation Controls]
+    end
+
+    subgraph Navigation[Window Controls]
+        AddControls --> Zoom[Add Zoom Controls]
+        AddControls --> Print[Add Print Option]
+        AddControls --> Close[Add Close Button]
+    end
+
+    Error --> End([End])
+    NotFound --> End
+    Navigation --> End
+
+    classDef process fill:#e1f5fe,stroke:#b3e5fc
+    classDef decision fill:#fff3e0,stroke:#ffe0b2
+    classDef action fill:#e8f5e9,stroke:#c8e6c9
+
+    class UserAction,Display action
+    class ReferenceProcessing process
+    class Valid,CheckFile decision
+    class FileHandling process
+    class Navigation action
+</div>
+</div>
+
+<h3 id="benefits_3">Benefits</h3>
+<ul>
+<li>
+<p><strong>Speed</strong>: Reduces time spent finding parts by over 70%.</p>
+</li>
+<li>
+<p><strong>Accuracy</strong>: Increases accuracy with detailed, cross-referenced results.</p>
+</li>
+<li>
+<p><strong>Convenience</strong>: Combines all search functions into one interface.</p>
+</li>
+</ul>
+<hr />
+<h2 id="6-optimized-workflow-for-parts-search"><strong>6. Optimized Workflow for Parts Search</strong></h2>
+<h3 id="the-transformation">The Transformation</h3>
+<p>Our software redefines the time-intensive parts identification workflow by providing a seamless, end-to-end solution.</p>
+<h4 id="old-workflow-process-5092-minutes-per-task">Old Workflow Process (50–92 minutes per task):</h4>
+<ol>
+<li>
+<p><strong>Identify Issue on Machine</strong>: Inspect machine to determine the issue.</p>
+</li>
+<li>
+<p><strong>Access ACE Computer</strong>: Locate and use a dedicated ACE computer to access parts and repair information.</p>
+</li>
+<li>
+<p><strong>Navigate to MTSC Website</strong>: Find machine acronym link and relevant handbook.</p>
+</li>
+<li>
+<p><strong>Identify Handbook and Section</strong>: Manually locate correct section.</p>
+</li>
+<li>
+<p><strong>Identify the Part</strong>: Scroll through sections to locate specific part information.</p>
+</li>
+<li>
+<p><strong>Locate Part in National Stockroom Database</strong>: Search by NSN, OEM, or description.</p>
+</li>
+<li>
+<p><strong>Check Other Facility Part Rooms</strong> if unavailable locally.</p>
+</li>
+<li>
+<p><strong>Order Part</strong>: Submit a request to parts clerk.</p>
+</li>
+<li>
+<p><strong>Document Call Log</strong>: Record the issue, actions taken, and time manually.</p>
+</li>
+</ol>
+<h4>New Workflow with Advanced Parts Management Software (18-26 minutes per task):</h4>
+<ol>
+<li>
+<p><strong>Diagnose Issue</strong>: Use historical data from the <strong>Call Logs Tab</strong>.</p>
+</li>
+<li>
+<p><strong>Search for Part</strong>: Instantly search by any known identifier.</p>
+</li>
+<li>
+<p><strong>Access Detailed Part Information</strong>: View parts data with cross-referenced figures in the <strong>Parts Books Tab</strong>.</p>
+</li>
+<li>
+<p><strong>Check Stock Availability</strong>: See real-time stock levels and locations in the <strong>Parts Room</strong>.</p>
+</li>
+<li>
+<p><strong>Order Part</strong>: Use the <strong>Actions Tab</strong> to order the part immediately if out of stock.</p>
+</li>
+<li>
+<p><strong>Automated Logging</strong>: Automatically updates <strong>Call Logs</strong></p>
+</li>
+</ol>
+<p>and <strong>Labor Logs</strong>.</p>
+<div class="mermaid-container">
+<div class="mermaid">
+flowchart TB
+    subgraph Old["Old Workflow (50-92 minutes)"]
+        direction TB
+        A1[1. Identify Issue on Machine] -->|10-20 min| A2[2. Access ACE Computer]
+        A2 -->|5-10 min| A3[3. Navigate MTSC Website]
+        A3 -->|10-15 min| A4[4. Identify Handbook and Section]
+        A4 -->|10-20 min| A5[5. Identify Part]
+        A5 -->|5-15 min| A6[6. Search National Stockroom]
+        A6 -->|5-10 min| A7[7. Check Other Facilities]
+        A7 -->|5-7 min| A8[8. Order Part]
+        A8 -->|5 min| A9[9. Document Call Log]
+    end
+
+    subgraph New["New Workflow (18-26 minutes)"]
+        direction TB
+        B1[1. Diagnose Issue] -->|10-20 min| B2[2. Search for Part]
+        B2 -->|1-2 min| B3[3. Access Part Information]
+        B3 -->|1-2 min| B4[4. Check Stock Availability]
+        B4 -->|1-2 min| B5[5. Order Part]
+        B5 -->|Auto| B6[6. Automated Logging]
+    end
+
+    classDef oldStyle fill:#ffebee,stroke:#ef9a9a
+    classDef newStyle fill:#e8f5e9,stroke:#a5d6a7
+
+    class A1,A2,A3,A4,A5,A6,A7,A8,A9 oldStyle
+    class B1,B2,B3,B4,B5,B6 newStyle
+
+    %% Add time savings visualization
+    TimeComparison["Total Time Savings:
+    Old Process: 50-92 minutes
+    New Process: 18-26 minutes
+    Efficiency Gain: >70%"]
+
+    style TimeComparison fill:#e3f2fd,stroke:#90caf9
+</div>
+</div>
+
+<h3 id="time-saved">Time Saved</h3>
+<ul>
+<li>
+<p><strong>Old Workflow</strong>: 50-92 minutes per task.</p>
+</li>
+<li>
+<p><strong>New Workflow</strong>: 18-26 minutes per task</p>
+</li>
+</ul>
+<hr />
+<h2 id="powershell"><strong>7. Windows PowerShell Integration</strong></h2>
+<h3 id="purpose_5">Purpose</h3>
+<p>The software leverages Windows PowerShell scripts to automate complex tasks, including data imports, HTML processing, and Excel report generation, reducing manual intervention and enhancing accuracy.</p>
+<h3 id="key-features_4">Key Features</h3>
+<ul>
+<li>
+<p><strong>Automated Data Handling</strong>: Scripts streamline data extraction and updating, ensuring the latest data is always accessible.</p>
+</li>
+<li>
+<p><strong>Dynamic Parts Books Generation</strong>: Scripts automate Excel creation for each new book, keeping data current with minimal manual input.</p>
+</li>
+<li>
+<p><strong>Error Handling and Notifications</strong>: Notifications immediately inform users of any issues, supporting a smooth experience.</p>
+</li>
+</ul>
+<h3 id="benefits_4">Benefits</h3>
+<ul>
+<li>
+<p><strong>Improved Accuracy</strong>: Reduces the risk of data entry errors.</p>
+</li>
+<li>
+<p><strong>Efficiency</strong>: Automates data handling, freeing staff to focus on essential tasks.</p>
+</li>
+<li>
+<p><strong>Scalability</strong>: Allows the system to grow with ease, adapting to new machines, parts, or handbooks as needed.</p>
+</li>
+</ul>
+<hr />
+
+<h2 id="improvements">Additional Improvements and API Integration</h2>
+
+    <p>Through strategic integration with enterprise systems and API access, this software platform can be 
+    enhanced to provide comprehensive maintenance management capabilities.</p>
+
+    <div class="mermaid-container">
+        <div class="mermaid">
+flowchart TD
+    subgraph APIs[External System Integration]
+        EMARS[EMARS API] --> |Real-time Inventory| Stock[Stock Management]
+        EMARS --> |Work Orders| WO[Work Order Processing]
+        MPE[MPE Watch API] --> |Performance Metrics| Perf[Performance Analytics]
+        nMARS[nMARS API] --> |Maintenance History| Maint[Maintenance Records]
+    end
+
+    subgraph Integration[Data Integration Layer]
+        Stock --> DataHub[Central Data Hub]
+        WO --> DataHub
+        Perf --> DataHub
+        Maint --> DataHub
+        DataHub --> |Extract, Transform, Load| Analytics[Analytics Engine]
+    end
+
+    subgraph Features[Enhanced Capabilities]
+        Analytics --> PM[Predictive Maintenance]
+        Analytics --> KPI[KPI Dashboard]
+        Analytics --> Supply[Supply Chain Optimization]
+        Analytics --> Plan[Maintenance Planning]
+    end
+
+    style APIs fill:#e1f5fe,stroke:#b3e5fc
+    style Integration fill:#e8f5e9,stroke:#c8e6c9
+    style Features fill:#fff3e0,stroke:#ffe0b2
+        </div>
+        <p class="caption">Future Systems Integration Architecture</p>
+    </div>
+
+    <h3>API Integration Framework</h3>
+    
+    <div class="key-features">
+        <h4>EMARS Integration</h4>
+        <ul>
+            <li><strong>Real-time Inventory Synchronization</strong>
+                <ul>
+                    <li>Direct API connectivity for live stock level monitoring</li>
+                    <li>Automated procurement threshold alerts</li>
+                    <li>Bidirectional updates for inventory adjustments</li>
+                </ul>
+            </li>
+            <li><strong>Work Order Management</strong>
+                <ul>
+                    <li>Automated work order generation based on predetermined triggers</li>
+                    <li>Real-time status updates and tracking</li>
+                    <li>Digital signature and approval workflow integration</li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+
+    <div class="key-features">
+        <h4>MPE Watch Integration</h4>
+        <ul>
+            <li><strong>Performance Metrics Analysis</strong>
+                <ul>
+                    <li>Real-time machine performance monitoring</li>
+                    <li>Automated threshold violation alerts</li>
+                    <li>Historical performance trend analysis</li>
+                    <li>Integration with maintenance scheduling algorithms</li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+
+    <div class="key-features">
+        <h4>nMARS Integration</h4>
+        <ul>
+            <li><strong>Maintenance History Analytics</strong>
+                <ul>
+                    <li>Comprehensive maintenance record aggregation</li>
+                    <li>Pattern recognition for common failure modes</li>
+                    <li>Mean Time Between Failure (MTBF) calculations</li>
+                    <li>Component lifecycle tracking</li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+
+    <h3>Enhanced Analytics Capabilities</h3>
+
+    <div class="key-features">
+        <h4>Predictive Maintenance Framework</h4>
+        <ul>
+            <li>Machine Learning models for failure prediction</li>
+            <li>Component lifecycle optimization</li>
+            <li>Maintenance interval recommendations based on:
+                <ul>
+                    <li>Historical performance data</li>
+                    <li>Environmental conditions</li>
+                    <li>Usage patterns</li>
+                    <li>Part replacement history</li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+
+    <div class="key-features">
+        <h4>Implementation Roadmap</h4>
+        <ol>
+            <li><strong>Phase 1: API Integration</strong>
+                <ul>
+                    <li>Establish secure connections</li>
+                    <li>Implement basic data synchronization</li>
+                    <li>Develop error handling procedures</li>
+                </ul>
+            </li>
+            <li><strong>Phase 2: Analytics Foundation</strong>
+                <ul>
+                    <li>Link to Electronic Data Warehouse</li>
+                    <li>Implement extract, transform, load processes</li>
+                    <li>Configure basic reporting</li>
+                </ul>
+            </li>
+            <li><strong>Phase 3: Advanced Features</strong>
+                <ul>
+                    <li>Deploy machine learning models</li>
+                    <li>Implement predictive maintenance</li>
+                    <li>Enable advanced analytics</li>
+                </ul>
+            </li>
+        </ol>
+    </div>
+</h2>
+
+<h2 id="conclusion"><strong>Conclusion</strong></h2>
+<p>Our <strong>Maintenance Assistance Software</strong> is a transformative solution that not only manages parts but optimizes your entire maintenance workflow. Each feature is designed with technicians’ needs in mind—from the <strong>Parts Books Tab</strong> that centralizes all parts data, to the intelligent <strong>Search Tab</strong> that significantly reduces search times. Future enhancements, such as the planned historical labor search, will provide even deeper insights for long-term analysis and reporting.</p>
+<p>Invest in this system to reduce downtime, cut costs, and improve operational efficiency—taking your maintenance operations to new heights.</p>
+<hr />
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>

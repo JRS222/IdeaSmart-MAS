@@ -1,0 +1,233 @@
+:root {
+    --sidebar-width: 200px;  /* Reduced from 250px */
+    --primary-color: #4F46E5;
+    --bg-color: #f8fafc;
+    --text-color: #1f2937;
+    --content-spacing: 2rem; /* New spacing variable */
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    color: var(--text-color);
+    background: var(--bg-color);
+}
+
+.container {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* Sidebar styles */
+#sidebar {
+    width: var(--sidebar-width);
+    background: white;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 1rem;
+    box-shadow: 2px 0 4px rgba(0, 0, 0, 0.1);
+    position: fixed;
+    left: -200px; /* Match new width */
+    transition: left 0.3s ease;
+    z-index: 1000;
+}
+
+#sidebar.active {
+    left: 0;
+}
+
+.nav-header {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--primary-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#sidebar ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.nav-link {
+    display: block;
+    padding: 0.5rem;
+    color: var(--text-color);
+    text-decoration: none;
+    transition: color 0.2s, background-color 0.2s;
+    border-radius: 0.25rem;
+}
+
+.nav-link:hover, .nav-link.active {
+    color: var(--primary-color);
+    background-color: #f3f4f6;
+}
+
+/* Toggle button */
+#sidebarToggle {
+    position: fixed;
+    left: 1rem;
+    top: 1rem;
+    z-index: 1001;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.25rem;
+    padding: 0.5rem;
+    cursor: pointer;
+    display: none; /* Hidden by default on desktop */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Main content styles */
+#content {
+    flex: 1;
+    padding: 2rem var(--content-spacing);
+    margin-left: calc(var(--sidebar-width) + var(--content-spacing)); /* Added spacing */
+    max-width: calc(100% - var(--sidebar-width) - (var(--content-spacing) * 2));
+    transition: margin-left 0.3s ease;
+}
+
+/* Desktop styles */
+@media (min-width: 768px) {
+    #sidebar {
+        left: 0;
+    }
+    
+    #content {
+        margin-left: calc(var(--sidebar-width) + var(--content-spacing));
+        max-width: calc(100% - var(--sidebar-width) - (var(--content-spacing) * 2));
+    }
+    
+    #sidebarToggle {
+        display: none;
+    }
+}
+
+/* Mobile styles */
+@media (max-width: 760px) {
+    #sidebarToggle {
+        display: block;
+    }
+    
+    #content {
+        margin-left: 0;
+        padding-top: 4rem; /* Space for toggle button */
+    }
+}
+
+/* Add smooth transitions for sidebar */
+#sidebar {
+    transition: all 0.3s ease;
+}
+
+.image-container {
+    margin: 2rem 0;
+    background: white;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.image-container img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+.caption {
+    text-align: center;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    color: #6b7280;
+}
+
+.mermaid-container {
+    margin: 2rem 0;
+    padding: 1rem;
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    overflow-x: auto;
+}
+
+/* Code block styling */
+pre {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+}
+
+/* Table styling */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+}
+
+th, td {
+    padding: 0.75rem;
+    border: 1px solid #e5e7eb;
+}
+
+th {
+    background: #f9fafb;
+}
+
+/* Section styling */
+section {
+    margin-bottom: 4rem;
+    scroll-margin-top: 2rem;
+}
+
+.mermaid-container {
+    position: relative;
+    overflow: hidden; /* Change from overflow-x: auto */
+    padding-top: 2.5rem; /* Make room for controls */
+}
+
+.zoom-controls {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    display: flex;
+    gap: 0.25rem;
+    z-index: 100;
+}
+
+.zoom-btn {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    color: var(--text-color);
+    transition: all 0.2s;
+}
+
+.zoom-btn:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+}
+
+.zoom-btn:active {
+    background: #e5e7eb;
+}
+
+.mermaid svg {
+    cursor: grab;
+    max-width: none !important; /* Allow diagram to be larger than container */
+}
+
+.mermaid svg:active {
+    cursor: grabbing;
+}
