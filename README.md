@@ -4,12 +4,12 @@
 This maintenance software consists of two PowerShell scripts:
 1. Parts-Books-Creator.ps1 (Creates Parts Books Script)
 2. UI-Script.ps1 (Main Application)
-3. Setup.ps1
+3. Setup.ps1 (Set Up Application)
 
 ## Initial Setup
 
 ### Step 1: Run the Setup Script
-1. Right-click on `Parts-Books-Creator.ps1` and select "Run with PowerShell"
+1. Right-click on `Setup.ps1` and select "Run with PowerShell"
 2. When prompted, select a directory where you want to install the maintenance software
 3. The script will create the following directory structure:
    ```
@@ -20,8 +20,9 @@ This maintenance software consists of two PowerShell scripts:
    ├── Parts Books/
    ├── Dropdown CSVs/
    └── Scripts/
-      ├── UI.ps1
+      ├── UI-Script.ps1
       └── Parts-Books-Creator.ps1
+      └── Setup.ps1
    ```
 4. Wait for the setup to complete - this only needs to be done once
 
