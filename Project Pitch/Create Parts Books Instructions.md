@@ -1,5 +1,3 @@
----
-
 **Step 1: Open the Software**
 
 - Launch the **Maintenance Assistance Software** on your computer.
