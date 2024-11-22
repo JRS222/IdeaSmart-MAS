@@ -2,8 +2,9 @@
 
 ## Overview
 This maintenance software consists of two PowerShell scripts:
-1. Parts-Books-Creator.ps1 (Setup Script)
-2. UI.ps1 (Main Application)
+1. Parts-Books-Creator.ps1 (Creates Parts Books Script)
+2. UI-Script.ps1 (Main Application)
+3. Setup.ps1
 
 ## Initial Setup
 
@@ -112,6 +113,9 @@ After setup, ensure you have the following files in your directory:
 4. Click "Add Machine" to save
 
 ### Labor Log Tab
+Part Details View
+Double-clicking on any labor log entry that has parts attached will open a detailed parts window showing:
+
 
 #### Features:
 - **Add Labor Log Entry**: Record labor performed
@@ -129,16 +133,6 @@ After setup, ensure you have the following files in your directory:
    - Duration
    - Notes
 3. Click "Add" to save
-
-#### How to Add Parts to Work Order:
-1. Select a labor log entry
-2. Click "Add Parts to Work Order"
-3. Search for parts using:
-   - NSN
-   - Part Number
-   - Description
-4. Select desired parts and quantities
-5. Click "Attach to W/O" to save
 
 ### Actions Tab
 
@@ -218,5 +212,76 @@ Date,Work Order,Description,Machine,Duration,Parts,Notes
 Part (NSN),Description,QTY,13 Period Usage,Location,OEM 1,OEM 2,OEM 3,Changed Part (NSN)
 12345,Drive Belt,10,5,A1-B2,MFG123,MFG456,MFG789,67890
 ```
+# Known Issues and Limitations
 
-This comprehensive format ensures all necessary information is captured and properly organized within the system.
+## Search Functionality Issues
+
+### Search Cross-Contamination
+There is a critical issue with the search functionality:
+- Using the search in the Labor Log tab interferes with the Search tab's accuracy
+- After using Labor Log search, the Search tab will return incorrect or incomplete results
+- **Required Workaround**: Close and restart the software between using these different search functions
+- Best Practice: Complete all Search tab operations before using Labor Log search, or vice versa
+
+### Search Tab Best Practices
+To avoid search issues:
+1. Decide which search function you need to use first
+2. Complete all searches in that tab
+3. Close the software
+4. Reopen the software if you need to use the other search function
+5. Remember that switching between search functions without a restart will compromise search accuracy
+
+## Labor Log Tab Issues
+
+### Tooltip Display Bug
+When hovering over entries in the Labor Log tab, you may experience:
+- Error messages appearing instead of the expected tooltip
+- The tooltip should show detailed parts information when hovering over entries
+- This is a known issue awaiting resolution
+
+### Notification Icon Not Working
+- The red notification dot that should appear for unacknowledged entries is currently non-functional
+- This feature is designed to show when work orders need numbers assigned
+- The underlying tracking system works, but the visual indicator does not display properly
+
+### Parts Persistence Issue
+When adding parts to work orders:
+- Parts information will be visible in the current session
+- However, this information does not persist after closing and reopening the software
+- You'll need to re-add parts information after each software restart
+- This is a known limitation pending future updates
+
+## Dynamic Update Issues
+
+The software requires a restart to recognize certain changes:
+- Newly added parts books
+- New parts rooms
+- Updated same-day parts locations
+- Any modifications to the directory structure
+- Switching between search functions
+- Adding parts to work orders
+
+**Workaround**: After making any of these changes, close and reopen the software to see the updates.
+
+## Best Practices to Avoid Issues
+
+1. **Parts Management**:
+   - Keep detailed records outside the software as backup
+   - Document parts additions in a separate system until persistence is fixed
+   - Consider taking screenshots of parts assignments for record-keeping
+
+2. **Work Order Management**:
+   - Assign work order numbers promptly
+   - Don't rely on the notification system
+   - Regularly review entries for missing work order numbers
+
+3. **Software Updates**:
+   - Close and reopen the software after making structural changes
+   - Verify changes are visible after restart
+   - Maintain backups of all CSV files
+
+4. **Search Operations**:
+   - Plan search operations to minimize software restarts
+   - Complete all searches in one tab before switching
+   - Document search results before closing software
+   - Verify search results match expected outcomes
