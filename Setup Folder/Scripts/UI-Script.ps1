@@ -3,22 +3,22 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 #UI Log
-# function # Write-Log {
-    # param([string]$message)
-    # $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    # Write-Host "$timestamp - $message"
-    # Optionally, you can also write to a log file:
-    #"$timestamp - $message" | Out-File -Append -FilePath "UI.log"
-# }
+ function Write-Log {
+     param([string]$message)
+     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+     Write-Host "$timestamp - $message"
+     # Optionally, you can also write to a log file:
+    "$timestamp - $message" | Out-File -Append -FilePath "UI.log"
+}
 
 #Initialize the config
 function Initialize-Config {
     $configPath = Join-Path $PSScriptRoot "Config.json"
     if (Test-Path $configPath) {
         $config = Get-Content -Path $configPath | ConvertFrom-Json
-        # Write-Log "Config loaded successfully"
+        Write-Log "Config loaded successfully"
     } else {
-        # Write-Log "Config file not found. Using default configuration."
+        Write-Log "Config file not found. Using default configuration."
         $config = @{
             RootDirectory = $PSScriptRoot
             LaborDirectory = Join-Path $PSScriptRoot "Labor"
@@ -35,7 +35,7 @@ $config = Initialize-Config -configPath $configPath
 $laborLogsFilePath = $config.PrerequisiteFiles.LaborLogs
 if (-not $laborLogsFilePath) {
     $laborLogsFilePath = Join-Path $config.LaborDirectory "LaborLogs.csv"
-    # Write-Log "Labor logs file path was not in config, set to: $laborLogsFilePath"
+    Write-Log "Labor logs file path was not in config, set to: $laborLogsFilePath"
 }
 
 # Function to handle Labor Log entries dynamically
@@ -84,28 +84,28 @@ function Save-Logs {
                 Notes = $item.SubItems[7].Text
             }
             $logs += $log
-            # Write-Log "Saving log entry: Date=$($log.Date), Machine=$($log.Machine), Time Down=$($log.'Time Down'), Time Up=$($log.'Time Up')"
+            Write-Log "Saving log entry: Date=$($log.Date), Machine=$($log.Machine), Time Down=$($log.'Time Down'), Time Up=$($log.'Time Up')"
         }
         
         $logs | Export-Csv -Path $filePath -NoTypeInformation -Encoding UTF8
-        # Write-Log "Call logs saved to $filePath"
+        Write-Log "Call logs saved to $filePath"
         
         # Verify the saved content
         $savedContent = Get-Content -Path $filePath -Raw
-        # Write-Log "Saved CSV content: $savedContent"
+        Write-Log "Saved CSV content: $savedContent"
     }
     catch {
-        # Write-Log "Error saving call logs: $_"
+        Write-Log "Error saving call logs: $_"
     }
 }
 
 # Helper Function to fix the Machines CSV
 function Fix-MachinesCSV {
     $csvPath = Join-Path $config.DropdownCsvsDirectory "Machines.csv"
-    # Write-Log "Fixing Machines.csv file: $csvPath"
+    Write-Log "Fixing Machines.csv file: $csvPath"
 
     if (-not (Test-Path $csvPath)) {
-        # Write-Log "Machines.csv not found. Creating new file."
+        Write-Log "Machines.csv not found. Creating new file."
         "Machine Acronym,Machine Number" | Out-File -FilePath $csvPath -Encoding utf8
     } else {
         $content = Get-Content $csvPath
@@ -136,30 +136,30 @@ function Fix-MachinesCSV {
         $validData += $uniqueData.Values | ForEach-Object { "$($_.Acronym),$($_.Number)" }
 
         $validData | Out-File -FilePath $csvPath -Encoding utf8
-        # Write-Log "Machines.csv file has been fixed, reformatted, and duplicate combinations removed."
+        Write-Log "Machines.csv file has been fixed, reformatted, and duplicate combinations removed."
     }
 }
 
 # Helper Function for Machine CSV
 function Inspect-MachinesCSV {
     $csvPath = Join-Path $config.DropdownCsvsDirectory "Machines.csv"
-    # Write-Log "Inspecting Machines.csv file: $csvPath"
+    Write-Log "Inspecting Machines.csv file: $csvPath"
 
     if (-not (Test-Path $csvPath)) {
-        # Write-Log "Error: Machines.csv not found at $csvPath"
+        Write-Log "Error: Machines.csv not found at $csvPath"
         return
     }
 
     $content = Get-Content $csvPath
-    # Write-Log "Machines.csv content:"
-    $content | ForEach-Object { # Write-Log $_ }
+    Write-Log "Machines.csv content:"
+    $content | ForEach-Object { Write-Log $_ }
 
     $data = Import-Csv -Path $csvPath
-    # Write-Log "Parsed CSV data:"
-    $data | ForEach-Object { # Write-Log ($_ | Out-String) }
+    Write-Log "Parsed CSV data:"
+    $data | ForEach-Object { Write-Log ($_ | Out-String) }
 
-    # Write-Log "Total rows in Machines.csv: $($data.Count)"
-}}}
+    Write-Log "Total rows in Machines.csv: $($data.Count)"
+}
 
 # Ensure RootDirectory is set
 if (-not $config.RootDirectory) {
@@ -170,7 +170,7 @@ if (-not $config.RootDirectory) {
 $requiredPaths = @('RootDirectory', 'LaborDirectory', 'CallLogsDirectory', 'PartsRoomDirectory', 'DropdownCsvsDirectory', 'PartsBooksDirectory')
 foreach ($path in $requiredPaths) {
     if (-not $config.$path) {
-        # Write-Log "Error: $path is not set in the configuration"
+        Write-Log "Error: $path is not set in the configuration"
         throw "$path is missing from the configuration"
     }
 }
@@ -201,52 +201,139 @@ foreach ($key in $defaultPaths.Keys) {
 $callLogsFilePath = Join-Path $config.CallLogsDirectory "CallLogs.csv"
 $laborLogsFilePath = Join-Path $config.LaborDirectory "LaborLogs.csv"
 
-# Write-Log "CallLogsFilePath: $callLogsFilePath"
-# Write-Log "LaborLogsFilePath: $laborLogsFilePath"
+Write-Log "CallLogsFilePath: $callLogsFilePath"
+Write-Log "LaborLogsFilePath: $laborLogsFilePath"
 
 # Check and create required directories
 $requiredDirs = @($config.LaborDirectory, $config.CallLogsDirectory, $config.PartsRoomDirectory, $config.PartsBooksDirectory, $config.DropdownCsvsDirectory)
 foreach ($dir in $requiredDirs) {
     if (-not (Test-Path $dir)) {
         New-Item -ItemType Directory -Path $dir -Force
-        # Write-Log "Created directory: $dir"
+        Write-Log "Created directory: $dir"
     }
 }
 
 # Save updated config if changes were made
 if ($configUpdated) {
     $config | ConvertTo-Json | Set-Content -Path $configPath
-    # Write-Log "Config file updated with default paths"
+    Write-Log "Config file updated with default paths"
 }
 
 # Function to save Labor Logs to CSV
 function Save-LaborLogs {
-    param($listView, $filePath)
-
-    # Save labor logs along with associated parts
-    $laborLogs = @()
-
-    foreach ($item in $listView.Items) {
-        $workOrderNumber = $item.SubItems[1].Text
-
-        $laborLog = [PSCustomObject]@{
-            Date        = $item.SubItems[0].Text
-            WorkOrder   = $workOrderNumber
-            Description = $item.SubItems[2].Text
-            Machine     = $item.SubItems[3].Text
-            Duration    = $item.SubItems[4].Text
-            Notes       = $item.SubItems[5].Text
-            Parts       = if ($script:workOrderParts.ContainsKey($workOrderNumber)) {
-                            $script:workOrderParts[$workOrderNumber] | ConvertTo-Json -Compress
-                          } else {
-                            ""
-                          }
+    param (
+        [System.Windows.Forms.ListView]$listView,
+        [string]$filePath
+    )
+    
+    Write-Log "Starting Save-LaborLogs function"
+    
+    try {
+        $logs = @()
+        foreach ($item in $listView.Items) {
+            Write-Log "Processing item with Work Order: $($item.SubItems[1].Text)"
+            Write-Log "Parts info before save: $($item.SubItems[5].Text)"
+            
+            $log = [PSCustomObject]@{
+                'Date' = $item.SubItems[0].Text
+                'Work Order' = $item.SubItems[1].Text
+                'Description' = $item.SubItems[2].Text
+                'Machine' = $item.SubItems[3].Text
+                'Duration' = $item.SubItems[4].Text
+                'Parts' = $item.SubItems[5].Text
+                'Notes' = $item.SubItems[6].Text
+            }
+            $logs += $log
+            Write-Log "Added log entry: WorkOrder=$($log.'Work Order'), Parts=$($log.Parts)"
+        }
+        
+        # Create backup of existing file
+        if (Test-Path $filePath) {
+            $backupPath = "$filePath.bak"
+            Copy-Item -Path $filePath -Destination $backupPath -Force
+            Write-Log "Created backup at $backupPath"
         }
 
-        $laborLogs += $laborLog
-    }
+        # Save with UTF8 encoding to preserve special characters
+        $logs | Export-Csv -Path $filePath -NoTypeInformation -Encoding UTF8
+        
+        # Immediately verify the saved content
+        $savedContent = Get-Content -Path $filePath -Raw
+        Write-Log "Saved CSV content: $savedContent"
+        
+        $verification = Import-Csv -Path $filePath
+        foreach ($entry in $verification) {
+            Write-Log "Verified entry - WO: $($entry.'Work Order'), Parts: $($entry.Parts)"
+        }
+        
+        if ($verification.Count -eq $logs.Count) {
+            Write-Log "Save verified successfully. Count matches: $($logs.Count)"
+            return $true
+        }
+        throw "Verification failed - count mismatch"
 
-    $laborLogs | Export-Csv -Path $filePath -NoTypeInformation
+    } catch {
+        Write-Log "Error in Save-LaborLogs: $_"
+        # Restore from backup if available
+        if (Test-Path "$filePath.bak") {
+            Copy-Item -Path "$filePath.bak" -Destination $filePath -Force
+            Write-Log "Restored from backup due to save error"
+        }
+        return $false
+    }
+}
+
+# Add this helper function to verify saves
+function Verify-SaveOperation {
+    param(
+        [string]$filePath,
+        [int]$expectedCount
+    )
+    
+    Write-Log "Verifying save operation"
+    Write-Log "File path: $filePath"
+    
+    if (-not (Test-Path $filePath)) {
+        Write-Log "ERROR: File does not exist"
+        return $false
+    }
+    
+    try {
+        $content = Get-Content -Path $filePath -Raw
+        Write-Log "File content length: $($content.Length)"
+        
+        $records = Import-Csv -Path $filePath
+        Write-Log "Records found: $($records.Count)"
+        
+        if ($records.Count -ne $expectedCount) {
+            Write-Log "ERROR: Record count mismatch. Expected $expectedCount, got $($records.Count)"
+            return $false
+        }
+        
+        Write-Log "File content verified successfully"
+        return $true
+    }
+    catch {
+        Write-Log "Error verifying save: $_"
+        return $false
+    }
+}
+
+# Add this helper function to verify the file content
+function Verify-LaborLogs {
+    param([string]$filePath)
+    
+    if (Test-Path $filePath) {
+        $content = Get-Content $filePath -Raw
+        Write-Host "File exists. Content length: $($content.Length)"
+        $records = Import-Csv $filePath
+        Write-Host "Records count: $($records.Count)"
+        $records | ForEach-Object {
+            Write-Host "Record: Date=$($_.Date), WO=$($_.'Work Order'), Machine=$($_.Machine)"
+        }
+    } else {
+        Write-Host "Labor logs file not found at: $filePath"
+    }
 }
 
 # Function to calculate time difference
@@ -257,8 +344,30 @@ function Get-TimeDifference {
     )
 
     try {
-        $start = [DateTime]::ParseExact($startTime, "HH:mm", [System.Globalization.CultureInfo]::InvariantCulture)
-        $end = [DateTime]::ParseExact($endTime, "HH:mm", [System.Globalization.CultureInfo]::InvariantCulture)
+        # Normalize time format first
+        $normalizedStart = if ($startTime -match '^\d{1}:') { "0$startTime" } else { $startTime }
+        $normalizedEnd = if ($endTime -match '^\d{1}:') { "0$endTime" } else { $endTime }
+
+        Write-Host "Normalized times - Start: $normalizedStart, End: $normalizedEnd"
+
+        # Try different time formats
+        $formats = @("HH:mm", "H:mm")
+        $start = $null
+        $end = $null
+
+        foreach ($format in $formats) {
+            try {
+                $start = [DateTime]::ParseExact($normalizedStart, $format, [System.Globalization.CultureInfo]::InvariantCulture)
+                $end = [DateTime]::ParseExact($normalizedEnd, $format, [System.Globalization.CultureInfo]::InvariantCulture)
+                break
+            } catch {
+                continue
+            }
+        }
+
+        if ($null -eq $start -or $null -eq $end) {
+            throw "Could not parse times: $startTime - $endTime"
+        }
 
         # Handle cases where end time is on the next day
         if ($end -lt $start) {
@@ -266,10 +375,12 @@ function Get-TimeDifference {
         }
 
         $diff = $end - $start
-        return [math]::Round($diff.TotalMinutes)
+        $minutes = [math]::Round($diff.TotalMinutes)
+        Write-Host "Calculated difference: $minutes minutes"
+        return $minutes
     }
     catch {
-        # Write-Log "Error parsing time: $_"
+        Write-Host "Error calculating time difference: $_"
         return 0
     }
 }
@@ -277,7 +388,7 @@ function Get-TimeDifference {
 # New function to update the notification icon
 function Update-NotificationIcon {
     if ($script:notificationIcon -eq $null) {
-        # Write-Log "Error: Notification icon not initialized"
+        Write-Log "Error: Notification icon not initialized"
         return
     }
 
@@ -324,7 +435,7 @@ function Get-SupervisorEmail {
             if ($email -match "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$") {
                 $config | Add-Member -NotePropertyName SupervisorEmail -NotePropertyValue $email -Force
                 $config | ConvertTo-Json | Set-Content -Path $configPath
-                # Write-Log "Supervisor email updated to: $email"
+                Write-Log "Supervisor email updated to: $email"
                 return $email
             } else {
                 [System.Windows.Forms.MessageBox]::Show("Invalid email format. Please try again.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
@@ -344,33 +455,33 @@ function Load-ComboBoxData {
         [System.Windows.Forms.ComboBox]$comboBox,
         [string]$csvName
     )
-    # Write-Log "Starting Load-ComboBoxData for $csvName"
+    Write-Log "Starting Load-ComboBoxData for $csvName"
     $csvPath = Join-Path $config.DropdownCsvsDirectory "$csvName.csv"
-    # Write-Log "Attempting to load data from: $csvPath"
+    Write-Log "Attempting to load data from: $csvPath"
     
     if (-not (Test-Path $csvPath)) {
-        # Write-Log "CSV file not found: $csvPath"
+        Write-Log "CSV file not found: $csvPath"
         return
     }
     
     $data = Import-Csv -Path $csvPath
-    # Write-Log "Imported CSV data. Row count: $($data.Count)"
+    Write-Log "Imported CSV data. Row count: $($data.Count)"
 
     if ($null -eq $comboBox) {
-        # Write-Log "Error: ComboBox is null for $csvName"
+        Write-Log "Error: ComboBox is null for $csvName"
         return
     }
     $comboBox.Items.Clear()
     
     if ($csvName -eq "Machines") {
-        # Write-Log "Processing Machines data"
+        Write-Log "Processing Machines data"
         $data | ForEach-Object {
-            if (-not [string]::IsNullOrWhiteSpace($_.'Machine Acronym') -and -not [string]::IsNullOrWhiteSpace($_.'Machine Number')) {
-                $machineId = "$($_.'Machine Acronym') - $($_.'Machine Number')"
+            if (-not [string]::IsNullOrWhiteSpace($_.'Machine') -and -not [string]::IsNullOrWhiteSpace($_.'EquipmentNumber')) {
+                $machineId = "$($_.'Machine') - $($_.'EquipmentNumber')"
                 $comboBox.Items.Add($machineId)
-                # Write-Log "Added machine to ComboBox: $machineId"
+                Write-Log "Added machine to ComboBox: $machineId"
             } else {
-                # Write-Log "Skipped invalid machine entry"
+                Write-Log "Skipped invalid machine entry"
             }
         }
     } else {
@@ -381,13 +492,13 @@ function Load-ComboBoxData {
         }
     }
     
-    # Write-Log "Loaded $($comboBox.Items.Count) items into $csvName ComboBox"
+     Write-Log "Loaded $($comboBox.Items.Count) items into $csvName ComboBox"
 }
 
 # Ensure Labor directory exists
 if (-not (Test-Path $config.LaborDirectory)) {
     New-Item -ItemType Directory -Path $config.LaborDirectory | Out-Null
-    # Write-Log "Created Labor directory: $config.LaborDirectory"
+    Write-Log "Created Labor directory: $config.LaborDirectory"
 }
 
 
@@ -459,7 +570,7 @@ function Add-SameDayPartsRoom {
         $sameDayPartsRoomDir = Join-Path $config.PartsRoomDirectory "Same Day Parts Room"
         if (-not (Test-Path $sameDayPartsRoomDir)) {
             New-Item -Path $sameDayPartsRoomDir -ItemType Directory | Out-Null
-            # Write-Log "Created directory: $sameDayPartsRoomDir"
+            Write-Log "Created directory: $sameDayPartsRoomDir"
         }
 
         # Process each selected site
@@ -474,13 +585,13 @@ function Add-SameDayPartsRoom {
 
                 if ($siteUrl) {
                     # Download HTML
-                    # Write-Log "Downloading HTML content for site $siteName..."
+                    Write-Log "Downloading HTML content for site $siteName..."
                     $htmlContent = Invoke-WebRequest -Uri $siteUrl -UseBasicParsing
 
                     # Save HTML to a file
                     $htmlFilePath = Join-Path $sameDayPartsRoomDir "$siteName.html"
                     $htmlContent.Content | Out-File -FilePath $htmlFilePath -Encoding UTF8
-                    # Write-Log "Downloaded HTML for site $siteName to $htmlFilePath"
+                    Write-Log "Downloaded HTML for site $siteName to $htmlFilePath"
 
                     # Parse HTML into CSV
                     $parsedData = Parse-HTMLToCSV -htmlFilePath $htmlFilePath -siteName $siteName
@@ -488,12 +599,12 @@ function Add-SameDayPartsRoom {
                     # Save CSV file named after the site
                     $csvFilePath = Join-Path $sameDayPartsRoomDir "$siteName.csv"
                     $parsedData | Export-Csv -Path $csvFilePath -NoTypeInformation
-                    # Write-Log "Parsed HTML and saved CSV for site $siteName to $csvFilePath"
+                    Write-Log "Parsed HTML and saved CSV for site $siteName to $csvFilePath"
                 } else {
-                    # Write-Log "URL not found for site $siteID"
+                    Write-Log "URL not found for site $siteID"
                 }
             } else {
-                # Write-Log "Site information not found for site $siteID"
+                Write-Log "Site information not found for site $siteID"
             }
         }
 
@@ -511,23 +622,23 @@ function Parse-HTMLToCSV {
         [string]$siteName
     )
 
-    # Write-Log "Processing the downloaded HTML file for $siteName..."
+    Write-Log "Processing the downloaded HTML file for $siteName..."
 
     $logPath = Join-Path $config.PartsRoomDirectory "error_log.txt"
 
     try {
-        # Write-Log "Reading HTML content from file $htmlFilePath"
+        Write-Log "Reading HTML content from file $htmlFilePath"
         $htmlContent = Get-Content -Path $htmlFilePath -Raw -ErrorAction Stop
 
         if ([string]::IsNullOrWhiteSpace($htmlContent)) {
             throw "HTML content is empty or null"
         }
 
-        # Write-Log "HTML content read successfully. Parsing content..."
+        Write-Log "HTML content read successfully. Parsing content..."
         $parsedData = @()
         $rows = @($htmlContent -split '<TR CLASS="MAIN"')
 
-        # Write-Log "Number of rows found: $($rows.Count)"
+        Write-Log "Number of rows found: $($rows.Count)"
 
         if ($rows.Count -le 1) {
             throw "No data rows found in HTML content"
@@ -535,15 +646,15 @@ function Parse-HTMLToCSV {
 
         for ($i = 1; $i -lt $rows.Count; $i++) {
             $row = $rows[$i]
-            # Write-Log "Processing row ${i}"
+            Write-Log "Processing row ${i}"
 
             if ($null -eq $row) {
-                # Write-Log "Row ${i} is null, skipping"
+                Write-Log "Row ${i} is null, skipping"
                 continue
             }
 
             $cells = @($row -split '<TD')
-            # Write-Log "Number of cells in row ${i}: $($cells.Count)"
+            Write-Log "Number of cells in row ${i}: $($cells.Count)"
 
             if ($cells.Count -ge 7) {
                 try {
@@ -571,19 +682,19 @@ function Parse-HTMLToCSV {
                         "OEM 3" = $oem3
                     }
 
-                    # Write-Log "Added row ${i}: Part(NSN)=$partNSN, Description=$description, QTY=$qty, Location=$location"
+                    Write-Log "Added row ${i}: Part(NSN)=$partNSN, Description=$description, QTY=$qty, Location=$location"
 
                 }
                 catch {
-                    # Write-Log "Error processing row ${i}: $($_.Exception.Message)"
+                    Write-Log "Error processing row ${i}: $($_.Exception.Message)"
                 }
             }
             else {
-                # Write-Log "Row ${i} does not have enough cells, skipping"
+                Write-Log "Row ${i} does not have enough cells, skipping"
             }
         }
 
-        # Write-Log "Number of parsed data entries: $($parsedData.Count)"
+        Write-Log "Number of parsed data entries: $($parsedData.Count)"
 
         if ($parsedData.Count -eq 0) {
             throw "No data parsed from HTML content"
@@ -592,8 +703,8 @@ function Parse-HTMLToCSV {
         return $parsedData
     }
     catch {
-        # Write-Log "Error: $($_.Exception.Message)"
-        # Write-Log "Stack Trace: $($_.ScriptStackTrace)"
+        Write-Log "Error: $($_.Exception.Message)"
+        Write-Log "Stack Trace: $($_.ScriptStackTrace)"
         [System.Windows.Forms.MessageBox]::Show("An error occurred while parsing the HTML for $siteName. Please check the log for details.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
         return @()
     }
@@ -603,19 +714,19 @@ function Parse-HTMLToCSV {
 function Get-ExcelFiles {
     $excelFiles = @()
     if ($config.Books) {
-        # Write-Log "Processing Books from config:"
+        Write-Log "Processing Books from config:"
         foreach ($book in $config.Books.PSObject.Properties) {
             $bookDir = Join-Path $config.PartsBooksDirectory $book.Name
             $excelFilePath = Get-ChildItem -Path $bookDir -Filter "*.xlsx" | Select-Object -First 1 -ExpandProperty FullName
-            # Write-Log "Checking file: $excelFilePath"
+            Write-Log "Checking file: $excelFilePath"
             if ($excelFilePath -and (Test-Path $excelFilePath)) {
                 $excelFiles += @{
                     Name = $book.Name
                     Path = $excelFilePath
                 }
-                # Write-Log "Added file: $($book.Name)"
+                Write-Log "Added file: $($book.Name)"
             } else {
-                # Write-Log "File not found for: $($book.Name)"
+                Write-Log "File not found for: $($book.Name)"
             }
         }
     }
@@ -690,15 +801,15 @@ function Show-MainForm {
 
     # Add Create Parts Book button
     $createPartsBookButton = New-Button "Create Parts Book" {
-        # Write-Log "Creating Parts Book..."
+        Write-Log "Creating Parts Book..."
         $scriptPath = Join-Path $PSScriptRoot "Parts-Books-Creator.ps1"
-        # Write-Log "Script path: $scriptPath"
+        Write-Log "Script path: $scriptPath"
         if (Test-Path $scriptPath) {
             Start-Process -FilePath "powershell.exe" -ArgumentList "-File `"$scriptPath`""
-            # Write-Log "Started process to execute Parts-Books-Creator.ps1"
+            Write-Log "Started process to execute Parts-Books-Creator.ps1"
         } else {
             [System.Windows.Forms.MessageBox]::Show("Parts Books Creator script not found at $scriptPath.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-            # Write-Log "Parts Books Creator script not found at $scriptPath."
+            Write-Log "Parts Books Creator script not found at $scriptPath."
         }
     }
     $partsBookPanel.Controls.Add($createPartsBookButton)
@@ -708,7 +819,7 @@ function Show-MainForm {
     foreach ($file in $excelFiles) {
         $button = New-Button $file.Name -Action {
             $filePath = $this.Tag
-            # Write-Log "Button clicked for file: $filePath"
+            Write-Log "Button clicked for file: $filePath"
             if (Test-Path $filePath) {
                 Start-Process $filePath
             } else {
@@ -759,7 +870,7 @@ function Show-MainForm {
     # Call the function to set up the search interface within the searchTab
     Setup-SearchTab -parentTab $searchTab -config $config
 
-    # Write-Log "UI setup completed"
+    Write-Log "UI setup completed"
     $form.ShowDialog()
 }
 
@@ -787,7 +898,7 @@ function Normalize-NSN {
     param([string]$nsn)
     if ($nsn -ne $null) {
         $normalized = ($nsn -replace '[^\d*]', '')
-        # Write-Log "Normalized NSN: $nsn -> $normalized"  # Add debug logging
+        Write-Log "Normalized NSN: $nsn -> $normalized"  # Add debug logging
         return $normalized
     } else {
         return ''
@@ -811,7 +922,7 @@ function Test-WildcardMatch {
         [string]$Pattern
     )
     
-    # Write-Log "Testing match: Input='$InputString' Pattern='$Pattern'"
+    Write-Log "Testing match: Input='$InputString' Pattern='$Pattern'"
     
     if ([string]::IsNullOrWhiteSpace($InputString) -or [string]::IsNullOrWhiteSpace($Pattern)) {
         return $false
@@ -825,10 +936,10 @@ function Test-WildcardMatch {
     # Add start and end anchors
     $regexPattern = "^$regexPattern$"
     
-    # Write-Log "Regex pattern: $regexPattern"
+    Write-Log "Regex pattern: $regexPattern"
     
     $result = $InputString -match $regexPattern
-    # Write-Log "Match result: $result"
+    Write-Log "Match result: $result"
     return $result
 }
 
@@ -836,7 +947,7 @@ function Test-WildcardMatch {
 function Setup-SearchTab {
     param($parentTab, $config)
 
-    # Write-Log "Setting up Search tab..."
+    Write-Log "Setting up Search tab..."
 
     $searchPanel = New-Object System.Windows.Forms.Panel
     $searchPanel.Dock = 'Fill'
@@ -906,7 +1017,7 @@ function Setup-SearchTab {
     $searchPanel.Controls.Add($labelAvailability)
 
     $script:listViewAvailability.Location = New-Object System.Drawing.Point(20, 160)
-    $script:listViewAvailability.Size = New-Object System.Drawing.Size(850, 150)
+    $script:listViewAvailability.Size = New-Object System.Drawing.Size(1100, 150)
     $script:listViewAvailability.View = [System.Windows.Forms.View]::Details
     $script:listViewAvailability.FullRowSelect = $true
     $script:listViewAvailability.CheckBoxes = $true
@@ -929,7 +1040,7 @@ function Setup-SearchTab {
     $searchPanel.Controls.Add($labelSameDayAvailability)
 
     $script:listViewSameDayAvailability.Location = New-Object System.Drawing.Point(20, 350)
-    $script:listViewSameDayAvailability.Size = New-Object System.Drawing.Size(850, 150)
+    $script:listViewSameDayAvailability.Size = New-Object System.Drawing.Size(1100, 150)
     $script:listViewSameDayAvailability.View = [System.Windows.Forms.View]::Details
     $script:listViewSameDayAvailability.FullRowSelect = $true
     $script:listViewSameDayAvailability.CheckBoxes = $true
@@ -952,7 +1063,7 @@ function Setup-SearchTab {
     $searchPanel.Controls.Add($labelCrossRef)
 
     $script:listViewCrossRef.Location = New-Object System.Drawing.Point(20, 540)
-    $script:listViewCrossRef.Size = New-Object System.Drawing.Size(850, 150)
+    $script:listViewCrossRef.Size = New-Object System.Drawing.Size(1100, 150)
     $script:listViewCrossRef.View = [System.Windows.Forms.View]::Details
     $script:listViewCrossRef.FullRowSelect = $true
     $script:listViewCrossRef.CheckBoxes = $true
@@ -987,10 +1098,10 @@ function Setup-SearchTab {
     $takePartOutButton.Add_Click({
         $selectedParts = $script:listViewAvailability.CheckedItems + $script:listViewSameDayAvailability.CheckedItems | ForEach-Object { $_.SubItems[0].Text }
         if ($selectedParts) {
-            # Write-Log "Selected parts to take out: $($selectedParts -join ', ')"
+            Write-Log "Selected parts to take out: $($selectedParts -join ', ')"
             [System.Windows.Forms.MessageBox]::Show("Selected parts to take out: $($selectedParts -join ', ')", "Parts Selected", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
         } else {
-            # Write-Log "No parts selected to take out."
+            Write-Log "No parts selected to take out."
             [System.Windows.Forms.MessageBox]::Show("No parts selected to take out.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
         }
     })
@@ -1008,10 +1119,10 @@ function Setup-SearchTab {
                     
                     if (Test-Path $htmlFilePath) {
                         Start-Process $htmlFilePath
-                        # Write-Log "Opened figure: $htmlFilePath"
+                        Write-Log "Opened figure: $htmlFilePath"
                     } else {
                         [System.Windows.Forms.MessageBox]::Show("Figure file not found: $htmlFilePath", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-                        # Write-Log "Figure file not found: $htmlFilePath"
+                        Write-Log "Figure file not found: $htmlFilePath"
                     }
                 }
             }
@@ -1033,36 +1144,36 @@ function Setup-SearchTab {
     })
 
     $searchButton.Add_Click({
-        # Write-Log "Performing part search..."
+        Write-Log "Performing part search..."
 
         $nsnSearch = $script:textBoxNSN.Text.Trim()
         $oemSearch = $script:textBoxOEM.Text.Trim()
         $descriptionSearch = $script:textBoxDescription.Text.Trim()
 
-        # Write-Log "Search criteria - NSN: $nsnSearch, OEM: $oemSearch, Description: $descriptionSearch"
+        Write-Log "Search criteria - NSN: $nsnSearch, OEM: $oemSearch, Description: $descriptionSearch"
 
         #### Availability Search ####
         $csvFiles = Get-ChildItem -Path $config.PartsRoomDirectory -Filter "*.csv" -File
 
         if ($csvFiles.Count -eq 0) {
             [System.Windows.Forms.MessageBox]::Show("No CSV files found in $($config.PartsRoomDirectory).", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-            # Write-Log "No CSV files found in $($config.PartsRoomDirectory)."
+            Write-Log "No CSV files found in $($config.PartsRoomDirectory)."
             return
         } elseif ($csvFiles.Count -gt 1) {
             [System.Windows.Forms.MessageBox]::Show("Multiple CSV files found in $($config.PartsRoomDirectory). Please ensure only one CSV file is present.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-            # Write-Log "Multiple CSV files found in $($config.PartsRoomDirectory)."
+            Write-Log "Multiple CSV files found in $($config.PartsRoomDirectory)."
             return
         } else {
             $csvFilePath = $csvFiles[0].FullName
-            # Write-Log "Using CSV file: $csvFilePath"
+            Write-Log "Using CSV file: $csvFilePath"
         }
 
         try {
             $data = Import-Csv -Path $csvFilePath
-            # Write-Log "CSV file loaded successfully. Row count: $($data.Count)"
+            Write-Log "CSV file loaded successfully. Row count: $($data.Count)"
         } catch {
             [System.Windows.Forms.MessageBox]::Show("Failed to read CSV file. Error: $_", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-            # Write-Log "Failed to read CSV file. Error: $_"
+            Write-Log "Failed to read CSV file. Error: $_"
             return
         }
 
@@ -1088,13 +1199,13 @@ function Setup-SearchTab {
             $matchesNSN -and $matchesOEM -and $matchesDesc
         }
 
-        # Write-Log "Found $($filteredData.Count) matching records in Availability."
+        Write-Log "Found $($filteredData.Count) matching records in Availability."
 
         $script:listViewAvailability.Items.Clear()
         
         if ($filteredData.Count -gt 0) {
             foreach ($row in $filteredData) {
-                # Write-Log "Adding row to listview: $($row.'Part (NSN)')"  # Add debug logging
+                Write-Log "Adding row to listview: $($row.'Part (NSN)')"  # Add debug logging
                 $item = New-Object System.Windows.Forms.ListViewItem($row.'Part (NSN)')
                 $item.SubItems.Add($row.Description)
                 $item.SubItems.Add($row.QTY)
@@ -1110,17 +1221,17 @@ function Setup-SearchTab {
                 }
                 $script:listViewAvailability.Items.Add($item)
             }
-            # Write-Log "Added $($filteredData.Count) items to Availability ListView."
+            Write-Log "Added $($filteredData.Count) items to Availability ListView."
         } else {
             [System.Windows.Forms.MessageBox]::Show("No matching records found in Availability.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-            # Write-Log "No matching records found in Availability."
+            Write-Log "No matching records found in Availability."
         }
 
         #### Same Day Parts Availability Search ####
         $sameDayPartsDir = Join-Path $config.PartsRoomDirectory "Same Day Parts Room"
         if (Test-Path $sameDayPartsDir) {
             $sameDayCsvFiles = Get-ChildItem -Path $sameDayPartsDir -Filter "*.csv" -File
-            # Write-Log "Found $($sameDayCsvFiles.Count) CSV files in Same Day Parts Room."
+            Write-Log "Found $($sameDayCsvFiles.Count) CSV files in Same Day Parts Room."
 
             $sameDayData = @()
             foreach ($csvFile in $sameDayCsvFiles) {
@@ -1131,9 +1242,9 @@ function Setup-SearchTab {
                         $row | Add-Member -NotePropertyName 'SiteName' -NotePropertyValue $siteName -Force
                         $sameDayData += $row
                     }
-                    # # Write-Log "Processed $($csvData.Count) rows from $($csvFile.Name)"
+                    # Write-Log "Processed $($csvData.Count) rows from $($csvFile.Name)"
                 } catch {
-                    # Write-Log "Failed to read CSV file $($csvFile.FullName). Error: $_"
+                    Write-Log "Failed to read CSV file $($csvFile.FullName). Error: $_"
                 }
             }
 
@@ -1143,7 +1254,7 @@ function Setup-SearchTab {
                 ($descriptionSearch -eq '' -or $_.Description -like "*$descriptionSearch*")
             }
 
-            # Write-Log "Found $($filteredSameDayData.Count) matching records in Same Day Parts Availability."
+            Write-Log "Found $($filteredSameDayData.Count) matching records in Same Day Parts Availability."
 
             $script:listViewSameDayAvailability.Items.Clear()
 
@@ -1160,13 +1271,13 @@ function Setup-SearchTab {
                     $item.SubItems.Add($row.SiteName)
                     $script:listViewSameDayAvailability.Items.Add($item)
                 }
-                # Write-Log "Added $($filteredSameDayData.Count) items to Same Day Availability ListView."
+                Write-Log "Added $($filteredSameDayData.Count) items to Same Day Availability ListView."
             } else {
                 [System.Windows.Forms.MessageBox]::Show("No matching records found in Same Day Parts Availability.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-                # Write-Log "No matching records found in Same Day Parts Availability."
+                Write-Log "No matching records found in Same Day Parts Availability."
             }
         } else {
-            # Write-Log "Same Day Parts Room directory not found at $sameDayPartsDir"
+            Write-Log "Same Day Parts Room directory not found at $sameDayPartsDir"
         }
 
         #### Cross Reference Search ####
@@ -1190,18 +1301,18 @@ function Setup-SearchTab {
                             $sectionNameMapping["Section $sectionNumber"] = $sectionFullName
                         }
                     }
-                    # Write-Log "Loaded $($sectionNameMapping.Count) section names for $bookName"
+                    Write-Log "Loaded $($sectionNameMapping.Count) section names for $bookName"
                 } else {
-                    # Write-Log "SectionNames.txt not found for $bookName"
+                    Write-Log "SectionNames.txt not found for $bookName"
                 }
 
                 if (-not (Test-Path $combinedSectionsDir)) {
-                    # Write-Log "CombinedSections directory not found for $bookName"
+                    Write-Log "CombinedSections directory not found for $bookName"
                     continue
                 }
 
                 $sectionCsvFiles = Get-ChildItem -Path $combinedSectionsDir -Filter "*.csv" -File
-                # Write-Log "Found $($sectionCsvFiles.Count) CSV files in $bookName"
+                Write-Log "Found $($sectionCsvFiles.Count) CSV files in $bookName"
 
                 foreach ($csvFile in $sectionCsvFiles) {
                     $sectionFileName = [IO.Path]::GetFileNameWithoutExtension($csvFile.Name)
@@ -1221,9 +1332,9 @@ function Setup-SearchTab {
 
                     try {
                         $sectionData = Import-Csv -Path $csvFilePath
-                        # Write-Log "Processed $($sectionData.Count) rows from $($csvFile.Name)"
+                        Write-Log "Processed $($sectionData.Count) rows from $($csvFile.Name)"
                     } catch {
-                        # Write-Log "Failed to read CSV file $csvFilePath. Error: $_"
+                        Write-Log "Failed to read CSV file $csvFilePath. Error: $_"
                         continue
                     }
 
@@ -1241,7 +1352,7 @@ function Setup-SearchTab {
                 }
             }
 
-            # Write-Log "Found $($crossRefResults.Count) matching records in Cross Reference."
+            Write-Log "Found $($crossRefResults.Count) matching records in Cross Reference."
 
             $script:listViewCrossRef.Items.Clear()
 
@@ -1261,52 +1372,52 @@ function Setup-SearchTab {
                 }
 
                 $script:listViewCrossRef.AutoResizeColumns([System.Windows.Forms.ColumnHeaderAutoResizeStyle]::HeaderSize)
-                # Write-Log "Added $($crossRefResults.Count) items to Cross Reference ListView."
+                Write-Log "Added $($crossRefResults.Count) items to Cross Reference ListView."
             } else {
                 [System.Windows.Forms.MessageBox]::Show("No matching records found in Cross Reference.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-                # Write-Log "No matching records found in Cross Reference."
+                Write-Log "No matching records found in Cross Reference."
             }
         } else {
-            # Write-Log "No books defined in configuration."
+            Write-Log "No books defined in configuration."
         }
     })
 
-    # Write-Log "Search tab setup completed."
+    Write-Log "Search tab setup completed."
 }
 
 # Function to update Parts Books
 function Update-PartsBooks {
-    # Write-Log "Updating Parts Books..."
+    Write-Log "Updating Parts Books..."
     [System.Windows.Forms.MessageBox]::Show("Parts Books update not implemented yet.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
 }
 
 # Function to update Parts Room
 function Update-PartsRoom {
-    # Write-Log "Updating Parts Room..."
+    Write-Log "Updating Parts Room..."
     [System.Windows.Forms.MessageBox]::Show("Parts Room update not implemented yet.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
 }
 
 # Function to take a part out
 function Take-PartOut {
-    # Write-Log "Taking a part out..."
+    Write-Log "Taking a part out..."
     [System.Windows.Forms.MessageBox]::Show("Take Part Out process not implemented yet.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
 }
 
 # Function to request a part order
 function Request-PartOrder {
-    # Write-Log "Requesting a part order..."
+    Write-Log "Requesting a part order..."
     [System.Windows.Forms.MessageBox]::Show("Part Order Request process not implemented yet.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
 }
 
 # Function to request a work order
 function Request-WorkOrder {
-    # Write-Log "Requesting a work order..."
+    Write-Log "Requesting a work order..."
     [System.Windows.Forms.MessageBox]::Show("Work Order Request process not implemented yet.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
 }
 
 # Function to make an MTSC ticket
 function Make-MTSCTicket {
-    # Write-Log "Navigating to MTSC login page..."
+    Write-Log "Navigating to MTSC login page..."
     [System.Windows.Forms.MessageBox]::Show("Navigating to MTSC login page.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
     
     # Open the MTSC ticket webpage in the default browser
@@ -1315,7 +1426,7 @@ function Make-MTSCTicket {
 
 # Function to search the knowledge base
 function Search-KnowledgeBase {
-    # Write-Log "Searching knowledge base..."
+    Write-Log "Searching knowledge base..."
     $searchForm = New-Object System.Windows.Forms.Form
     $searchForm.Text = "Search Knowledge Base"
     $searchForm.Size = New-Object System.Drawing.Size(300, 150)
@@ -1338,7 +1449,7 @@ function Search-KnowledgeBase {
             $spaceCount = ($searchTerms -split ' ').Count - 1
             $fullUrl = "${baseUrl}${formattedTerms}&spa=${spaceCount}"
             Start-Process $fullUrl
-            # Write-Log "Searched Knowledge Base for: $searchTerms"
+            Write-Log "Searched Knowledge Base for: $searchTerms"
         }
         $searchForm.Close()
     })
@@ -1366,9 +1477,9 @@ function Load-Logs {
             $item.SubItems.Add($log.Notes)
             $listView.Items.Add($item)
         }
-        # Write-Log "Logs loaded from $filePath"
+        Write-Log "Logs loaded from $filePath"
     } else {
-        # Write-Log "Log file not found: $filePath"
+        Write-Log "Log file not found: $filePath"
     }
 }
 
@@ -1390,18 +1501,18 @@ function Save-CallLogs {
                 Notes = $item.SubItems[7].Text
             }
             $logs += $log
-            # Write-Log "Saving log entry: Date=$($log.Date), Machine=$($log.Machine), Time Down=$($log.'Time Down'), Time Up=$($log.'Time Up')"
+            Write-Log "Saving log entry: Date=$($log.Date), Machine=$($log.Machine), Time Down=$($log.'Time Down'), Time Up=$($log.'Time Up')"
         }
         
         $logs | Export-Csv -Path $filePath -NoTypeInformation -Encoding UTF8
-        # Write-Log "Call logs saved to $filePath"
+        Write-Log "Call logs saved to $filePath"
         
         # Verify the saved content
         $savedContent = Get-Content -Path $filePath -Raw
-        # Write-Log "Saved CSV content: $savedContent"
+        Write-Log "Saved CSV content: $savedContent"
     }
     catch {
-        # Write-Log "Error saving call logs: $_"
+        Write-Log "Error saving call logs: $_"
     }
 }
 
@@ -1413,25 +1524,50 @@ function Save-LaborLogs {
         [string]$filePath
     )
     
+    Write-Log "Starting Save-LaborLogs function"
+    
     try {
         $logs = @()
         foreach ($item in $listView.Items) {
             $log = [PSCustomObject]@{
-                Date = $item.SubItems[0].Text
+                'Date' = $item.SubItems[0].Text
                 'Work Order' = $item.SubItems[1].Text
                 'Description' = $item.SubItems[2].Text
-                Machine = $item.SubItems[3].Text
-                Duration = $item.SubItems[4].Text
-                Notes = $item.SubItems[5].Text
+                'Machine' = $item.SubItems[3].Text
+                'Duration' = $item.SubItems[4].Text
+                'Parts' = $item.SubItems[5].Text  # Save the Parts column
+                'Notes' = $item.SubItems[6].Text
             }
             $logs += $log
+            Write-Log "Saving log entry: WorkOrder=$($log.'Work Order'), Parts=$($log.Parts)"
         }
         
+        # Create backup of existing file
+        if (Test-Path $filePath) {
+            $backupPath = "$filePath.bak"
+            Copy-Item -Path $filePath -Destination $backupPath -Force
+            Write-Log "Created backup at $backupPath"
+        }
+
+        # Save to CSV
         $logs | Export-Csv -Path $filePath -NoTypeInformation -Encoding UTF8
-        # Write-Log "Labor logs saved to $filePath"
-    }
-    catch {
-        # Write-Log "Error saving labor logs: $_"
+        
+        # Verify save
+        $verification = Import-Csv -Path $filePath
+        if ($verification.Count -eq $logs.Count) {
+            Write-Log "Save verified successfully. Count matches: $($logs.Count)"
+            return $true
+        }
+        throw "Verification failed - count mismatch"
+
+    } catch {
+        Write-Log "Error in Save-LaborLogs: $_"
+        # Restore from backup if available
+        if (Test-Path "$filePath.bak") {
+            Copy-Item -Path "$filePath.bak" -Destination $filePath -Force
+            Write-Log "Restored from backup due to save error"
+        }
+        return $false
     }
 }
 
@@ -1439,7 +1575,7 @@ function Save-LaborLogs {
 function Setup-CallLogsTab {
     param($parentTab)
 
-    # Write-Log "Setting up Call Logs tab..."
+    Write-Log "Setting up Call Logs tab..."
 
     $callLogsPanel = New-Object System.Windows.Forms.Panel
     $callLogsPanel.Dock = 'Fill'
@@ -1721,21 +1857,21 @@ function Setup-CallLogsTab {
             # Create the CSV file if it doesn't exist
             if (-not (Test-Path $machinesCsvPath)) {
                 "Machine Acronym,Machine Number" | Out-File -FilePath $machinesCsvPath -Encoding utf8
-                # Write-Log "Created new Machines.csv file at $machinesCsvPath"
+                Write-Log "Created new Machines.csv file at $machinesCsvPath"
             }
     
             # Read existing data
             $existingData = Import-Csv -Path $machinesCsvPath
     
             # Check if the entry already exists
-            if ($existingData | Where-Object { $_.'Machine Acronym' -eq $machineAcronym -and $_.'Machine Number' -eq $equipmentNumber }) {
+            if ($existingData | Where-Object { $_.'Machine' -eq $machineAcronym -and $_.'EquipmentNumber' -eq $equipmentNumber }) {
                 [System.Windows.Forms.MessageBox]::Show("This machine and equipment number combination already exists.", "Duplicate Entry", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
                 return
             }
     
             # Append the new machine to the CSV
             "$machineAcronym,$equipmentNumber" | Out-File -FilePath $machinesCsvPath -Append -Encoding utf8
-            # Write-Log "Added new machine: $machineAcronym with equipment number: $equipmentNumber to $machinesCsvPath"
+            Write-Log "Added new machine: $machineAcronym with equipment number: $equipmentNumber to $machinesCsvPath"
     
             # Set a flag to indicate that the Machines list has been updated
             $script:machinesUpdated = $true
@@ -1810,15 +1946,15 @@ function Setup-CallLogsTab {
                     $filePath = $saveFileDialog.FileName
                     $content | Out-File -FilePath $filePath -Encoding utf8
 
-                    # Write-Log "Call logs for $selectedDate saved to $filePath"
+                    Write-Log "Call logs for $selectedDate saved to $filePath"
                     [System.Windows.Forms.MessageBox]::Show("Call logs have been saved to $filePath", "Logs Saved", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
                 }
                 else {
-                    # Write-Log "Log file save cancelled by user"
+                    Write-Log "Log file save cancelled by user"
                 }
             }
             catch {
-                # Write-Log "Error saving log file: $_"
+                Write-Log "Error saving log file: $_"
                 [System.Windows.Forms.MessageBox]::Show("Error saving log file: $_", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
             }
 
@@ -1830,7 +1966,7 @@ function Setup-CallLogsTab {
     })
     $callLogsPanel.Controls.Add($sendLogsButton)
 
-    # Write-Log "Call Logs tab setup completed."
+    Write-Log "Call Logs tab setup completed."
 }
 
 function Ensure-LaborLogsCsvExists {
@@ -1839,24 +1975,33 @@ function Ensure-LaborLogsCsvExists {
     )
    
     if (-not $filePath) {
-        # Write-Log "Error: Labor logs file path is not set"
+        Write-Host "Error: Labor logs file path is not set"
         return
     }
-    $headers = "Date,Work Order,Description,Machine,Duration,Notes"
+    # Make sure we include the Parts column
+    $headers = "Date,Work Order,Description,Machine,Duration,Parts,Notes"
     if (-not (Test-Path $filePath)) {
         $headers | Out-File -FilePath $filePath -Encoding UTF8
-        # Write-Log "Created new Labor Logs CSV file with headers at $filePath"
+        Write-Host "Created new Labor Logs CSV file with headers at $filePath"
     } else {
         $content = Get-Content -Path $filePath
         if ($content.Count -eq 0) {
             $headers | Out-File -FilePath $filePath -Encoding UTF8
-            # Write-Log "Added headers to empty Labor Logs CSV file at $filePath"
+            Write-Host "Added headers to empty Labor Logs CSV file"
         } elseif ($content[0] -ne $headers) {
-            $headers | Set-Content -Path $filePath -Encoding UTF8
-            $content | Select-Object -Skip 1 | Add-Content -Path $filePath -Encoding UTF8
-            # Write-Log "Updated headers in existing Labor Logs CSV file at $filePath"
-        } else {
-            # Write-Log "Labor Logs CSV file exists and has correct headers at $filePath"
+            # If headers don't match, preserve data and update headers
+            $oldData = Import-Csv -Path $filePath
+            $newData = $oldData | Select-Object `
+                @{N='Date';E={$_.Date}}, 
+                @{N='Work Order';E={$_.'Work Order'}}, 
+                @{N='Description';E={$_.Description}}, 
+                @{N='Machine';E={$_.Machine}}, 
+                @{N='Duration';E={$_.Duration}}, 
+                @{N='Parts';E={''}}, 
+                @{N='Notes';E={$_.Notes}}
+            
+            $newData | Export-Csv -Path $filePath -NoTypeInformation -Encoding UTF8
+            Write-Host "Updated CSV structure while preserving existing data"
         }
     }
 }
@@ -1865,9 +2010,17 @@ function Ensure-LaborLogsCsvExists {
 function Setup-LaborLogTab {
     param($parentTab, $tabControl)
 
-    # Write-Log "Setting up Labor Log tab..."
+    Write-Log "Setting up Labor Log tab..."
 
     Ensure-LaborLogsCsvExists -filePath $laborLogsFilePath
+
+    Fixed ToolTip Implementation
+
+    # Create tooltip control
+    $toolTip = New-Object System.Windows.Forms.ToolTip
+    $toolTip.InitialDelay = 500
+    $toolTip.ReshowDelay = 100
+    $toolTip.ShowAlways = $true
 
     $laborLogPanel = New-Object System.Windows.Forms.Panel
     $laborLogPanel.Dock = 'Fill'
@@ -1891,19 +2044,26 @@ function Setup-LaborLogTab {
     $laborLogPanel.Controls.Add($script:listViewLaborLog)
     
     # Tooltip for hovering
-    $script:listViewLaborLog.MouseMove += {
+    $script:listViewLaborLog.Add_MouseMove({
         param($sender, $e)
         $item = $script:listViewLaborLog.GetItemAt($e.X, $e.Y)
         if ($item -ne $null) {
-            $toolTipText = $item.SubItems[5].Text  # Assuming "Parts" is at index 5
-            $script:listViewLaborLog.ToolTipText = $toolTipText
+            $parts = $item.SubItems[5].Text  # Assuming "Parts" is at index 5
+            $position = $script:listViewLaborLog.PointToClient([System.Windows.Forms.Cursor]::Position)
+            
+            # Only show tooltip if there's actual parts data
+            if (-not [string]::IsNullOrWhiteSpace($parts)) {
+                $toolTip.SetToolTip($script:listViewLaborLog, $parts)
+            } else {
+                $toolTip.SetToolTip($script:listViewLaborLog, $null)
+            }
         } else {
-            $script:listViewLaborLog.ToolTipText = ""
+            $toolTip.SetToolTip($script:listViewLaborLog, $null)
         }
-    }
+    })
 
     # Double-Click for details
-    $script:listViewLaborLog.DoubleClick += {
+    $script:listViewLaborLog.Add_DoubleClick({
         $selectedItems = $script:listViewLaborLog.SelectedItems
         if ($selectedItems.Count -gt 0) {
             $item = $selectedItems[0]
@@ -1937,7 +2097,7 @@ function Setup-LaborLogTab {
                 $detailsForm.ShowDialog()
             }
         }
-    }
+    })
     
     # Initialize notification icon
     $script:notificationIcon = New-Object System.Windows.Forms.Label
@@ -2038,23 +2198,45 @@ function Setup-LaborLogTab {
         $addButton.Size = New-Object System.Drawing.Size(100, 30)
         $addButton.Text = "Add"
         $addButton.Add_Click({
-            $workOrderNumber = if ([string]::IsNullOrWhiteSpace($textBoxWorkOrder.Text)) { "Need W/O #" } else { $textBoxWorkOrder.Text }
+            $workOrderNumber = if ([string]::IsNullOrWhiteSpace($textBoxWorkOrder.Text)) { 
+                "Need W/O #" 
+            } else { 
+                $textBoxWorkOrder.Text 
+            }
+            
+            Write-Log "Adding new labor log entry with WO: $workOrderNumber"
+            
             $item = New-Object System.Windows.Forms.ListViewItem($textBoxDate.Text)
             $item.SubItems.Add($workOrderNumber)
             $item.SubItems.Add($textBoxTask.Text)
-            $item.SubItems.Add($comboBoxMachineId.SelectedItem)
-            $item.SubItems.Add($textBoxDuration.Text)  # Use the duration as entered by the user
-            $item.SubItems.Add($textBoxNotes.Text)
+            $item.SubItems.Add($comboBoxMachineId.Text)
+            $item.SubItems.Add($textBoxDuration.Text)
+            $item.SubItems.Add("")  # Parts column
+            $item.SubItems.Add($textBoxNotes.Text)  # Notes last
+            
             $script:listViewLaborLog.Items.Add($item)
+            Write-Log "Added item to ListView"
             
             if ($workOrderNumber -eq "Need W/O #") {
-                $key = "$($textBoxDate.Text)_$($comboBoxMachineId.SelectedItem)_$($textBoxTask.Text)"
+                $key = "$($textBoxDate.Text)_$($comboBoxMachineId.Text)_$($textBoxTask.Text)"
                 $script:unacknowledgedEntries[$key] = $true
                 Update-NotificationIcon
             }
             
-            # Save labor logs after adding a new entry
-            Save-LaborLogs -listView $script:listViewLaborLog -filePath $laborLogsFilePath
+            # Save with better error handling
+            $saveResult = Save-LaborLogs -listView $script:listViewLaborLog -filePath $laborLogsFilePath
+            
+            if ($saveResult) {
+                Write-Log "Labor log entry saved successfully"
+            } else {
+                Write-Log "WARNING: Labor log entry may not have saved properly"
+                [System.Windows.Forms.MessageBox]::Show(
+                    "There may have been an issue saving your entry. Please verify it appears in the list.",
+                    "Save Warning",
+                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                    [System.Windows.Forms.MessageBoxIcon]::Warning
+                )
+            }
             
             $addLaborLogForm.Close()
         })
@@ -2078,13 +2260,13 @@ function Setup-LaborLogTab {
             $editLaborLogForm.Size = New-Object System.Drawing.Size(400, 400)
             $editLaborLogForm.StartPosition = 'CenterScreen'
 
-            # Write-Log "Editing Labor Log Entry. Default values:"
-            # Write-Log "Date: $($item.SubItems[0].Text)"
-            # Write-Log "Work Order Number: $($item.SubItems[1].Text)"
-            # Write-Log "Task: $($item.SubItems[2].Text)"
-            # Write-Log "Machine ID: $($item.SubItems[3].Text)"
-            # Write-Log "Duration: $($item.SubItems[4].Text)"
-            # Write-Log "Notes: $($item.SubItems[5].Text)"
+            Write-Log "Editing Labor Log Entry. Default values:"
+            Write-Log "Date: $($item.SubItems[0].Text)"
+            Write-Log "Work Order Number: $($item.SubItems[1].Text)"
+            Write-Log "Task: $($item.SubItems[2].Text)"
+            Write-Log "Machine ID: $($item.SubItems[3].Text)"
+            Write-Log "Duration: $($item.SubItems[4].Text)"
+            Write-Log "Notes: $($item.SubItems[5].Text)"
 
             # Date
             $labelDate = New-Object System.Windows.Forms.Label
@@ -2199,7 +2381,7 @@ function Setup-LaborLogTab {
             $editLaborLogForm.ShowDialog()
         } else {
             [System.Windows.Forms.MessageBox]::Show("Please select an entry to edit.", "Warning", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-            # Write-Log "Attempted to edit Labor Log Entry without selection"
+            Write-Log "Attempted to edit Labor Log Entry without selection"
         }
     })
     $laborLogPanel.Controls.Add($editLaborLogButton)
@@ -2232,146 +2414,322 @@ function Setup-LaborLogTab {
         $script:listViewLaborLog.Items.Clear()
         Load-LaborLogs -listView $script:listViewLaborLog -filePath $laborLogsFilePath
         Process-HistoricalLogs
-        # Write-Log "Labor Logs manually refreshed"
+        Write-Log "Labor Logs manually refreshed"
     })
     $laborLogPanel.Controls.Add($refreshButton)
 
     
 
-    # Write-Log "Labor Log tab setup completed."
+    Write-Log "Labor Log tab setup completed."
 }
 
-# A hashtable to store processed call logs to avoid duplication
-$script:processedCallLogs = @{}
-function Process-HistoricalLogs {
-    # Write-Log "Processing historical Call Logs to create Labor Logs if necessary..."
-   
-    if ($null -eq $script:listViewLaborLog) {
-        # Write-Log "Error: Labor Log ListView is not initialized. Cannot process historical logs."
-        return
+function Add-LaborLogEntry {
+    param(
+        $date,
+        $workOrder,
+        $task,
+        $machineId,
+        $duration,
+        $notes
+    )
+
+    Write-Log "Adding new labor log entry..."
+
+    $workOrderNumber = if ([string]::IsNullOrWhiteSpace($workOrder)) { 
+        # Count existing "Need W/O #" entries and add one
+        $existingCount = ($script:listViewLaborLog.Items | Where-Object { 
+            $_.SubItems[1].Text -like "Need W/O #*" 
+        }).Count
+        "Need W/O # - $($existingCount + 1)"
+    } else { 
+        $workOrder 
     }
-
-    Ensure-LaborLogsCsvExists -filePath $global:laborLogsFilePath
-    $script:listViewLaborLog.Items.Clear()  # Clear the ListView
-    $script:processedCallLogs = @{}  # Clear the dictionary
-    $callLogs = Import-Csv -Path $callLogsFilePath
-
-    foreach ($log in $callLogs) {
-        $startTime = $log.'Time Down'
-        $endTime = $log.'Time Up'
-        $logKey = "$($log.Date)_$($log.Machine)_$startTime"
-       
-        if ([string]::IsNullOrWhiteSpace($log.Machine)) {
-            # Write-Log "Warning: Missing machine information for log entry on $($log.Date)"
-            continue
-        }
-        # Write-Log "Processing log: Date=$($log.Date), Machine=$($log.Machine), Time Down=$startTime, Time Up=$endTime"
-       
-        $timeDiff = Get-TimeDifference -startTime $startTime -endTime $endTime
-        # Write-Log "Calculated time difference: $timeDiff minutes"
-       
-        if ($timeDiff -gt 30) {
-            # Write-Log "Time difference exceeds 30 minutes. Adding to Labor Log."
-            Add-LaborLogEntryFromCallLog -log $log
-            $script:processedCallLogs[$logKey] = $true
-        } else {
-            # Write-Log "Time difference does not exceed 30 minutes. Skipping."
-        }
+    
+    $item = New-Object System.Windows.Forms.ListViewItem($date)
+    $item.SubItems.Add($workOrderNumber)
+    $item.SubItems.Add($task)
+    $item.SubItems.Add($machineId)
+    $item.SubItems.Add($duration)
+    $item.SubItems.Add("")  # Parts column
+    $item.SubItems.Add($notes)
+    
+    $script:listViewLaborLog.Items.Add($item)
+    Write-Log "Added item to ListView"
+    
+    if ($workOrderNumber -like "Need W/O #*") {
+        $key = "${date}_${machineId}_${task}"
+        $script:unacknowledgedEntries[$key] = $true
+        Update-NotificationIcon
     }
-    # Save the labor logs after processing all call logs
-    Save-LaborLogs -listView $script:listViewLaborLog -filePath $global:laborLogsFilePath
-}
-
-# Function to load Labor Logs from CSV
-function Load-LaborLogs {
-    param($listView, $filePath)
-
-    $laborLogs = Import-Csv -Path $filePath
-
-    foreach ($log in $laborLogs) {
-        $item = New-Object System.Windows.Forms.ListViewItem($log.Date)
-        $item.SubItems.Add($log.'Work Order')
-        $item.SubItems.Add($log.Description)
-        $item.SubItems.Add($log.Machine)
-        $item.SubItems.Add($log.Duration)
-        $item.SubItems.Add($log.Notes)
-
-        if ($log.PSObject.Properties.Name -contains 'Parts' -and $log.Parts -ne "") {
-            $parts = $log.Parts | ConvertFrom-Json
-            $script:workOrderParts[$log.'Work Order'] = $parts
-
-            # Construct the detailed parts string
-            $partsDetails = $parts | ForEach-Object {
-                "$($_.PartNumber) - $($_.PartNo) - $($_.Quantity) - $($_.Location) - $($_.Source)"
-            } | Out-String
-            $partsDetails = $partsDetails.Trim().Replace("`r`n", ", ")
-
-            $item.SubItems.Add($partsDetails)
-        } else {
-            $item.SubItems.Add("")
-        }
-
-        $listView.Items.Add($item)
+    
+    $saveResult = Save-LaborLogs -listView $script:listViewLaborLog -filePath $laborLogsFilePath
+    
+    if ($saveResult) {
+        Write-Log "Labor log entry saved successfully"
+        return $true
+    } else {
+        Write-Log "WARNING: Labor log entry may not have saved properly"
+        [System.Windows.Forms.MessageBox]::Show(
+            "There may have been an issue saving your entry. Please verify it appears in the list.",
+            "Save Warning",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Warning
+        )
+        return $false
     }
 }
 
-# Moving Calls from Calls to Labor Log
+function Update-WorkOrderLineNumbers {
+    # Get all items that need work order numbers
+    $needsWOItems = @($script:listViewLaborLog.Items | Where-Object { 
+        $_.SubItems[1].Text -like "Need W/O #*" 
+    })
+    
+    # Reset numbering for all unassigned work orders
+    for ($i = 0; $i -lt $needsWOItems.Count; $i++) {
+        $needsWOItems[$i].SubItems[1].Text = "Need W/O # - $($i + 1)"
+    }
+}
+
+function Edit-LaborLogEntry {
+    param(
+        $item,
+        $editForm
+    )
+
+    Write-Log "Starting Edit-LaborLogEntry..."
+    
+    # Get references to form controls
+    $textBoxDate = $editForm.Controls | Where-Object { $_.Name -eq 'textBoxDate' }
+    $textBoxWorkOrder = $editForm.Controls | Where-Object { $_.Name -eq 'textBoxWorkOrder' }
+    $textBoxTask = $editForm.Controls | Where-Object { $_.Name -eq 'textBoxTask' }
+    $comboBoxMachineId = $editForm.Controls | Where-Object { $_.Name -eq 'comboBoxMachineId' }
+    $textBoxDuration = $editForm.Controls | Where-Object { $_.Name -eq 'textBoxDuration' }
+    $textBoxNotes = $editForm.Controls | Where-Object { $_.Name -eq 'textBoxNotes' }
+
+    # Store original values for comparison
+    $originalWorkOrder = $item.SubItems[1].Text
+    
+    # Update item with new values
+    $item.SubItems[0].Text = $textBoxDate.Text
+    $item.SubItems[1].Text = $textBoxWorkOrder.Text
+    $item.SubItems[2].Text = $textBoxTask.Text
+    $item.SubItems[3].Text = $comboBoxMachineId.Text
+    $item.SubItems[4].Text = $textBoxDuration.Text
+    $item.SubItems[6].Text = $textBoxNotes.Text  # Note: Index 5 is Parts column
+
+    # Handle work order number changes
+    $key = "$($textBoxDate.Text)_$($comboBoxMachineId.Text)_$($textBoxTask.Text)"
+    
+    if ($textBoxWorkOrder.Text -like "Need W/O #*") {
+        if ($originalWorkOrder -notlike "Need W/O #*") {
+            # Changed from real work order to "Need W/O #" - needs new line number
+            $existingCount = ($script:listViewLaborLog.Items | Where-Object { 
+                $_.SubItems[1].Text -like "Need W/O #*" 
+            }).Count
+            $item.SubItems[1].Text = "Need W/O # - $($existingCount)"
+        }
+        $script:unacknowledgedEntries[$key] = $true
+    } else {
+        if ($originalWorkOrder -like "Need W/O #*") {
+            # Changed from "Need W/O #" to real work order
+            $script:unacknowledgedEntries.Remove($key)
+            # Update line numbers for remaining unassigned work orders
+            Update-WorkOrderLineNumbers
+        }
+    }
+    
+    Update-NotificationIcon
+
+    # Save labor logs after editing
+    $saveResult = Save-LaborLogs -listView $script:listViewLaborLog -filePath $laborLogsFilePath
+    
+    if ($saveResult) {
+        Write-Log "Labor log entry updated successfully"
+        return $true
+    } else {
+        Write-Log "WARNING: Labor log entry update may not have saved properly"
+        [System.Windows.Forms.MessageBox]::Show(
+            "There may have been an issue saving your changes. Please verify the updates appear in the list.",
+            "Save Warning",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Warning
+        )
+        return $false
+    }
+}
+
 function Add-LaborLogEntryFromCallLog {
-    param ($log)
+    param (
+        $log,
+        $workOrderNum = "Need W/O #"
+    )
     try {
         if ($null -eq $script:listViewLaborLog) {
-            # Write-Log "Error: Labor Log ListView is not initialized. Cannot add entry."
+            Write-Log "Error: Labor Log ListView not initialized"
             return
         }
 
         $duration = Get-TimeDifference -startTime $log.'Time Down' -endTime $log.'Time Up'
         $durationHours = [Math]::Round($duration / 60, 2)
        
+        # Create unique key for deduplication
+        $uniqueKey = "$($log.Date)_$($log.Machine)_$($log.'Time Down')"
+        
+        # Check if this call log has already been processed
+        if ($script:processedCallLogs.ContainsKey($uniqueKey)) {
+            Write-Log "Call log already processed: $uniqueKey"
+            return
+        }
+
+        Write-Log "Creating new labor log entry from call log: $uniqueKey"
+        
         $item = New-Object System.Windows.Forms.ListViewItem($log.Date)
-        $item.SubItems.Add("Need W/O #")
+        $item.SubItems.Add($workOrderNum)
         $item.SubItems.Add("$($log.Cause) / $($log.Action) / $($log.Noun)")
         $item.SubItems.Add($log.Machine)
         $item.SubItems.Add($durationHours.ToString("F2"))
+        $item.SubItems.Add("")  # Parts column - empty for new entries
         $item.SubItems.Add($log.Notes)
-        $script:listViewLaborLog.Items.Add($item)
-        # Write-Log "Added Labor Log entry: Date=$($log.Date), Machine=$($log.Machine), Duration=$durationHours hours"
         
-        # Save labor logs after adding a new entry
+        $script:listViewLaborLog.Items.Add($item)
+        Write-Log "Added item to ListView"
+        
+        # Mark as processed
+        $script:processedCallLogs[$uniqueKey] = $true
+        
+        # Save labor logs after adding new entry
         Save-LaborLogs -listView $script:listViewLaborLog -filePath $global:laborLogsFilePath
+        Write-Log "Saved updated labor logs"
+
     } catch {
-        # Write-Log "Error adding Labor Log entry: $_"
+        Write-Log "Error adding Labor Log entry: $_"
+        Write-Log "Stack trace: $($_.ScriptStackTrace)"
     }
 }
 
-function AddSelectedPart {
-    $selectedItems = $script:listViewCrossRef.CheckedItems
-    if ($selectedItems.Count -eq 0) {
-        [System.Windows.Forms.MessageBox]::Show("Please select a part from the Cross Reference list.", "No Part Selected", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+# A hashtable to store processed call logs to avoid duplication
+$script:processedCallLogs = @{}
+function Process-HistoricalLogs {
+    Write-Host "Starting historical log processing..."
+   
+    if ($null -eq $script:listViewLaborLog) {
+        Write-Host "Error: Labor Log ListView not initialized"
         return
     }
 
-    foreach ($selectedItem in $selectedItems) {
-        $stockNo = $selectedItem.SubItems[5].Text  # 'STOCK NO.'
-        $partDescription = $selectedItem.SubItems[3].Text  # 'PART DESCRIPTION'
-        $location = $selectedItem.SubItems[8].Text  # 'Location' (Corrected index)
-        $quantity = Prompt-ForQuantity -partNumber $stockNo
+    # Initialize tracking if needed
+    if ($null -eq $script:processedCallLogs) {
+        $script:processedCallLogs = @{}
+    }
 
-        if ($quantity -gt 0) {
-            # Check availability and determine sources
-            $sources = Check-Availability -StockNo $stockNo -RequiredQuantity $quantity
+    # Load Call Logs
+    $callLogs = Import-Csv -Path $callLogsFilePath
+    Write-Host "Loaded $($callLogs.Count) call log entries"
 
-            $item = New-Object System.Windows.Forms.ListViewItem($stockNo)
-            $item.SubItems.Add($partDescription)
-            $item.SubItems.Add($quantity.ToString())
-            $item.SubItems.Add($sources)
-            $script:listViewSelectedParts.Items.Add($item)
+    # Load existing labor logs to check against
+    $existingLogs = Import-Csv -Path $laborLogsFilePath
+    Write-Host "Loaded $($existingLogs.Count) existing labor log entries"
 
-            # Write-Log "Added part $stockNo to selected parts. Quantity: $quantity, Source: $sources, Location: $location"
+    foreach ($log in $callLogs) {
+        $startTime = $log.'Time Down'
+        $endTime = $log.'Time Up'
+        $uniqueKey = "$($log.Date)_$($log.Machine)_$startTime"
+        
+        Write-Host "Processing: $uniqueKey"
+        
+        # Skip if already processed
+        if ($script:processedCallLogs.ContainsKey($uniqueKey)) {
+            Write-Host "Already processed, skipping"
+            continue
+        }
+        
+        $timeDiff = Get-TimeDifference -startTime $startTime -endTime $endTime
+        Write-Host "Time difference: $timeDiff minutes"
+        
+        if ($timeDiff -gt 30) {
+            Write-Host "Entry qualifies for Labor Log"
+            
+            # Check if entry already exists in the loaded labor logs
+            $description = "$($log.Cause) / $($log.Action) / $($log.Noun)"
+            $exists = $existingLogs | Where-Object { 
+                $_.Date -eq $log.Date -and 
+                $_.Machine -eq $log.Machine -and 
+                $_.Description -eq $description 
+            }
+            
+            if (-not $exists) {
+                Write-Host "Adding new labor log entry"
+                Add-LaborLogEntryFromCallLog -log $log
+            } else {
+                Write-Host "Entry already exists in Labor Log"
+                $script:processedCallLogs[$uniqueKey] = $true
+            }
         }
     }
+    
+    Write-Host "Processing complete. Labor Log entries: $($script:listViewLaborLog.Items.Count)"
+    $script:listViewLaborLog.Refresh()
 }
 
+# Function to check if labor log entry already exists
+function Test-LaborLogExists {
+    param (
+        $date,
+        $machine,
+        $description
+    )
+    
+    foreach ($item in $script:listViewLaborLog.Items) {
+        if ($item.SubItems[0].Text -eq $date -and 
+            $item.SubItems[3].Text -eq $machine -and 
+            $item.SubItems[2].Text -eq $description) {
+            return $true
+        }
+    }
+    return $false
+}
 
+# Function to load Labor Logs from CSV
+function Load-LaborLogs {
+    param($listView, $filePath)
+    
+    Write-Log "Loading labor logs from: $filePath"
+    
+    if (-not (Test-Path $filePath)) {
+        Write-Log "Labor logs file not found at: $filePath"
+        return
+    }
+
+    $rawContent = Get-Content -Path $filePath -Raw
+    Write-Log "Raw CSV content: $rawContent"
+    
+    $laborLogs = Import-Csv -Path $filePath
+    $listView.Items.Clear()
+
+    foreach ($log in $laborLogs) {
+        Write-Log "Loading log entry - WO: $($log.'Work Order'), Parts: $($log.Parts)"
+        
+        $item = New-Object System.Windows.Forms.ListViewItem($log.Date)
+        $item.SubItems.Add($log.'Work Order')
+        $item.SubItems.Add($log.Description)
+        $item.SubItems.Add($log.Machine)
+        $item.SubItems.Add($log.Duration)
+        $item.SubItems.Add($log.Parts)  # Make sure Parts is loaded
+        $item.SubItems.Add($log.Notes)
+        
+        # Verify parts data before adding
+        Write-Log "Parts data being added to item: $($log.Parts)"
+        
+        $listView.Items.Add($item)
+        Write-Log "Added item to ListView. Parts column contains: $($item.SubItems[5].Text)"
+    }
+
+    Write-Log "Finished loading labor logs. Total entries: $($laborLogs.Count)"
+    
+    # Update line numbers for unassigned work orders
+    Update-WorkOrderLineNumbers
+}
 
 # Add Parts to Work order
 function Add-PartsToWorkOrder {
@@ -2384,23 +2742,34 @@ function Add-PartsToWorkOrder {
     
     Setup-SearchControls -parentForm $addPartsForm
     
-    $addPartsForm.ShowDialog()
-
     $addSelectedPartsButton = New-Object System.Windows.Forms.Button
-    $addSelectedPartsButton.Text = "Add Selected Parts"
-    $addSelectedPartsButton.Location = New-Object System.Drawing.Point(700, 700)  # Keep original position
+    $addSelectedPartsButton.Text = "Attach to W/O"
+    $addSelectedPartsButton.Location = New-Object System.Drawing.Point(700, 570)
     $addSelectedPartsButton.Size = New-Object System.Drawing.Size(150, 30)
     $addPartsForm.Controls.Add($addSelectedPartsButton)
 
     $addSelectedPartsButton.Add_Click({
         $selectedParts = Get-SelectedPartsFromSearch
-        if ($selectedParts.Count -gt 0) {
-            Add-PartsToWorkOrderData -workOrderNumber $workOrderNumber -parts $selectedParts
-            [System.Windows.Forms.MessageBox]::Show("Parts added to Work Order #$workOrderNumber.", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-            $addPartsForm.Close()
-        } else {
-            [System.Windows.Forms.MessageBox]::Show("No parts selected to add.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+        Write-Log "Selected parts count: $($selectedParts.Count)"
+        
+        if ($null -eq $selectedParts -or $selectedParts.Count -eq 0) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Please select at least one part to add.",
+                "No Parts Selected",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Warning
+            )
+            return
         }
+
+        Add-PartsToWorkOrderData -workOrderNumber $workOrderNumber -parts $selectedParts
+        [System.Windows.Forms.MessageBox]::Show(
+            "Parts added to Work Order #$workOrderNumber.",
+            "Success",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Information
+        )
+        $addPartsForm.Close()
     })
 
     $addPartsForm.ShowDialog()
@@ -2409,7 +2778,7 @@ function Add-PartsToWorkOrder {
 function Setup-SearchControls {
     param($parentForm)
 
-    # Write-Log "Setting up Search controls..."
+    Write-Log "Setting up Search controls..."
 
     # Create controls with script scope
     $script:textBoxNSN = New-Object System.Windows.Forms.TextBox
@@ -2429,9 +2798,9 @@ function Setup-SearchControls {
     $script:textBoxNSN.Size = New-Object System.Drawing.Size(200, 20)
     $parentForm.Controls.Add($script:textBoxNSN)
 
-    # Set up OEM controls
+    # Set up OEM/Part Number controls
     $labelOEM = New-Object System.Windows.Forms.Label
-    $labelOEM.Text = "OEM:"
+    $labelOEM.Text = "Part Number:"
     $labelOEM.Location = New-Object System.Drawing.Point(350, 20)
     $labelOEM.Size = New-Object System.Drawing.Size(100, 20)
     $parentForm.Controls.Add($labelOEM)
@@ -2458,30 +2827,26 @@ function Setup-SearchControls {
     $searchButton.Size = New-Object System.Drawing.Size(75, 30)
     $parentForm.Controls.Add($searchButton)
 
-    # Set up Cross Reference ListView
-    $labelCrossRef = New-Object System.Windows.Forms.Label
-    $labelCrossRef.Text = "Cross Reference"
-    $labelCrossRef.Location = New-Object System.Drawing.Point(20, 60)
-    $labelCrossRef.Size = New-Object System.Drawing.Size(100, 20)
-    $parentForm.Controls.Add($labelCrossRef)
+    # Set up Results ListView with simplified columns
+    $labelResults = New-Object System.Windows.Forms.Label
+    $labelResults.Text = "Search Results"
+    $labelResults.Location = New-Object System.Drawing.Point(20, 60)
+    $labelResults.Size = New-Object System.Drawing.Size(100, 20)
+    $parentForm.Controls.Add($labelResults)
 
     $script:listViewCrossRef.Location = New-Object System.Drawing.Point(20, 80)
     $script:listViewCrossRef.Size = New-Object System.Drawing.Size(1055, 300)
     $script:listViewCrossRef.View = [System.Windows.Forms.View]::Details
     $script:listViewCrossRef.FullRowSelect = $true
     $script:listViewCrossRef.CheckBoxes = $true
-    $script:listViewCrossRef.Columns.Add("Handbook", 100)
-    $script:listViewCrossRef.Columns.Add("Section Name", 150)
-    $script:listViewCrossRef.Columns.Add("NO.", 50)
-    $script:listViewCrossRef.Columns.Add("PART DESCRIPTION", 200)
-    $script:listViewCrossRef.Columns.Add("REF.", 100)
-    $script:listViewCrossRef.Columns.Add("STOCK NO.", 100)
-    $script:listViewCrossRef.Columns.Add("PART NO.", 100)
-    $script:listViewCrossRef.Columns.Add("CAGE", 50)
-    $script:listViewCrossRef.Columns.Add("Location", 100)
-    $script:listViewCrossRef.Columns.Add("QTY", 50)
-    $script:listViewCrossRef.Columns.Add("Source", 100)
-    $script:listViewCrossRef.Columns.Add("Source", 100)
+    
+    # Simplified column layout
+    $script:listViewCrossRef.Columns.Add("Source", 150)
+    $script:listViewCrossRef.Columns.Add("STOCK NO.", 120)
+    $script:listViewCrossRef.Columns.Add("PART NO.", 120)
+    $script:listViewCrossRef.Columns.Add("Location", 120)
+    $script:listViewCrossRef.Columns.Add("QTY", 80)
+    
     $parentForm.Controls.Add($script:listViewCrossRef)
 
     # Set up Selected Parts ListView
@@ -2495,40 +2860,96 @@ function Setup-SearchControls {
     $script:listViewSelectedParts.Size = New-Object System.Drawing.Size(1055, 150)
     $script:listViewSelectedParts.View = [System.Windows.Forms.View]::Details
     $script:listViewSelectedParts.FullRowSelect = $true
-    $script:listViewSelectedParts.Columns.Add("STOCK NO.", 100)
-    $script:listViewSelectedParts.Columns.Add("PART DESCRIPTION", 400)
-    $script:listViewSelectedParts.Columns.Add("Quantity", 100)
-    $script:listViewSelectedParts.Columns.Add("Source", 455)  # Updated column size to fit content    
+    $script:listViewSelectedParts.Columns.Add("Source", 150)
+    $script:listViewSelectedParts.Columns.Add("STOCK NO.", 120)
+    $script:listViewSelectedParts.Columns.Add("PART NO.", 120)
+    $script:listViewSelectedParts.Columns.Add("Location", 120)
+    $script:listViewSelectedParts.Columns.Add("QTY", 80)
     $parentForm.Controls.Add($script:listViewSelectedParts)
 
     # Add Part buttons
     $addSelectedPartButton = New-Object System.Windows.Forms.Button
-    $addSelectedPartButton.Text = "Add Selected Part"
+    $addSelectedPartButton.Text = 'Select Parts'
     $addSelectedPartButton.Location = New-Object System.Drawing.Point(20, 570)
     $addSelectedPartButton.Size = New-Object System.Drawing.Size(120, 30)
     $parentForm.Controls.Add($addSelectedPartButton)
 
-    $addSelectedPartsButton = New-Object System.Windows.Forms.Button
-    $addSelectedPartsButton.Text = "Add Parts to work order"
-    $addSelectedPartsButton.Location = New-Object System.Drawing.Point(150, 570)
-    $addSelectedPartsButton.Size = New-Object System.Drawing.Size(120, 30)
-    $parentForm.Controls.Add($addSelectedPartsButton)
-
-    # Add tooltips
-    $tooltip = New-Object System.Windows.Forms.ToolTip
-    $tooltip.SetToolTip($addSelectedPartButton, "Add the selected part from the Cross Reference list to the Selected Parts list")
-    $tooltip.SetToolTip($addSelectedPartsButton, "Add all selected parts to the work order and close this window")
-
     # Event handlers
     $searchButton.Add_Click({
-        PerformSearch
+        PerformCombinedSearch
     })
 
     $addSelectedPartButton.Add_Click({
         AddSelectedPart
     })
 
-    # Write-Log "Search controls setup completed."
+    Write-Log "Search controls setup completed."
+}
+
+function PerformCombinedSearch {
+    $nsnSearch = $script:textBoxNSN.Text.Trim()
+    $partNoSearch = $script:textBoxOEM.Text.Trim()
+    $descriptionSearch = $script:textBoxDescription.Text.Trim()
+
+    Write-Log "Performing combined search..."
+    Write-Log "Search criteria - NSN: $nsnSearch, Part No: $partNoSearch, Description: $descriptionSearch"
+
+    $script:listViewCrossRef.Items.Clear()
+
+    # Search in main parts room
+    $partsRoomCsv = Get-ChildItem -Path $config.PartsRoomDirectory -Filter "*.csv" -File | Select-Object -First 1
+    if ($partsRoomCsv) {
+        $partsRoomName = [System.IO.Path]::GetFileNameWithoutExtension($partsRoomCsv.Name)
+        $partsRoomData = Import-Csv -Path $partsRoomCsv.FullName
+        $filteredPartsRoom = $partsRoomData | Where-Object {
+            ($nsnSearch -eq '' -or $_.'Part (NSN)' -like "*$nsnSearch*") -and
+            ($partNoSearch -eq '' -or 
+             $_.'OEM 1' -like "*$partNoSearch*" -or 
+             $_.'OEM 2' -like "*$partNoSearch*" -or 
+             $_.'OEM 3' -like "*$partNoSearch*")
+        }
+
+        foreach ($part in $filteredPartsRoom) {
+            $item = New-Object System.Windows.Forms.ListViewItem($partsRoomName)
+            $item.SubItems.Add($part.'Part (NSN)')
+            $item.SubItems.Add($part.'OEM 1')  # Using OEM 1 as PART NO.
+            $item.SubItems.Add($part.Location)
+            $item.SubItems.Add($part.QTY)
+            $script:listViewCrossRef.Items.Add($item)
+        }
+    }
+
+    # Search in same day parts rooms
+    $sameDayPartsDir = Join-Path $config.PartsRoomDirectory "Same Day Parts Room"
+    if (Test-Path $sameDayPartsDir) {
+        $sameDayCsvFiles = Get-ChildItem -Path $sameDayPartsDir -Filter "*.csv"
+        foreach ($csvFile in $sameDayCsvFiles) {
+            $siteName = [System.IO.Path]::GetFileNameWithoutExtension($csvFile.Name)
+            $sameDayData = Import-Csv -Path $csvFile.FullName
+            $filteredSameDay = $sameDayData | Where-Object {
+                ($nsnSearch -eq '' -or $_.'Part (NSN)' -like "*$nsnSearch*") -and
+                ($partNoSearch -eq '' -or 
+                 $_.'OEM 1' -like "*$partNoSearch*" -or 
+                 $_.'OEM 2' -like "*$partNoSearch*" -or 
+                 $_.'OEM 3' -like "*$partNoSearch*")
+            }
+
+            foreach ($part in $filteredSameDay) {
+                $item = New-Object System.Windows.Forms.ListViewItem($siteName)
+                $item.SubItems.Add($part.'Part (NSN)')
+                $item.SubItems.Add($part.'OEM 1')  # Using OEM 1 as PART NO.
+                $item.SubItems.Add($part.Location)
+                $item.SubItems.Add($part.QTY)
+                $script:listViewCrossRef.Items.Add($item)
+            }
+        }
+    }
+
+    Write-Log "Combined search completed. Found $($script:listViewCrossRef.Items.Count) results."
+    
+    if ($script:listViewCrossRef.Items.Count -eq 0) {
+        [System.Windows.Forms.MessageBox]::Show("No matching records found.", "Search Results", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+    }
 }
 
 function PerformSearch {
@@ -2536,8 +2957,8 @@ function PerformSearch {
     $oemSearch = $script:textBoxOEM.Text.Trim()
     $descriptionSearch = $script:textBoxDescription.Text.Trim()
 
-    # Write-Log "Performing Cross Reference search..."
-    # Write-Log "Search criteria - NSN: $nsnSearch, OEM: $oemSearch, Description: $descriptionSearch"
+    Write-Log "Performing Cross Reference search..."
+    Write-Log "Search criteria - NSN: $nsnSearch, OEM: $oemSearch, Description: $descriptionSearch"
 
     $crossRefResults = @()
 
@@ -2559,18 +2980,18 @@ function PerformSearch {
                         $sectionNameMapping["Section $sectionNumber"] = $sectionFullName
                     }
                 }
-                # Write-Log "Loaded $($sectionNameMapping.Count) section names for $bookName"
+                Write-Log "Loaded $($sectionNameMapping.Count) section names for $bookName"
             } else {
-                # Write-Log "SectionNames.txt not found for $bookName"
+                Write-Log "SectionNames.txt not found for $bookName"
             }
 
             if (-not (Test-Path $combinedSectionsDir)) {
-                # Write-Log "CombinedSections directory not found for $bookName"
+                Write-Log "CombinedSections directory not found for $bookName"
                 continue
             }
 
             $sectionCsvFiles = Get-ChildItem -Path $combinedSectionsDir -Filter "*.csv" -File
-            # Write-Log "Found $($sectionCsvFiles.Count) CSV files in $bookName"
+            Write-Log "Found $($sectionCsvFiles.Count) CSV files in $bookName"
 
             foreach ($csvFile in $sectionCsvFiles) {
                 $sectionFileName = [IO.Path]::GetFileNameWithoutExtension($csvFile.Name)
@@ -2590,9 +3011,9 @@ function PerformSearch {
 
                 try {
                     $sectionData = Import-Csv -Path $csvFilePath
-                    # Write-Log "Processed $($sectionData.Count) rows from $($csvFile.Name)"
+                    Write-Log "Processed $($sectionData.Count) rows from $($csvFile.Name)"
                 } catch {
-                    # Write-Log "Failed to read CSV file $csvFilePath. Error: $_"
+                    Write-Log "Failed to read CSV file $csvFilePath. Error: $_"
                     continue
                 }
 
@@ -2610,7 +3031,7 @@ function PerformSearch {
             }
         }
 
-        # Write-Log "Found $($crossRefResults.Count) matching records in Cross Reference."
+        Write-Log "Found $($crossRefResults.Count) matching records in Cross Reference."
 
         $script:listViewCrossRef.Items.Clear()
 
@@ -2631,153 +3052,226 @@ function PerformSearch {
             }
 
             $script:listViewCrossRef.AutoResizeColumns([System.Windows.Forms.ColumnHeaderAutoResizeStyle]::HeaderSize)
-            # Write-Log "Added $($crossRefResults.Count) items to Cross Reference ListView."
+            Write-Log "Added $($crossRefResults.Count) items to Cross Reference ListView."
         } else {
             [System.Windows.Forms.MessageBox]::Show("No matching records found in Cross Reference.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-            # Write-Log "No matching records found in Cross Reference."
+            Write-Log "No matching records found in Cross Reference."
         }
     } else {
-        # Write-Log "No books defined in configuration."
+        Write-Log "No books defined in configuration."
     }
 }
 
 function AddSelectedPart {
     $selectedItems = $script:listViewCrossRef.CheckedItems
     if ($selectedItems.Count -eq 0) {
-        [System.Windows.Forms.MessageBox]::Show("Please select a part from the Cross Reference list.", "No Part Selected", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+        [System.Windows.Forms.MessageBox]::Show("Please select a part from the search results.", "No Part Selected", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
         return
     }
 
     foreach ($selectedItem in $selectedItems) {
-        $stockNo = $selectedItem.SubItems[5].Text  # 'STOCK NO.'
-        $partDescription = $selectedItem.SubItems[3].Text  # 'PART DESCRIPTION'
-        $location = $selectedItem.SubItems[7].Text  # 'Location'
-        $source = $selectedItem.SubItems[8].Text  # 'Source'
+        $source = $selectedItem.SubItems[0].Text      # Source column
+        $stockNo = $selectedItem.SubItems[1].Text     # STOCK NO. column
+        $partNo = $selectedItem.SubItems[2].Text      # PART NO. column
+        $location = $selectedItem.SubItems[3].Text    # Location column
+        
+        # Parse available quantity
+        $availableQty = 0
+        $qtyText = $selectedItem.SubItems[4].Text
+        if ([string]::IsNullOrWhiteSpace($qtyText)) {
+            Write-Log "Warning: Empty quantity for part $stockNo"
+            $availableQty = 0
+        }
+        elseif (![int]::TryParse($qtyText, [ref]$availableQty)) {
+            Write-Log "Warning: Invalid quantity format '$qtyText' for part $stockNo"
+            $availableQty = 0
+        }
 
-        $quantity = Prompt-ForQuantity -partNumber $stockNo
+        Write-Log "Processing selected part: Stock No=$stockNo, Source=$source, Available Qty=$availableQty"
 
-        if ($quantity -gt 0) {
-            # Check availability and determine sources
-            $sources = Check-Availability -StockNo $stockNo -RequiredQuantity $quantity
+        # Prompt for quantity
+        $quantityForm = New-Object System.Windows.Forms.Form
+        $quantityForm.Text = "Enter Quantity for Part $stockNo"
+        $quantityForm.Size = New-Object System.Drawing.Size(320, 180)
+        $quantityForm.StartPosition = 'CenterParent'
 
-            $item = New-Object System.Windows.Forms.ListViewItem($stockNo)
-            $item.SubItems.Add($partDescription)
-            $item.SubItems.Add($quantity.ToString())
-            $item.SubItems.Add($location)
-            $item.SubItems.Add($source)
-            $script:listViewSelectedParts.Items.Add($item)
+        $label = New-Object System.Windows.Forms.Label
+        $label.Text = "Enter quantity (max $availableQty):"
+        $label.Location = New-Object System.Drawing.Point(20, 20)
+        $label.Size = New-Object System.Drawing.Size(280, 25)
+        $quantityForm.Controls.Add($label)
 
-            # Write-Log "Added part $stockNo to selected parts. Quantity: $quantity, Source: $source, Location: $location"
+        $textBox = New-Object System.Windows.Forms.TextBox
+        $textBox.Location = New-Object System.Drawing.Point(20, 50)
+        $textBox.Size = New-Object System.Drawing.Size(150, 25)
+        $quantityForm.Controls.Add($textBox)
+
+        $okButton = New-Object System.Windows.Forms.Button
+        $okButton.Text = "OK"
+        $okButton.Location = New-Object System.Drawing.Point(50, 90)
+        $okButton.DialogResult = [System.Windows.Forms.DialogResult]::OK
+        $quantityForm.Controls.Add($okButton)
+
+        $cancelButton = New-Object System.Windows.Forms.Button
+        $cancelButton.Text = "Cancel"
+        $cancelButton.Location = New-Object System.Drawing.Point(150, 90)
+        $cancelButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+        $quantityForm.Controls.Add($cancelButton)
+
+        $quantityForm.AcceptButton = $okButton
+        $quantityForm.CancelButton = $cancelButton
+
+        $result = $quantityForm.ShowDialog()
+        
+        if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+            $requestedQty = 0
+            if ([int]::TryParse($textBox.Text, [ref]$requestedQty)) {
+                if ($requestedQty -le 0) {
+                    [System.Windows.Forms.MessageBox]::Show(
+                        "Please enter a quantity greater than 0.",
+                        "Invalid Quantity",
+                        [System.Windows.Forms.MessageBoxButtons]::OK,
+                        [System.Windows.Forms.MessageBoxIcon]::Warning
+                    )
+                    continue
+                }
+                
+                if ($requestedQty -gt $availableQty) {
+                    [System.Windows.Forms.MessageBox]::Show(
+                        "Requested quantity ($requestedQty) exceeds available quantity ($availableQty).",
+                        "Invalid Quantity",
+                        [System.Windows.Forms.MessageBoxButtons]::OK,
+                        [System.Windows.Forms.MessageBoxIcon]::Warning
+                    )
+                    continue
+                }
+
+                # Create new item for selected parts view
+                $item = New-Object System.Windows.Forms.ListViewItem($source)
+                $item.SubItems.Add($stockNo)
+                $item.SubItems.Add($partNo)
+                $item.SubItems.Add($location)
+                $item.SubItems.Add($requestedQty.ToString())
+                
+                $script:listViewSelectedParts.Items.Add($item)
+                
+                Write-Log "Added part $stockNo to selected parts. Quantity: $requestedQty, Source: $source, Location: $location"
+            }
+            else {
+                [System.Windows.Forms.MessageBox]::Show(
+                    "Please enter a valid number.",
+                    "Invalid Input",
+                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                    [System.Windows.Forms.MessageBoxIcon]::Warning
+                )
+            }
         }
     }
 }
-
-function Check-Availability {
-    param (
-        [string]$StockNo,
-        [int]$RequiredQuantity
-    )
-
-    $sources = @()
-    $remainingQuantity = $RequiredQuantity
-
-    # Check local inventory
-    $myPartsRoomQuantity = Get-MyPartsRoomQuantity -StockNo $StockNo
-    if ($myPartsRoomQuantity -ge $remainingQuantity) {
-        $sources += "My Parts Room: $remainingQuantity"
-        $remainingQuantity = 0
-    } elseif ($myPartsRoomQuantity -gt 0) {
-        $sources += "My Parts Room: $myPartsRoomQuantity"
-        $remainingQuantity -= $myPartsRoomQuantity
-    }
-
-    # Check same-day parts rooms
-    if ($remainingQuantity -gt 0) {
-        $sameDayPartsRooms = Get-SameDayPartsRoomQuantities -StockNo $StockNo
-        foreach ($room in $sameDayPartsRooms) {
-            if ($remainingQuantity -le 0) { break }
-            $availableQuantity = [Math]::Min($room.Quantity, $remainingQuantity)
-            $sources += "$($room.SiteName): $availableQuantity"
-            $remainingQuantity -= $availableQuantity
-        }
-    }
-
-    # Remaining quantity to be sourced from TMDC
-    if ($remainingQuantity -gt 0) {
-        $sources += "TMDC: $remainingQuantity"
-    }
-
-    return ($sources -join "; ")
-}
-
 
 # Get Parts From Search
 function Get-SelectedPartsFromSearch {
     $selectedParts = @()
-
-    # Collect selected items from Cross Reference
-    foreach ($item in $script:listViewCrossRef.CheckedItems) {
-        $partNumber = $item.SubItems[5].Text  # 'STOCK NO.'
-        $description = $item.SubItems[3].Text  # 'PART DESCRIPTION'
-        $location = $item.SubItems[7].Text  # 'Location'
-        $source = $item.SubItems[8].Text  # 'Source'
-
-        # Prompt for quantity
-        $quantity = Prompt-ForQuantity -partNumber $partNumber
-
-        $selectedParts += [PSCustomObject]@{
-            PartNumber  = $partNumber
-            Description = $description
-            Quantity    = $quantity
-            Location    = $location
-            Source      = $source
-        }
+    
+    if ($script:listViewSelectedParts.Items.Count -eq 0) {
+        Write-Log "No parts in selected parts view"
+        return @()
     }
 
+    Write-Log "Found $($script:listViewSelectedParts.Items.Count) items in selected parts view"
+
+    foreach ($item in $script:listViewSelectedParts.Items) {
+        Write-Log "Processing selected part item: Source=$($item.SubItems[0].Text), PartNumber=$($item.SubItems[1].Text)"
+        
+        $part = [PSCustomObject]@{
+            Source = $item.SubItems[0].Text
+            PartNumber = $item.SubItems[1].Text
+            PartNo = $item.SubItems[2].Text
+            Location = $item.SubItems[3].Text
+            Quantity = $item.SubItems[4].Text
+        }
+        $selectedParts += $part
+        
+        Write-Log "Added part to selection: $($part.PartNumber), Qty: $($part.Quantity), Source: $($part.Source)"
+    }
+
+    Write-Log "Total parts selected: $($selectedParts.Count)"
     return $selectedParts
 }
 
 function Prompt-ForQuantity {
-    param($partNumber)
+    param(
+        [string]$partNumber,
+        [int]$maxQuantity
+    )
 
     $quantityForm = New-Object System.Windows.Forms.Form
     $quantityForm.Text = "Enter Quantity for Part $partNumber"
-    $quantityForm.Size = New-Object System.Drawing.Size(320, 150)
+    $quantityForm.Size = New-Object System.Drawing.Size(320, 180)
     $quantityForm.StartPosition = 'CenterParent'
 
     $label = New-Object System.Windows.Forms.Label
-    $label.Text = "Quantity:"
+    $label.Text = "Enter quantity (max $maxQuantity):"
     $label.Location = New-Object System.Drawing.Point(20, 20)
-    $label.Size = New-Object System.Drawing.Size(80, 25)
+    $label.Size = New-Object System.Drawing.Size(280, 25)
     $quantityForm.Controls.Add($label)
 
     $textBox = New-Object System.Windows.Forms.TextBox
-    $textBox.Location = New-Object System.Drawing.Point(100, 20)
+    $textBox.Location = New-Object System.Drawing.Point(20, 50)
     $textBox.Size = New-Object System.Drawing.Size(150, 25)
     $quantityForm.Controls.Add($textBox)
 
     $okButton = New-Object System.Windows.Forms.Button
     $okButton.Text = "OK"
-    $okButton.Location = New-Object System.Drawing.Point(50, 60)
+    $okButton.Location = New-Object System.Drawing.Point(50, 90)
     $okButton.DialogResult = [System.Windows.Forms.DialogResult]::OK
     $quantityForm.Controls.Add($okButton)
 
     $cancelButton = New-Object System.Windows.Forms.Button
     $cancelButton.Text = "Cancel"
-    $cancelButton.Location = New-Object System.Drawing.Point(150, 60)
+    $cancelButton.Location = New-Object System.Drawing.Point(150, 90)
     $cancelButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
     $quantityForm.Controls.Add($cancelButton)
 
     $quantityForm.AcceptButton = $okButton
     $quantityForm.CancelButton = $cancelButton
 
-    $dialogResult = $quantityForm.ShowDialog()
+    $result = $quantityForm.ShowDialog()
 
-    if ($dialogResult -eq [System.Windows.Forms.DialogResult]::OK) {
-        return [int]$textBox.Text
-    } else {
-        return 0
+    if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+        $qty = 0
+        if ([int]::TryParse($textBox.Text, [ref]$qty)) {
+            if ($qty -le 0) {
+                [System.Windows.Forms.MessageBox]::Show(
+                    "Please enter a quantity greater than 0.",
+                    "Invalid Quantity",
+                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                    [System.Windows.Forms.MessageBoxIcon]::Warning
+                )
+                return 0
+            }
+            if ($qty -gt $maxQuantity) {
+                [System.Windows.Forms.MessageBox]::Show(
+                    "Requested quantity exceeds available quantity.",
+                    "Invalid Quantity",
+                    [System.Windows.Forms.MessageBoxButtons]::OK,
+                    [System.Windows.Forms.MessageBoxIcon]::Warning
+                )
+                return 0
+            }
+            return $qty
+        }
+        else {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Please enter a valid number.",
+                "Invalid Input",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Warning
+            )
+            return 0
+        }
     }
+    return 0
 }
 
 function Add-PartsToWorkOrderData {
@@ -2795,21 +3289,30 @@ function Add-PartsToWorkOrderData {
     $script:workOrderParts[$workOrderNumber] += $parts
 
     # Construct the detailed parts string
-    $partsDetails = $script:workOrderParts[$workOrderNumber] | ForEach-Object {
-        "$($_.PartNumber) - $($_.PartNo) - $($_.Quantity) - $($_.Location) - $($_.Source)"
-    } | Out-String
-    $partsDetails = $partsDetails.Trim().Replace("`r`n", ", ")
+    $partsDetails = ($parts | ForEach-Object {
+        "$($_.PartNumber) ($($_.Quantity)) - $($_.Source)"
+    }) -join ", "
 
     # Update the ListView to show detailed parts information
     foreach ($item in $script:listViewLaborLog.Items) {
         if ($item.SubItems[1].Text -eq $workOrderNumber) {
-            $item.SubItems[5].Text = $partsDetails  # Assuming "Parts" is at index 5
+            # If there's existing parts info, append to it
+            $existingParts = $item.SubItems[5].Text
+            if (-not [string]::IsNullOrWhiteSpace($existingParts)) {
+                $partsDetails = "$existingParts, $partsDetails"
+            }
+            $item.SubItems[5].Text = $partsDetails
             break
         }
     }
 
     # Save the updated labor logs
-    Save-LaborLogs -listView $script:listViewLaborLog -filePath $laborLogsFilePath
+    $saved = Save-LaborLogs -listView $script:listViewLaborLog -filePath $laborLogsFilePath
+    if ($saved) {
+        Write-Log "Successfully saved parts update for Work Order #$workOrderNumber"
+    } else {
+        Write-Log "Failed to save parts update for Work Order #$workOrderNumber"
+    }
 }
 
 # data retrieval logic
@@ -2824,20 +3327,20 @@ function Search-CrossReferenceData {
         $combinedSectionsDir = Join-Path $bookDir "CombinedSections"
 
         if (-not (Test-Path $combinedSectionsDir)) {
-            # Write-Log "CombinedSections directory not found for $bookName"
+            Write-Log "CombinedSections directory not found for $bookName"
             continue
         }
 
         $sectionCsvFiles = Get-ChildItem -Path $combinedSectionsDir -Filter "*.csv" -File
-        # Write-Log "Found $($sectionCsvFiles.Count) CSV files in $bookName"
+        Write-Log "Found $($sectionCsvFiles.Count) CSV files in $bookName"
 
         foreach ($csvFile in $sectionCsvFiles) {
             $csvFilePath = $csvFile.FullName
             try {
                 $sectionData = Import-Csv -Path $csvFilePath
-                # Write-Log "Processed $($sectionData.Count) rows from $($csvFile.Name)"
+                Write-Log "Processed $($sectionData.Count) rows from $($csvFile.Name)"
             } catch {
-                # Write-Log "Failed to read CSV file $csvFilePath. Error: $_"
+                Write-Log "Failed to read CSV file $csvFilePath. Error: $_"
                 continue
             }
 
@@ -2879,10 +3382,10 @@ function Get-MyPartsRoomQuantity {
                 return [int]$part.QTY
             }
         } catch {
-            # Write-Log "Error reading My Parts Room CSV: $_"
+            Write-Log "Error reading My Parts Room CSV: $_"
         }
     } else {
-        # Write-Log "Error: Expected 1 CSV file in Parts Room directory, found $($csvFiles.Count)"
+        Write-Log "Error: Expected 1 CSV file in Parts Room directory, found $($csvFiles.Count)"
     }
     return 0
 }
@@ -2905,15 +3408,15 @@ function Get-SameDayPartsRoomQuantities {
                     }
                 }
             } catch {
-                # Write-Log "Error reading Same Day Parts Room CSV $($csvFile.Name): $_"
+                Write-Log "Error reading Same Day Parts Room CSV $($csvFile.Name): $_"
             }
         }
     } else {
-        # Write-Log "Same Day Parts Room directory not found at $sameDayPartsDir"
+        Write-Log "Same Day Parts Room directory not found at $sameDayPartsDir"
     }
     return $results | Sort-Object -Property Quantity -Descending
 }
 
 # Main execution
 Show-MainForm
-# Write-Log "Application closed"
+Write-Log "Application closed"
