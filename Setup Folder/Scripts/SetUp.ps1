@@ -339,6 +339,13 @@ function Test-ConfigurationValidity {
     
     Write-Log "Validating configuration structure..."
     
+    if (-not $config) {
+        throw "No configuration object provided"
+    }
+    
+    Write-Log "Config object contents:"
+    Write-Log ($config | ConvertTo-Json -Depth 4)
+    
     # Required root level paths
     $requiredPaths = @(
         'RootDirectory',
@@ -350,21 +357,18 @@ function Test-ConfigurationValidity {
         'ScriptsDirectory'
     )
 
-    # Required CSV files
-    $requiredCsvFiles = @(
-        @{Name = "Machines"; Path = "Machines.csv"},
-        @{Name = "Causes"; Path = "Causes.csv"},
-        @{Name = "Actions"; Path = "Actions.csv"},
-        @{Name = "Nouns"; Path = "Nouns.csv"},
-        @{Name = "Sites"; Path = "Sites.csv"}
-    )
-
     # Check for required paths
     $missingPaths = @()
     foreach ($path in $requiredPaths) {
-        if (-not $config.$path) {
+        Write-Log "Checking path: $path"
+        if (-not ($config.PSObject.Properties.Name -contains $path) -or -not $config.$path) {
+            Write-Log "Missing path: $path"
             $missingPaths += $path
-        } elseif (-not (Test-Path $config.$path)) {
+            continue
+        }
+        
+        if (-not (Test-Path $config.$path)) {
+            Write-Log "Path exists in config but not on disk: $($config.$path)"
             Write-Log "Creating missing directory: $($config.$path)"
             New-Item -ItemType Directory -Force -Path $config.$path | Out-Null
         }
@@ -375,48 +379,15 @@ function Test-ConfigurationValidity {
     }
 
     # Verify Books structure
-    if (-not $config.Books -or $config.Books.Count -eq 0) {
+    if (-not ($config.PSObject.Properties.Name -contains 'Books')) {
         Write-Log "Warning: No books configured in Books section"
-    } else {
-        foreach ($book in $config.Books.PSObject.Properties) {
-            if (-not $book.Value.VolumesToUrlCsvPath -or -not $book.Value.SectionNamesCsvPath) {
-                throw "Invalid book configuration for $($book.Name): Missing required paths"
-            }
-        }
+        $config | Add-Member -NotePropertyName Books -NotePropertyValue @{} -Force
     }
 
-    # Verify SameDayPartsRooms structure
-    if (-not $config.SameDayPartsRooms) {
-        $config | Add-Member -NotePropertyName SameDayPartsRooms -NotePropertyValue @() -Force
-        Write-Log "Added empty SameDayPartsRooms array to configuration"
-    }
-
-    # Check required CSV files
-    foreach ($csv in $requiredCsvFiles) {
-        $csvPath = Join-Path $config.DropdownCsvsDirectory $csv.Path
-        if (-not (Test-Path $csvPath)) {
-            Write-Log "Creating empty CSV file: $csvPath"
-            # Create with headers based on file type
-            switch ($csv.Name) {
-                "Machines" { "Machine Acronym,Machine Number" | Out-File $csvPath -Encoding utf8 }
-                "Sites" { "Site ID,Full Name" | Out-File $csvPath -Encoding utf8 }
-                default { "Value" | Out-File $csvPath -Encoding utf8 }
-            }
-        }
-    }
-
-    # Create empty log files if they don't exist
-    $laborLogsPath = Join-Path $config.LaborDirectory "LaborLogs.csv"
-    $callLogsPath = Join-Path $config.CallLogsDirectory "CallLogs.csv"
-
-    if (-not (Test-Path $laborLogsPath)) {
-        "Date,Work Order,Description,Machine,Duration,Notes" | Out-File $laborLogsPath -Encoding utf8
-        Write-Log "Created LaborLogs.csv with headers"
-    }
-
-    if (-not (Test-Path $callLogsPath)) {
-        "Date,Machine,Cause,Action,Noun,Time Down,Time Up,Notes" | Out-File $callLogsPath -Encoding utf8
-        Write-Log "Created CallLogs.csv with headers"
+    # Verify PrerequisiteFiles
+    if (-not ($config.PSObject.Properties.Name -contains 'PrerequisiteFiles')) {
+        Write-Log "Warning: No PrerequisiteFiles configured"
+        $config | Add-Member -NotePropertyName PrerequisiteFiles -NotePropertyValue @{} -Force
     }
 
     Write-Log "Configuration validation completed successfully"
