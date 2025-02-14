@@ -204,7 +204,7 @@ function Get-VerifiedHtmlContent($handbookName) {
     $label = New-Object System.Windows.Forms.Label
     $label.Location = New-Object System.Drawing.Point(10, 10)
     $label.Size = New-Object System.Drawing.Size(580, 40)
-    $label.Text = "Please expand all sections for $handbookName, locate the div with id 'Ryan's Fault', copy its contents, and paste them below:"
+    $label.Text = "Please expand all sections for $handbookName, locate the div containing the parts list content, copy its contents, and paste them below:"
     $form.Controls.Add($label)
 
     $textBox = New-Object System.Windows.Forms.RichTextBox
@@ -216,7 +216,21 @@ function Get-VerifiedHtmlContent($handbookName) {
     $okButton.Location = New-Object System.Drawing.Point(250, 320)
     $okButton.Size = New-Object System.Drawing.Size(100, 30)
     $okButton.Text = 'OK'
-    $okButton.Add_Click({ $form.DialogResult = [System.Windows.Forms.DialogResult]::OK; $form.Close() })
+    $okButton.Add_Click({
+        # Validate content before accepting
+        $content = $textBox.Text
+        if ($content -match '<div.*?>.*?<ul.*?class="treeview".*?>.*?</ul>.*?</div>' -or 
+            $content -match '<span.*?id="book_title".*?>.*?</span>') {
+            $form.DialogResult = [System.Windows.Forms.DialogResult]::OK
+            $form.Close()
+        } else {
+            [System.Windows.Forms.MessageBox]::Show(
+                "The pasted content doesn't appear to contain the expected handbook structure. Please make sure you've copied the entire content including the book title and section list.",
+                "Invalid Content",
+                [System.Windows.Forms.MessageBoxButtons]::OK,
+                [System.Windows.Forms.MessageBoxIcon]::Warning)
+        }
+    })
     $form.Controls.Add($okButton)
 
     $result = $form.ShowDialog()
@@ -234,16 +248,46 @@ function Process-HTMLContent($htmlContent, $selectedRow, $directoryPath) {
     try {
         # Create HTML DOM object
         $html = New-Object -ComObject "HTMLFile"
-        $html.write([System.Text.Encoding]::Unicode.GetBytes($htmlContent))
-
-        # Extract book title
-        $bookTitle = ($html.getElementById("book_title")).innerText.Trim()
+        
+        # Convert content to bytes and write to DOM
+        $bytes = [System.Text.Encoding]::Unicode.GetBytes($htmlContent)
+        $html.write($bytes)
+        
+        # Extract book title - try multiple approaches
+        $bookTitle = $null
+        $titleElement = $html.getElementById("book_title")
+        if ($titleElement) {
+            $bookTitle = $titleElement.innerText.Trim()
+        } else {
+            # Try finding by class or other means
+            $spans = $html.getElementsByTagName("span")
+            foreach ($span in $spans) {
+                if ($span.id -eq "book_title") {
+                    $bookTitle = $span.innerText.Trim()
+                    break
+                }
+            }
+        }
+        
+        if (-not $bookTitle) {
+            throw "Could not extract book title from HTML content"
+        }
         Write-Host "Book Title: $bookTitle"
 
-        # Process Figures
+        # Process Figures - try multiple approaches to find the figures
         $figureCsvLines = "Figure No.,Name,Section No.,MS Book No,Volume,URL"
-        $figureElements = $html.getElementsByTagName("li") | Where-Object { 
-            $_.getAttribute("figno") -match "\d+-\d+" 
+        $figureElements = @()
+        
+        # Try getting figures from li elements with figno attribute
+        $allLis = $html.getElementsByTagName("li")
+        foreach ($li in $allLis) {
+            if ($li.getAttribute("figno") -match "\d+-\d+") {
+                $figureElements += $li
+            }
+        }
+
+        if ($figureElements.Count -eq 0) {
+            throw "No figures found in HTML content"
         }
 
         foreach ($figure in $figureElements) {
@@ -264,14 +308,20 @@ function Process-HTMLContent($htmlContent, $selectedRow, $directoryPath) {
 
         # Extract section names
         $sectionNames = @{}
-        $sectionElements = $html.getElementsByTagName("li") | Where-Object { 
+        $sectionElements = $allLis | Where-Object { 
             $_.getAttribute("sno") -match "\d+" 
         }
 
         foreach ($section in $sectionElements) {
-            $sectionNumber = ($section.getElementsByTagName("span") | Select-Object -First 1).innerText -replace "Section (\d+).+", '$1'
-            $sectionTitle = ($section.getElementsByTagName("span") | Select-Object -First 1).innerText -replace "Section \d+\s*", ""
-            $sectionNames["Section $sectionNumber"] = "Section $sectionNumber $sectionTitle"
+            $spans = $section.getElementsByTagName("span")
+            if ($spans.length -gt 0) {
+                $sectionText = $spans[0].innerText
+                if ($sectionText -match "Section (\d+)(.+)") {
+                    $sectionNumber = $matches[1]
+                    $sectionTitle = $matches[2].Trim()
+                    $sectionNames["Section $sectionNumber"] = "Section $sectionNumber $sectionTitle"
+                }
+            }
         }
 
         # Save section names to a file
@@ -289,8 +339,14 @@ function Process-HTMLContent($htmlContent, $selectedRow, $directoryPath) {
         Write-Host "Error processing HTML content: $($_.Exception.Message)"
         throw
     }
+    finally {
+        if ($html) {
+            [System.Runtime.Interopservices.Marshal]::ReleaseComObject($html) | Out-Null
+            [System.GC]::Collect()
+            [System.GC]::WaitForPendingFinalizers()
+        }
+    }
 }
-
 # Function to process HTML to CSV
 function Process-HTMLToCSV {
     param (
