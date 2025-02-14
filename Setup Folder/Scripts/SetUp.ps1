@@ -2,6 +2,8 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
+$script:Config = $null
+
 function Write-Log {
     param([string]$message)
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -50,7 +52,7 @@ function Set-InitialConfiguration {
     Write-Log "Created Root Directory at $rootDir"
 
     # Define subdirectories in the config
-    $config = @{
+    $script:Config = @{
         RootDirectory        = $rootDir
         PartsBooksDirectory  = Join-Path $rootDir "Parts Books"
         ScriptsDirectory     = Join-Path $rootDir "Scripts"
@@ -63,7 +65,6 @@ function Set-InitialConfiguration {
         SupervisorEmail      = "default@example.com"
         SetupFolder          = $setupFolder
     }
-
     # Create subdirectories
     Write-Log "Creating subdirectories..."
     $subDirs = @("PartsBooksDirectory", "ScriptsDirectory", "DropdownCsvsDirectory", "PartsRoomDirectory", "LaborDirectory", "CallLogsDirectory")
@@ -100,7 +101,7 @@ function Set-InitialConfiguration {
     $config | ConvertTo-Json -Depth 4 | Set-Content -Path $configFilePath
     Write-Log "Configuration saved at $configFilePath"
 
-    return $config
+    return $script:Config
 }
 
 # Function to copy setup files to the necessary directories
@@ -232,14 +233,15 @@ function Set-PartsRoom {
         try {
             Write-Host "Reading HTML content from file $htmlFilePath"
             $htmlContent = Get-Content -Path $htmlFilePath -Raw -ErrorAction Stop
-
+    
             if ([string]::IsNullOrWhiteSpace($htmlContent)) {
                 throw "HTML content is empty or null"
             }
-
-            # Create HTML DOM object
+    
+            # Create HTML DOM object and set content properly
             $html = New-Object -ComObject "HTMLFile"
-            $html.write([System.Text.Encoding]::Unicode.GetBytes($htmlContent))
+            $source = [System.Text.Encoding]::Unicode.GetBytes($htmlContent)
+            $html.IHTMLDocument2_write($source)
 
             Write-Host "Parsing content with DOM..."
             $parsedData = @()
@@ -339,13 +341,6 @@ function Test-ConfigurationValidity {
     
     Write-Log "Validating configuration structure..."
     
-    if (-not $config) {
-        throw "No configuration object provided"
-    }
-    
-    Write-Log "Config object contents:"
-    Write-Log ($config | ConvertTo-Json -Depth 4)
-    
     # Required root level paths
     $requiredPaths = @(
         'RootDirectory',
@@ -357,18 +352,21 @@ function Test-ConfigurationValidity {
         'ScriptsDirectory'
     )
 
+    # Required CSV files
+    $requiredCsvFiles = @(
+        @{Name = "Machines"; Path = "Machines.csv"},
+        @{Name = "Causes"; Path = "Causes.csv"},
+        @{Name = "Actions"; Path = "Actions.csv"},
+        @{Name = "Nouns"; Path = "Nouns.csv"},
+        @{Name = "Sites"; Path = "Sites.csv"}
+    )
+
     # Check for required paths
     $missingPaths = @()
     foreach ($path in $requiredPaths) {
-        Write-Log "Checking path: $path"
-        if (-not ($config.PSObject.Properties.Name -contains $path) -or -not $config.$path) {
-            Write-Log "Missing path: $path"
+        if (-not $config.$path) {
             $missingPaths += $path
-            continue
-        }
-        
-        if (-not (Test-Path $config.$path)) {
-            Write-Log "Path exists in config but not on disk: $($config.$path)"
+        } elseif (-not (Test-Path $config.$path)) {
             Write-Log "Creating missing directory: $($config.$path)"
             New-Item -ItemType Directory -Force -Path $config.$path | Out-Null
         }
@@ -379,15 +377,48 @@ function Test-ConfigurationValidity {
     }
 
     # Verify Books structure
-    if (-not ($config.PSObject.Properties.Name -contains 'Books')) {
+    if (-not $config.Books -or $config.Books.Count -eq 0) {
         Write-Log "Warning: No books configured in Books section"
-        $config | Add-Member -NotePropertyName Books -NotePropertyValue @{} -Force
+    } else {
+        foreach ($book in $config.Books.PSObject.Properties) {
+            if (-not $book.Value.VolumesToUrlCsvPath -or -not $book.Value.SectionNamesCsvPath) {
+                throw "Invalid book configuration for $($book.Name): Missing required paths"
+            }
+        }
     }
 
-    # Verify PrerequisiteFiles
-    if (-not ($config.PSObject.Properties.Name -contains 'PrerequisiteFiles')) {
-        Write-Log "Warning: No PrerequisiteFiles configured"
-        $config | Add-Member -NotePropertyName PrerequisiteFiles -NotePropertyValue @{} -Force
+    # Verify SameDayPartsRooms structure
+    if (-not $config.SameDayPartsRooms) {
+        $config | Add-Member -NotePropertyName SameDayPartsRooms -NotePropertyValue @() -Force
+        Write-Log "Added empty SameDayPartsRooms array to configuration"
+    }
+
+    # Check required CSV files
+    foreach ($csv in $requiredCsvFiles) {
+        $csvPath = Join-Path $config.DropdownCsvsDirectory $csv.Path
+        if (-not (Test-Path $csvPath)) {
+            Write-Log "Creating empty CSV file: $csvPath"
+            # Create with headers based on file type
+            switch ($csv.Name) {
+                "Machines" { "Machine Acronym,Machine Number" | Out-File $csvPath -Encoding utf8 }
+                "Sites" { "Site ID,Full Name" | Out-File $csvPath -Encoding utf8 }
+                default { "Value" | Out-File $csvPath -Encoding utf8 }
+            }
+        }
+    }
+
+    # Create empty log files if they don't exist
+    $laborLogsPath = Join-Path $config.LaborDirectory "LaborLogs.csv"
+    $callLogsPath = Join-Path $config.CallLogsDirectory "CallLogs.csv"
+
+    if (-not (Test-Path $laborLogsPath)) {
+        "Date,Work Order,Description,Machine,Duration,Notes" | Out-File $laborLogsPath -Encoding utf8
+        Write-Log "Created LaborLogs.csv with headers"
+    }
+
+    if (-not (Test-Path $callLogsPath)) {
+        "Date,Machine,Cause,Action,Noun,Time Down,Time Up,Notes" | Out-File $callLogsPath -Encoding utf8
+        Write-Log "Created CallLogs.csv with headers"
     }
 
     Write-Log "Configuration validation completed successfully"
@@ -400,16 +431,16 @@ function Run-Setup {
     Write-Log "Starting Run-Setup"
     
     # Set up the initial configuration
-    $config = Set-InitialConfiguration
-
+    $script:Config = Set-InitialConfiguration
+    
     # Copy setup files
-    Copy-SetupFiles -config $config
-
+    Copy-SetupFiles -config $script:Config
+    
     # Ask for site to download and process
-    Set-PartsRoom -config $config
-
+    Set-PartsRoom -config $script:Config
+    
     # Ensure config is properly structured
-    Test-ConfigurationValidity
+    Test-ConfigurationValidity -config $script:Config
 
     Write-Log "Setup completed successfully!"
 }
