@@ -3,58 +3,12 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 function Write-Log {
-    param(
-        [string]$message,
-        [switch]$errorr
-    )
+    param([string]$message)
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logMessage = "$timestamp - $message"
-    
-    if ($errorr) {
-        Write-Host $logMessage -ForegroundColor Red
-    } else {
-        Write-Host $logMessage
-    }
-    
-    # Ensure log directory exists
-    $logDir = Split-Path $global:config.ScriptsDirectory
-    $logPath = Join-Path $logDir "setup_log.log"
-    
-    try {
-        Add-Content -Path $logPath -Value $logMessage -ErrorAction Stop
-    } catch {
-        Write-Host "Failed to write to log file: $($_.Exception.Message)" -ForegroundColor Red
-    }
+    Write-Host "$timestamp - $message"
+    # Optionally, you can also write to a log file:
+    "$timestamp - $message" | Out-File -Append -FilePath "setup_log.log"
 }
-
-function Test-ScriptValid {
-    param(
-        [string]$scriptPath,
-        [string]$scriptName
-    )
-    
-    Write-Log "Verifying $scriptName at path: $scriptPath"
-    
-    if (-not (Test-Path $scriptPath)) {
-        Write-Log "Error: $scriptName not found at: $scriptPath" -error
-        return $false
-    }
-    
-    try {
-        $scriptContent = Get-Content $scriptPath -ErrorAction Stop
-        if ($null -eq $scriptContent -or $scriptContent.Length -eq 0) {
-            Write-Log "Error: $scriptName is empty" -error
-            return $false
-        }
-        
-        Write-Log "$scriptName found with $($scriptContent.Length) lines"
-        return $true
-    } catch {
-        Write-Log "Error reading $scriptName: $($_.Exception.Message)" -error
-        return $false
-    }
-}
-
 
 
 # Function to show a folder browser dialog
@@ -157,26 +111,12 @@ function Copy-SetupFiles {
     $setupDir = $config.SetupFolder
     Write-Log "Setup Directory: $setupDir"
 
-    # Copy Scripts with verification
+    # Copy Scripts
     Write-Log "Copying Scripts..."
     $scriptsSourceDir = Join-Path $setupDir "Scripts"
     if (Test-Path $scriptsSourceDir) {
-        # Check for Parts-Books-Creator.ps1 specifically
-        $creatorScript = Get-ChildItem -Path $scriptsSourceDir -Filter "Parts-Books-Creator.ps1"
-        if (-not $creatorScript) {
-            Write-Log "Warning: Parts-Books-Creator.ps1 not found in source directory"
-        }
-
         Copy-Item -Path "$scriptsSourceDir\*" -Destination $config.ScriptsDirectory -Recurse -Force
         Write-Log "Copied Scripts"
-
-        # Verify the copy
-        $destinationScript = Get-ChildItem -Path $config.ScriptsDirectory -Filter "Parts-Books-Creator.ps1"
-        if ($destinationScript) {
-            Write-Log "Verified Parts-Books-Creator.ps1 at: $($destinationScript.FullName)"
-        } else {
-            Write-Log "Warning: Parts-Books-Creator.ps1 not found after copy"
-        }
     } else {
         Write-Log "Warning: Scripts directory not found in the SetupFolder: $scriptsSourceDir"
     }
@@ -297,12 +237,17 @@ function Set-PartsRoom {
                 throw "HTML content is empty or null"
             }
 
-            Write-Host "HTML content read successfully. Parsing content using DOM..."
+            # Create HTML DOM object
             $html = New-Object -ComObject "HTMLFile"
-            $html.IHTMLDocument2_write($htmlContent)
-            $html.close()
+            $html.write([System.Text.Encoding]::Unicode.GetBytes($htmlContent))
 
-            $rows = @($html.getElementsByTagName('tr') | Where-Object { $_.className -eq 'MAIN' })
+            Write-Host "Parsing content with DOM..."
+            $parsedData = @()
+
+            # Find all TR elements with class "MAIN"
+            $rows = $html.getElementsByTagName("tr") | Where-Object { 
+                $_.className -eq "MAIN" 
+            }
 
             Write-Host "Number of rows found: $($rows.Count)"
 
@@ -310,18 +255,17 @@ function Set-PartsRoom {
                 throw "No data rows found in HTML content"
             }
 
-            $parsedData = @()
-
             foreach ($row in $rows) {
                 try {
-                    $cells = @($row.getElementsByTagName('td'))
-                    Write-Host "Processing row. Number of cells: $($cells.Count)"
+                    $cells = @($row.getElementsByTagName("td"))
+                    Write-Host "Processing row with $($cells.Count) cells"
 
                     if ($cells.Count -ge 6) {
+                        # Extract cell values using DOM properties
                         $partNSN = $cells[0].innerText.Trim()
                         $description = $cells[1].innerText.Trim()
-                        $qty = $cells[2].innerText.Trim()
-                        $usage = $cells[3].innerText.Trim()
+                        $qty = $cells[2].innerText.Trim() -replace '[^\d]'
+                        $usage = $cells[3].innerText.Trim() -replace '[^\d]'
                         $oemData = $cells[4].innerText.Trim()
                         $location = $cells[5].innerText.Trim()
 
@@ -332,20 +276,20 @@ function Set-PartsRoom {
                         $oem3 = if ($oems.Count -gt 2) { ($oems[2] -split '\s+', 2)[-1].Trim() } else { "" }
 
                         $parsedData += [PSCustomObject]@{
-                            "Part (NSN)"     = $partNSN
-                            "Description"    = $description
-                            "QTY"           = [int]($qty -replace '[^\d]')
-                            "13 Period Usage" = [int]($usage -replace '[^\d]')
+                            "Part (NSN)"    = $partNSN
+                            "Description"   = $description
+                            "QTY"          = [int]($qty -as [int])
+                            "13 Period Usage" = [int]($usage -as [int])
                             "Location"      = $location
                             "OEM 1"         = $oem1
                             "OEM 2"         = $oem2
                             "OEM 3"         = $oem3
                         }
 
-                        Write-Host "Added row: Part(NSN)=$partNSN, Description=$description, QTY=$qty, Location=$location"
+                        Write-Host "Added row: Part(NSN)=$partNSN"
                     }
                     else {
-                        Write-Host "Row does not have enough cells (found $($cells.Count)), skipping"
+                        Write-Host "Row has only $($cells.Count) cells, skipping"
                     }
                 }
                 catch {
@@ -366,11 +310,6 @@ function Set-PartsRoom {
             if (Test-Path $csvFilePath) {
                 Write-Host "CSV file created successfully at $csvFilePath"
                 [System.Windows.Forms.MessageBox]::Show("CSV file has been created at: $csvFilePath", "CSV Created", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-        
-                # Now create and format the Excel file
-                Write-Host "Creating Excel file..."
-            } else {
-                throw "Failed to create CSV file."
             }
         }
         catch {
@@ -383,213 +322,22 @@ function Set-PartsRoom {
     }
 }
 
-# Function to create and format Excel file from CSV
-function Create-ExcelFromCsv {
-    param(
-        [string]$siteName,
-        [string]$csvDirectory,
-        [string]$excelDirectory,
-        [string]$tableName = "My_Parts_Room"
-    )
-    try {
-        Write-Host "Starting to create Excel file from CSV..."
-        $csvFilePath = Join-Path $csvDirectory "$siteName.csv"
-        $excelFilePath = Join-Path $excelDirectory "$siteName.xlsx"
-
-        # Ensure the CSV file exists
-        if (-not (Test-Path $csvFilePath)) {
-            throw "CSV file not found at $csvFilePath"
-        }
-
-        # Initialize Excel Application
-        $excel = New-Object -ComObject Excel.Application
-        $excel.Visible = $false
-        $workbook = $excel.Workbooks.Add()
-        $worksheet = $workbook.Sheets.Item(1)
-        $worksheet.Name = "Parts Data"
-
-        # Clear any existing data on the worksheet to prevent conflicts
-        $worksheet.Cells.Clear()
-
-        # Read the CSV file and split into rows and columns
-        $csvData = Import-Csv -Path $csvFilePath
-
-        # Add headers
-        $headers = $csvData[0].PSObject.Properties.Name
-        $col = 1
-        foreach ($header in $headers) {
-            $worksheet.Cells.Item(1, $col).Value2 = $header
-            $col++
-        }
-
-        # Populate the worksheet with CSV data
-        $row = 2
-        foreach ($line in $csvData) {
-            $col = 1
-            foreach ($header in $headers) {
-                $worksheet.Cells.Item($row, $col).Value2 = $line.$header
-                $col++
-            }
-            $row++
-        }
-
-        # Define the used range
-        $usedRange = $worksheet.Range("A1").CurrentRegion
-
-        # Create and format the table
-        $listObject = $worksheet.ListObjects.Add([Microsoft.Office.Interop.Excel.XlListObjectSourceType]::xlSrcRange, $usedRange, $null, [Microsoft.Office.Interop.Excel.XlYesNoGuess]::xlYes)
-        $listObject.Name = $tableName
-        $listObject.TableStyle = "TableStyleMedium2"
-
-        # Apply formatting to all cells
-        $usedRange.Cells.VerticalAlignment = -4108 # xlCenter
-        $usedRange.Cells.HorizontalAlignment = -4108 # xlCenter
-        $usedRange.Cells.WrapText = $false
-        $usedRange.Cells.Font.Name = "Courier New"
-        $usedRange.Cells.Font.Size = 12
-        $worksheet.Columns.AutoFit()
-
-        # Left-align the "Description" column, excluding the header
-        $descriptionColumn = $listObject.ListColumns.Item("Description")
-        if ($descriptionColumn -ne $null) {
-            $descriptionColumn.Range.Offset(1, 0).HorizontalAlignment = -4131 # xlLeft
-        }
-
-        # Save the workbook
-        Write-Host "Saving Excel file..."
-        $workbook.SaveAs($excelFilePath)
-        $workbook.Close($false)
-        $excel.Quit()
-
-        Write-Host "Excel file created successfully at $excelFilePath"
-    } catch {
-        Write-Host "Error during Excel file creation: $($_.Exception.Message)"
-    } finally {
-        # Clean up COM objects to prevent memory leaks
-        if ($worksheet) { [System.Runtime.Interopservices.Marshal]::ReleaseComObject($worksheet) | Out-Null }
-        if ($workbook) { [System.Runtime.Interopservices.Marshal]::ReleaseComObject($workbook) | Out-Null }
-        if ($excel) { [System.Runtime.Interopservices.Marshal]::ReleaseComObject($excel) | Out-Null }
-        [System.GC]::Collect()
-        [System.GC]::WaitForPendingFinalizers()
-    }
-}
-
 # Function to run Parts-Books-Creator.ps1
 function Run-PartsBookCreator {
     param($config)
-    
-    Write-Log "Starting Run-PartsBookCreator function"
-    
-    # Verify config object
-    if ($null -eq $config) {
-        $errorMsg = "Configuration object is null"
-        Write-Log "Error: $errorMsg" -error
-        throw $errorMsg
-    }
-    
-    # Verify Scripts Directory exists
-    if (-not (Test-Path $config.ScriptsDirectory)) {
-        $errorMsg = "Scripts directory not found: $($config.ScriptsDirectory)"
-        Write-Log "Error: $errorMsg" -error
-        throw $errorMsg
-    }
-    
-    # Build and verify script path
     $partsBookCreatorPath = Join-Path $config.ScriptsDirectory "Parts-Books-Creator.ps1"
-    if (-not (Test-ScriptValid -scriptPath $partsBookCreatorPath -scriptName "Parts-Books-Creator.ps1")) {
-        throw "Invalid Parts-Books-Creator.ps1 script"
-    }
-    
-    # Create execution verification flag
-    $executionFlag = Join-Path $config.ScriptsDirectory "creator_execution.flag"
-    if (Test-Path $executionFlag) {
-        Remove-Item $executionFlag -Force
-    }
-    
-    Write-Log "Attempting to execute Parts-Books-Creator.ps1"
-    
-    try {
-        # Create script block for execution
-        $scriptBlock = {
-            param($scriptPath, $configObject, $flagPath)
-            
-            try {
-                # Create start marker
-                "Script execution started at $(Get-Date)" | Out-File $flagPath
-                
-                # Execute the script
-                & $scriptPath -Config $configObject
-                
-                # Update flag to indicate successful completion
-                "Script execution completed at $(Get-Date)" | Out-File $flagPath -Append
-                
-            } catch {
-                # Log error to flag file
-                "Script execution failed at $(Get-Date): $($_.Exception.Message)" | Out-File $flagPath -Append
-                throw $_.Exception
-            }
-        }
-        
-        # Start job with timeout
-        $job = Start-Job -ScriptBlock $scriptBlock -ArgumentList $partsBookCreatorPath, $config, $executionFlag
-        
-        # Wait for job with progress update
-        $timeout = 300 # 5 minutes timeout
-        $timer = [System.Diagnostics.Stopwatch]::StartNew()
-        
-        while (-not $job.HasMoreData -and $timer.Elapsed.TotalSeconds -lt $timeout) {
-            Write-Log "Waiting for Parts-Books-Creator.ps1 execution... ($([math]::Round($timer.Elapsed.TotalSeconds))s)"
-            Start-Sleep -Seconds 5
-        }
-        
-        # Check execution results
-        if (-not (Test-Path $executionFlag)) {
-            throw "Parts-Books-Creator.ps1 execution verification failed - no flag file created"
-        }
-        
-        $flagContent = Get-Content $executionFlag -Raw
-        if ($flagContent -match "failed") {
-            throw "Parts-Books-Creator.ps1 execution failed: $flagContent"
-        }
-        
-        Write-Log "Parts-Books-Creator.ps1 executed successfully"
-        Write-Log "Execution log: $flagContent"
-        
-    } catch {
-        $errorMsg = "Error executing Parts-Books-Creator.ps1: $($_.Exception.Message)"
-        Write-Log $errorMsg -error
-        Write-Log "Stack Trace: $($_.ScriptStackTrace)" -error
-        
-        [System.Windows.Forms.MessageBox]::Show(
-            $errorMsg,
-            "Script Execution Error",
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Error)
-        
-        throw
-    } finally {
-        # Cleanup
-        if ($job) {
-            Remove-Job $job -Force -ErrorAction SilentlyContinue
-        }
-        if (Test-Path $executionFlag) {
-            Remove-Item $executionFlag -Force -ErrorAction SilentlyContinue
-        }
+    if (Test-Path $partsBookCreatorPath) {
+        Write-Host "Running Parts-Books-Creator.ps1"
+        & $partsBookCreatorPath
+    } else {
+        Write-Host "Parts-Books-Creator.ps1 not found at $partsBookCreatorPath"
     }
 }
-
 
 function Test-ConfigurationValidity {
     param($config)
     
     Write-Log "Validating configuration structure..."
-    
-    if (-not $config) {
-        throw "No configuration object provided"
-    }
-    
-    Write-Log "Config object contents:"
-    Write-Log ($config | ConvertTo-Json -Depth 4)
     
     # Required root level paths
     $requiredPaths = @(
@@ -602,18 +350,21 @@ function Test-ConfigurationValidity {
         'ScriptsDirectory'
     )
 
+    # Required CSV files
+    $requiredCsvFiles = @(
+        @{Name = "Machines"; Path = "Machines.csv"},
+        @{Name = "Causes"; Path = "Causes.csv"},
+        @{Name = "Actions"; Path = "Actions.csv"},
+        @{Name = "Nouns"; Path = "Nouns.csv"},
+        @{Name = "Sites"; Path = "Sites.csv"}
+    )
+
     # Check for required paths
     $missingPaths = @()
     foreach ($path in $requiredPaths) {
-        Write-Log "Checking path: $path"
-        if (-not ($config.PSObject.Properties.Name -contains $path) -or -not $config.$path) {
-            Write-Log "Missing path: $path"
+        if (-not $config.$path) {
             $missingPaths += $path
-            continue
-        }
-        
-        if (-not (Test-Path $config.$path)) {
-            Write-Log "Path exists in config but not on disk: $($config.$path)"
+        } elseif (-not (Test-Path $config.$path)) {
             Write-Log "Creating missing directory: $($config.$path)"
             New-Item -ItemType Directory -Force -Path $config.$path | Out-Null
         }
@@ -624,100 +375,73 @@ function Test-ConfigurationValidity {
     }
 
     # Verify Books structure
-    if (-not ($config.PSObject.Properties.Name -contains 'Books')) {
+    if (-not $config.Books -or $config.Books.Count -eq 0) {
         Write-Log "Warning: No books configured in Books section"
-        $config | Add-Member -NotePropertyName Books -NotePropertyValue @{} -Force
+    } else {
+        foreach ($book in $config.Books.PSObject.Properties) {
+            if (-not $book.Value.VolumesToUrlCsvPath -or -not $book.Value.SectionNamesCsvPath) {
+                throw "Invalid book configuration for $($book.Name): Missing required paths"
+            }
+        }
     }
 
-    # Verify PrerequisiteFiles
-    if (-not ($config.PSObject.Properties.Name -contains 'PrerequisiteFiles')) {
-        Write-Log "Warning: No PrerequisiteFiles configured"
-        $config | Add-Member -NotePropertyName PrerequisiteFiles -NotePropertyValue @{} -Force
+    # Verify SameDayPartsRooms structure
+    if (-not $config.SameDayPartsRooms) {
+        $config | Add-Member -NotePropertyName SameDayPartsRooms -NotePropertyValue @() -Force
+        Write-Log "Added empty SameDayPartsRooms array to configuration"
+    }
+
+    # Check required CSV files
+    foreach ($csv in $requiredCsvFiles) {
+        $csvPath = Join-Path $config.DropdownCsvsDirectory $csv.Path
+        if (-not (Test-Path $csvPath)) {
+            Write-Log "Creating empty CSV file: $csvPath"
+            # Create with headers based on file type
+            switch ($csv.Name) {
+                "Machines" { "Machine Acronym,Machine Number" | Out-File $csvPath -Encoding utf8 }
+                "Sites" { "Site ID,Full Name" | Out-File $csvPath -Encoding utf8 }
+                default { "Value" | Out-File $csvPath -Encoding utf8 }
+            }
+        }
+    }
+
+    # Create empty log files if they don't exist
+    $laborLogsPath = Join-Path $config.LaborDirectory "LaborLogs.csv"
+    $callLogsPath = Join-Path $config.CallLogsDirectory "CallLogs.csv"
+
+    if (-not (Test-Path $laborLogsPath)) {
+        "Date,Work Order,Description,Machine,Duration,Notes" | Out-File $laborLogsPath -Encoding utf8
+        Write-Log "Created LaborLogs.csv with headers"
+    }
+
+    if (-not (Test-Path $callLogsPath)) {
+        "Date,Machine,Cause,Action,Noun,Time Down,Time Up,Notes" | Out-File $callLogsPath -Encoding utf8
+        Write-Log "Created CallLogs.csv with headers"
     }
 
     Write-Log "Configuration validation completed successfully"
     return $true
 }
 
+
 # Main setup logic
-# Function to run the complete setup process
 function Run-Setup {
     Write-Log "Starting Run-Setup"
     
-    try {
-        # Set up the initial configuration
-        $global:config = Set-InitialConfiguration
-        
-        # Verify we have a valid config object
-        if (-not $global:config) {
-            throw "Failed to create initial configuration"
-        }
-        
-        Write-Log "Initial configuration created"
-        Write-Log ($global:config | ConvertTo-Json -Depth 4)
-        
-        # Copy setup files
-        Copy-SetupFiles -config $global:config
-        
-        # Load the saved config to ensure it was written correctly
-        $configPath = Join-Path $global:config.ScriptsDirectory "Config.json"
-        if (Test-Path $configPath) {
-            $global:config = Get-Content $configPath | ConvertFrom-Json
-            Write-Log "Loaded config from file"
-        } else {
-            Write-Log "Warning: Config file not found at expected location: $configPath" -error
-            throw "Configuration file not found after initial setup"
-        }
-        
-        # Ensure config is properly structured
-        if (Test-ConfigurationValidity -config $global:config) {
-            Write-Log "Configuration validated successfully"
-            
-            # Ask for site to download and process
-            Write-Log "Starting Parts Room setup..."
-            Set-PartsRoom -config $global:config
-            
-            # Create Excel file for the site if a site was selected
-            if ($global:selectedSite) {
-                Write-Log "Creating Excel file for $global:selectedSite"
-                Create-ExcelFromCsv -siteName $global:selectedSite `
-                                  -csvDirectory $global:config.PartsRoomDirectory `
-                                  -excelDirectory $global:config.PartsRoomDirectory
-            }
-            
-            # Run the Parts Book Creator script with enhanced error handling
-            Write-Log "Initiating Parts Book Creator execution..."
-            Run-PartsBookCreator -config $global:config
-        }
-        
-        Write-Log "Setup completed successfully!"
-        
-        [System.Windows.Forms.MessageBox]::Show(
-            "Setup process completed successfully.",
-            "Setup Complete",
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Information)
-            
-    } catch {
-        $errorMsg = "Setup failed: $($_.Exception.Message)"
-        Write-Log $errorMsg -error
-        Write-Log "Stack Trace: $($_.ScriptStackTrace)" -error
-        
-        [System.Windows.Forms.MessageBox]::Show(
-            $errorMsg,
-            "Setup Error",
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Error)
-            
-        throw
-    }
+    # Set up the initial configuration
+    $config = Set-InitialConfiguration
+
+    # Copy setup files
+    Copy-SetupFiles -config $config
+
+    # Ask for site to download and process
+    Set-PartsRoom -config $config
+
+    # Ensure config is properly structured
+    Test-ConfigurationValidity
+
+    Write-Log "Setup completed successfully!"
 }
-
-# Global variable to track selected site
-$global:selectedSite = $null
-
-# Initialize error preference
-$ErrorActionPreference = 'Stop'
 
 # Run the setup
 Run-Setup
