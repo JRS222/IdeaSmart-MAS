@@ -336,96 +336,6 @@ function Run-PartsBookCreator {
     }
 }
 
-function Test-ConfigurationValidity {
-    param($config)
-    
-    Write-Log "Validating configuration structure..."
-    
-    # Required root level paths
-    $requiredPaths = @(
-        'RootDirectory',
-        'LaborDirectory',
-        'CallLogsDirectory',
-        'PartsRoomDirectory',
-        'DropdownCsvsDirectory',
-        'PartsBooksDirectory',
-        'ScriptsDirectory'
-    )
-
-    # Required CSV files
-    $requiredCsvFiles = @(
-        @{Name = "Machines"; Path = "Machines.csv"},
-        @{Name = "Causes"; Path = "Causes.csv"},
-        @{Name = "Actions"; Path = "Actions.csv"},
-        @{Name = "Nouns"; Path = "Nouns.csv"},
-        @{Name = "Sites"; Path = "Sites.csv"}
-    )
-
-    # Check for required paths
-    $missingPaths = @()
-    foreach ($path in $requiredPaths) {
-        if (-not $config.$path) {
-            $missingPaths += $path
-        } elseif (-not (Test-Path $config.$path)) {
-            Write-Log "Creating missing directory: $($config.$path)"
-            New-Item -ItemType Directory -Force -Path $config.$path | Out-Null
-        }
-    }
-
-    if ($missingPaths.Count -gt 0) {
-        throw "Configuration missing required paths: $($missingPaths -join ', ')"
-    }
-
-    # Verify Books structure
-    if (-not $config.Books -or $config.Books.Count -eq 0) {
-        Write-Log "Warning: No books configured in Books section"
-    } else {
-        foreach ($book in $config.Books.PSObject.Properties) {
-            if (-not $book.Value.VolumesToUrlCsvPath -or -not $book.Value.SectionNamesCsvPath) {
-                throw "Invalid book configuration for $($book.Name): Missing required paths"
-            }
-        }
-    }
-
-    # Verify SameDayPartsRooms structure
-    if (-not $config.SameDayPartsRooms) {
-        $config | Add-Member -NotePropertyName SameDayPartsRooms -NotePropertyValue @() -Force
-        Write-Log "Added empty SameDayPartsRooms array to configuration"
-    }
-
-    # Check required CSV files
-    foreach ($csv in $requiredCsvFiles) {
-        $csvPath = Join-Path $config.DropdownCsvsDirectory $csv.Path
-        if (-not (Test-Path $csvPath)) {
-            Write-Log "Creating empty CSV file: $csvPath"
-            # Create with headers based on file type
-            switch ($csv.Name) {
-                "Machines" { "Machine Acronym,Machine Number" | Out-File $csvPath -Encoding utf8 }
-                "Sites" { "Site ID,Full Name" | Out-File $csvPath -Encoding utf8 }
-                default { "Value" | Out-File $csvPath -Encoding utf8 }
-            }
-        }
-    }
-
-    # Create empty log files if they don't exist
-    $laborLogsPath = Join-Path $config.LaborDirectory "LaborLogs.csv"
-    $callLogsPath = Join-Path $config.CallLogsDirectory "CallLogs.csv"
-
-    if (-not (Test-Path $laborLogsPath)) {
-        "Date,Work Order,Description,Machine,Duration,Notes" | Out-File $laborLogsPath -Encoding utf8
-        Write-Log "Created LaborLogs.csv with headers"
-    }
-
-    if (-not (Test-Path $callLogsPath)) {
-        "Date,Machine,Cause,Action,Noun,Time Down,Time Up,Notes" | Out-File $callLogsPath -Encoding utf8
-        Write-Log "Created CallLogs.csv with headers"
-    }
-
-    Write-Log "Configuration validation completed successfully"
-    return $true
-}
-
-
 # Main setup logic
 function Run-Setup {
     Write-Log "Starting Run-Setup"
@@ -438,9 +348,9 @@ function Run-Setup {
     
     # Ask for site to download and process
     Set-PartsRoom -config $script:Config
-    
-    # Ensure config is properly structured
-    Test-ConfigurationValidity -config $script:Config
+	
+	# Run Parts Books Creator
+	Run-PartsBookCreator -config $script:Config
 
     Write-Log "Setup completed successfully!"
 }
