@@ -2,8 +2,6 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-$script:Config = $null
-
 function Write-Log {
     param([string]$message)
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -52,7 +50,7 @@ function Set-InitialConfiguration {
     Write-Log "Created Root Directory at $rootDir"
 
     # Define subdirectories in the config
-    $script:Config = @{
+    $config = @{
         RootDirectory        = $rootDir
         PartsBooksDirectory  = Join-Path $rootDir "Parts Books"
         ScriptsDirectory     = Join-Path $rootDir "Scripts"
@@ -65,6 +63,7 @@ function Set-InitialConfiguration {
         SupervisorEmail      = "default@example.com"
         SetupFolder          = $setupFolder
     }
+
     # Create subdirectories
     Write-Log "Creating subdirectories..."
     $subDirs = @("PartsBooksDirectory", "ScriptsDirectory", "DropdownCsvsDirectory", "PartsRoomDirectory", "LaborDirectory", "CallLogsDirectory")
@@ -101,7 +100,7 @@ function Set-InitialConfiguration {
     $config | ConvertTo-Json -Depth 4 | Set-Content -Path $configFilePath
     Write-Log "Configuration saved at $configFilePath"
 
-    return $script:Config
+    return $config
 }
 
 # Function to copy setup files to the necessary directories
@@ -233,69 +232,68 @@ function Set-PartsRoom {
         try {
             Write-Host "Reading HTML content from file $htmlFilePath"
             $htmlContent = Get-Content -Path $htmlFilePath -Raw -ErrorAction Stop
-    
+
             if ([string]::IsNullOrWhiteSpace($htmlContent)) {
                 throw "HTML content is empty or null"
             }
-    
-            # Create HTML DOM object and set content properly
-            $html = New-Object -ComObject "HTMLFile"
-            $source = [System.Text.Encoding]::Unicode.GetBytes($htmlContent)
-            $html.IHTMLDocument2_write($source)
 
-            Write-Host "Parsing content with DOM..."
+            Write-Host "HTML content read successfully. Parsing content..."
             $parsedData = @()
-
-            # Find all TR elements with class "MAIN"
-            $rows = $html.getElementsByTagName("tr") | Where-Object { 
-                $_.className -eq "MAIN" 
-            }
+            $rows = @($htmlContent -split '<TR CLASS="MAIN"')
 
             Write-Host "Number of rows found: $($rows.Count)"
 
-            if ($rows.Count -eq 0) {
+            if ($rows.Count -le 1) {
                 throw "No data rows found in HTML content"
             }
 
-            foreach ($row in $rows) {
-                try {
-                    $cells = @($row.getElementsByTagName("td"))
-                    Write-Host "Processing row with $($cells.Count) cells"
+            for ($i = 1; $i -lt $rows.Count; $i++) {
+                $row = $rows[$i]
+                Write-Host "Processing row ${i}"
 
-                    if ($cells.Count -ge 6) {
-                        # Extract cell values using DOM properties
-                        $partNSN = $cells[0].innerText.Trim()
-                        $description = $cells[1].innerText.Trim()
-                        $qty = $cells[2].innerText.Trim() -replace '[^\d]'
-                        $usage = $cells[3].innerText.Trim() -replace '[^\d]'
-                        $oemData = $cells[4].innerText.Trim()
-                        $location = $cells[5].innerText.Trim()
+                if ($null -eq $row) {
+                    Write-Host "Row ${i} is null, skipping"
+                    continue
+                }
 
-                        # Process OEM information
+                $cells = @($row -split '<TD')
+                Write-Host "Number of cells in row ${i}: $($cells.Count)"
+
+                if ($cells.Count -ge 7) {
+                    try {
+                        $partNSN = if ($cells[1]) { ($cells[1] -replace '>|</TD>').Trim() } else { "" }
+                        $description = if ($cells[2]) { ($cells[2] -replace '>|</TD>').Trim() } else { "" }
+                        $qty = if ($cells[3]) { ($cells[3] -replace '>|</TD>|style="text-align:right;"').Trim() } else { "0" }
+                        $usage = if ($cells[4]) { ($cells[4] -replace '>|</TD>|style="text-align:right;"').Trim() } else { "0" }
+
+                        $oemData = if ($cells[5]) { $cells[5] -replace '<DIV>|</DIV>|<SPAN.*?>|</SPAN>' } else { "" }
                         $oems = @($oemData -split 'OEM:' | Select-Object -Skip 1)
-                        $oem1 = if ($oems.Count -gt 0) { ($oems[0] -split '\s+', 2)[-1].Trim() } else { "" }
-                        $oem2 = if ($oems.Count -gt 1) { ($oems[1] -split '\s+', 2)[-1].Trim() } else { "" }
-                        $oem3 = if ($oems.Count -gt 2) { ($oems[2] -split '\s+', 2)[-1].Trim() } else { "" }
+                        $oem1 = if ($oems.Count -gt 0 -and $oems[0]) { ($oems[0] -split ' ', 2)[1].Trim() -replace '</TD>' } else { "" }
+                        $oem2 = if ($oems.Count -gt 1 -and $oems[1]) { ($oems[1] -split ' ', 2)[1].Trim() -replace '</TD>' } else { "" }
+                        $oem3 = if ($oems.Count -gt 2 -and $oems[2]) { ($oems[2] -split ' ', 2)[1].Trim() -replace '</TD>' } else { "" }
+
+                        $location = if ($cells[6]) { ($cells[6] -replace '>|</TD>|</TR>').Trim() } else { "" }
 
                         $parsedData += [PSCustomObject]@{
-                            "Part (NSN)"    = $partNSN
-                            "Description"   = $description
-                            "QTY"          = [int]($qty -as [int])
-                            "13 Period Usage" = [int]($usage -as [int])
-                            "Location"      = $location
-                            "OEM 1"         = $oem1
-                            "OEM 2"         = $oem2
-                            "OEM 3"         = $oem3
+                            "Part (NSN)" = $partNSN
+                            "Description" = $description
+                            "QTY" = [int]($qty -replace '[^\d]')
+                            "13 Period Usage" = [int]($usage -replace '[^\d]')
+                            "Location" = $location
+                            "OEM 1" = $oem1
+                            "OEM 2" = $oem2
+                            "OEM 3" = $oem3
                         }
 
-                        Write-Host "Added row: Part(NSN)=$partNSN"
+                        Write-Host "Added row ${i}: Part(NSN)=$partNSN, Description=$description, QTY=$qty, Location=$location"
+
                     }
-                    else {
-                        Write-Host "Row has only $($cells.Count) cells, skipping"
+                    catch {
+                        Write-Host "Error processing row ${i}: $($_.Exception.Message)"
                     }
                 }
-                catch {
-                    Write-Host "Error processing row: $($_.Exception.Message)"
+                else {
+                    Write-Host "Row ${i} does not have enough cells, skipping"
                 }
             }
 
@@ -312,6 +310,12 @@ function Set-PartsRoom {
             if (Test-Path $csvFilePath) {
                 Write-Host "CSV file created successfully at $csvFilePath"
                 [System.Windows.Forms.MessageBox]::Show("CSV file has been created at: $csvFilePath", "CSV Created", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+        
+                # Now create and format the Excel file
+                Write-Host "Creating Excel file..."
+                Create-ExcelFromCsv -siteName $selectedSite -csvDirectory $config.PartsRoomDirectory -excelDirectory $config.PartsRoomDirectory
+            } else {
+                throw "Failed to create CSV file."
             }
         }
         catch {
@@ -324,33 +328,217 @@ function Set-PartsRoom {
     }
 }
 
-# Function to run Parts-Books-Creator.ps1
-function Run-PartsBookCreator {
-    param($config)
-    $partsBookCreatorPath = Join-Path $config.ScriptsDirectory "Parts-Books-Creator.ps1"
-    if (Test-Path $partsBookCreatorPath) {
-        Write-Host "Running Parts-Books-Creator.ps1"
-        & $partsBookCreatorPath
-    } else {
-        Write-Host "Parts-Books-Creator.ps1 not found at $partsBookCreatorPath"
+# Function to create and format Excel file from CSV
+function Create-ExcelFromCsv {
+    param(
+        [string]$siteName,
+        [string]$csvDirectory,
+        [string]$excelDirectory,
+        [string]$tableName = "My_Parts_Room"
+    )
+    try {
+        Write-Host "Starting to create Excel file from CSV..."
+        $csvFilePath = Join-Path $csvDirectory "$siteName.csv"
+        $excelFilePath = Join-Path $excelDirectory "$siteName.xlsx"
+
+        # Ensure the CSV file exists
+        if (-not (Test-Path $csvFilePath)) {
+            throw "CSV file not found at $csvFilePath"
+        }
+
+        # Initialize Excel Application
+        $excel = New-Object -ComObject Excel.Application
+        $excel.Visible = $false
+        $workbook = $excel.Workbooks.Add()
+        $worksheet = $workbook.Sheets.Item(1)
+        $worksheet.Name = "Parts Data"
+
+        # Clear any existing data on the worksheet to prevent conflicts
+        $worksheet.Cells.Clear()
+
+        # Read the CSV file and split into rows and columns
+        $csvData = Import-Csv -Path $csvFilePath
+
+        # Add headers
+        $headers = $csvData[0].PSObject.Properties.Name
+        $col = 1
+        foreach ($header in $headers) {
+            $worksheet.Cells.Item(1, $col).Value2 = $header
+            $col++
+        }
+
+        # Populate the worksheet with CSV data
+        $row = 2
+        foreach ($line in $csvData) {
+            $col = 1
+            foreach ($header in $headers) {
+                $worksheet.Cells.Item($row, $col).Value2 = $line.$header
+                $col++
+            }
+            $row++
+        }
+
+        # Define the used range
+        $usedRange = $worksheet.Range("A1").CurrentRegion
+
+        # Create and format the table
+        $listObject = $worksheet.ListObjects.Add([Microsoft.Office.Interop.Excel.XlListObjectSourceType]::xlSrcRange, $usedRange, $null, [Microsoft.Office.Interop.Excel.XlYesNoGuess]::xlYes)
+        $listObject.Name = $tableName
+        $listObject.TableStyle = "TableStyleMedium2"
+
+        # Apply formatting to all cells
+        $usedRange.Cells.VerticalAlignment = -4108 # xlCenter
+        $usedRange.Cells.HorizontalAlignment = -4108 # xlCenter
+        $usedRange.Cells.WrapText = $false
+        $usedRange.Cells.Font.Name = "Courier New"
+        $usedRange.Cells.Font.Size = 12
+        $worksheet.Columns.AutoFit()
+
+        # Left-align the "Description" column, excluding the header
+        $descriptionColumn = $listObject.ListColumns.Item("Description")
+        if ($descriptionColumn -ne $null) {
+            $descriptionColumn.Range.Offset(1, 0).HorizontalAlignment = -4131 # xlLeft
+        }
+
+        # Save the workbook
+        Write-Host "Saving Excel file..."
+        $workbook.SaveAs($excelFilePath)
+        $workbook.Close($false)
+        $excel.Quit()
+
+        Write-Host "Excel file created successfully at $excelFilePath"
+    } catch {
+        Write-Host "Error during Excel file creation: $($_.Exception.Message)"
+    } finally {
+        # Clean up COM objects to prevent memory leaks
+        if ($worksheet) { [System.Runtime.Interopservices.Marshal]::ReleaseComObject($worksheet) | Out-Null }
+        if ($workbook) { [System.Runtime.Interopservices.Marshal]::ReleaseComObject($workbook) | Out-Null }
+        if ($excel) { [System.Runtime.Interopservices.Marshal]::ReleaseComObject($excel) | Out-Null }
+        [System.GC]::Collect()
+        [System.GC]::WaitForPendingFinalizers()
     }
 }
+
+# Function to run Parts-Book-Creator.ps1
+function Run-PartsBookCreator {
+    param($config)
+    $partsBookCreatorPath = Join-Path $config.ScriptsDirectory "Parts-Book-Creator.ps1"
+    if (Test-Path $partsBookCreatorPath) {
+        Write-Host "Running Parts-Book-Creator.ps1"
+        & $partsBookCreatorPath
+    } else {
+        Write-Host "Parts-Book-Creator.ps1 not found at $partsBookCreatorPath"
+    }
+}
+
+function Test-ConfigurationValidity {
+    param($config)
+    
+    Write-Log "Validating configuration structure..."
+    
+    # Required root level paths
+    $requiredPaths = @(
+        'RootDirectory',
+        'LaborDirectory',
+        'CallLogsDirectory',
+        'PartsRoomDirectory',
+        'DropdownCsvsDirectory',
+        'PartsBooksDirectory',
+        'ScriptsDirectory'
+    )
+
+    # Required CSV files
+    $requiredCsvFiles = @(
+        @{Name = "Machines"; Path = "Machines.csv"},
+        @{Name = "Causes"; Path = "Causes.csv"},
+        @{Name = "Actions"; Path = "Actions.csv"},
+        @{Name = "Nouns"; Path = "Nouns.csv"},
+        @{Name = "Sites"; Path = "Sites.csv"}
+    )
+
+    # Check for required paths
+    $missingPaths = @()
+    foreach ($path in $requiredPaths) {
+        if (-not $config.$path) {
+            $missingPaths += $path
+        } elseif (-not (Test-Path $config.$path)) {
+            Write-Log "Creating missing directory: $($config.$path)"
+            New-Item -ItemType Directory -Force -Path $config.$path | Out-Null
+        }
+    }
+
+    if ($missingPaths.Count -gt 0) {
+        throw "Configuration missing required paths: $($missingPaths -join ', ')"
+    }
+
+    # Verify Books structure
+    if (-not $config.Books -or $config.Books.Count -eq 0) {
+        Write-Log "Warning: No books configured in Books section"
+    } else {
+        foreach ($book in $config.Books.PSObject.Properties) {
+            if (-not $book.Value.VolumesToUrlCsvPath -or -not $book.Value.SectionNamesCsvPath) {
+                throw "Invalid book configuration for $($book.Name): Missing required paths"
+            }
+        }
+    }
+
+    # Verify SameDayPartsRooms structure
+    if (-not $config.SameDayPartsRooms) {
+        $config | Add-Member -NotePropertyName SameDayPartsRooms -NotePropertyValue @() -Force
+        Write-Log "Added empty SameDayPartsRooms array to configuration"
+    }
+
+    # Check required CSV files
+    foreach ($csv in $requiredCsvFiles) {
+        $csvPath = Join-Path $config.DropdownCsvsDirectory $csv.Path
+        if (-not (Test-Path $csvPath)) {
+            Write-Log "Creating empty CSV file: $csvPath"
+            # Create with headers based on file type
+            switch ($csv.Name) {
+                "Machines" { "Machine Acronym,Machine Number" | Out-File $csvPath -Encoding utf8 }
+                "Sites" { "Site ID,Full Name" | Out-File $csvPath -Encoding utf8 }
+                default { "Value" | Out-File $csvPath -Encoding utf8 }
+            }
+        }
+    }
+
+    # Create empty log files if they don't exist
+    $laborLogsPath = Join-Path $config.LaborDirectory "LaborLogs.csv"
+    $callLogsPath = Join-Path $config.CallLogsDirectory "CallLogs.csv"
+
+    if (-not (Test-Path $laborLogsPath)) {
+        "Date,Work Order,Description,Machine,Duration,Notes" | Out-File $laborLogsPath -Encoding utf8
+        Write-Log "Created LaborLogs.csv with headers"
+    }
+
+    if (-not (Test-Path $callLogsPath)) {
+        "Date,Machine,Cause,Action,Noun,Time Down,Time Up,Notes" | Out-File $callLogsPath -Encoding utf8
+        Write-Log "Created CallLogs.csv with headers"
+    }
+
+    Write-Log "Configuration validation completed successfully"
+    return $true
+}
+
 
 # Main setup logic
 function Run-Setup {
     Write-Log "Starting Run-Setup"
     
     # Set up the initial configuration
-    $script:Config = Set-InitialConfiguration
-    
+    $config = Set-InitialConfiguration
+
     # Copy setup files
-    Copy-SetupFiles -config $script:Config
-    
+    Copy-SetupFiles -config $config
+
     # Ask for site to download and process
-    Set-PartsRoom -config $script:Config
-	
-	# Run Parts Books Creator
-	Run-PartsBookCreator -config $script:Config
+    Set-PartsRoom -config $config
+
+    # Ensure config is properly structured
+    Test-ConfigurationValidity
+
+    # Run the Parts Book Creator script
+    Run-PartsBookCreator -config $config
 
     Write-Log "Setup completed successfully!"
 }
