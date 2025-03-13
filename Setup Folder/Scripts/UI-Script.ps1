@@ -523,59 +523,63 @@ function Parse-HTMLToCSV {
             throw "HTML content is empty or null"
         }
 
-        Write-Log "HTML content read successfully. Parsing content using DOM..."
-        $html = New-Object -ComObject "HTMLFile"
-        $html.IHTMLDocument2_write($htmlContent)
-        $html.close()
-
-        $rows = @($html.getElementsByTagName('tr') | Where-Object { $_.className -eq 'MAIN' })
+        Write-Log "HTML content read successfully. Parsing content..."
+        $parsedData = @()
+        $rows = @($htmlContent -split '<TR CLASS="MAIN"')
 
         Write-Log "Number of rows found: $($rows.Count)"
 
-        if ($rows.Count -eq 0) {
+        if ($rows.Count -le 1) {
             throw "No data rows found in HTML content"
         }
 
-        $parsedData = @()
+        for ($i = 1; $i -lt $rows.Count; $i++) {
+            $row = $rows[$i]
+            Write-Log "Processing row ${i}"
 
-        foreach ($row in $rows) {
-            try {
-                $cells = @($row.getElementsByTagName('td'))
-                Write-Log "Processing row. Number of cells: $($cells.Count)"
+            if ($null -eq $row) {
+                Write-Log "Row ${i} is null, skipping"
+                continue
+            }
 
-                if ($cells.Count -ge 6) {
-                    $partNSN = $cells[0].innerText.Trim()
-                    $description = $cells[1].innerText.Trim()
-                    $qty = $cells[2].innerText.Trim()
-                    $usage = $cells[3].innerText.Trim()
-                    $oemData = $cells[4].innerText.Trim()
-                    $location = $cells[5].innerText.Trim()
+            $cells = @($row -split '<TD')
+            Write-Log "Number of cells in row ${i}: $($cells.Count)"
 
-                    # Process OEM information
+            if ($cells.Count -ge 7) {
+                try {
+                    $partNSN = if ($cells[1]) { ($cells[1] -replace '>|</TD>').Trim() } else { "" }
+                    $description = if ($cells[2]) { ($cells[2] -replace '>|</TD>').Trim() } else { "" }
+                    $qty = if ($cells[3]) { ($cells[3] -replace '>|</TD>|style="text-align:right;"').Trim() } else { "0" }
+                    $usage = if ($cells[4]) { ($cells[4] -replace '>|</TD>|style="text-align:right;"').Trim() } else { "0" }
+
+                    $oemData = if ($cells[5]) { $cells[5] -replace '<DIV>|</DIV>|<SPAN.*?>|</SPAN>' } else { "" }
                     $oems = @($oemData -split 'OEM:' | Select-Object -Skip 1)
-                    $oem1 = if ($oems.Count -gt 0) { ($oems[0] -split '\s+', 2)[-1].Trim() } else { "" }
-                    $oem2 = if ($oems.Count -gt 1) { ($oems[1] -split '\s+', 2)[-1].Trim() } else { "" }
-                    $oem3 = if ($oems.Count -gt 2) { ($oems[2] -split '\s+', 2)[-1].Trim() } else { "" }
+                    $oem1 = if ($oems.Count -gt 0 -and $oems[0]) { ($oems[0] -split ' ', 2)[1].Trim() -replace '</TD>' } else { "" }
+                    $oem2 = if ($oems.Count -gt 1 -and $oems[1]) { ($oems[1] -split ' ', 2)[1].Trim() -replace '</TD>' } else { "" }
+                    $oem3 = if ($oems.Count -gt 2 -and $oems[2]) { ($oems[2] -split ' ', 2)[1].Trim() -replace '</TD>' } else { "" }
+
+                    $location = if ($cells[6]) { ($cells[6] -replace '>|</TD>|</TR>').Trim() } else { "" }
 
                     $parsedData += [PSCustomObject]@{
-                        "Part (NSN)"     = $partNSN
-                        "Description"    = $description
-                        "QTY"           = [int]($qty -replace '[^\d]')
+                        "Part (NSN)" = $partNSN
+                        "Description" = $description
+                        "QTY" = [int]($qty -replace '[^\d]')
                         "13 Period Usage" = [int]($usage -replace '[^\d]')
-                        "Location"      = $location
-                        "OEM 1"         = $oem1
-                        "OEM 2"         = $oem2
-                        "OEM 3"         = $oem3
+                        "Location" = $location
+                        "OEM 1" = $oem1
+                        "OEM 2" = $oem2
+                        "OEM 3" = $oem3
                     }
 
-                    Write-Log "Added row: Part(NSN)=$partNSN, Description=$description, QTY=$qty, Location=$location"
+                    Write-Log "Added row ${i}: Part(NSN)=$partNSN, Description=$description, QTY=$qty, Location=$location"
+
                 }
-                else {
-                    Write-Log "Row does not have enough cells (found $($cells.Count)), skipping"
+                catch {
+                    Write-Log "Error processing row ${i}: $($_.Exception.Message)"
                 }
             }
-            catch {
-                Write-Log "Error processing row: $($_.Exception.Message)"
+            else {
+                Write-Log "Row ${i} does not have enough cells, skipping"
             }
         }
 
@@ -685,19 +689,18 @@ function Show-MainForm {
     $partsBookPanel.Controls.Add($openPartsRoomButton)
 
     # Add Create Parts Book button
-    $createPartsBookButton.Add_Click({
+    $createPartsBookButton = New-Button "Create Parts Book" {
         Write-Log "Creating Parts Book..."
         $scriptPath = Join-Path $PSScriptRoot "Parts-Books-Creator.ps1"
         Write-Log "Script path: $scriptPath"
         if (Test-Path $scriptPath) {
-            # Run in same PowerShell session
-            & $scriptPath
-            Write-Log "Executed Parts-Books-Creator.ps1"
+            Start-Process -FilePath "powershell.exe" -ArgumentList "-File `"$scriptPath`""
+            Write-Log "Started process to execute Parts-Books-Creator.ps1"
         } else {
             [System.Windows.Forms.MessageBox]::Show("Parts Books Creator script not found at $scriptPath.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
             Write-Log "Parts Books Creator script not found at $scriptPath."
         }
-    })
+    }
     $partsBookPanel.Controls.Add($createPartsBookButton)
 
     # Add Parts Books buttons
