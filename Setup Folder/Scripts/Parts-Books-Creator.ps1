@@ -204,7 +204,7 @@ function Get-VerifiedHtmlContent($handbookName) {
     $label = New-Object System.Windows.Forms.Label
     $label.Location = New-Object System.Drawing.Point(10, 10)
     $label.Size = New-Object System.Drawing.Size(580, 40)
-    $label.Text = "Please expand all sections for $handbookName, locate the div containing the parts list content, copy its contents, and paste them below:"
+    $label.Text = "Please expand all sections for $handbookName, locate the div with id 'Ryan's Fault', copy its contents, and paste them below:"
     $form.Controls.Add($label)
 
     $textBox = New-Object System.Windows.Forms.RichTextBox
@@ -216,21 +216,7 @@ function Get-VerifiedHtmlContent($handbookName) {
     $okButton.Location = New-Object System.Drawing.Point(250, 320)
     $okButton.Size = New-Object System.Drawing.Size(100, 30)
     $okButton.Text = 'OK'
-    $okButton.Add_Click({
-        # Validate content before accepting
-        $content = $textBox.Text
-        if ($content -match '<div.*?>.*?<ul.*?class="treeview".*?>.*?</ul>.*?</div>' -or 
-            $content -match '<span.*?id="book_title".*?>.*?</span>') {
-            $form.DialogResult = [System.Windows.Forms.DialogResult]::OK
-            $form.Close()
-        } else {
-            [System.Windows.Forms.MessageBox]::Show(
-                "The pasted content doesn't appear to contain the expected handbook structure. Please make sure you've copied the entire content including the book title and section list.",
-                "Invalid Content",
-                [System.Windows.Forms.MessageBoxButtons]::OK,
-                [System.Windows.Forms.MessageBoxIcon]::Warning)
-        }
-    })
+    $okButton.Add_Click({ $form.DialogResult = [System.Windows.Forms.DialogResult]::OK; $form.Close() })
     $form.Controls.Add($okButton)
 
     $result = $form.ShowDialog()
@@ -243,202 +229,90 @@ function Get-VerifiedHtmlContent($handbookName) {
     }
 }
 
-# Function to process HTML content using DOM
+# Function to process HTML content
 function Process-HTMLContent($htmlContent, $selectedRow, $directoryPath) {
-    try {
-        # Create HTML DOM object
-        $html = New-Object -ComObject "HTMLFile"
-        
-        # Convert content to bytes and write to DOM
-        $bytes = [System.Text.Encoding]::Unicode.GetBytes($htmlContent)
-        $html.write($bytes)
-        
-        # Extract book title - try multiple approaches
-        $bookTitle = $null
-        $titleElement = $html.getElementById("book_title")
-        if ($titleElement) {
-            $bookTitle = $titleElement.innerText.Trim()
-        } else {
-            # Try finding by class or other means
-            $spans = $html.getElementsByTagName("span")
-            foreach ($span in $spans) {
-                if ($span.id -eq "book_title") {
-                    $bookTitle = $span.innerText.Trim()
-                    break
-                }
-            }
-        }
-        
-        if (-not $bookTitle) {
-            throw "Could not extract book title from HTML content"
-        }
-        Write-Host "Book Title: $bookTitle"
+    # Extract book title
+    $bookTitle = [regex]::Match($htmlContent, '<span style="cursor:hand;" id="book_title">(.+?)</span>').Groups[1].Value
 
-        # Process Figures - try multiple approaches to find the figures
-        $figureCsvLines = "Figure No.,Name,Section No.,MS Book No,Volume,URL"
-        $figureElements = @()
-        
-        # Try getting figures from li elements with figno attribute
-        $allLis = $html.getElementsByTagName("li")
-        foreach ($li in $allLis) {
-            if ($li.getAttribute("figno") -match "\d+-\d+") {
-                $figureElements += $li
-            }
-        }
-
-        if ($figureElements.Count -eq 0) {
-            throw "No figures found in HTML content"
-        }
-
-        foreach ($figure in $figureElements) {
-            $figno = $figure.getAttribute("figno")
-            $fullspan = ($figure.getElementsByTagName("span") | Select-Object -First 1).innerText.Trim()
-            $name = $fullspan -replace "^\d+-\d+\s+"
-            $sectionNo = $figno -split '-' | Select-Object -First 1
-            $msBookNo = $selectedRow.'MS Book No'
-            $volume = $selectedRow.Volume
-            $figureUrl = "https://www1.mtsc.usps.gov/apps/phbk/content/printfigandtable.php?msbookno=$msBookNo&volno=$volume&secno=$sectionNo&figno=$figno&viewerflag=d&layout=L11"
-            $figureCsvLines += "`n$figno,""$name"",$sectionNo,$msBookNo,$volume,$figureUrl"
-        }
-
-        # Save figure data to CSV
-        $volumesToUrlPath = Join-Path -Path $directoryPath -ChildPath "Volumes-to-URL.csv"
-        $figureCsvLines | Out-File -FilePath $volumesToUrlPath -Encoding UTF8
-        Write-Host "Volumes-to-URL.csv file has been created at $volumesToUrlPath"
-
-        # Extract section names
-        $sectionNames = @{}
-        $sectionElements = $allLis | Where-Object { 
-            $_.getAttribute("sno") -match "\d+" 
-        }
-
-        foreach ($section in $sectionElements) {
-            $spans = $section.getElementsByTagName("span")
-            if ($spans.length -gt 0) {
-                $sectionText = $spans[0].innerText
-                if ($sectionText -match "Section (\d+)(.+)") {
-                    $sectionNumber = $matches[1]
-                    $sectionTitle = $matches[2].Trim()
-                    $sectionNames["Section $sectionNumber"] = "Section $sectionNumber $sectionTitle"
-                }
-            }
-        }
-
-        # Save section names to a file
-        $sectionNamesPath = Join-Path -Path $directoryPath -ChildPath "SectionNames.txt"
-        $sectionNames.Values | Out-File -FilePath $sectionNamesPath -Encoding UTF8
-        Write-Host "Section names have been saved to $sectionNamesPath"
-
-        return @{
-            VolumesToUrlPath = $volumesToUrlPath
-            SectionNamesPath = $sectionNamesPath
-            BookTitle = $bookTitle
-        }
+    # Process Figures
+    $figureRegex = '<li\s+[^>]*figno="(?<figno>\d+-\d+)"[^>]*><span[^>]*>(?<fullspan>[^<]+)</span>'
+    $figureMatches = [regex]::Matches($htmlContent, $figureRegex)
+    $figureCsvLines = "Figure No.,Name,Section No.,MS Book No,Volume,URL"
+    
+    foreach ($match in $figureMatches) {
+        $figno = $match.Groups["figno"].Value
+        $fullspan = $match.Groups["fullspan"].Value.Trim()
+        $name = $fullspan -replace "^\d+-\d+\s+"
+        $sectionNo = $figno -split '-' | Select-Object -First 1
+        $msBookNo = $selectedRow.'MS Book No'
+        $volume = $selectedRow.Volume
+        $figureUrl = "https://www1.mtsc.usps.gov/apps/phbk/content/printfigandtable.php?msbookno=$msBookNo&volno=$volume&secno=$sectionNo&figno=$figno&viewerflag=d&layout=L11"
+        $figureCsvLines += "`n$figno,""$name"",$sectionNo,$msBookNo,$volume,$figureUrl"
     }
-    catch {
-        Write-Host "Error processing HTML content: $($_.Exception.Message)"
-        throw
+
+    $volumesToUrlPath = Join-Path -Path $directoryPath -ChildPath "Volumes-to-URL.csv"
+    $figureCsvLines | Out-File -FilePath $volumesToUrlPath -Encoding UTF8
+    Write-Host "Volumes-to-URL.csv file has been created at $volumesToUrlPath"
+
+    # Extract section names
+    $sectionNames = @{}
+    $sectionRegex = '<li loaded="[^"]*" sno="(\d+)"[^>]*><div[^>]*></div><span[^>]*>Section (\d+) (.+?)</span>'
+    $sectionMatches = [regex]::Matches($htmlContent, $sectionRegex)
+
+    foreach ($match in $sectionMatches) {
+        $sectionNumber = $match.Groups[2].Value
+        $sectionTitle = $match.Groups[3].Value
+        $sectionNames["Section $sectionNumber"] = "Section $sectionNumber $sectionTitle"
     }
-    finally {
-        if ($html) {
-            [System.Runtime.Interopservices.Marshal]::ReleaseComObject($html) | Out-Null
-            [System.GC]::Collect()
-            [System.GC]::WaitForPendingFinalizers()
-        }
+
+    # Save section names to a file
+    $sectionNamesPath = Join-Path -Path $directoryPath -ChildPath "SectionNames.txt"
+    $sectionNames.Values | Out-File -FilePath $sectionNamesPath -Encoding UTF8
+    Write-Host "Section names have been saved to $sectionNamesPath"
+
+    return @{
+        VolumesToUrlPath = $volumesToUrlPath
+        SectionNamesPath = $sectionNamesPath
+        BookTitle = $bookTitle
     }
 }
+
 # Function to process HTML to CSV
-function Process-HTMLToCSV {
-    param (
-        [Parameter(Mandatory=$true)]
-        [string]$htmlFilePath
-    )
-    
-    try {
-        # Read HTML content directly
-        $htmlContent = Get-Content -Path $htmlFilePath -Raw -Encoding UTF8
-        
-        # Create HTML DOM object and parse content
-        $html = New-Object -ComObject "HTMLFile"
-        $html.write([System.Text.Encoding]::Unicode.GetBytes($htmlContent))
-        
-        # Get all tables
-        $tables = $html.getElementsByTagName("table")
-        
-        if ($tables.length -eq 0) {
-            Write-Host "No matching table found in file: $htmlFilePath"
-            return
-        }
-        
-        # Get the last table
-        $lastTable = $tables.item($tables.length - 1)
-        
-        # Initialize CSV content with headers
-        $csvRows = @(
-            '"NO.","PART DESCRIPTION","REF.","STOCK NO.","PART NO.","CAGE"'
-        )
-        
-        # Get all rows except header
-        $rows = $lastTable.getElementsByTagName("tr") | Select-Object -Skip 1
-        
-        foreach ($row in $rows) {
-            # Get all cells (td or th)
-            $cells = $row.getElementsByTagName("td") + $row.getElementsByTagName("th")
-            
-            if ($cells.length -gt 0) {
-                $rowData = @()
-                
-                foreach ($cell in $cells) {
-                    # Clean the cell content
-                    $content = $cell.innerText.Trim()
-                    $content = $content -replace '\s+', ' '    # normalize whitespace
-                    $content = $content -replace '&nbsp;', ''
-                    
-                    # Escape quotes and wrap in quotes
-                    $content = '"' + ($content -replace '"', '""') + '"'
-                    
-                    $rowData += $content
-                }
-                
-                $csvRows += ($rowData -join ',')
+function Process-HTMLToCSV($htmlContent, $htmlFilePath) {
+    $csvFilePath = [System.IO.Path]::ChangeExtension($htmlFilePath, '.csv')
+
+    # Use regex to find <TABLE> elements and extract rows
+    $tablePattern = "<TABLE[^>]*>(.*?)<\/TABLE>"
+    $matches = [regex]::Matches($htmlContent, $tablePattern, 'Singleline')
+
+    if ($matches.Count -gt 0) {
+        $lastTable = $matches[$matches.Count - 1].Groups[1].Value
+        $rowPattern = "<tr[^>]*>(.*?)<\/tr>"
+        $rowMatches = [regex]::Matches($lastTable, $rowPattern, 'Singleline')
+
+        $tableRows = @('"NO.","PART DESCRIPTION","REF.","STOCK NO.","PART NO.","CAGE"')
+        for ($i = 1; $i -lt $rowMatches.Count; $i++) {
+            $columns = [regex]::Matches($rowMatches[$i].Groups[1].Value, "<t[dh][^>]*>(.*?)<\/t[dh]>")
+            $row = $columns | ForEach-Object { '"' + ($_.Groups[1].Value.Trim() -replace '&nbsp;', '') + '"' }
+            if ($row.Count -gt 0) {
+                $tableRows += ,($row -join ',')
             }
         }
-        
-        # Generate CSV filepath
-        $csvFilePath = [System.IO.Path]::ChangeExtension($htmlFilePath, '.csv')
-        
-        # Write to CSV file
-        $csvRows | Out-File -FilePath $csvFilePath -Encoding UTF8
-        
-        Write-Host "CSV file has been created at: $csvFilePath"
-        return $csvFilePath
-    }
-    catch {
-        Write-Host "Error processing HTML content: $($_.Exception.Message)"
-        throw
-    }
-    finally {
-        # Clean up COM object
-        if ($html) {
-            [System.Runtime.Interopservices.Marshal]::ReleaseComObject($html) | Out-Null
-            [System.GC]::Collect()
-            [System.GC]::WaitForPendingFinalizers()
+
+        # Write to CSV if rows exist
+        if ($tableRows.Count -gt 0) {
+            $tableRows | Out-File -FilePath $csvFilePath -Encoding UTF8
+            Write-Host "CSV file has been created at: $csvFilePath"
+        } else {
+            Write-Host "No data rows found for CSV creation in file: $htmlFilePath"
         }
+    } else {
+        Write-Host "No matching table found in file: $htmlFilePath"
     }
 }
 
 # Function to download and process HTML files
-function Download-And-Process-HTML {
-    param (
-        [Parameter(Mandatory=$true)]
-        $volumesToUrlData,
-        [Parameter(Mandatory=$true)]
-        [string]$directoryPath,
-        [Parameter(Mandatory=$true)]
-        $currentBook
-    )
-
-    # Create directory for HTML and CSV files if it doesn't exist
+function Download-And-Process-HTML($volumesToUrlData, $directoryPath, $currentBook) {
     $HTMLCSVDirectoryPath = Join-Path $directoryPath "HTML and CSV Files"
     if (-not (Test-Path -Path $HTMLCSVDirectoryPath)) {
         New-Item -Path $HTMLCSVDirectoryPath -ItemType Directory | Out-Null
@@ -462,78 +336,78 @@ function Download-And-Process-HTML {
             $figureNo = $row.'Figure No.' -replace '[^\w\d-]', '_'
             $htmlFilePath = Join-Path $HTMLCSVDirectoryPath "Figure $figureNo.html"
             
-            # Skip if URL is missing
+            # Check if URL is provided
             if ([string]::IsNullOrWhiteSpace($row.URL)) {
                 Write-Host "Skipping Figure $figureNo - No URL provided"
                 continue
             }
 
-            # Download webpage content
-            $response = Invoke-WebRequest -Uri $row.URL -UseBasicParsing
-            if ($response.StatusCode -eq 200) {
-                # Save raw HTML
-                $htmlContent = $response.Content
-                Set-Content -Path $htmlFilePath -Value $htmlContent -Encoding UTF8
+            # Fetch webpage and save HTML
+            $htmlContent = Invoke-WebRequest -Uri $row.URL -UseBasicParsing
+            if ($htmlContent.StatusCode -eq 200) {
+                Set-Content -Path $htmlFilePath -Value $htmlContent.Content -Encoding UTF8
                 Write-Host "Saved HTML file to: $htmlFilePath"
 
-                # Create HTML DOM object for processing
-                $html = New-Object -ComObject "HTMLFile"
-                try {
-                    # Write content to DOM
-                    $html.write([System.Text.Encoding]::Unicode.GetBytes($htmlContent))
-                    
-                    # Get all tables
-                    $tables = $html.getElementsByTagName("table")
-                    
-                    if ($tables.length -gt 0) {
-                        # Get the last table
-                        $lastTable = $tables.item($tables.length - 1)
-                        
-                        # Initialize CSV content with headers
-                        $csvRows = @(
-                            '"NO.","PART DESCRIPTION","REF.","STOCK NO.","PART NO.","CAGE"'
-                        )
-                        
-                        # Process all rows except header
-                        $rows = $lastTable.getElementsByTagName("tr") | Select-Object -Skip 1
-                        
-                        foreach ($row in $rows) {
-                            $cells = $row.getElementsByTagName("td") + $row.getElementsByTagName("th")
-                            
-                            if ($cells.length -gt 0) {
-                                $rowData = @()
-                                foreach ($cell in $cells) {
-                                    $content = $cell.innerText.Trim()
-                                    $content = $content -replace '\s+', ' '
-                                    $content = $content -replace '&nbsp;', ''
-                                    $content = '"' + ($content -replace '"', '""') + '"'
-                                    $rowData += $content
-                                }
-                                $csvRows += ($rowData -join ',')
-                            }
-                        }
-                        
-                        # Save to CSV
-                        $csvFilePath = [System.IO.Path]::ChangeExtension($htmlFilePath, '.csv')
-                        $csvRows | Out-File -FilePath $csvFilePath -Encoding UTF8
-                        Write-Host "Created CSV file at: $csvFilePath"
-                    } else {
-                        Write-Host "No table found in Figure $figureNo"
-                    }
-                }
-                finally {
-                    # Clean up COM object
-                    if ($html) {
-                        [System.Runtime.Interopservices.Marshal]::ReleaseComObject($html) | Out-Null
-                        [System.GC]::Collect()
-                        [System.GC]::WaitForPendingFinalizers()
-                    }
-                }
+                # Process HTML to CSV
+                Process-HTMLToCSV $htmlContent.Content $htmlFilePath
             } else {
-                Write-Host "Failed to download Figure $figureNo - Status code: $($response.StatusCode)"
+                Write-Host "Failed to download Figure $figureNo - Status code: $($htmlContent.StatusCode)"
             }
+        } catch {
+            Write-Host "Error processing URL for Figure $figureNo : $($row.URL) - $_"
         }
-        catch {
+    }
+
+    if ($filesDownloaded -eq 0) {
+        Write-Host "No files were downloaded. Please check your internet connection and the URLs in the CSV file."
+    } else {
+        Write-Host "$filesDownloaded file(s) have been downloaded and processed."
+    }
+}
+
+# Function to process HTML to CSV
+function Download-And-Process-HTML($volumesToUrlData, $directoryPath, $currentBook) {
+    $HTMLCSVDirectoryPath = Join-Path $directoryPath "HTML and CSV Files"
+    if (-not (Test-Path -Path $HTMLCSVDirectoryPath)) {
+        New-Item -Path $HTMLCSVDirectoryPath -ItemType Directory | Out-Null
+        Write-Host "Created directory: $HTMLCSVDirectoryPath"
+    }
+
+    $totalFiles = $volumesToUrlData.Count
+    $filesDownloaded = 0
+
+    if ($totalFiles -eq 0) {
+        Write-Host "No files to process. Please check the Volumes-to-URL.csv file."
+        return
+    }
+
+    foreach ($row in $volumesToUrlData) {
+        $filesDownloaded++
+        $percentComplete = ($filesDownloaded / $totalFiles) * 25
+        Update-Progress "Downloading and processing HTML files ($filesDownloaded of $totalFiles)" $percentComplete $currentBook
+
+        try {
+            $figureNo = $row.'Figure No.' -replace '[^\w\d-]', '_'
+            $htmlFilePath = Join-Path $HTMLCSVDirectoryPath "Figure $figureNo.html"
+            
+            # Check if URL is provided
+            if ([string]::IsNullOrWhiteSpace($row.URL)) {
+                Write-Host "Skipping Figure $figureNo - No URL provided"
+                continue
+            }
+
+            # Fetch webpage and save HTML
+            $htmlContent = Invoke-WebRequest -Uri $row.URL -UseBasicParsing
+            if ($htmlContent.StatusCode -eq 200) {
+                Set-Content -Path $htmlFilePath -Value $htmlContent.Content -Encoding UTF8
+                Write-Host "Saved HTML file to: $htmlFilePath"
+
+                # Process HTML to CSV
+                Process-HTMLToCSV $htmlContent.Content $htmlFilePath
+            } else {
+                Write-Host "Failed to download Figure $figureNo - Status code: $($htmlContent.StatusCode)"
+            }
+        } catch {
             Write-Host "Error processing URL for Figure $figureNo : $($row.URL) - $_"
         }
     }
@@ -546,197 +420,165 @@ function Download-And-Process-HTML {
 }
 
 # Function to combine CSV files into Section CSVs
-function Combine-CSVFiles {
-    param (
-        [Parameter(Mandatory=$true)]
-        [string]$sourceDir,
-        [Parameter(Mandatory=$true)]
-        [string]$siteCsvPath,
-        [Parameter(Mandatory=$true)]
-        [string]$partsBookName
-    )
-    
-    try {
-        # Create directory for combined sections
-        $NewPartsBooksDirectory = Join-Path -Path $sourceDir -ChildPath "CombinedSections"
-        if (-Not (Test-Path -Path $NewPartsBooksDirectory)) {
-            New-Item -Path $NewPartsBooksDirectory -ItemType Directory | Out-Null
+function Combine-CSVFiles($sourceDir, $siteCsvPath, $partsBookName) {
+    $NewPartsBooksDirectory = Join-Path -Path $sourceDir -ChildPath "CombinedSections"
+    if (-Not (Test-Path -Path $NewPartsBooksDirectory)) {
+        New-Item -Path $NewPartsBooksDirectory -ItemType Directory | Out-Null
+    }
+
+    $csvFiles = Get-ChildItem -Path (Join-Path $sourceDir "HTML and CSV Files") -Filter "Figure *.csv"
+    $groupedFiles = $csvFiles | Group-Object { $_.BaseName -replace 'Figure (\d+)-\d+', '$1' }
+
+    $siteData = $null
+    if (Test-Path $siteCsvPath) {
+        # Read the site data
+        $siteData = Import-Csv -Path $siteCsvPath
+
+        # Ensure the "Changed Part (NSN)" column exists in the site data
+        if (-not $siteData[0].PSObject.Properties['Changed Part (NSN)']) {
+            $siteData | ForEach-Object { $_ | Add-Member -MemberType NoteProperty -Name 'Changed Part (NSN)' -Value '' }
         }
 
-        # Get and group CSV files
-        $csvFiles = Get-ChildItem -Path (Join-Path $sourceDir "HTML and CSV Files") -Filter "Figure *.csv"
-        $groupedFiles = $csvFiles | Group-Object { $_.BaseName -replace 'Figure (\d+)-\d+', '$1' }
-
-        # Initialize site data
-        $siteData = $null
-        if (Test-Path $siteCsvPath) {
-            $siteData = Import-Csv -Path $siteCsvPath
-
-            # Add required columns
-            if (-not $siteData[0].PSObject.Properties['Changed Part (NSN)']) {
-                $siteData | ForEach-Object { 
-                    $_ | Add-Member -MemberType NoteProperty -Name 'Changed Part (NSN)' -Value '' 
-                }
-            }
-
-            $partsBookColumnName = $partsBookName -replace '[^\w\s-]', '' -replace '\s+', ' '
-            if (-not $siteData[0].PSObject.Properties[$partsBookColumnName]) {
-                $siteData | ForEach-Object { 
-                    $_ | Add-Member -MemberType NoteProperty -Name $partsBookColumnName -Value '' 
-                }
-            }
-        } else {
-            Write-Host "Site CSV file not found at $siteCsvPath. Proceeding without site data comparison."
+        # Add new column for the parts book being created
+        $partsBookColumnName = $partsBookName -replace '[^\w\s-]', '' -replace '\s+', ' '
+        if (-not $siteData[0].PSObject.Properties[$partsBookColumnName]) {
+            $siteData | ForEach-Object { $_ | Add-Member -MemberType NoteProperty -Name $partsBookColumnName -Value '' }
         }
+    } else {
+        Write-Host "Site CSV file not found at $siteCsvPath. Proceeding without site data comparison."
+    }
 
-        # Process each group
-        $totalGroups = $groupedFiles.Count
-        $processedGroups = 0
+    $totalGroups = $groupedFiles.Count
+    $processedGroups = 0
 
-        foreach ($group in $groupedFiles) {
-            $processedGroups++
-            $percentComplete = 25 + ($processedGroups / $totalGroups) * 25
-            Update-Progress "Combining CSV files ($processedGroups of $totalGroups)" $percentComplete $partsBookName
+    foreach ($group in $groupedFiles) {
+        $processedGroups++
+        $percentComplete = 25 + ($processedGroups / $totalGroups) * 25  # Allocate 25% of progress to this step
+        Update-Progress "Combining CSV files ($processedGroups of $totalGroups)" $percentComplete $partsBookName
 
-            $figureNumber = $group.Name
-            $sectionFile = Join-Path -Path $NewPartsBooksDirectory -ChildPath "Section $figureNumber.csv"
-            Write-Host "Processing Section $figureNumber"
+        $figureNumber = $group.Name
+        $sectionFile = Join-Path -Path $NewPartsBooksDirectory -ChildPath "Section $figureNumber.csv"
+        Write-Host "Processing Section $figureNumber"
 
-            $allRows = @()
-            foreach ($file in $group.Group) {
-                Write-Host "  Processing file: $($file.Name)"
-                $csvContent = Import-Csv -Path $file.FullName
+        $allRows = @()
+        foreach ($file in $group.Group) {
+            Write-Host "  Processing file: $($file.Name)"
+            $csvContent = Import-Csv -Path $file.FullName
 
-                # Add required columns
-                foreach ($column in @('Location', 'QTY')) {
-                    if (-not $csvContent[0].PSObject.Properties[$column]) {
-                        $csvContent | ForEach-Object { 
-                            $_ | Add-Member -MemberType NoteProperty -Name $column -Value '' 
-                        }
+            # Add columns if they don't exist
+            if (-not $csvContent[0].PSObject.Properties['Location']) {
+                $csvContent | ForEach-Object { $_ | Add-Member -MemberType NoteProperty -Name 'Location' -Value '' }
+            }
+            if (-not $csvContent[0].PSObject.Properties['QTY']) {
+                $csvContent | ForEach-Object { $_ | Add-Member -MemberType NoteProperty -Name 'QTY' -Value '' }
+            }
+
+            foreach ($row in $csvContent) {
+                if (-not ($row.'STOCK NO.' -eq "" -and $row.'PART NO.' -eq "" -and $row.'CAGE' -eq "" -and $row.'Location' -eq "")) {
+                    if (-not $row.'REF.') {
+                        $row.'REF.' = $file.Name
                     }
-                }
 
-                foreach ($row in $csvContent) {
-                    if (-not ($row.'STOCK NO.' -eq "" -and $row.'PART NO.' -eq "" -and 
-                             $row.'CAGE' -eq "" -and $row.'Location' -eq "")) {
-                        
-                        if (-not $row.'REF.') {
-                            $row.'REF.' = $file.Name
-                        }
+                    if ($siteData) {
+                        $stockNo = $row.'STOCK NO.'
+                        $partNo = $row.'PART NO.'
 
-                        if ($siteData) {
-                            $stockNo = $row.'STOCK NO.'
-                            $partNo = $row.'PART NO.'
-
-                            # Try to match by stock number
-                            $siteMatch = $siteData | Where-Object { $_.'Part (NSN)' -eq $stockNo }
-                            if ($siteMatch) {
-                                Update-RowWithSiteMatch -row $row -siteMatch $siteMatch -siteData $siteData `
-                                                      -partsBookColumnName $partsBookColumnName
+                        $siteMatch = $siteData | Where-Object { $_.'Part (NSN)' -eq $stockNo }
+                        if ($siteMatch) {
+                            $row.'Location' = $siteMatch.'Location'
+                            $row.'QTY' = $siteMatch.'QTY'
+                            $siteMatchIndex = $siteData.IndexOf($siteMatch)
+                            
+                            # Extract figure number from the REF. column
+                            $refValue = $row.'REF.' -replace '^Figure\s+', ''
+                            $figureNumber = $refValue -replace '\.csv$', ''
+                            
+                            # Update the parts book column with the figure number
+                            if ([string]::IsNullOrEmpty($siteData[$siteMatchIndex].$partsBookColumnName)) {
+                                $siteData[$siteMatchIndex].$partsBookColumnName = "Figure $figureNumber"
                             } else {
-                                # Try to match by OEM
-                                $oemMatch = $siteData | Where-Object { 
-                                    $_.'OEM 1' -eq $partNo -or $_.'OEM 2' -eq $partNo -or $_.'OEM 3' -eq $partNo 
+                                $existingRefs = $siteData[$siteMatchIndex].$partsBookColumnName -split '\s*\|\s*'
+                                $newRefs = @("Figure $figureNumber")
+                                foreach ($ref in $existingRefs) {
+                                    if ($ref -notmatch [regex]::Escape("Figure $figureNumber")) {
+                                        if ($ref -match '^(See\s+)?Figure\s+\d+-\d+') {
+                                            $newRefs += $ref -replace '\.csv$', ''
+                                        } else {
+                                            $newRefs += $ref
+                                        }
+                                    }
                                 }
-                                if ($oemMatch) {
-                                    Update-RowWithOEMMatch -row $row -oemMatch $oemMatch -siteData $siteData `
-                                                         -partsBookColumnName $partsBookColumnName
-                                } else {
-                                    $row.'Location' = "Not Stocked Locally"
-                                }
+                                $siteData[$siteMatchIndex].$partsBookColumnName = $newRefs -join ' | '
                             }
+                            Write-Host "Updated $partsBookColumnName for Part (NSN): $($siteMatch.'Part (NSN)') with figure: Figure $figureNumber"
                         } else {
-                            $row.'Location' = "Site data not available"
+                            $oemMatch = $siteData | Where-Object { $_.'OEM 1' -eq $partNo -or $_.'OEM 2' -eq $partNo -or $_.'OEM 3' -eq $partNo }
+                            if ($oemMatch) {
+                                $oemMatchIndex = $siteData.IndexOf($oemMatch)
+                                $previousPartNSN = $oemMatch.'Part (NSN)'
+                                if ($row.'STOCK NO.' -eq "NSL" -or [string]::IsNullOrEmpty($row.'STOCK NO.')) {
+                                    $siteData[$oemMatchIndex].'Changed Part (NSN)' = "No standard NSN"
+                                } else {
+                                    $siteData[$oemMatchIndex].'Changed Part (NSN)' = $previousPartNSN
+                                    $siteData[$oemMatchIndex].'Part (NSN)' = $row.'STOCK NO.'
+                                }
+                                $row.'Location' = $siteData[$oemMatchIndex].'Location'
+                                $row.'QTY' = $siteData[$oemMatchIndex].'QTY'
+                                
+                                # Extract figure number from the REF. column
+                                $refValue = $row.'REF.' -replace '^Figure\s+', ''
+                                $figureNumber = $refValue -replace '\.csv$', ''
+                                
+                                # Update the parts book column with the figure number
+                                if ([string]::IsNullOrEmpty($siteData[$oemMatchIndex].$partsBookColumnName)) {
+                                    $siteData[$oemMatchIndex].$partsBookColumnName = "Figure $figureNumber"
+                                } else {
+                                    $existingRefs = $siteData[$oemMatchIndex].$partsBookColumnName -split '\s*\|\s*'
+                                    $newRefs = @("Figure $figureNumber")
+                                    foreach ($ref in $existingRefs) {
+                                        if ($ref -notmatch [regex]::Escape("Figure $figureNumber")) {
+                                            if ($ref -match '^(See\s+)?Figure\s+\d+-\d+') {
+                                                $newRefs += $ref -replace '\.csv$', ''
+                                            } else {
+                                                $newRefs += $ref
+                                            }
+                                        }
+                                    }
+                                    $siteData[$oemMatchIndex].$partsBookColumnName = $newRefs -join ' | '
+                                }
+                                Write-Host "Updated $partsBookColumnName for OEM Part: $partNo with figure: Figure $figureNumber"
+                            } else {
+                                $row.'Location' = "Not Stocked Locally"
+                            }
                         }
-
-                        $allRows += $row
+                    } else {
+                        $row.'Location' = "Site data not available"
                     }
-                }
-                Write-Host "  Processed $($csvContent.Count) rows from $($file.Name)"
-            }
 
-            $allRows | Export-Csv -Path $sectionFile -NoTypeInformation
-            Write-Host "Saved combined section to: $sectionFile"
-        }
-
-        if ($siteData -and (Test-Path $siteCsvPath)) {
-            $siteData | Export-Csv -Path $siteCsvPath -NoTypeInformation
-            Write-Host "Updated Site CSV: $siteCsvPath"
-        }
-
-        Write-Host "CSV files combined and saved to $NewPartsBooksDirectory"
-        return $NewPartsBooksDirectory
-    }
-    catch {
-        Write-Host "Error combining CSV files: $($_.Exception.Message)"
-        throw
-    }
-}
-
-function Update-RowWithSiteMatch {
-    param($row, $siteMatch, $siteData, $partsBookColumnName)
-    
-    $row.'Location' = $siteMatch.'Location'
-    $row.'QTY' = $siteMatch.'QTY'
-    $siteMatchIndex = $siteData.IndexOf($siteMatch)
-    
-    # Extract figure number and update references
-    $refValue = $row.'REF.' -replace '^Figure\s+', ''
-    $figureNumber = $refValue -replace '\.csv$', ''
-    
-    Update-PartsBookReferences -siteData $siteData -matchIndex $siteMatchIndex `
-                              -partsBookColumnName $partsBookColumnName -figureNumber $figureNumber
-    
-    Write-Host "Updated $partsBookColumnName for Part (NSN): $($siteMatch.'Part (NSN)') with figure: Figure $figureNumber"
-}
-
-function Update-RowWithOEMMatch {
-    param($row, $oemMatch, $siteData, $partsBookColumnName)
-    
-    $oemMatchIndex = $siteData.IndexOf($oemMatch)
-    $previousPartNSN = $oemMatch.'Part (NSN)'
-    
-    if ($row.'STOCK NO.' -eq "NSL" -or [string]::IsNullOrEmpty($row.'STOCK NO.')) {
-        $siteData[$oemMatchIndex].'Changed Part (NSN)' = "No standard NSN"
-    } else {
-        $siteData[$oemMatchIndex].'Changed Part (NSN)' = $previousPartNSN
-        $siteData[$oemMatchIndex].'Part (NSN)' = $row.'STOCK NO.'
-    }
-    
-    $row.'Location' = $siteData[$oemMatchIndex].'Location'
-    $row.'QTY' = $siteData[$oemMatchIndex].'QTY'
-    
-    # Extract figure number and update references
-    $refValue = $row.'REF.' -replace '^Figure\s+', ''
-    $figureNumber = $refValue -replace '\.csv$', ''
-    
-    Update-PartsBookReferences -siteData $siteData -matchIndex $oemMatchIndex `
-                              -partsBookColumnName $partsBookColumnName -figureNumber $figureNumber
-    
-    Write-Host "Updated $partsBookColumnName for OEM Part: $($row.'PART NO.') with figure: Figure $figureNumber"
-}
-
-function Update-PartsBookReferences {
-    param($siteData, $matchIndex, $partsBookColumnName, $figureNumber)
-    
-    if ([string]::IsNullOrEmpty($siteData[$matchIndex].$partsBookColumnName)) {
-        $siteData[$matchIndex].$partsBookColumnName = "Figure $figureNumber"
-    } else {
-        $existingRefs = $siteData[$matchIndex].$partsBookColumnName -split '\s*\|\s*'
-        $newRefs = @("Figure $figureNumber")
-        
-        foreach ($ref in $existingRefs) {
-            if ($ref -notmatch [regex]::Escape("Figure $figureNumber")) {
-                if ($ref -match '^(See\s+)?Figure\s+\d+-\d+') {
-                    $newRefs += $ref -replace '\.csv$', ''
-                } else {
-                    $newRefs += $ref
+                    $allRows += $row
                 }
             }
+            Write-Host "  Processed $($csvContent.Count) rows from $($file.Name)"
         }
-        
-        $siteData[$matchIndex].$partsBookColumnName = $newRefs -join ' | '
+
+        $allRows | Export-Csv -Path $sectionFile -NoTypeInformation
+        Write-Host "Saved combined section to: $sectionFile"
     }
+
+    if ($siteData -and (Test-Path $siteCsvPath)) {
+        # Save the updated Site CSV
+        $siteData | Export-Csv -Path $siteCsvPath -NoTypeInformation
+        Write-Host "Updated Site CSV: $siteCsvPath"
+
+        # Update the Excel file
+        $siteName = [System.IO.Path]::GetFileNameWithoutExtension($siteCsvPath)
+        $partsRoomDir = Split-Path $siteCsvPath -Parent
+        Create-ExcelFromCsv -siteName $siteName -csvDirectory $partsRoomDir -excelDirectory $partsRoomDir
+        Write-Host "Updated Excel file for site data"
+    }
+
+    Write-Host "CSV files combined and saved to $NewPartsBooksDirectory"
+    return $NewPartsBooksDirectory
 }
 
 function Create-ExcelWorkbook($sourceDir, $combinedCsvDir) {
@@ -995,18 +837,6 @@ $listView.Columns.Add("Full Name", 300)
 $listView.Columns.Add("MS Book No", 100)
 $listView.Columns.Add("Volume", 100)
 
-# Populate the ListView (excluding existing books)
-foreach ($row in $csvData) {
-    if (-not $existingBooks.ContainsKey($row.'Full Name')) {
-        $item = New-Object System.Windows.Forms.ListViewItem($row.'Full Name')
-        $item.SubItems.Add($row.'MS Book No')
-        $item.SubItems.Add($row.'Volume')
-        $listView.Items.Add($item)
-        Write-Host "Added item to ListView: $($row.'Full Name')"
-    } else {
-        Write-Host "Skipped existing book: $($row.'Full Name')"
-    }
-}
 Write-Host "ListView items count: $($listView.Items.Count)"
 $button = New-Object System.Windows.Forms.Button
 $button.Location = New-Object System.Drawing.Point(10, 500)
