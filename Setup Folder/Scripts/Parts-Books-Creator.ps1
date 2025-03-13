@@ -281,34 +281,42 @@ function Process-HTMLContent($htmlContent, $selectedRow, $directoryPath) {
 function Process-HTMLToCSV($htmlContent, $htmlFilePath) {
     $csvFilePath = [System.IO.Path]::ChangeExtension($htmlFilePath, '.csv')
 
-    # Use regex to find <TABLE> elements and extract rows
-    $tablePattern = "<TABLE[^>]*>(.*?)<\/TABLE>"
-    $matches = [regex]::Matches($htmlContent, $tablePattern, 'Singleline')
-
-    if ($matches.Count -gt 0) {
-        $lastTable = $matches[$matches.Count - 1].Groups[1].Value
-        $rowPattern = "<tr[^>]*>(.*?)<\/tr>"
-        $rowMatches = [regex]::Matches($lastTable, $rowPattern, 'Singleline')
-
-        $tableRows = @('"NO.","PART DESCRIPTION","REF.","STOCK NO.","PART NO.","CAGE"')
-        for ($i = 1; $i -lt $rowMatches.Count; $i++) {
-            $columns = [regex]::Matches($rowMatches[$i].Groups[1].Value, "<t[dh][^>]*>(.*?)<\/t[dh]>")
-            $row = $columns | ForEach-Object { '"' + ($_.Groups[1].Value.Trim() -replace '&nbsp;', '') + '"' }
-            if ($row.Count -gt 0) {
-                $tableRows += ,($row -join ',')
-            }
-        }
-
-        # Write to CSV if rows exist
-        if ($tableRows.Count -gt 0) {
-            $tableRows | Out-File -FilePath $csvFilePath -Encoding UTF8
-            Write-Host "CSV file has been created at: $csvFilePath"
-        } else {
-            Write-Host "No data rows found for CSV creation in file: $htmlFilePath"
-        }
-    } else {
-        Write-Host "No matching table found in file: $htmlFilePath"
+    # Load HTML into DOM
+    try {
+        $htmlDoc = New-Object -ComObject "HTMLFile"
+        $htmlDoc.IHTMLDocument2_write($htmlContent)
+    } catch {
+        $htmlDoc.write([System.Text.Encoding]::UTF8.GetBytes($htmlContent))
     }
+
+    # Find the target table with corrected bordercolor check
+    $dataTable = $htmlDoc.getElementsByTagName("TABLE") | 
+        Where-Object { 
+            $_.border -eq "1" -and 
+            $_.cols -eq "5" -and 
+            ($_.getAttribute("bordercolor") -in @("#808080", "808080"))
+        } | Select-Object -First 1
+
+    if (-not $dataTable) {
+        Write-Host "Data table not found."
+        return
+    }
+
+    # Process rows
+    $tableRows = @('"NO.","PART DESCRIPTION","REF.","STOCK NO.","PART NO.","CAGE"')
+    for ($i = 2; $i -lt $dataTable.rows.length; $i++) {
+        $row = $dataTable.rows[$i]
+        $cells = @($row.cells)
+        $cleanCells = $cells | ForEach-Object { 
+            '"' + ($_.innerText.Trim() -replace '\s+', ' ' -replace '&nbsp;', '') + '"'
+        }
+        if ($cleanCells -join '' -ne '""""""""""') {
+            $tableRows += $cleanCells -join ','
+        }
+    }
+
+    $tableRows | Out-File $csvFilePath -Encoding UTF8
+    Write-Host "CSV created successfully!"
 }
 
 # Function to download and process HTML files
