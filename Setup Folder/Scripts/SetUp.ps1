@@ -150,8 +150,7 @@ function Copy-SetupFiles {
         [System.Windows.Forms.MessageBoxIcon]::Information)
 }
 
-
-# Function to parse and export HTML data into CSV format and create Excel
+# Function to parse and export HTML data into CSV format using DOM
 function Set-PartsRoom {
     param($config)
 
@@ -225,88 +224,130 @@ function Set-PartsRoom {
 
         [System.Windows.Forms.MessageBox]::Show("Downloaded HTML for $selectedSite", "Download Complete", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
 
-        Write-Host "Processing the downloaded HTML file for $selectedSite..."
+        Write-Host "Processing the downloaded HTML file for $selectedSite using DOM..."
 
         $logPath = Join-Path $config.PartsRoomDirectory "error_log.txt"
 
         try {
-            Write-Host "Reading HTML content from file $htmlFilePath"
-            $htmlContent = Get-Content -Path $htmlFilePath -Raw -ErrorAction Stop
-
-            if ([string]::IsNullOrWhiteSpace($htmlContent)) {
-                throw "HTML content is empty or null"
+            # Create a COM object for HTML Document
+            $htmlDoc = New-Object -ComObject "HTMLFile"
+            
+            # Attempt to load the HTML
+            try {
+                # For newer PowerShell versions
+                $htmlDoc.IHTMLDocument2_write($htmlContent.Content)
+            } catch {
+                # Fallback method for older PowerShell versions
+                $src = [System.Text.Encoding]::Unicode.GetBytes($htmlContent.Content)
+                $htmlDoc.write($src)
             }
 
-            Write-Host "HTML content read successfully. Parsing content..."
+            Write-Host "HTML document loaded into DOM successfully."
+            
+            # Find the main table with the parts data
+            $tables = $htmlDoc.getElementsByTagName("table")
+            $mainTable = $null
+            
+            foreach ($table in $tables) {
+                if ($table.className -eq "MAIN") {
+                    $mainTable = $table
+                    break
+                }
+            }
+            
+            if ($mainTable -eq $null) {
+                Write-Host "Trying alternative table search method..."
+                # Try with attribute search if class doesn't work
+                foreach ($table in $tables) {
+                    if ($table.getAttribute("class") -eq "MAIN") {
+                        $mainTable = $table
+                        break
+                    }
+                }
+            }
+            
+            if ($mainTable -eq $null) {
+                throw "Could not find the main table in the HTML content"
+            }
+            
+            Write-Host "Found main table in HTML document."
+            
+            # Get all rows from the table
+            $rows = $mainTable.getElementsByTagName("tr")
+            Write-Host "Number of rows found: $($rows.length)"
+            
+            # Initialize array to hold parsed data
             $parsedData = @()
-            $rows = @($htmlContent -split '<TR CLASS="MAIN"')
-
-            Write-Host "Number of rows found: $($rows.Count)"
-
-            if ($rows.Count -le 1) {
-                throw "No data rows found in HTML content"
-            }
-
-            for ($i = 1; $i -lt $rows.Count; $i++) {
-                $row = $rows[$i]
-                Write-Host "Processing row ${i}"
-
-                if ($null -eq $row) {
-                    Write-Host "Row ${i} is null, skipping"
+            
+            # Process each row (skip first row which is the header)
+            for ($i = 1; $i -lt $rows.length; $i++) {
+                $row = $rows.item($i)
+                
+                # Skip rows that don't have the MAIN class
+                if ($row.className -ne "MAIN") {
                     continue
                 }
-
-                $cells = @($row -split '<TD')
-                Write-Host "Number of cells in row ${i}: $($cells.Count)"
-
-                if ($cells.Count -ge 7) {
-                    try {
-                        $partNSN = if ($cells[1]) { ($cells[1] -replace '>|</TD>').Trim() } else { "" }
-                        $description = if ($cells[2]) { ($cells[2] -replace '>|</TD>').Trim() } else { "" }
-                        $qty = if ($cells[3]) { ($cells[3] -replace '>|</TD>|style="text-align:right;"').Trim() } else { "0" }
-                        $usage = if ($cells[4]) { ($cells[4] -replace '>|</TD>|style="text-align:right;"').Trim() } else { "0" }
-
-                        $oemData = if ($cells[5]) { $cells[5] -replace '<DIV>|</DIV>|<SPAN.*?>|</SPAN>' } else { "" }
-                        $oems = @($oemData -split 'OEM:' | Select-Object -Skip 1)
-                        $oem1 = if ($oems.Count -gt 0 -and $oems[0]) { ($oems[0] -split ' ', 2)[1].Trim() -replace '</TD>' } else { "" }
-                        $oem2 = if ($oems.Count -gt 1 -and $oems[1]) { ($oems[1] -split ' ', 2)[1].Trim() -replace '</TD>' } else { "" }
-                        $oem3 = if ($oems.Count -gt 2 -and $oems[2]) { ($oems[2] -split ' ', 2)[1].Trim() -replace '</TD>' } else { "" }
-
-                        $location = if ($cells[6]) { ($cells[6] -replace '>|</TD>|</TR>').Trim() } else { "" }
-
-                        $parsedData += [PSCustomObject]@{
-                            "Part (NSN)" = $partNSN
-                            "Description" = $description
-                            "QTY" = [int]($qty -replace '[^\d]')
-                            "13 Period Usage" = [int]($usage -replace '[^\d]')
-                            "Location" = $location
-                            "OEM 1" = $oem1
-                            "OEM 2" = $oem2
-                            "OEM 3" = $oem3
+                
+                # Get all cells in the row
+                $cells = $row.getElementsByTagName("td")
+                
+                if ($cells.length -ge 6) {
+                    # Extract part information from cells
+                    $partNSN = $cells.item(0).innerText.Trim()
+                    $description = $cells.item(1).innerText.Trim()
+                    $qty = [int]($cells.item(2).innerText -replace '[^\d]', '')
+                    $usage = [int]($cells.item(3).innerText -replace '[^\d]', '')
+                    $location = $cells.item(5).innerText.Trim()
+                    
+                    # Extract OEM information from cell 4
+                    $oemCell = $cells.item(4)
+                    $oemDivs = $oemCell.getElementsByTagName("div")
+                    
+                    $oem1 = ""
+                    $oem2 = ""
+                    $oem3 = ""
+                    
+                    # Process each div to extract OEM information
+                    for ($j = 0; $j -lt $oemDivs.length; $j++) {
+                        $oemDiv = $oemDivs.item($j)
+                        $oemText = $oemDiv.innerText.Trim()
+                        
+                        # Extract OEM number from text like "OEM:1 12345"
+                        if ($oemText -match "OEM:1\s+(.+)") {
+                            $oem1 = $matches[1]
+                        } elseif ($oemText -match "OEM:2\s+(.+)") {
+                            $oem2 = $matches[1]
+                        } elseif ($oemText -match "OEM:3\s+(.+)") {
+                            $oem3 = $matches[1]
                         }
-
-                        Write-Host "Added row ${i}: Part(NSN)=$partNSN, Description=$description, QTY=$qty, Location=$location"
-
                     }
-                    catch {
-                        Write-Host "Error processing row ${i}: $($_.Exception.Message)"
+                    
+                    # Create object with parsed data
+                    $parsedData += [PSCustomObject]@{
+                        "Part (NSN)" = $partNSN
+                        "Description" = $description
+                        "QTY" = $qty
+                        "13 Period Usage" = $usage
+                        "Location" = $location
+                        "OEM 1" = $oem1
+                        "OEM 2" = $oem2
+                        "OEM 3" = $oem3
                     }
-                }
-                else {
-                    Write-Host "Row ${i} does not have enough cells, skipping"
+                    
+                    Write-Host "Added row ${i}: Part(NSN)=$partNSN, Description=$description, QTY=$qty, Location=$location"
                 }
             }
-
+            
             Write-Host "Number of parsed data entries: $($parsedData.Count)"
-
+            
             if ($parsedData.Count -eq 0) {
                 throw "No data parsed from HTML content"
             }
-
-            Write-Host "Exporting parsed data to CSV..."
+            
+            # Export parsed data to CSV
             $csvFilePath = Join-Path $config.PartsRoomDirectory "$selectedSite.csv"
             $parsedData | Export-Csv -Path $csvFilePath -NoTypeInformation
-
+            
             if (Test-Path $csvFilePath) {
                 Write-Host "CSV file created successfully at $csvFilePath"
                 [System.Windows.Forms.MessageBox]::Show("CSV file has been created at: $csvFilePath", "CSV Created", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
@@ -317,10 +358,17 @@ function Set-PartsRoom {
             } else {
                 throw "Failed to create CSV file."
             }
-        }
-        catch {
+            
+            # Clean up COM objects
+            [System.Runtime.Interopservices.Marshal]::ReleaseComObject($htmlDoc) | Out-Null
+            [System.GC]::Collect()
+            [System.GC]::WaitForPendingFinalizers()
+            
+        } catch {
             Write-Host "Error: $($_.Exception.Message)"
             Write-Host "Stack Trace: $($_.ScriptStackTrace)"
+            $errorMessage = "Error: $($_.Exception.Message)`r`nStack Trace: $($_.ScriptStackTrace)"
+            $errorMessage | Out-File -FilePath $logPath -Append
             [System.Windows.Forms.MessageBox]::Show("An error occurred. Please check the error log at $logPath for details.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
         }
     } else {
@@ -419,15 +467,15 @@ function Create-ExcelFromCsv {
     }
 }
 
-# Function to run Parts-Book-Creator.ps1
+# Function to run Parts-Books-Creator.ps1
 function Run-PartsBookCreator {
     param($config)
-    $partsBookCreatorPath = Join-Path $config.ScriptsDirectory "Parts-Book-Creator.ps1"
+    $partsBookCreatorPath = Join-Path $config.ScriptsDirectory "Parts-Books-Creator.ps1"
     if (Test-Path $partsBookCreatorPath) {
-        Write-Host "Running Parts-Book-Creator.ps1"
+        Write-Host "Running Parts-Books-Creator.ps1"
         & $partsBookCreatorPath
     } else {
-        Write-Host "Parts-Book-Creator.ps1 not found at $partsBookCreatorPath"
+        Write-Host "Parts-Books-Creator.ps1 not found at $partsBookCreatorPath"
     }
 }
 

@@ -195,16 +195,20 @@ function Update-Config($bookName, $volumesToUrlPath, $sectionNamesCsvPath) {
     Write-Host "Config updated for book: $bookName"
 }
 
-# Function to get and verify HTML content
+# Function to get HTML content
 function Get-VerifiedHtmlContent($handbookName) {
     $form = New-Object System.Windows.Forms.Form
-    $form.Text = "Paste HTML Content - $handbookName"
+    $form.Text = "Open HTML for $handbookName"
     $form.Size = New-Object System.Drawing.Size(600, 400)
 
     $label = New-Object System.Windows.Forms.Label
     $label.Location = New-Object System.Drawing.Point(10, 10)
     $label.Size = New-Object System.Drawing.Size(580, 40)
-    $label.Text = "Please expand all sections for $handbookName, locate the div with id 'Ryan's Fault', copy its contents, and paste them below:"
+    $label.Text = "For $handbookName, please follow these steps:
+1. Go to the URL that opened in your browser
+2. Use right-click > 'View Page Source' or press Ctrl+U
+3. Press Ctrl+A to select all, then Ctrl+C to copy
+4. Paste the HTML below:"
     $form.Controls.Add($label)
 
     $textBox = New-Object System.Windows.Forms.RichTextBox
@@ -231,38 +235,86 @@ function Get-VerifiedHtmlContent($handbookName) {
 
 # Function to process HTML content
 function Process-HTMLContent($htmlContent, $selectedRow, $directoryPath) {
-    # Extract book title
-    $bookTitle = [regex]::Match($htmlContent, '<span style="cursor:hand;" id="book_title">(.+?)</span>').Groups[1].Value
+    # Load HTML into DOM
+    try {
+        $htmlDoc = New-Object -ComObject "HTMLFile"
+        $htmlDoc.IHTMLDocument2_write($htmlContent)
+    } catch {
+        $htmlDoc.write([System.Text.Encoding]::UTF8.GetBytes($htmlContent))
+    }
 
-    # Process Figures
-    $figureRegex = '<li\s+[^>]*figno="(?<figno>\d+-\d+)"[^>]*><span[^>]*>(?<fullspan>[^<]+)</span>'
-    $figureMatches = [regex]::Matches($htmlContent, $figureRegex)
+    # Extract book title using DOM
+    $bookTitle = ($htmlDoc.getElementById("book_title"))?.innerText
+    if (-not $bookTitle) {
+        $bookTitle = [regex]::Match($htmlContent, '<span style="cursor:hand;" id="book_title">(.+?)</span>').Groups[1].Value
+        Write-Host "Extracted book title using regex fallback: $bookTitle"
+    } else {
+        Write-Host "Extracted book title using DOM: $bookTitle"
+    }
+
+    # Process Figures using DOM
     $figureCsvLines = "Figure No.,Name,Section No.,MS Book No,Volume,URL"
+    $listItems = $htmlDoc.getElementsByTagName("li")
     
-    foreach ($match in $figureMatches) {
-        $figno = $match.Groups["figno"].Value
-        $fullspan = $match.Groups["fullspan"].Value.Trim()
-        $name = $fullspan -replace "^\d+-\d+\s+"
-        $sectionNo = $figno -split '-' | Select-Object -First 1
-        $msBookNo = $selectedRow.'MS Book No'
-        $volume = $selectedRow.Volume
-        $figureUrl = "https://www1.mtsc.usps.gov/apps/phbk/content/printfigandtable.php?msbookno=$msBookNo&volno=$volume&secno=$sectionNo&figno=$figno&viewerflag=d&layout=L11"
-        $figureCsvLines += "`n$figno,""$name"",$sectionNo,$msBookNo,$volume,$figureUrl"
+    foreach ($li in $listItems) {
+        $figno = $li.getAttribute("figno")
+        if ($figno) {
+            $spanElements = $li.getElementsByTagName("span")
+            foreach ($span in $spanElements) {
+                if ($span.className -eq "go_fig") {
+                    $fullspan = $span.innerText.Trim()
+                    $name = $fullspan -replace "^\d+-\d+\s+"
+                    $sectionNo = $figno -split '-' | Select-Object -First 1
+                    $msBookNo = $selectedRow.'MS Book No'
+                    $volume = $selectedRow.Volume
+                    $figureUrl = "https://www1.mtsc.usps.gov/apps/phbk/content/printfigandtable.php?msbookno=$msBookNo&volno=$volume&secno=$sectionNo&figno=$figno&viewerflag=d&layout=L11"
+                    $figureCsvLines += "`n$figno,""$name"",$sectionNo,$msBookNo,$volume,$figureUrl"
+                    Write-Host "Found figure: $figno - $name"
+                    break
+                }
+            }
+        }
     }
 
     $volumesToUrlPath = Join-Path -Path $directoryPath -ChildPath "Volumes-to-URL.csv"
     $figureCsvLines | Out-File -FilePath $volumesToUrlPath -Encoding UTF8
     Write-Host "Volumes-to-URL.csv file has been created at $volumesToUrlPath"
 
-    # Extract section names
+    # Extract section names using DOM
     $sectionNames = @{}
-    $sectionRegex = '<li loaded="[^"]*" sno="(\d+)"[^>]*><div[^>]*></div><span[^>]*>Section (\d+) (.+?)</span>'
-    $sectionMatches = [regex]::Matches($htmlContent, $sectionRegex)
+    $listItems = $htmlDoc.getElementsByTagName("li")
+    
+    foreach ($li in $listItems) {
+        $sectionNo = $li.getAttribute("sno")
+        $specialChar = $li.getAttribute("special_char")
+        
+        if ($sectionNo -and $specialChar) {
+            $spanElements = $li.getElementsByTagName("span")
+            foreach ($span in $spanElements) {
+                $spanText = $span.innerText.Trim()
+                if ($spanText -match "^Section (\d+) (.+)$") {
+                    $sectionNumber = $matches[1]
+                    $sectionTitle = $matches[2]
+                    $sectionNames["Section $sectionNumber"] = "Section $sectionNumber $sectionTitle"
+                    Write-Host "Found section: Section $sectionNumber - $sectionTitle"
+                    break
+                }
+            }
+        }
+    }
 
-    foreach ($match in $sectionMatches) {
-        $sectionNumber = $match.Groups[2].Value
-        $sectionTitle = $match.Groups[3].Value
-        $sectionNames["Section $sectionNumber"] = "Section $sectionNumber $sectionTitle"
+    # If DOM failed to find sections, fallback to regex
+    if ($sectionNames.Count -eq 0) {
+        Write-Host "DOM approach failed to find sections, falling back to regex..."
+        $sectionRegex = '<li loaded="[^"]*" sno="(\d+)"[^>]*><div[^>]*></div><span[^>]*>Section (\d+) (.+?)</span>'
+        $sectionMatches = [regex]::Matches($htmlContent, $sectionRegex)
+
+        foreach ($match in $sectionMatches) {
+            $sectionNumber = $match.Groups[2].Value
+            $sectionTitle = $match.Groups[3].Value
+            $sectionNames["Section $sectionNumber"] = "Section $sectionNumber $sectionTitle"
+            Write-Host "Found section using regex: Section $sectionNumber - $sectionTitle"
+        }
     }
 
     # Save section names to a file
@@ -320,60 +372,6 @@ function Process-HTMLToCSV($htmlContent, $htmlFilePath) {
 }
 
 # Function to download and process HTML files
-function Download-And-Process-HTML($volumesToUrlData, $directoryPath, $currentBook) {
-    $HTMLCSVDirectoryPath = Join-Path $directoryPath "HTML and CSV Files"
-    if (-not (Test-Path -Path $HTMLCSVDirectoryPath)) {
-        New-Item -Path $HTMLCSVDirectoryPath -ItemType Directory | Out-Null
-        Write-Host "Created directory: $HTMLCSVDirectoryPath"
-    }
-
-    $totalFiles = $volumesToUrlData.Count
-    $filesDownloaded = 0
-
-    if ($totalFiles -eq 0) {
-        Write-Host "No files to process. Please check the Volumes-to-URL.csv file."
-        return
-    }
-
-    foreach ($row in $volumesToUrlData) {
-        $filesDownloaded++
-        $percentComplete = ($filesDownloaded / $totalFiles) * 25
-        Update-Progress "Downloading and processing HTML files ($filesDownloaded of $totalFiles)" $percentComplete $currentBook
-
-        try {
-            $figureNo = $row.'Figure No.' -replace '[^\w\d-]', '_'
-            $htmlFilePath = Join-Path $HTMLCSVDirectoryPath "Figure $figureNo.html"
-            
-            # Check if URL is provided
-            if ([string]::IsNullOrWhiteSpace($row.URL)) {
-                Write-Host "Skipping Figure $figureNo - No URL provided"
-                continue
-            }
-
-            # Fetch webpage and save HTML
-            $htmlContent = Invoke-WebRequest -Uri $row.URL -UseBasicParsing
-            if ($htmlContent.StatusCode -eq 200) {
-                Set-Content -Path $htmlFilePath -Value $htmlContent.Content -Encoding UTF8
-                Write-Host "Saved HTML file to: $htmlFilePath"
-
-                # Process HTML to CSV
-                Process-HTMLToCSV $htmlContent.Content $htmlFilePath
-            } else {
-                Write-Host "Failed to download Figure $figureNo - Status code: $($htmlContent.StatusCode)"
-            }
-        } catch {
-            Write-Host "Error processing URL for Figure $figureNo : $($row.URL) - $_"
-        }
-    }
-
-    if ($filesDownloaded -eq 0) {
-        Write-Host "No files were downloaded. Please check your internet connection and the URLs in the CSV file."
-    } else {
-        Write-Host "$filesDownloaded file(s) have been downloaded and processed."
-    }
-}
-
-# Function to process HTML to CSV
 function Download-And-Process-HTML($volumesToUrlData, $directoryPath, $currentBook) {
     $HTMLCSVDirectoryPath = Join-Path $directoryPath "HTML and CSV Files"
     if (-not (Test-Path -Path $HTMLCSVDirectoryPath)) {
