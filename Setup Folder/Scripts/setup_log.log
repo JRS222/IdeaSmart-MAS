@@ -1,29 +1,102 @@
-2025-02-14 05:49:56 - Starting Run-Setup
-2025-02-14 05:49:56 - Starting Set-InitialConfiguration
-2025-02-14 05:49:56 - Current Directory: C:\Users\YYQTP0\OneDrive - USPS\Desktop\Setup Folder\Scripts
-2025-02-14 05:49:56 - Setup Folder: C:\Users\YYQTP0\OneDrive - USPS\Desktop\Setup Folder
-2025-02-14 05:49:58 - Created Root Directory at C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory
-2025-02-14 05:49:58 - Creating subdirectories...
-2025-02-14 05:49:58 - Created directory: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books
-2025-02-14 05:49:58 - Created directory: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Scripts
-2025-02-14 05:49:58 - Created directory: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Dropdown CSVs
-2025-02-14 05:49:58 - Created directory: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Room
-2025-02-14 05:49:58 - Created directory: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Labor
-2025-02-14 05:49:58 - Created directory: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Call Logs
-2025-02-14 05:49:58 - Created Same Day Parts Room directory: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Room\Same Day Parts Room
-2025-02-14 05:49:58 - Configuration saved at C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Scripts\Config.json
-2025-02-14 05:49:58 - Starting Copy-SetupFiles
-2025-02-14 05:49:58 - Setup Directory: C:\Users\YYQTP0\OneDrive - USPS\Desktop\Setup Folder
-2025-02-14 05:49:58 - Copying Scripts...
-2025-02-14 05:49:58 - Copied Scripts
-2025-02-14 05:49:58 - Copied sites.csv to C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Dropdown CSVs\sites.csv
-2025-02-14 05:49:58 - Copied Parsed-Parts-Volumes.csv to C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Dropdown CSVs\Parsed-Parts-Volumes.csv
-2025-02-14 05:49:58 - Copied Causes.csv to C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Dropdown CSVs\Causes.csv
-2025-02-14 05:49:58 - Copied Actions.csv to C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Dropdown CSVs\Actions.csv
-2025-02-14 05:49:58 - Copied Nouns.csv to C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Dropdown CSVs\Nouns.csv
-2025-02-14 05:49:58 - Configuration saved at C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Scripts\Config.json
-2025-02-14 05:50:25 - Validating configuration structure...
-2025-02-14 05:50:25 - Warning: No books configured in Books section
-2025-02-14 05:50:25 - Added empty SameDayPartsRooms array to configuration
-2025-02-14 05:50:25 - Configuration validation completed successfully
-2025-02-14 05:50:25 - Setup completed successfully!
+Processing: MS-120 Computerized Forwarding System - CFS (Vol. B)
+Directory created/updated: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-120 Computerized Forwarding System - CFS (Vol. B)
+Starting Process-HTMLContent...
+Parsing HTML content...
+HTML parsed successfully.
+Output files will be:
+  Volumes-to-URL.csv: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-120 Computerized Forwarding System - CFS (Vol. B)\Volumes-to-URL.csv
+  SectionNames.txt: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-120 Computerized Forwarding System - CFS (Vol. B)\SectionNames.txt
+Warning: Could not find Ryan_fault div in the HTML.
+Created directory: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-120 Computerized Forwarding System - CFS (Vol. B)\HTML and CSV Files
+No files to process. Please check the Volumes-to-URL.csv file.
+Using site CSV file: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Room\BROCKTON PDC, MA, 02301-9731.csv
+Updated Site CSV: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Room\BROCKTON PDC, MA, 02301-9731.csv
+CSV files combined and saved to C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-120 Computerized Forwarding System - CFS (Vol. B)\CombinedSections
+No Section CSV files found in C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-120 Computerized Forwarding System - CFS (Vol. B)\CombinedSections
+Error in Create-ExcelWorkbook: No Section CSV files found
+Get-Content : Cannot find path 'C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts
+Books\MS-120 Computerized Forwarding System - CFS (Vol. B)\SectionNames.txt' because it does not exist.
+At C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Scripts\Debug-PartsBookCreator.ps1:1123
+char:32
++ ... onNamesContent = Get-Content -Path $processedContent.SectionNamesPath
++                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (C:\Users\YYQTP0...ectionNames.txt:String) [Get-Content], ItemNotFoundEx
+   ception
+    + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.GetContentCommand
+
+Sorry, we couldn't find C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-120
+Computerized Forwarding System - CFS (Vol. B)\MS-120 Computerized Forwarding System - CFS (Vol. B).xlsx. Is it
+possible it was moved, renamed or deleted?
+At C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Scripts\Debug-PartsBookCreator.ps1:861 char:5
++     $workbook = $excel.Workbooks.Open($excelFilePath)
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (:) [], COMException
+    + FullyQualifiedErrorId : System.Runtime.InteropServices.COMException
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Scripts\Debug-PartsBookCreator.ps1:889 char:5
++     $workbook.Save()
++     ~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Scripts\Debug-PartsBookCreator.ps1:890 char:5
++     $workbook.Close()
++     ~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Completed processing: MS-120 Computerized Forwarding System - CFS (Vol. B)
+Processing: MS-304 Low Cost Tray Sorter - LCTS (Vol. B)
+Directory created/updated: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-304 Low Cost Tray Sorter - LCTS (Vol. B)
+Starting Process-HTMLContent...
+Parsing HTML content...
+HTML parsed successfully.
+Output files will be:
+  Volumes-to-URL.csv: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-304 Low Cost Tray Sorter - LCTS (Vol. B)\Volumes-to-URL.csv
+  SectionNames.txt: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-304 Low Cost Tray Sorter - LCTS (Vol. B)\SectionNames.txt
+Warning: Could not find Ryan_fault div in the HTML.
+Created directory: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-304 Low Cost Tray Sorter - LCTS (Vol. B)\HTML and CSV Files
+No files to process. Please check the Volumes-to-URL.csv file.
+Using site CSV file: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Room\BROCKTON PDC, MA, 02301-9731.csv
+Updated Site CSV: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Room\BROCKTON PDC, MA, 02301-9731.csv
+CSV files combined and saved to C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-304 Low Cost Tray Sorter - LCTS (Vol. B)\CombinedSections
+No Section CSV files found in C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-304 Low Cost Tray Sorter - LCTS (Vol. B)\CombinedSections
+Error in Create-ExcelWorkbook: No Section CSV files found
+Get-Content : Cannot find path 'C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts
+Books\MS-304 Low Cost Tray Sorter - LCTS (Vol. B)\SectionNames.txt' because it does not exist.
+At C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Scripts\Debug-PartsBookCreator.ps1:1123
+char:32
++ ... onNamesContent = Get-Content -Path $processedContent.SectionNamesPath
++                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (C:\Users\YYQTP0...ectionNames.txt:String) [Get-Content], ItemNotFoundEx
+   ception
+    + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.GetContentCommand
+
+Sorry, we couldn't find C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-304 Low
+Cost Tray Sorter - LCTS (Vol. B)\MS-304 Low Cost Tray Sorter - LCTS (Vol. B).xlsx. Is it possible it was moved,
+renamed or deleted?
+At C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Scripts\Debug-PartsBookCreator.ps1:861 char:5
++     $workbook = $excel.Workbooks.Open($excelFilePath)
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OperationStopped: (:) [], COMException
+    + FullyQualifiedErrorId : System.Runtime.InteropServices.COMException
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Scripts\Debug-PartsBookCreator.ps1:889 char:5
++     $workbook.Save()
++     ~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Scripts\Debug-PartsBookCreator.ps1:890 char:5
++     $workbook.Close()
++     ~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Completed processing: MS-304 Low Cost Tray Sorter - LCTS (Vol. B)
+Config path in Update-ConfigBooks: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Scripts\Config.json
+Updated Config.json with new books: MS-304 Low Cost Tray Sorter - LCTS (Vol. B), MS-120 Computerized Forwarding System - CFS (Vol. B)
