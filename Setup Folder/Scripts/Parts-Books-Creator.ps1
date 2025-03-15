@@ -290,7 +290,7 @@ function Process-HTMLContent($htmlContent, $selectedRow, $directoryPath) {
             Write-Log "Saved Ryan_fault content to $ryanFaultPath" -Level Info
             
             # Extract phbk_tree content for DOM parsing
-            $treeMatch = [regex]::Match($ryanFaultContent, '<ul id="phbk_tree"[^>]*>(.*?)<\/ul>', [System.Text.RegularExpressions.RegexOptions]::Singleline)
+            $treeMatch = [regex]::Match($ryanFaultContent, '<ul id="phbk_tree"[^>]*>([\s\S]*?)<\/ul>', [System.Text.RegularExpressions.RegexOptions]::Singleline)
             if ($treeMatch.Success) {
                 $treeContent = $treeMatch.Groups[1].Value
                 Write-Log "Tree content extracted (Length: $($treeContent.Length))" -Level Info
