@@ -1,102 +1,439 @@
-Processing: MS-120 Computerized Forwarding System - CFS (Vol. B)
-Directory created/updated: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-120 Computerized Forwarding System - CFS (Vol. B)
-Starting Process-HTMLContent...
-Parsing HTML content...
-HTML parsed successfully.
-Output files will be:
-  Volumes-to-URL.csv: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-120 Computerized Forwarding System - CFS (Vol. B)\Volumes-to-URL.csv
-  SectionNames.txt: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-120 Computerized Forwarding System - CFS (Vol. B)\SectionNames.txt
-Warning: Could not find Ryan_fault div in the HTML.
-Created directory: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-120 Computerized Forwarding System - CFS (Vol. B)\HTML and CSV Files
-No files to process. Please check the Volumes-to-URL.csv file.
-Using site CSV file: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Room\BROCKTON PDC, MA, 02301-9731.csv
-Updated Site CSV: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Room\BROCKTON PDC, MA, 02301-9731.csv
-CSV files combined and saved to C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-120 Computerized Forwarding System - CFS (Vol. B)\CombinedSections
-No Section CSV files found in C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-120 Computerized Forwarding System - CFS (Vol. B)\CombinedSections
-Error in Create-ExcelWorkbook: No Section CSV files found
-Get-Content : Cannot find path 'C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts
-Books\MS-120 Computerized Forwarding System - CFS (Vol. B)\SectionNames.txt' because it does not exist.
-At C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Scripts\Debug-PartsBookCreator.ps1:1123
-char:32
-+ ... onNamesContent = Get-Content -Path $processedContent.SectionNamesPath
-+                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : ObjectNotFound: (C:\Users\YYQTP0...ectionNames.txt:String) [Get-Content], ItemNotFoundEx
-   ception
-    + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.GetContentCommand
-
-Sorry, we couldn't find C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-120
-Computerized Forwarding System - CFS (Vol. B)\MS-120 Computerized Forwarding System - CFS (Vol. B).xlsx. Is it
-possible it was moved, renamed or deleted?
-At C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Scripts\Debug-PartsBookCreator.ps1:861 char:5
-+     $workbook = $excel.Workbooks.Open($excelFilePath)
-+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : OperationStopped: (:) [], COMException
-    + FullyQualifiedErrorId : System.Runtime.InteropServices.COMException
-
-You cannot call a method on a null-valued expression.
-At C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Scripts\Debug-PartsBookCreator.ps1:889 char:5
-+     $workbook.Save()
-+     ~~~~~~~~~~~~~~~~
+2025-03-15 06:32:05 - Config loaded successfully
+2025-03-15 06:32:05 - CallLogsFilePath: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Call Logs\CallLogs.csv
+2025-03-15 06:32:05 - LaborLogsFilePath: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Labor\LaborLogs.csv
+2025-03-15 06:32:05 - Setting up Call Logs tab...
+2025-03-15 06:32:05 - Logs loaded from C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Call Logs\CallLogs.csv
+2025-03-15 06:32:05 - Processing historical Call Logs to create Labor Logs if necessary...
+2025-03-15 06:32:05 - Added headers to empty Labor Logs CSV file at C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Labor\LaborLogs.csv
+2025-03-15 06:32:05 - Labor logs saved to C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Labor\LaborLogs.csv
+2025-03-15 06:32:06 - Call Logs tab setup completed.
+2025-03-15 06:32:06 - Setting up Labor Log tab...
+2025-03-15 06:32:06 - Added headers to empty Labor Logs CSV file at C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Labor\LaborLogs.csv
+The property 'MouseMove' cannot be found on this object. Verify that the property exists and can be set.
+At C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Scripts\UI-Script.ps1:1853 char:5
++     $script:listViewLaborLog.MouseMove += {
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
-    + FullyQualifiedErrorId : InvokeMethodOnNull
+    + FullyQualifiedErrorId : PropertyAssignmentException
 
-You cannot call a method on a null-valued expression.
-At C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Scripts\Debug-PartsBookCreator.ps1:890 char:5
-+     $workbook.Close()
-+     ~~~~~~~~~~~~~~~~~
+The property 'DoubleClick' cannot be found on this object. Verify that the property exists and can be set.
+At C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Scripts\UI-Script.ps1:1865 char:5
++     $script:listViewLaborLog.DoubleClick += {
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
-    + FullyQualifiedErrorId : InvokeMethodOnNull
+    + FullyQualifiedErrorId : PropertyAssignmentException
 
-Completed processing: MS-120 Computerized Forwarding System - CFS (Vol. B)
-Processing: MS-304 Low Cost Tray Sorter - LCTS (Vol. B)
-Directory created/updated: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-304 Low Cost Tray Sorter - LCTS (Vol. B)
-Starting Process-HTMLContent...
-Parsing HTML content...
-HTML parsed successfully.
-Output files will be:
-  Volumes-to-URL.csv: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-304 Low Cost Tray Sorter - LCTS (Vol. B)\Volumes-to-URL.csv
-  SectionNames.txt: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-304 Low Cost Tray Sorter - LCTS (Vol. B)\SectionNames.txt
-Warning: Could not find Ryan_fault div in the HTML.
-Created directory: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-304 Low Cost Tray Sorter - LCTS (Vol. B)\HTML and CSV Files
-No files to process. Please check the Volumes-to-URL.csv file.
-Using site CSV file: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Room\BROCKTON PDC, MA, 02301-9731.csv
-Updated Site CSV: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Room\BROCKTON PDC, MA, 02301-9731.csv
-CSV files combined and saved to C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-304 Low Cost Tray Sorter - LCTS (Vol. B)\CombinedSections
-No Section CSV files found in C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-304 Low Cost Tray Sorter - LCTS (Vol. B)\CombinedSections
-Error in Create-ExcelWorkbook: No Section CSV files found
-Get-Content : Cannot find path 'C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts
-Books\MS-304 Low Cost Tray Sorter - LCTS (Vol. B)\SectionNames.txt' because it does not exist.
-At C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Scripts\Debug-PartsBookCreator.ps1:1123
-char:32
-+ ... onNamesContent = Get-Content -Path $processedContent.SectionNamesPath
-+                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : ObjectNotFound: (C:\Users\YYQTP0...ectionNames.txt:String) [Get-Content], ItemNotFoundEx
-   ception
-    + FullyQualifiedErrorId : PathNotFound,Microsoft.PowerShell.Commands.GetContentCommand
+2025-03-15 06:32:06 - Labor Log tab setup completed.
+2025-03-15 06:32:06 - Processing historical Call Logs to create Labor Logs if necessary...
+2025-03-15 06:32:06 - Updated headers in existing Labor Logs CSV file at C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Labor\LaborLogs.csv
+2025-03-15 06:32:06 - Labor logs saved to C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Labor\LaborLogs.csv
+2025-03-15 06:32:06 - Processing Books from config:
+2025-03-15 06:32:06 - Checking file: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-254 Delivery Bar Code Sorter Phase 6 - DBCS 6 (Vol. C)\MS-254 Delivery Bar Code Sorter Phase 6 - DBCS 6 (Vol. C).xlsx
+2025-03-15 06:32:06 - Added file: MS-254 Delivery Bar Code Sorter Phase 6 - DBCS 6 (Vol. C)
+2025-03-15 06:32:06 - Checking file: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-303 Small Delivery Unit Sorter - SDUS (Vol. B)\MS-303 Small Delivery Unit Sorter - SDUS (Vol. B).xlsx
+2025-03-15 06:32:06 - Added file: MS-303 Small Delivery Unit Sorter - SDUS (Vol. B)
+2025-03-15 06:32:06 - Checking file:
+2025-03-15 06:32:06 - File not found for: MS-251 Delivery Bar Code Sorter Input-Output Subsystem - B Phase 3 - DIOSS-B (Vol. D)
+2025-03-15 06:32:06 - Checking file: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-243 Automatic Tray Unsleever - ATU (Vol. B)\MS-243 Automatic Tray Unsleever - ATU (Vol. B).xlsx
+2025-03-15 06:32:06 - Added file: MS-243 Automatic Tray Unsleever - ATU (Vol. B)
+2025-03-15 06:32:06 - Checking file: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-304 Low Cost Tray Sorter - LCTS (Vol. B)\MS-304 Low Cost Tray Sorter - LCTS (Vol. B).xlsx
+2025-03-15 06:32:06 - Added file: MS-304 Low Cost Tray Sorter - LCTS (Vol. B)
+2025-03-15 06:32:06 - Setting up Search tab...
 
-Sorry, we couldn't find C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-304 Low
-Cost Tray Sorter - LCTS (Vol. B)\MS-304 Low Cost Tray Sorter - LCTS (Vol. B).xlsx. Is it possible it was moved,
-renamed or deleted?
-At C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Scripts\Debug-PartsBookCreator.ps1:861 char:5
-+     $workbook = $excel.Workbooks.Open($excelFilePath)
-+     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : OperationStopped: (:) [], COMException
-    + FullyQualifiedErrorId : System.Runtime.InteropServices.COMException
 
-You cannot call a method on a null-valued expression.
-At C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Scripts\Debug-PartsBookCreator.ps1:889 char:5
-+     $workbook.Save()
-+     ~~~~~~~~~~~~~~~~
-    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
-    + FullyQualifiedErrorId : InvokeMethodOnNull
+DisplayIndex : 0
+Index        : 0
+ImageIndex   : -1
+ImageList    :
+ImageKey     :
+ListView     : System.Windows.Forms.ListView, Items.Count: 0
+Name         :
+Text         : Part (NSN)
+TextAlign    : Left
+Tag          :
+Width        : 100
+Site         :
+Container    :
 
-You cannot call a method on a null-valued expression.
-At C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Scripts\Debug-PartsBookCreator.ps1:890 char:5
-+     $workbook.Close()
-+     ~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
-    + FullyQualifiedErrorId : InvokeMethodOnNull
+DisplayIndex : 1
+Index        : 1
+ImageIndex   : -1
+ImageList    :
+ImageKey     :
+ListView     : System.Windows.Forms.ListView, Items.Count: 0
+Name         :
+Text         : Description
+TextAlign    : Left
+Tag          :
+Width        : 200
+Site         :
+Container    :
 
-Completed processing: MS-304 Low Cost Tray Sorter - LCTS (Vol. B)
-Config path in Update-ConfigBooks: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Scripts\Config.json
-Updated Config.json with new books: MS-304 Low Cost Tray Sorter - LCTS (Vol. B), MS-120 Computerized Forwarding System - CFS (Vol. B)
+DisplayIndex : 2
+Index        : 2
+ImageIndex   : -1
+ImageList    :
+ImageKey     :
+ListView     : System.Windows.Forms.ListView, Items.Count: 0
+Name         :
+Text         : QTY
+TextAlign    : Left
+Tag          :
+Width        : 50
+Site         :
+Container    :
+
+DisplayIndex : 3
+Index        : 3
+ImageIndex   : -1
+ImageList    :
+ImageKey     :
+ListView     : System.Windows.Forms.ListView, Items.Count: 0
+Name         :
+Text         : 13 Period Usage
+TextAlign    : Left
+Tag          :
+Width        : 100
+Site         :
+Container    :
+
+DisplayIndex : 4
+Index        : 4
+ImageIndex   : -1
+ImageList    :
+ImageKey     :
+ListView     : System.Windows.Forms.ListView, Items.Count: 0
+Name         :
+Text         : Location
+TextAlign    : Left
+Tag          :
+Width        : 100
+Site         :
+Container    :
+
+DisplayIndex : 5
+Index        : 5
+ImageIndex   : -1
+ImageList    :
+ImageKey     :
+ListView     : System.Windows.Forms.ListView, Items.Count: 0
+Name         :
+Text         : OEM 1
+TextAlign    : Left
+Tag          :
+Width        : 100
+Site         :
+Container    :
+
+DisplayIndex : 6
+Index        : 6
+ImageIndex   : -1
+ImageList    :
+ImageKey     :
+ListView     : System.Windows.Forms.ListView, Items.Count: 0
+Name         :
+Text         : OEM 2
+TextAlign    : Left
+Tag          :
+Width        : 100
+Site         :
+Container    :
+
+DisplayIndex : 7
+Index        : 7
+ImageIndex   : -1
+ImageList    :
+ImageKey     :
+ListView     : System.Windows.Forms.ListView, Items.Count: 0
+Name         :
+Text         : OEM 3
+TextAlign    : Left
+Tag          :
+Width        : 100
+Site         :
+Container    :
+
+DisplayIndex : 8
+Index        : 8
+ImageIndex   : -1
+ImageList    :
+ImageKey     :
+ListView     : System.Windows.Forms.ListView, Items.Count: 0
+Name         :
+Text         : Changed Part (NSN)
+TextAlign    : Left
+Tag          :
+Width        : 100
+Site         :
+Container    :
+
+DisplayIndex : 0
+Index        : 0
+ImageIndex   : -1
+ImageList    :
+ImageKey     :
+ListView     : System.Windows.Forms.ListView, Items.Count: 0
+Name         :
+Text         : Part (NSN)
+TextAlign    : Left
+Tag          :
+Width        : 100
+Site         :
+Container    :
+
+DisplayIndex : 1
+Index        : 1
+ImageIndex   : -1
+ImageList    :
+ImageKey     :
+ListView     : System.Windows.Forms.ListView, Items.Count: 0
+Name         :
+Text         : Description
+TextAlign    : Left
+Tag          :
+Width        : 200
+Site         :
+Container    :
+
+DisplayIndex : 2
+Index        : 2
+ImageIndex   : -1
+ImageList    :
+ImageKey     :
+ListView     : System.Windows.Forms.ListView, Items.Count: 0
+Name         :
+Text         : QTY
+TextAlign    : Left
+Tag          :
+Width        : 50
+Site         :
+Container    :
+
+DisplayIndex : 3
+Index        : 3
+ImageIndex   : -1
+ImageList    :
+ImageKey     :
+ListView     : System.Windows.Forms.ListView, Items.Count: 0
+Name         :
+Text         : 13 Period Usage
+TextAlign    : Left
+Tag          :
+Width        : 100
+Site         :
+Container    :
+
+DisplayIndex : 4
+Index        : 4
+ImageIndex   : -1
+ImageList    :
+ImageKey     :
+ListView     : System.Windows.Forms.ListView, Items.Count: 0
+Name         :
+Text         : Location
+TextAlign    : Left
+Tag          :
+Width        : 100
+Site         :
+Container    :
+
+DisplayIndex : 5
+Index        : 5
+ImageIndex   : -1
+ImageList    :
+ImageKey     :
+ListView     : System.Windows.Forms.ListView, Items.Count: 0
+Name         :
+Text         : OEM 1
+TextAlign    : Left
+Tag          :
+Width        : 100
+Site         :
+Container    :
+
+DisplayIndex : 6
+Index        : 6
+ImageIndex   : -1
+ImageList    :
+ImageKey     :
+ListView     : System.Windows.Forms.ListView, Items.Count: 0
+Name         :
+Text         : OEM 2
+TextAlign    : Left
+Tag          :
+Width        : 100
+Site         :
+Container    :
+
+DisplayIndex : 7
+Index        : 7
+ImageIndex   : -1
+ImageList    :
+ImageKey     :
+ListView     : System.Windows.Forms.ListView, Items.Count: 0
+Name         :
+Text         : OEM 3
+TextAlign    : Left
+Tag          :
+Width        : 100
+Site         :
+Container    :
+
+DisplayIndex : 8
+Index        : 8
+ImageIndex   : -1
+ImageList    :
+ImageKey     :
+ListView     : System.Windows.Forms.ListView, Items.Count: 0
+Name         :
+Text         : Site Name
+TextAlign    : Left
+Tag          :
+Width        : 100
+Site         :
+Container    :
+
+DisplayIndex : 0
+Index        : 0
+ImageIndex   : -1
+ImageList    :
+ImageKey     :
+ListView     : System.Windows.Forms.ListView, Items.Count: 0
+Name         :
+Text         : Handbook
+TextAlign    : Left
+Tag          :
+Width        : 100
+Site         :
+Container    :
+
+DisplayIndex : 1
+Index        : 1
+ImageIndex   : -1
+ImageList    :
+ImageKey     :
+ListView     : System.Windows.Forms.ListView, Items.Count: 0
+Name         :
+Text         : Section Name
+TextAlign    : Left
+Tag          :
+Width        : 150
+Site         :
+Container    :
+
+DisplayIndex : 2
+Index        : 2
+ImageIndex   : -1
+ImageList    :
+ImageKey     :
+ListView     : System.Windows.Forms.ListView, Items.Count: 0
+Name         :
+Text         : NO.
+TextAlign    : Left
+Tag          :
+Width        : 50
+Site         :
+Container    :
+
+DisplayIndex : 3
+Index        : 3
+ImageIndex   : -1
+ImageList    :
+ImageKey     :
+ListView     : System.Windows.Forms.ListView, Items.Count: 0
+Name         :
+Text         : PART DESCRIPTION
+TextAlign    : Left
+Tag          :
+Width        : 200
+Site         :
+Container    :
+
+DisplayIndex : 4
+Index        : 4
+ImageIndex   : -1
+ImageList    :
+ImageKey     :
+ListView     : System.Windows.Forms.ListView, Items.Count: 0
+Name         :
+Text         : REF.
+TextAlign    : Left
+Tag          :
+Width        : 100
+Site         :
+Container    :
+
+DisplayIndex : 5
+Index        : 5
+ImageIndex   : -1
+ImageList    :
+ImageKey     :
+ListView     : System.Windows.Forms.ListView, Items.Count: 0
+Name         :
+Text         : STOCK NO.
+TextAlign    : Left
+Tag          :
+Width        : 100
+Site         :
+Container    :
+
+DisplayIndex : 6
+Index        : 6
+ImageIndex   : -1
+ImageList    :
+ImageKey     :
+ListView     : System.Windows.Forms.ListView, Items.Count: 0
+Name         :
+Text         : PART NO.
+TextAlign    : Left
+Tag          :
+Width        : 100
+Site         :
+Container    :
+
+DisplayIndex : 7
+Index        : 7
+ImageIndex   : -1
+ImageList    :
+ImageKey     :
+ListView     : System.Windows.Forms.ListView, Items.Count: 0
+Name         :
+Text         : CAGE
+TextAlign    : Left
+Tag          :
+Width        : 50
+Site         :
+Container    :
+
+DisplayIndex : 8
+Index        : 8
+ImageIndex   : -1
+ImageList    :
+ImageKey     :
+ListView     : System.Windows.Forms.ListView, Items.Count: 0
+Name         :
+Text         : Location
+TextAlign    : Left
+Tag          :
+Width        : 100
+Site         :
+Container    :
+
+DisplayIndex : 9
+Index        : 9
+ImageIndex   : -1
+ImageList    :
+ImageKey     :
+ListView     : System.Windows.Forms.ListView, Items.Count: 0
+Name         :
+Text         : QTY
+TextAlign    : Left
+Tag          :
+Width        : 50
+Site         :
+Container    :
+
+2025-03-15 06:32:06 - Search tab setup completed.
+2025-03-15 06:32:06 - UI setup completed
+Cancel
+2025-03-15 06:48:32 - Application closed
