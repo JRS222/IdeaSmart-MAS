@@ -1,0 +1,25 @@
+﻿DOM ANALYSIS SUMMARY
+===================
+Date: 03/14/2025 23:07:59
+Book Title: MS304 VOLUME B
+Total Figures Found: 53
+Total Sections Found: 7
+Errors Encountered: 0
+
+DOM PARSING RESULTS:
+-------------------
+
+
+SECTIONS FOUND:
+-------------
+Section 4 Sorting Conveyors
+Section 1 Handbook Information
+Section 2 System Level Parts Information
+Section 7 Cross Transfer
+Section 5 Drive Motor
+Section 6 Pusher
+Section 3 Induction Conveyor
+
+FIRST 5 FIGURES:
+--------------
+2-1,"2-1 Low Cost Tray Sorter (LCTS) (Sheet 1 of 2)",2,304,B,https://www1.mtsc.usps.gov/apps/phbk/content/printfigandtable.php?msbookno=304&volno=B&secno=2&figno=2-1&viewerflag=d&layout=L11 2-2,"2-2 Low Cost Tray Sorter (LCTS) (Sheet 2 of 2)",2,304,B,https://www1.mtsc.usps.gov/apps/phbk/content/printfigandtable.php?msbookno=304&volno=B&secno=2&figno=2-2&viewerflag=d&layout=L11 2-3,"2-3 Assembly, PC Console (Sheet 1 of 2)",2,304,B,https://www1.mtsc.usps.gov/apps/phbk/content/printfigandtable.php?msbookno=304&volno=B&secno=2&figno=2-3&viewerflag=d&layout=L11 2-4,"2-4 Assembly, PC Console (Sheet 2 of 2)",2,304,B,https://www1.mtsc.usps.gov/apps/phbk/content/printfigandtable.php?msbookno=304&volno=B&secno=2&figno=2-4&viewerflag=d&layout=L11 2-5,"2-5 Assembly, 24 VDC Power Supply (Sheet 1 of 2)",2,304,B,https://www1.mtsc.usps.gov/apps/phbk/content/printfigandtable.php?msbookno=304&volno=B&secno=2&figno=2-5&viewerflag=d&layout=L11

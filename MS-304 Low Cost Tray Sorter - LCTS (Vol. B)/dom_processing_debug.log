@@ -1,0 +1,95 @@
+﻿[2025-03-14 23:07:58][Info] Starting HTML content processing with DOM focus...
+[2025-03-14 23:07:58][Info] Directory path: C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-304 Low Cost Tray Sorter - LCTS (Vol. B)
+[2025-03-14 23:07:58][Info] HTML Content Length: 8216438 characters
+[2025-03-14 23:07:58][Info] Extracting Ryan_fault div...
+[2025-03-14 23:07:58][Info] Ryan_fault content extracted (Length: 13555)
+[2025-03-14 23:07:58][Info] Extracted book title: MS304 VOLUME B
+[2025-03-14 23:07:58][Info] Saved Ryan_fault content to C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-304 Low Cost Tray Sorter - LCTS (Vol. B)\ryan_fault_content.txt
+[2025-03-14 23:07:58][Info] Tree content extracted (Length: 214)
+[2025-03-14 23:07:58][Info] Saved phbk_tree content to C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-304 Low Cost Tray Sorter - LCTS (Vol. B)\phbk_tree_content.txt
+[2025-03-14 23:07:58][Info] Saved minimal HTML for DOM testing to C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-304 Low Cost Tray Sorter - LCTS (Vol. B)\minimal_dom_test.html
+[2025-03-14 23:07:58][DOM] Creating DOM parser for minimal HTML...
+[2025-03-14 23:07:58][DOM] Attempting to load HTML with IHTMLDocument2_write...
+[2025-03-14 23:07:58][DOM] HTML loaded with IHTMLDocument2_write
+[2025-03-14 23:07:58][DOM] Beginning DOM element inspection...
+[2025-03-14 23:07:58][DOM] Body element found
+[2025-03-14 23:07:58][DOM] phbk_tree element found by ID
+[2025-03-14 23:07:58][DOM] Analyzing phbk_tree element...
+[2025-03-14 23:07:58][DOM] Element ID: phbk_tree
+[2025-03-14 23:07:58][DOM] Element className: treeview
+[2025-03-14 23:07:58][DOM] Element innerHTML length: 213
+[2025-03-14 23:07:58][DOM] Saved phbk_tree innerHTML to C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-304 Low Cost Tray Sorter - LCTS (Vol. B)\phbk_tree_innerHTML.txt
+[2025-03-14 23:07:58][DOM] Processing 1 LI elements
+[2025-03-14 23:07:58][DOM] Found potential section li: sno=1, special_char=1
+[2025-03-14 23:07:58][Info] Added section: Section 1 Handbook Information
+[2025-03-14 23:07:58][DOM] Found nested UL, processing recursively...
+[2025-03-14 23:07:58][DOM] Processing 0 LI elements
+[2025-03-14 23:07:58][DOM] Released COM object
+[2025-03-14 23:07:58][Info] DOM parsing didn't yield complete results, falling back to regex...
+[2025-03-14 23:07:58][Info] Extracting figures with regex...
+[2025-03-14 23:07:58][Info] Found 53 figures with regex
+[2025-03-14 23:07:58][Info] Added figure via regex: 2-1 - 2-1 Low Cost Tray Sorter (LCTS) (Sheet 1 of 2)
+[2025-03-14 23:07:58][Info] Added figure via regex: 2-2 - 2-2 Low Cost Tray Sorter (LCTS) (Sheet 2 of 2)
+[2025-03-14 23:07:58][Info] Added figure via regex: 2-3 - 2-3 Assembly, PC Console (Sheet 1 of 2)
+[2025-03-14 23:07:58][Info] Added figure via regex: 2-4 - 2-4 Assembly, PC Console (Sheet 2 of 2)
+[2025-03-14 23:07:58][Info] Added figure via regex: 2-5 - 2-5 Assembly, 24 VDC Power Supply (Sheet 1 of 2)
+[2025-03-14 23:07:58][Info] Added figure via regex: 2-6 - 2-6 Assembly, 24 VDC Power Supply (Sheet 2 of 2)
+[2025-03-14 23:07:58][Info] Added figure via regex: 2-7 - 2-7 Assembly, Power Distribution Panel, 30A, w/3 KVA Transformer (Sheet 1 of 2)
+[2025-03-14 23:07:58][Info] Added figure via regex: 2-8 - 2-8 Assembly, Power Distribution Panel, 30A, w/3 KVA Transformer (Sheet 2 of 2)
+[2025-03-14 23:07:58][Info] Added figure via regex: 2-9 - 2-9 Assembly, Cross Transfer Control Panel (Sheet 1 of 2)
+[2025-03-14 23:07:58][Info] Added figure via regex: 2-10 - 2-10 Assembly, Cross Transfer Control Panel (Sheet 2 of 2)
+[2025-03-14 23:07:58][Info] Added figure via regex: 2-11 - 2-11 Assembly, Motor Control Panel, 3 HP (Sheet 1 of 2)
+[2025-03-14 23:07:58][Info] Added figure via regex: 2-12 - 2-12 Assembly, Motor Control Panel, 3 HP (Sheet 2 of 2)
+[2025-03-14 23:07:58][Info] Added figure via regex: 2-13 - 2-13 Assembly, Single Ethernet Switch Power Supply (Sheet 1 of 2)
+[2025-03-14 23:07:58][Info] Added figure via regex: 2-14 - 2-14 Assembly, Single Ethernet Switch Power Supply (Sheet 2 of 2)
+[2025-03-14 23:07:58][Info] Added figure via regex: 2-15 - 2-15 Assembly, Motorized Pusher Control Panel with Encoder (Sheet 1 of 3)
+[2025-03-14 23:07:58][Info] Added figure via regex: 2-16 - 2-16 Assembly, Motorized Pusher Control Panel with Encoder (Sheet 2 of 3)
+[2025-03-14 23:07:58][Info] Added figure via regex: 2-17 - 2-17 Assembly, Motorized Pusher Control Panel with Encoder (Sheet 3 of 3)
+[2025-03-14 23:07:58][Info] Added figure via regex: 2-18 - 2-18 Assembly, Emergency Pull Cord Switch (Sheet 1 of 2)
+[2025-03-14 23:07:58][Info] Added figure via regex: 2-19 - 2-19 Assembly, Emergency Pull Cord Switch (Sheet 2 of 2)
+[2025-03-14 23:07:58][Info] Added figure via regex: 2-20 - 2-20 Assembly, Sorter Wheel Encoder
+[2025-03-14 23:07:58][Info] Added figure via regex: 2-21 - 2-21 Assembly, Wireway
+[2025-03-14 23:07:58][Info] Added figure via regex: 2-22 - 2-22 Assembly, Gravity Roller
+[2025-03-14 23:07:58][Info] Added figure via regex: 2-23 - 2-23 CABLE ASSEMBLY, TRAY TRANSPORT MAINTENACE DIAGNOSTICS (Sheet 1 of 2)
+[2025-03-14 23:07:58][Info] Added figure via regex: 2-24 - 2-24 CABLE ASSEMBLY, TRAY TRANSPORT MAINTENACE DIAGNOSTICS (Sheet 2 of 2)
+[2025-03-14 23:07:58][Info] Added figure via regex: 2-25 - 2-25 CABLE ASSEMBLY, TRAY TRANSPORT MAINTENACE DIAGNOSTICS, PCAN-DIAG 2 - CABLE DIAGRAM
+[2025-03-14 23:07:58][Info] Added figure via regex: 2-26 - 2-26 CABLE ASSEMBLY, TRAY TRANSPORT MAINTENACE DIAGNOSTICS, AIAFSM NETWORK - CABLE DIAGRAM
+[2025-03-14 23:07:58][Info] Added figure via regex: 2-27 - 2-27 CABLE ASSEMBLY, TRAY TRANSPORT MAINTENACE DIAGNOSTICS, APBS MC70 CARDS - CABLE DIAGRAM
+[2025-03-14 23:07:58][Info] Added figure via regex: 2-28 - 2-28 CABLE ASSEMBLY, TRAY TRANSPORT MAINTENACE DIAGNOSTICS, 1799 CARD DEVICENET NETWORK - CABLE DIAGRAM
+[2025-03-14 23:07:58][Info] Added figure via regex: 3-1 - 3-1 Assembly, Feed Conveyor
+[2025-03-14 23:07:58][Info] Added figure via regex: 3-2 - 3-2 Assembly, Master Scan Section, LH, 3 Belted Zones
+[2025-03-14 23:07:58][Info] Added figure via regex: 3-3 - 3-3 Feed Conveyor, Connection Diagram (Sheet 1 of 3)
+[2025-03-14 23:07:58][Info] Added figure via regex: 3-4 - 3-4 Feed Conveyor, Connection Diagram (Sheet 2 of 3)
+[2025-03-14 23:07:58][Info] Added figure via regex: 3-5 - 3-5 Feed Conveyor, Connection Diagram (Sheet 3 of 3)
+[2025-03-14 23:07:58][Info] Added figure via regex: 4-1 - 4-1 Assembly, Sorter Conveyors
+[2025-03-14 23:07:58][Info] Added figure via regex: 4-2 - 4-2 Assembly, Conveyor End Section, 1ft - 6in
+[2025-03-14 23:07:58][Info] Added figure via regex: 4-3 - 4-3 Assembly, Conveyor Intermediate Section, 5ft - 0in LG
+[2025-03-14 23:07:58][Info] Added figure via regex: 4-4 - 4-4 Assembly, Conveyor Intermediate Section, 10ft - 0in Lg
+[2025-03-14 23:07:58][Info] Added figure via regex: 4-5 - 4-5 Assembly, Curve Conveyor
+[2025-03-14 23:07:58][Info] Added figure via regex: 5-1 - 5-1 Assembly, Drive Motor
+[2025-03-14 23:07:58][Info] Added figure via regex: 5-2 - 5-2 Assembly, Drive Unit, Center (Sheet 1 of 2)
+[2025-03-14 23:07:58][Info] Added figure via regex: 5-3 - 5-3 Assembly, Drive Unit, Center (Sheet 2 of 2)
+[2025-03-14 23:07:58][Info] Added figure via regex: 5-4 - 5-4 Assembly, Drive Unit, Underside
+[2025-03-14 23:07:58][Info] Added figure via regex: 6-1 - 6-1 Assembly, Pusher, Electric, 11in Stroke, 34in T.O.R (Sheet 1 of 4)
+[2025-03-14 23:07:58][Info] Added figure via regex: 6-2 - 6-2 Assembly, Pusher, Electric, 11in Stroke, 34in T.O.R (Sheet 2 of 4)
+[2025-03-14 23:07:58][Info] Added figure via regex: 6-3 - 6-3 Assembly, Pusher, Electric, 11in Stroke, 34in T.O.R (Sheet 3 of 4)
+[2025-03-14 23:07:58][Info] Added figure via regex: 6-4 - 6-4 Assembly, Pusher, Electric, 11in Stroke, 34in T.O.R (Sheet 4 of 4)
+[2025-03-14 23:07:58][Info] Added figure via regex: 6-5 - 6-5 Enclosure Assyembly, Servo Diverter Control Panel, LCTS
+[2025-03-14 23:07:58][Info] Added figure via regex: 7-1 - 7-1 Assembly, Cross Transfer
+[2025-03-14 23:07:58][Info] Added figure via regex: 7-2 - 7-2 Assembly, 90 Degree V-Belt Cross Transfer (Sheet 1 of 5)
+[2025-03-14 23:07:58][Info] Added figure via regex: 7-3 - 7-3 Assembly, 90 Degree V-Belt Cross Transfer (Sheet 2 of 5)
+[2025-03-14 23:07:59][Info] Added figure via regex: 7-4 - 7-4 Assembly, 90 Degree V-Belt Cross Transfer (Sheet 3 of 5)
+[2025-03-14 23:07:59][Info] Added figure via regex: 7-5 - 7-5 Assembly, 90 Degree V-Belt Cross Transfer (Sheet 4 of 5)
+[2025-03-14 23:07:59][Info] Added figure via regex: 7-6 - 7-6 Assembly, 90 Degree V-Belt Cross Transfer (Sheet 5 of 5)
+[2025-03-14 23:07:59][Info] Extracting sections with regex...
+[2025-03-14 23:07:59][Info] Found 7 sections with regex
+[2025-03-14 23:07:59][Info] Added section via regex: Section 1 - Handbook Information
+[2025-03-14 23:07:59][Info] Added section via regex: Section 2 - System Level Parts Information
+[2025-03-14 23:07:59][Info] Added section via regex: Section 3 - Induction Conveyor
+[2025-03-14 23:07:59][Info] Added section via regex: Section 4 - Sorting Conveyors
+[2025-03-14 23:07:59][Info] Added section via regex: Section 5 - Drive Motor
+[2025-03-14 23:07:59][Info] Added section via regex: Section 6 - Pusher
+[2025-03-14 23:07:59][Info] Added section via regex: Section 7 - Cross Transfer
+[2025-03-14 23:07:59][Info] Created CSV file at C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-304 Low Cost Tray Sorter - LCTS (Vol. B)\Volumes-to-URL.csv with 53 figures
+[2025-03-14 23:07:59][Info] Created section names file at C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-304 Low Cost Tray Sorter - LCTS (Vol. B)\SectionNames.txt with 7 entries
+[2025-03-14 23:07:59][Info] Generated summary report at C:\Users\YYQTP0\OneDrive - USPS\Desktop\PartsBookManagerRootDirectory\Parts Books\MS-304 Low Cost Tray Sorter - LCTS (Vol. B)\dom_analysis_summary.txt
