@@ -239,6 +239,18 @@ function Process-HTMLContent {
         [PSObject]$selectedRow,
         [string]$directoryPath
     )
+    
+    # Define a helper function to dump the HTML content to a file for troubleshooting
+    function Save-DebugContent {
+        param (
+            [string]$content,
+            [string]$path
+        )
+        
+        $debugPath = Join-Path -Path $path -ChildPath "debug_html.txt"
+        $content | Out-File -FilePath $debugPath -Encoding UTF8
+        Write-Host "Saved debug HTML content to $debugPath for troubleshooting."
+    }
 
     Write-Host "Starting Process-HTMLContent..."
     # Create the output directory if it doesn't exist
@@ -288,10 +300,22 @@ function Process-HTMLContent {
         }
     }
 
-    # If we still don't have valid MSBookNo and Volume, exit the function
+    # If HTML parsing fails, save the content for debugging
     if ([string]::IsNullOrEmpty($msBookNo) -or [string]::IsNullOrEmpty($volume)) {
-        Write-Host "Error: Could not determine MS Book No and Volume. Exiting function."
-        return
+        Write-Host "Warning: Could not extract MS Book No and Volume from HTML content."
+        Write-Host "Saving HTML content for debugging..."
+        Save-DebugContent -content $htmlContent -path $directoryPath
+        
+        # Try to get information from the filename or path as a last resort
+        $dirName = Split-Path -Path $directoryPath -Leaf
+        if ($dirName -match "MS-(\d+).*\(Vol\.\s*([A-Z])\)") {
+            $msBookNo = $matches[1]
+            $volume = $matches[2]
+            Write-Host "Extracted from directory name: MS Book No: $msBookNo, Volume: $volume"
+        } else {
+            Write-Host "Error: Could not determine MS Book No and Volume. Exiting function."
+            return
+        }
     }
 
     # Create paths for output files
@@ -309,13 +333,27 @@ function Process-HTMLContent {
     # Initialize array for section names
     $sectionNames = @()
 
-    # Get the Ryan_fault div
+    # Try to get the Ryan_fault div
     $ryanFaultDiv = $htmlDoc.getElementById("Ryan_fault")
     
+    # If not found directly, try searching through all divs with matching style
+    if (-not $ryanFaultDiv) {
+        Write-Host "Ryan_fault div not found by ID, searching by attributes..."
+        $allDivs = $htmlDoc.getElementsByTagName("div")
+        foreach ($div in $allDivs) {
+            $style = $div.getAttribute("style")
+            if ($style -and $style -like "*height:100%*overflow-y:scroll*") {
+                Write-Host "Found div with matching style attributes, using this instead."
+                $ryanFaultDiv = $div
+                break
+            }
+        }
+    }
+    
     if ($ryanFaultDiv) {
-        Write-Host "Found Ryan_fault div, processing content..."
+        Write-Host "Found content div, processing content..."
         # Get the UL with ID "phbk_tree" which contains all sections and figures
-        $treeUl = $ryanFaultDiv.getElementsByTagName("ul") | Where-Object { $_.id -eq "phbk_tree" } | Select-Object -First 1
+        $treeUl = $ryanFaultDiv.getElementsByTagName("ul") | Where-Object { $_.id -eq "phbk_tree" -or $_.className -eq "treeview" } | Select-Object -First 1
         
         if ($treeUl) {
             Write-Host "Found phbk_tree, extracting sections and figures..."
@@ -382,7 +420,171 @@ function Process-HTMLContent {
             Write-Host "Warning: Could not find phbk_tree UL element in the HTML."
         }
     } else {
-        Write-Host "Warning: Could not find Ryan_fault div in the HTML."
+        Write-Host "Warning: Could not find appropriate content div in the HTML."
+        Write-Host "Attempting to extract data directly using broader patterns..."
+        
+        # Try a more aggressive approach to find section and figure data
+        # Look for any list items with section numbers
+        $sectionPattern = '<li[^>]*sno="(\d+)"[^>]*>.*?<span[^>]*>(.*?)</span>'
+        $sectionMatches = [regex]::Matches($htmlContent, $sectionPattern)
+        
+        if ($sectionMatches.Count -gt 0) {
+            Write-Host "Found $($sectionMatches.Count) sections using fallback pattern."
+            
+            foreach ($sectionMatch in $sectionMatches) {
+                $sectionNo = $sectionMatch.Groups[1].Value
+                $sectionText = $sectionMatch.Groups[2].Value -replace '^Section \d+\s+', ''
+                $sectionName = "Section $sectionNo $sectionText"
+                
+                Write-Host "Processing $sectionName"
+                $sectionNames += $sectionName
+                
+                # Find figures for this section - look anywhere in the HTML
+                $figurePattern = '<li[^>]*figno="' + $sectionNo + '-(\d+)"[^>]*>.*?<span[^>]*>(.*?)</span>'
+                $figureMatches = [regex]::Matches($htmlContent, $figurePattern)
+                
+                Write-Host "  Found $($figureMatches.Count) figures in section $sectionNo."
+                
+                foreach ($figureMatch in $figureMatches) {
+                    $figureNum = $figureMatch.Groups[1].Value
+                    $figno = "$sectionNo-$figureNum"
+                    $figureName = $figureMatch.Groups[2].Value
+                    
+                    # Clean up the figure name by removing the prefix like "2-1 "
+                    $cleanFigureName = $figureName -replace "^\d+-\d+\s+", ""
+                    
+                    # Construct the URL for the figure
+                    $figureUrl = "https://www1.mtsc.usps.gov/apps/phbk/content/printfigandtable.php?msbookno=$msBookNo&volno=$volume&secno=$sectionNo&figno=$figno&viewerflag=d&layout=L11"
+                    
+                    # Write to CSV
+                    $csvLine = "$figno,`"$cleanFigureName`",$sectionNo,$msBookNo,$volume,$figureUrl"
+                    $csvLine | Out-File -FilePath $volumesToUrlPath -Encoding UTF8 -Append
+                    
+                    Write-Host "    Added figure: $figno - $cleanFigureName"
+                }
+            }
+            
+            # Write section names to text file
+            $sectionNames | Out-File -FilePath $sectionNamesPath -Encoding UTF8
+        } else {
+            Write-Host "Error: Could not find any section data in the HTML."
+        }
+    }
+    
+    # Return the paths to the created files
+    return @{
+        VolumesToUrlPath = $volumesToUrlPath
+        SectionNamesPath = $sectionNamesPath
+    }
+}
+
+# Fallback function that uses regex if DOM methods fail
+function Process-HTMLContentWithRegex {
+    param (
+        [string]$htmlContent,
+        [PSObject]$selectedRow,
+        [string]$directoryPath
+    )
+    
+    Write-Host "Using regex-based HTML parsing..."
+    
+    # Get MS Book No and Volume from selectedRow or extract from the HTML if available
+    $msBookNo = $selectedRow.'MS Book No'
+    $volume = $selectedRow.Volume
+
+    # If we don't have the MS Book No or Volume from selectedRow, try to extract from HTML
+    if ([string]::IsNullOrEmpty($msBookNo) -or [string]::IsNullOrEmpty($volume)) {
+        $bookTitleMatch = $htmlContent -match '<span[^>]*id="book_title"[^>]*>([^<]+)</span>'
+        if ($matches) {
+            $bookTitleText = $matches[1].Trim()
+            if ($bookTitleText -match "MS(\d+)\s+VOLUME\s+([A-Z])") {
+                $msBookNo = $matches[1]
+                $volume = $matches[2]
+                Write-Host "Extracted from HTML: MS Book No: $msBookNo, Volume: $volume"
+            }
+        }
+    }
+
+    # If we still don't have valid MSBookNo and Volume, exit the function
+    if ([string]::IsNullOrEmpty($msBookNo) -or [string]::IsNullOrEmpty($volume)) {
+        Write-Host "Error: Could not determine MS Book No and Volume. Exiting function."
+        return
+    }
+
+    # Create paths for output files
+    $volumesToUrlPath = Join-Path -Path $directoryPath -ChildPath "Volumes-to-URL.csv"
+    $sectionNamesPath = Join-Path -Path $directoryPath -ChildPath "SectionNames.txt"
+
+    # Create CSV writer for Volumes-to-URL.csv
+    $csvHeader = "Figure No.,Name,Section No.,MS Book No,Volume,URL"
+    $csvHeader | Out-File -FilePath $volumesToUrlPath -Encoding UTF8
+    
+    # Initialize array for section names
+    $sectionNames = @()
+
+    # Try to find div with id="Ryan_fault" first
+    $foundDiv = $false
+    if ($htmlContent -match '<div\s+id="Ryan_fault"[^>]*>(.*?)(?=<div|$)') {
+        $ryanFaultContent = $matches[1]
+        $foundDiv = $true
+        Write-Host "Found Ryan_fault div by ID using regex."
+    }
+    
+    # If not found, look for similar divs by style attributes
+    if (-not $foundDiv) {
+        Write-Host "Ryan_fault div not found by ID, searching by style attributes..."
+        if ($htmlContent -match '<div[^>]*style="[^"]*height:100%[^"]*overflow-y:scroll[^"]*"[^>]*>(.*?)(?=<div|$)') {
+            $ryanFaultContent = $matches[1]
+            $foundDiv = $true
+            Write-Host "Found div with matching style attributes using regex."
+        }
+    }
+    
+    if ($foundDiv) {
+        
+        # Extract sections
+        $sectionPattern = '<li[^>]*sno="(\d+)"[^>]*><div[^>]*></div><span[^>]*>(.*?)</span>'
+        $sectionMatches = [regex]::Matches($ryanFaultContent, $sectionPattern)
+        
+        Write-Host "Found $($sectionMatches.Count) sections."
+        
+        foreach ($sectionMatch in $sectionMatches) {
+            $sectionNo = $sectionMatch.Groups[1].Value
+            $sectionText = $sectionMatch.Groups[2].Value -replace '^Section \d+\s+', ''
+            $sectionName = "Section $sectionNo $sectionText"
+            
+            Write-Host "Processing $sectionName"
+            $sectionNames += $sectionName
+            
+            # Find figures for this section
+            $figurePattern = '<li[^>]*figno="([^"]+)"[^>]*><span\s+class="go_fig">(.*?)</span>'
+            $figureMatches = [regex]::Matches($ryanFaultContent, $figurePattern)
+            
+            $sectionFigures = $figureMatches | Where-Object { $_.Groups[1].Value -match "^$sectionNo-" }
+            Write-Host "  Found $($sectionFigures.Count) figures in section $sectionNo."
+            
+            foreach ($figureMatch in $sectionFigures) {
+                $figno = $figureMatch.Groups[1].Value
+                $figureName = $figureMatch.Groups[2].Value
+                
+                # Clean up the figure name by removing the prefix like "2-1 "
+                $cleanFigureName = $figureName -replace "^\d+-\d+\s+", ""
+                
+                # Construct the URL for the figure
+                $figureUrl = "https://www1.mtsc.usps.gov/apps/phbk/content/printfigandtable.php?msbookno=$msBookNo&volno=$volume&secno=$sectionNo&figno=$figno&viewerflag=d&layout=L11"
+                
+                # Write to CSV
+                $csvLine = "$figno,`"$cleanFigureName`",$sectionNo,$msBookNo,$volume,$figureUrl"
+                $csvLine | Out-File -FilePath $volumesToUrlPath -Encoding UTF8 -Append
+                
+                Write-Host "    Added figure: $figno - $cleanFigureName"
+            }
+        }
+        
+        # Write section names to text file
+        $sectionNames | Out-File -FilePath $sectionNamesPath -Encoding UTF8
+    } else {
+        Write-Host "Error: Could not find Ryan_fault div in the HTML."
     }
     
     # Return the paths to the created files
