@@ -233,356 +233,262 @@ function Get-VerifiedHtmlContent($handbookName) {
     }
 }
 
-# Function to process HTML content
-function Process-HTMLContent($htmlContent, $selectedRow, $directoryPath) {
-    # Initialize logging
-    $logPath = Join-Path $directoryPath "dom_processing_debug.log"
-    function Write-Log {
-        param(
-            [Parameter(Mandatory=$true)]
-            [string]$Message,
-            
-            [ValidateSet("Info","Warning","Error","DOM")]
-            [string]$Level = "Info"
-        )
-        $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-        $logEntry = "[$timestamp][$Level] $Message"
-        $color = switch($Level) {
-            "Error" { "Red" }
-            "Warning" { "Yellow" }
-            "DOM" { "Cyan" }
-            default { "White" }
-        }
-        Write-Host $logEntry -ForegroundColor $color
-        Add-Content -Path $logPath -Value $logEntry -Encoding UTF8
+function Process-HTMLContent {
+    param (
+        [string]$htmlContent,
+        [PSObject]$selectedRow,
+        [string]$directoryPath
+    )
+
+    Write-Host "Starting Process-HTMLContent..."
+    # Create the output directory if it doesn't exist
+    if (-not (Test-Path -Path $directoryPath)) {
+        New-Item -ItemType Directory -Path $directoryPath | Out-Null
+        Write-Host "Created directory: $directoryPath"
     }
 
-    Write-Log "Starting HTML content processing with DOM focus..." -Level Info
-    Write-Log "Directory path: $directoryPath" -Level Info
-    Write-Log "HTML Content Length: $($htmlContent.Length) characters" -Level Info
-
-    # Initialize data structures
-    $figureCsvLines = "Figure No.,Name,Section No.,MS Book No,Volume,URL"
-    $bookTitle = "Unknown Title"
-    $sectionNames = @{}
-    $totalFigures = 0
-    $processingErrors = @()
-
-    # Extract Ryan_fault div for focused DOM parsing
+    # Initialize HTML document object
+    $htmlDoc = New-Object -ComObject "HTMLFile"
+    
+    Write-Host "Parsing HTML content..."
+    # Handle different methods of writing to the HTMLFile object based on PowerShell version
     try {
-        Write-Log "Extracting Ryan_fault div..." -Level Info
-        $ryanFaultMatch = [regex]::Match($htmlContent, '<div id="Ryan_fault"[^>]*>(.*?)<\/div>\s*<\/div>', [System.Text.RegularExpressions.RegexOptions]::Singleline)
-        
-        if ($ryanFaultMatch.Success) {
-            $ryanFaultContent = $ryanFaultMatch.Groups[1].Value
-            Write-Log "Ryan_fault content extracted (Length: $($ryanFaultContent.Length))" -Level Info
-            
-            # Extract book title
-            $bookTitleMatch = [regex]::Match($ryanFaultContent, '<span[^>]*id="book_title"[^>]*>(.*?)<\/span>')
-            if ($bookTitleMatch.Success) {
-                $bookTitle = $bookTitleMatch.Groups[1].Value.Trim()
-                Write-Log "Extracted book title: $bookTitle" -Level Info
+        # For PowerShell 5.1 with newer IE versions
+        $htmlDoc.IHTMLDocument2_write($htmlContent)
+    } catch {
+        try {
+            # For PowerShell 5.1 with older IE versions
+            $enc = [System.Text.Encoding]::Unicode
+            $byteArray = $enc.GetBytes($htmlContent)
+            $htmlDoc.write($byteArray)
+        } catch {
+            # If all methods fail, try a regex-based fallback approach
+            Write-Host "Warning: DOM methods failed. Using regex fallback for HTML parsing."
+            return Process-HTMLContentWithRegex -htmlContent $htmlContent -selectedRow $selectedRow -directoryPath $directoryPath
+        }
+    }
+
+    Write-Host "HTML parsed successfully."
+    # Get MS Book No and Volume from selectedRow or extract from the HTML if available
+    $msBookNo = $selectedRow.'MS Book No'
+    $volume = $selectedRow.Volume
+
+    # If we don't have the MS Book No or Volume from selectedRow, try to extract from HTML
+    if ([string]::IsNullOrEmpty($msBookNo) -or [string]::IsNullOrEmpty($volume)) {
+        Write-Host "Getting book info from HTML content..."
+        $bookTitleElement = $htmlDoc.getElementById("book_title")
+        if ($bookTitleElement) {
+            $bookTitleText = $bookTitleElement.innerText
+            # Assuming format is "MS{number} VOLUME {letter}"
+            if ($bookTitleText -match "MS(\d+)\s+VOLUME\s+([A-Z])") {
+                $msBookNo = $matches[1]
+                $volume = $matches[2]
+                Write-Host "Extracted from HTML: MS Book No: $msBookNo, Volume: $volume"
             }
+        }
+    }
+
+    # If we still don't have valid MSBookNo and Volume, exit the function
+    if ([string]::IsNullOrEmpty($msBookNo) -or [string]::IsNullOrEmpty($volume)) {
+        Write-Host "Error: Could not determine MS Book No and Volume. Exiting function."
+        return
+    }
+
+    # Create paths for output files
+    $volumesToUrlPath = Join-Path -Path $directoryPath -ChildPath "Volumes-to-URL.csv"
+    $sectionNamesPath = Join-Path -Path $directoryPath -ChildPath "SectionNames.txt"
+
+    Write-Host "Output files will be:"
+    Write-Host "  Volumes-to-URL.csv: $volumesToUrlPath"
+    Write-Host "  SectionNames.txt: $sectionNamesPath"
+
+    # Create CSV writer for Volumes-to-URL.csv
+    $csvHeader = "Figure No.,Name,Section No.,MS Book No,Volume,URL"
+    $csvHeader | Out-File -FilePath $volumesToUrlPath -Encoding UTF8
+    
+    # Initialize array for section names
+    $sectionNames = @()
+
+    # Get the Ryan_fault div
+    $ryanFaultDiv = $htmlDoc.getElementById("Ryan_fault")
+    
+    if ($ryanFaultDiv) {
+        Write-Host "Found Ryan_fault div, processing content..."
+        # Get the UL with ID "phbk_tree" which contains all sections and figures
+        $treeUl = $ryanFaultDiv.getElementsByTagName("ul") | Where-Object { $_.id -eq "phbk_tree" } | Select-Object -First 1
+        
+        if ($treeUl) {
+            Write-Host "Found phbk_tree, extracting sections and figures..."
+            # Loop through each LI (section) in the tree
+            $sectionElements = $treeUl.getElementsByTagName("li") | Where-Object { $_.getAttribute("sno") }
             
-            # Save Ryan_fault content for analysis
-            $ryanFaultPath = Join-Path $directoryPath "ryan_fault_content.txt"
-            Set-Content -Path $ryanFaultPath -Value $ryanFaultContent -Encoding UTF8
-            Write-Log "Saved Ryan_fault content to $ryanFaultPath" -Level Info
+            Write-Host "Found $($sectionElements.Count) sections."
+            $totalFigures = 0
             
-            # Extract phbk_tree content for DOM parsing
-            $treeMatch = [regex]::Match($ryanFaultContent, '<ul id="phbk_tree"[^>]*>([\s\S]*?)<\/ul>', [System.Text.RegularExpressions.RegexOptions]::Singleline)
-            if ($treeMatch.Success) {
-                $treeContent = $treeMatch.Groups[1].Value
-                Write-Log "Tree content extracted (Length: $($treeContent.Length))" -Level Info
+            foreach ($sectionElement in $sectionElements) {
+                $sectionNo = $sectionElement.getAttribute("sno")
+                $sectionSpan = $sectionElement.getElementsByTagName("span") | Where-Object { $_.className -ne "go_fig" } | Select-Object -First 1
                 
-                # Save tree content for analysis
-                $treePath = Join-Path $directoryPath "phbk_tree_content.txt"
-                Set-Content -Path $treePath -Value $treeContent -Encoding UTF8
-                Write-Log "Saved phbk_tree content to $treePath" -Level Info
-                
-                # Create minimal HTML for DOM parsing
-                $minimalHTML = @"
-<!DOCTYPE html>
-<html>
-<head>
-    <meta http-equiv="content-type" content="text/html; charset=utf-8">
-    <title>Minimal DOM Test</title>
-    <style>
-        ul#phbk_tree { list-style-type: none; }
-        ul#phbk_tree li { list-style-type: none; }
-    </style>
-</head>
-<body>
-    <span id="book_title">$bookTitle</span>
-    <ul id="phbk_tree" class="treeview">$treeContent</ul>
-</body>
-</html>
-"@
-                
-                # Save minimal HTML for reference
-                $minimalHTMLPath = Join-Path $directoryPath "minimal_dom_test.html"
-                Set-Content -Path $minimalHTMLPath -Value $minimalHTML -Encoding UTF8
-                Write-Log "Saved minimal HTML for DOM testing to $minimalHTMLPath" -Level Info
-                
-                # Process with DOM
-                try {
-                    Write-Log "Creating DOM parser for minimal HTML..." -Level DOM
-                    $htmlDoc = New-Object -ComObject "HTMLFile"
+                if ($sectionSpan) {
+                    # Extract the section name, removing any 'Section X' prefix that might already be in the text
+                    $sectionText = $sectionSpan.innerText -replace '^Section \d+\s+', ''
+                    $sectionName = "Section $sectionNo $sectionText"
+                    Write-Host "Processing $sectionName"
+                    $sectionNames += $sectionName
                     
-                    try {
-                        Write-Log "Attempting to load HTML with IHTMLDocument2_write..." -Level DOM
-                        $htmlDoc.IHTMLDocument2_write($minimalHTML)
-                        Write-Log "HTML loaded with IHTMLDocument2_write" -Level DOM
-                    }
-                    catch {
-                        Write-Log "IHTMLDocument2_write failed, trying alternative loading method..." -Level Warning
-                        try {
-                            $bytes = [System.Text.Encoding]::Unicode.GetBytes($minimalHTML)
-                            $htmlDoc.write($bytes)
-                            Write-Log "HTML loaded with write method" -Level DOM
-                        }
-                        catch {
-                            Write-Log "All HTML loading methods failed: $_" -Level Error
-                            $processingErrors += "HTML loading error: $_"
-                            throw "Could not load HTML into DOM"
-                        }
-                    }
+                    # Find figures within this section
+                    $figureList = $sectionElement.getElementsByTagName("ul") | Select-Object -First 1
                     
-                    # DOM Analysis - inspect all elements
-                    Write-Log "Beginning DOM element inspection..." -Level DOM
-                    
-                    # Find root elements
-                    $bodyElement = $htmlDoc.body
-                    if ($bodyElement -eq $null) {
-                        Write-Log "Body element is null" -Level Warning
-                    }
-                    else {
-                        Write-Log "Body element found" -Level DOM
-                    }
-                    
-                    $treeElement = $htmlDoc.getElementById("phbk_tree")
-                    if ($treeElement -eq $null) {
-                        Write-Log "phbk_tree element not found by ID" -Level Warning
+                    if ($figureList) {
+                        $figureElements = $figureList.getElementsByTagName("li") | Where-Object { $_.getAttribute("figno") }
                         
-                        # Try finding by tag name
-                        $allULs = $htmlDoc.getElementsByTagName("ul")
-                        Write-Log "Found $($allULs.length) UL elements" -Level DOM
+                        Write-Host "  Found $($figureElements.Count) figures in section $sectionNo."
                         
-                        for ($i = 0; $i -lt $allULs.length; $i++) {
-                            $ul = $allULs.item($i)
-                            if ($ul.id -eq "phbk_tree" -or $ul.className -eq "treeview") {
-                                $treeElement = $ul
-                                Write-Log "Found phbk_tree element by scanning UL elements (index: $i)" -Level DOM
-                                break
+                        foreach ($figureElement in $figureElements) {
+                            $figno = $figureElement.getAttribute("figno")
+                            
+                            if ($figno) {
+                                $figureSpan = $figureElement.getElementsByTagName("span") | Where-Object { $_.className -eq "go_fig" } | Select-Object -First 1
+                                
+                                if ($figureSpan) {
+                                    $figureName = $figureSpan.innerText
+                                    # Clean up the figure name by removing the prefix like "2-1 "
+                                    $cleanFigureName = $figureName -replace "^\d+-\d+\s+", ""
+                                    
+                                    # Construct the URL for the figure
+                                    $figureUrl = "https://www1.mtsc.usps.gov/apps/phbk/content/printfigandtable.php?msbookno=$msBookNo&volno=$volume&secno=$sectionNo&figno=$figno&viewerflag=d&layout=L11"
+                                    
+                                    # Write to CSV
+                                    $csvLine = "$figno,`"$cleanFigureName`",$sectionNo,$msBookNo,$volume,$figureUrl"
+                                    $csvLine | Out-File -FilePath $volumesToUrlPath -Encoding UTF8 -Append
+                                    
+                                    Write-Host "    Added figure: $figno - $cleanFigureName"
+                                    $totalFigures++
+                                }
                             }
                         }
+                    } else {
+                        Write-Host "  No figures found in section $sectionNo."
                     }
-                    else {
-                        Write-Log "phbk_tree element found by ID" -Level DOM
-                    }
-                    
-                    if ($treeElement -eq $null) {
-                        Write-Log "Could not find phbk_tree element by any method" -Level Error
-                        $processingErrors += "phbk_tree element not found"
-                    }
-                    else {
-                        # Process tree element content
-                        Write-Log "Analyzing phbk_tree element..." -Level DOM
-                        Write-Log "Element ID: $($treeElement.id)" -Level DOM
-                        Write-Log "Element className: $($treeElement.className)" -Level DOM
-                        Write-Log "Element innerHTML length: $($treeElement.innerHTML.Length)" -Level DOM
-                        
-                        # Save innerHTML for debugging
-                        $treeInnerHTMLPath = Join-Path $directoryPath "phbk_tree_innerHTML.txt"
-                        Set-Content -Path $treeInnerHTMLPath -Value $treeElement.innerHTML -Encoding UTF8
-                        Write-Log "Saved phbk_tree innerHTML to $treeInnerHTMLPath" -Level DOM
-                        
-                        # Recursive function to process list items
-                        function Process-ListElement {
-							param($Element, [ref]$SectionNames, [ref]$FigureCsvLines, [ref]$TotalFigures, [ref]$SelectedRow)
-
-							$listItems = $Element.getElementsByTagName("li")
-							Write-Log "Processing $($listItems.length) LI elements" -Level DOM
-
-							for ($i = 0; $i -lt $listItems.length; $i++) {
-								$li = $listItems.item($i)
-								if ($null -eq $li) { continue }
-
-								# Check for section attributes (sno + special_char)
-								$sectionNumber = $li.getAttribute("sno")
-								$specialChar = $li.getAttribute("special_char")
-        
-								if ($sectionNumber -and $specialChar) {
-									Write-Log "Found potential section li: sno=$sectionNumber, special_char=$specialChar" -Level DOM
-									$spanObj = $li.getElementsByTagName("span") | Select-Object -First 1
-									$spanText = if ($spanObj) { $spanObj.innerText.Trim() } else { "" }
-
-									# Match section title format using start-of-string anchor
-									if ($spanText -match "^Section\s+(\d+)\s+(.+)$") {
-										$sectionNumber = $matches[1]  # Use captured number from span text
-										$sectionTitle = $matches[2]
-										$key = "Section $sectionNumber"
-										if (-not $SectionNames.Value.ContainsKey($key)) {
-											$SectionNames.Value[$key] = "Section $sectionNumber $sectionTitle"
-											Write-Log "Added section: $($SectionNames.Value[$key])" -Level Info
-										}
-									}
-									else {
-										Write-Log "Section span text format mismatch: '$spanText'" -Level Warning
-									}
-								}
-
-								# Recursively process nested lists
-								$nestedUL = $li.getElementsByTagName("ul") | Select-Object -First 1
-								if ($nestedUL) {
-									Write-Log "Found nested UL, processing recursively..." -Level DOM
-									Process-ListElement -Element $nestedUL -SectionNames $SectionNames `
-										-FigureCsvLines $FigureCsvLines -TotalFigures $TotalFigures -SelectedRow $SelectedRow
-								}
-							}
-						}
-
-                        # Start processing
-                        Process-ListElement -Element $treeElement -SectionNames ([ref]$sectionNames) `
-                            -FigureCsvLines ([ref]$figureCsvLines) -TotalFigures ([ref]$totalFigures) -SelectedRow ([ref]$selectedRow)
-                    }
-                }
-                catch {
-                    Write-Log "Error during DOM parsing: $_" -Level Error
-                    $processingErrors += "DOM parsing error: $_"
-                }
-                finally {
-                    # Clean up COM objects
-                    if ($null -ne $htmlDoc) {
-                        try {
-                            [System.Runtime.Interopservices.Marshal]::ReleaseComObject($htmlDoc) | Out-Null
-                            Write-Log "Released COM object" -Level DOM
-                        }
-                        catch {
-                            Write-Log "Error releasing COM object: $_" -Level Warning
-                        }
-                    }
-                    [System.GC]::Collect()
-                    [System.GC]::WaitForPendingFinalizers()
-                }
-            }
-            else {
-                Write-Log "Could not extract phbk_tree content" -Level Warning
-                $processingErrors += "phbk_tree content extraction failed"
-            }
-        }
-        else {
-            Write-Log "Could not extract Ryan_fault div" -Level Warning
-            $processingErrors += "Ryan_fault div extraction failed"
-        }
-    }
-    catch {
-        Write-Log "Error during Ryan_fault processing: $_" -Level Error
-        $processingErrors += "Ryan_fault processing error: $_"
-    }
-    
-    # Fall back to regex if DOM parsing didn't produce enough data
-    if ($totalFigures -eq 0 -or $sectionNames.Count -eq 0) {
-        Write-Log "DOM parsing didn't yield complete results, falling back to regex..." -Level Info
-        
-        try {
-            # Extract figures with regex
-            if ($totalFigures -eq 0) {
-                Write-Log "Extracting figures with regex..." -Level Info
-                $figureRegex = '<li\s+[^>]*figno="([^"]+)"[^>]*>\s*<span\s+[^>]*class="go_fig"[^>]*>(.*?)</span>'
-                $contentToSearch = if ($ryanFaultContent -ne $null) { $ryanFaultContent } else { $htmlContent }
-                $figureMatches = [regex]::Matches($contentToSearch, $figureRegex, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
-                
-                Write-Log "Found $($figureMatches.Count) figures with regex" -Level Info
-                foreach ($match in $figureMatches) {
-                    $figno = $match.Groups[1].Value.Trim()
-                    $figName = $match.Groups[2].Value.Trim()
-                    
-                    $sectionNo = ($figno -split '-')[0]
-                    $msBookNo = $selectedRow.'MS Book No'
-                    $volume = $selectedRow.Volume
-                    $figureUrl = "https://www1.mtsc.usps.gov/apps/phbk/content/printfigandtable.php?msbookno=$msBookNo&volno=$volume&secno=$sectionNo&figno=$figno&viewerflag=d&layout=L11"
-                    
-                    $figureCsvLines += "`n$figno,""$figName"",$sectionNo,$msBookNo,$volume,$figureUrl"
-                    $totalFigures++
-                    Write-Log "Added figure via regex: $figno - $figName" -Level Info
                 }
             }
             
-            # Extract sections with regex
-			if ($sectionNames.Count -le 1) {
-				Write-Log "Extracting sections with regex..." -Level Info
-				$sectionRegex = '<li[^>]+sno="(\d+)"[^>]+special_char="[^"]*"[^>]*>\s*<div[^>]*></div><span[^>]*>Section\s+(\d+)\s+([^<]+)</span>'
-				$contentToSearch = if ($ryanFaultContent -ne $null) { $ryanFaultContent } else { $htmlContent }
-				$sectionMatches = [regex]::Matches($contentToSearch, $sectionRegex, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
-    
-				Write-Log "Found $($sectionMatches.Count) sections with regex" -Level Info
-				foreach ($match in $sectionMatches) {
-					$sectionNumber = $match.Groups[2].Value
-					$sectionTitle = $match.Groups[3].Value.Trim()
-					$sectionNames["Section $sectionNumber"] = "Section $sectionNumber $sectionTitle"
-					Write-Log "Added section via regex: Section $sectionNumber - $sectionTitle" -Level Info
-				}
-			}
+            Write-Host "Processed $totalFigures total figures."
+            
+            # Write section names to text file
+            $sectionNames | Out-File -FilePath $sectionNamesPath -Encoding UTF8
+            Write-Host "Section names written to $sectionNamesPath"
+        } else {
+            Write-Host "Warning: Could not find phbk_tree UL element in the HTML."
         }
-        catch {
-            Write-Log "Error during regex fallback: $_" -Level Error
-            $processingErrors += "Regex fallback error: $_"
-        }
+    } else {
+        Write-Host "Warning: Could not find Ryan_fault div in the HTML."
     }
     
-    # Save output files
-    try {
-        $volumesToUrlPath = Join-Path $directoryPath "Volumes-to-URL.csv"
-        $figureCsvLines | Out-File -FilePath $volumesToUrlPath -Encoding UTF8 -Force
-        Write-Log "Created CSV file at $volumesToUrlPath with $totalFigures figures" -Level Info
-
-        $sectionNamesPath = Join-Path $directoryPath "SectionNames.txt"
-        $sectionNames.Values | Out-File -FilePath $sectionNamesPath -Encoding UTF8 -Force
-        Write-Log "Created section names file at $sectionNamesPath with $($sectionNames.Count) entries" -Level Info
-    }
-    catch {
-        Write-Log "Error saving output files: $_" -Level Error
-        $processingErrors += "File save error: $_"
-    }
-
-    # Generate summary report
-    try {
-        $summaryPath = Join-Path $directoryPath "dom_analysis_summary.txt"
-        $summary = @"
-DOM ANALYSIS SUMMARY
-===================
-Date: $(Get-Date)
-Book Title: $bookTitle
-Total Figures Found: $totalFigures
-Total Sections Found: $($sectionNames.Count)
-Errors Encountered: $($processingErrors.Count)
-
-DOM PARSING RESULTS:
--------------------
-$($processingErrors -join "`n")
-
-SECTIONS FOUND:
--------------
-$($sectionNames.Values -join "`n")
-
-FIRST 5 FIGURES:
---------------
-$($figureCsvLines -split "`n" | Select-Object -Skip 1 -First 5 | ForEach-Object { $_ })
-"@
-        Set-Content -Path $summaryPath -Value $summary -Encoding UTF8
-        Write-Log "Generated summary report at $summaryPath" -Level Info
-    }
-    catch {
-        Write-Log "Error generating summary report: $_" -Level Error
-    }
-
-    # Return results
+    # Return the paths to the created files
     return @{
         VolumesToUrlPath = $volumesToUrlPath
         SectionNamesPath = $sectionNamesPath
-        BookTitle = $bookTitle
-        ProcessingErrors = $processingErrors
+    }
+}
+
+# Fallback function that uses regex if DOM methods fail
+function Process-HTMLContentWithRegex {
+    param (
+        [string]$htmlContent,
+        [PSObject]$selectedRow,
+        [string]$directoryPath
+    )
+    
+    Write-Host "Using regex-based HTML parsing..."
+    
+    # Get MS Book No and Volume from selectedRow or extract from the HTML if available
+    $msBookNo = $selectedRow.'MS Book No'
+    $volume = $selectedRow.Volume
+
+    # If we don't have the MS Book No or Volume from selectedRow, try to extract from HTML
+    if ([string]::IsNullOrEmpty($msBookNo) -or [string]::IsNullOrEmpty($volume)) {
+        $bookTitleMatch = $htmlContent -match '<span[^>]*id="book_title"[^>]*>([^<]+)</span>'
+        if ($matches) {
+            $bookTitleText = $matches[1].Trim()
+            if ($bookTitleText -match "MS(\d+)\s+VOLUME\s+([A-Z])") {
+                $msBookNo = $matches[1]
+                $volume = $matches[2]
+                Write-Host "Extracted from HTML: MS Book No: $msBookNo, Volume: $volume"
+            }
+        }
+    }
+
+    # If we still don't have valid MSBookNo and Volume, exit the function
+    if ([string]::IsNullOrEmpty($msBookNo) -or [string]::IsNullOrEmpty($volume)) {
+        Write-Host "Error: Could not determine MS Book No and Volume. Exiting function."
+        return
+    }
+
+    # Create paths for output files
+    $volumesToUrlPath = Join-Path -Path $directoryPath -ChildPath "Volumes-to-URL.csv"
+    $sectionNamesPath = Join-Path -Path $directoryPath -ChildPath "SectionNames.txt"
+
+    # Create CSV writer for Volumes-to-URL.csv
+    $csvHeader = "Figure No.,Name,Section No.,MS Book No,Volume,URL"
+    $csvHeader | Out-File -FilePath $volumesToUrlPath -Encoding UTF8
+    
+    # Initialize array for section names
+    $sectionNames = @()
+
+    # Find the div with id="Ryan_fault"
+    if ($htmlContent -match '<div\s+id="Ryan_fault"[^>]*>(.*?)</div>') {
+        $ryanFaultContent = $matches[1]
+        
+        # Extract sections
+        $sectionPattern = '<li[^>]*sno="(\d+)"[^>]*><div[^>]*></div><span[^>]*>(.*?)</span>'
+        $sectionMatches = [regex]::Matches($ryanFaultContent, $sectionPattern)
+        
+        Write-Host "Found $($sectionMatches.Count) sections."
+        
+        foreach ($sectionMatch in $sectionMatches) {
+            $sectionNo = $sectionMatch.Groups[1].Value
+            $sectionText = $sectionMatch.Groups[2].Value -replace '^Section \d+\s+', ''
+            $sectionName = "Section $sectionNo $sectionText"
+            
+            Write-Host "Processing $sectionName"
+            $sectionNames += $sectionName
+            
+            # Find figures for this section
+            $figurePattern = '<li[^>]*figno="([^"]+)"[^>]*><span\s+class="go_fig">(.*?)</span>'
+            $figureMatches = [regex]::Matches($ryanFaultContent, $figurePattern)
+            
+            $sectionFigures = $figureMatches | Where-Object { $_.Groups[1].Value -match "^$sectionNo-" }
+            Write-Host "  Found $($sectionFigures.Count) figures in section $sectionNo."
+            
+            foreach ($figureMatch in $sectionFigures) {
+                $figno = $figureMatch.Groups[1].Value
+                $figureName = $figureMatch.Groups[2].Value
+                
+                # Clean up the figure name by removing the prefix like "2-1 "
+                $cleanFigureName = $figureName -replace "^\d+-\d+\s+", ""
+                
+                # Construct the URL for the figure
+                $figureUrl = "https://www1.mtsc.usps.gov/apps/phbk/content/printfigandtable.php?msbookno=$msBookNo&volno=$volume&secno=$sectionNo&figno=$figno&viewerflag=d&layout=L11"
+                
+                # Write to CSV
+                $csvLine = "$figno,`"$cleanFigureName`",$sectionNo,$msBookNo,$volume,$figureUrl"
+                $csvLine | Out-File -FilePath $volumesToUrlPath -Encoding UTF8 -Append
+                
+                Write-Host "    Added figure: $figno - $cleanFigureName"
+            }
+        }
+        
+        # Write section names to text file
+        $sectionNames | Out-File -FilePath $sectionNamesPath -Encoding UTF8
+    } else {
+        Write-Host "Error: Could not find Ryan_fault div in the HTML."
+    }
+    
+    # Return the paths to the created files
+    return @{
+        VolumesToUrlPath = $volumesToUrlPath
+        SectionNamesPath = $sectionNamesPath
     }
 }
 
