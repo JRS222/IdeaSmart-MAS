@@ -1049,7 +1049,8 @@ function Setup-SearchTab {
         $filteredData = $data | Where-Object {
             ($nsnSearch -eq '' -or $_.'Part (NSN)' -like "*$nsnSearch*" -or $_.'Changed Part (NSN)' -like "*$nsnSearch*") -and
             ($oemSearch -eq '' -or ($_.'OEM 1' -like "*$oemSearch*" -or $_.'OEM 2' -like "*$oemSearch*" -or $_.'OEM 3' -like "*$oemSearch*")) -and
-            ($descriptionSearch -eq '' -or $_.Description -like "*$descriptionSearch*")
+            ($descriptionSearch -eq '' -or $_.Description -like "*$descriptionSearch*") -and
+    ([int]$_.QTY -gt 0)
         }
 
         Write-Log "Found $($filteredData.Count) matching records in Availability."
@@ -1103,7 +1104,8 @@ function Setup-SearchTab {
             $filteredSameDayData = $sameDayData | Where-Object {
                 ($nsnSearch -eq '' -or $_.'Part (NSN)' -like "*$nsnSearch*") -and
                 ($oemSearch -eq '' -or ($_.'OEM 1' -like "*$oemSearch*" -or $_.'OEM 2' -like "*$oemSearch*" -or $_.'OEM 3' -like "*$oemSearch*")) -and
-                ($descriptionSearch -eq '' -or $_.Description -like "*$descriptionSearch*")
+                ($descriptionSearch -eq '' -or $_.Description -like "*$descriptionSearch*") -and
+    ([int]$_.QTY -gt 0)
             }
 
             Write-Log "Found $($filteredSameDayData.Count) matching records in Same Day Parts Availability."
@@ -1189,17 +1191,15 @@ function Setup-SearchTab {
                         Write-Log "Failed to read CSV file $csvFilePath. Error: $_"
                         continue
                     }
-
+                
                     $filteredSectionData = $sectionData | Where-Object {
                         ($nsnSearch -eq '' -or $_.'STOCK NO.' -like "*$nsnSearch*") -and
                         ($oemSearch -eq '' -or $_.'PART NO.' -like "*$oemSearch*") -and
                         ($descriptionSearch -eq '' -or $_.'PART DESCRIPTION' -like "*$descriptionSearch*")
                     }
-
+                
                     foreach ($item in $filteredSectionData) {
-                        $item | Add-Member -NotePropertyName 'Handbook' -NotePropertyValue $bookName -Force
-                        $item | Add-Member -NotePropertyName 'Section Name' -NotePropertyValue $sectionName -Force
-                        $crossRefResults += $item
+
                     }
                 }
             }
@@ -2347,11 +2347,9 @@ function Add-PartsToWorkOrder {
     
     Setup-SearchControls -parentForm $addPartsForm
     
-    $addPartsForm.ShowDialog()
-
     $addSelectedPartsButton = New-Object System.Windows.Forms.Button
     $addSelectedPartsButton.Text = "Add Selected Parts"
-    $addSelectedPartsButton.Location = New-Object System.Drawing.Point(700, 700)  # Keep original position
+    $addSelectedPartsButton.Location = New-Object System.Drawing.Point(700, 570)  # Adjusted position to match other buttons
     $addSelectedPartsButton.Size = New-Object System.Drawing.Size(150, 30)
     $addPartsForm.Controls.Add($addSelectedPartsButton)
 
@@ -2366,6 +2364,7 @@ function Add-PartsToWorkOrder {
         }
     })
 
+    # Only show the dialog once
     $addPartsForm.ShowDialog()
 }
 
@@ -2421,29 +2420,26 @@ function Setup-SearchControls {
     $searchButton.Size = New-Object System.Drawing.Size(75, 30)
     $parentForm.Controls.Add($searchButton)
 
-    # Set up Cross Reference ListView
-    $labelCrossRef = New-Object System.Windows.Forms.Label
-    $labelCrossRef.Text = "Cross Reference"
-    $labelCrossRef.Location = New-Object System.Drawing.Point(20, 60)
-    $labelCrossRef.Size = New-Object System.Drawing.Size(100, 20)
-    $parentForm.Controls.Add($labelCrossRef)
+    # Set up Parts Availability ListView (Combined local and same-day parts)
+    $labelPartsAvailability = New-Object System.Windows.Forms.Label
+    $labelPartsAvailability.Text = "Parts Availability"
+    $labelPartsAvailability.Location = New-Object System.Drawing.Point(20, 60)
+    $labelPartsAvailability.Size = New-Object System.Drawing.Size(150, 20)
+    $parentForm.Controls.Add($labelPartsAvailability)
 
     $script:listViewCrossRef.Location = New-Object System.Drawing.Point(20, 80)
     $script:listViewCrossRef.Size = New-Object System.Drawing.Size(1055, 300)
     $script:listViewCrossRef.View = [System.Windows.Forms.View]::Details
     $script:listViewCrossRef.FullRowSelect = $true
     $script:listViewCrossRef.CheckBoxes = $true
-    $script:listViewCrossRef.Columns.Add("Handbook", 100)
-    $script:listViewCrossRef.Columns.Add("Section Name", 150)
-    $script:listViewCrossRef.Columns.Add("NO.", 50)
-    $script:listViewCrossRef.Columns.Add("PART DESCRIPTION", 200)
-    $script:listViewCrossRef.Columns.Add("REF.", 100)
-    $script:listViewCrossRef.Columns.Add("STOCK NO.", 100)
-    $script:listViewCrossRef.Columns.Add("PART NO.", 100)
-    $script:listViewCrossRef.Columns.Add("CAGE", 50)
-    $script:listViewCrossRef.Columns.Add("Location", 100)
+    $script:listViewCrossRef.Columns.Add("Part (NSN)", 100)
+    $script:listViewCrossRef.Columns.Add("Description", 200)
     $script:listViewCrossRef.Columns.Add("QTY", 50)
-    $script:listViewCrossRef.Columns.Add("Source", 100)
+    $script:listViewCrossRef.Columns.Add("13 Period Usage", 100)
+    $script:listViewCrossRef.Columns.Add("Location", 100)
+    $script:listViewCrossRef.Columns.Add("OEM 1", 100)
+    $script:listViewCrossRef.Columns.Add("OEM 2", 100)
+    $script:listViewCrossRef.Columns.Add("OEM 3", 100)
     $script:listViewCrossRef.Columns.Add("Source", 100)
     $parentForm.Controls.Add($script:listViewCrossRef)
 
@@ -2474,12 +2470,12 @@ function Setup-SearchControls {
     $addSelectedPartsButton = New-Object System.Windows.Forms.Button
     $addSelectedPartsButton.Text = "Add Parts to work order"
     $addSelectedPartsButton.Location = New-Object System.Drawing.Point(150, 570)
-    $addSelectedPartsButton.Size = New-Object System.Drawing.Size(120, 30)
+    $addSelectedPartsButton.Size = New-Object System.Drawing.Size(150, 30)
     $parentForm.Controls.Add($addSelectedPartsButton)
 
     # Add tooltips
     $tooltip = New-Object System.Windows.Forms.ToolTip
-    $tooltip.SetToolTip($addSelectedPartButton, "Add the selected part from the Cross Reference list to the Selected Parts list")
+    $tooltip.SetToolTip($addSelectedPartButton, "Add the selected part from the Parts Availability list to the Selected Parts list")
     $tooltip.SetToolTip($addSelectedPartsButton, "Add all selected parts to the work order and close this window")
 
     # Event handlers
@@ -2499,123 +2495,132 @@ function PerformSearch {
     $oemSearch = $script:textBoxOEM.Text.Trim()
     $descriptionSearch = $script:textBoxDescription.Text.Trim()
 
-    Write-Log "Performing Cross Reference search..."
+    Write-Log "Performing parts availability search..."
     Write-Log "Search criteria - NSN: $nsnSearch, OEM: $oemSearch, Description: $descriptionSearch"
 
-    $crossRefResults = @()
+    $availabilityResults = @()
 
-    if ($config.Books) {
-        foreach ($book in $config.Books.PSObject.Properties) {
-            $bookName = $book.Name
-            $bookDir = Join-Path $config.PartsBooksDirectory $bookName
-            $combinedSectionsDir = Join-Path $bookDir "CombinedSections"
-            $sectionNamesFile = Join-Path $bookDir "SectionNames.txt"
+    # Clear the ListView
+    $script:listViewCrossRef.Items.Clear()
 
-            # Create a mapping of section numbers to full section names
-            $sectionNameMapping = @{}
-            if (Test-Path $sectionNamesFile) {
-                $sectionNames = Get-Content -Path $sectionNamesFile
-                foreach ($line in $sectionNames) {
-                    if ($line -match '^Section\s+(\d+)\s*(.*)$') {
-                        $sectionNumber = $Matches[1]
-                        $sectionFullName = $line.Trim()
-                        $sectionNameMapping["Section $sectionNumber"] = $sectionFullName
+    #### Local Parts Room Search ####
+    $csvFiles = Get-ChildItem -Path $config.PartsRoomDirectory -Filter "*.csv" -File | Where-Object { $_.Directory.Name -eq $(Split-Path $config.PartsRoomDirectory -Leaf) }
+
+    if ($csvFiles.Count -gt 0) {
+        foreach ($csvFile in $csvFiles) {
+            $csvFilePath = $csvFile.FullName
+            Write-Log "Searching local parts room file: $csvFilePath"
+            
+            try {
+                $data = Import-Csv -Path $csvFilePath
+                Write-Log "Local parts room CSV file loaded successfully. Row count: $($data.Count)"
+                
+                $filteredData = $data | Where-Object {
+                    ($nsnSearch -eq '' -or $_.'Part (NSN)' -like "*$nsnSearch*" -or $_.'Changed Part (NSN)' -like "*$nsnSearch*") -and
+                    ($oemSearch -eq '' -or ($_.'OEM 1' -like "*$oemSearch*" -or $_.'OEM 2' -like "*$oemSearch*" -or $_.'OEM 3' -like "*$oemSearch*")) -and
+                    ($descriptionSearch -eq '' -or $_.Description -like "*$descriptionSearch*")
+                }
+                
+                foreach ($row in $filteredData) {
+                    $newItem = [PSCustomObject]@{
+                        'Part (NSN)' = $row.'Part (NSN)'
+                        'Description' = $row.Description
+                        'QTY' = $row.QTY
+                        '13 Period Usage' = $row.'13 Period Usage'
+                        'Location' = $row.Location
+                        'OEM 1' = $row.'OEM 1'
+                        'OEM 2' = $row.'OEM 2'
+                        'OEM 3' = $row.'OEM 3'
+                        'Source' = "Local Parts Room"
                     }
+                    $availabilityResults += $newItem
                 }
-                Write-Log "Loaded $($sectionNameMapping.Count) section names for $bookName"
-            } else {
-                Write-Log "SectionNames.txt not found for $bookName"
+                
+                Write-Log "Found $($filteredData.Count) matching records in Local Parts Room."
+            } catch {
+                Write-Log "Failed to read local parts room CSV file. Error: $_"
             }
-
-            if (-not (Test-Path $combinedSectionsDir)) {
-                Write-Log "CombinedSections directory not found for $bookName"
-                continue
-            }
-
-            $sectionCsvFiles = Get-ChildItem -Path $combinedSectionsDir -Filter "*.csv" -File
-            Write-Log "Found $($sectionCsvFiles.Count) CSV files in $bookName"
-
-            foreach ($csvFile in $sectionCsvFiles) {
-                $sectionFileName = [IO.Path]::GetFileNameWithoutExtension($csvFile.Name)
-                $csvFilePath = $csvFile.FullName
-
-                # Extract section number and get full section name
-                if ($sectionFileName -match '^Section\s+(\d+)$') {
-                    $sectionNumber = $Matches[1]
-                    if ($sectionNameMapping.ContainsKey("Section $sectionNumber")) {
-                        $sectionName = $sectionNameMapping["Section $sectionNumber"]
-                    } else {
-                        $sectionName = "Section $sectionNumber"
-                    }
-                } else {
-                    $sectionName = $sectionFileName
-                }
-
-                try {
-                    $sectionData = Import-Csv -Path $csvFilePath
-                    Write-Log "Processed $($sectionData.Count) rows from $($csvFile.Name)"
-                } catch {
-                    Write-Log "Failed to read CSV file $csvFilePath. Error: $_"
-                    continue
-                }
-
-                $filteredSectionData = $sectionData | Where-Object {
-                    ($nsnSearch -eq '' -or $_.'STOCK NO.' -like "*$nsnSearch*") -and
-                    ($oemSearch -eq '' -or $_.'PART NO.' -like "*$oemSearch*") -and
-                    ($descriptionSearch -eq '' -or $_.'PART DESCRIPTION' -like "*$descriptionSearch*")
-                }
-
-                foreach ($item in $filteredSectionData) {
-                    $item | Add-Member -NotePropertyName 'Handbook' -NotePropertyValue $bookName -Force
-                    $item | Add-Member -NotePropertyName 'Section Name' -NotePropertyValue $sectionName -Force
-                    $crossRefResults += $item
-                }
-            }
-        }
-
-        Write-Log "Found $($crossRefResults.Count) matching records in Cross Reference."
-
-        $script:listViewCrossRef.Items.Clear()
-
-        if ($crossRefResults.Count -gt 0) {
-            $columns = @('Handbook', 'Section Name', 'NO.', 'PART DESCRIPTION', 'REF.', 'STOCK NO.', 'PART NO.', 'CAGE', 'Location', 'QTY', 'Source')
-
-
-            foreach ($row in $crossRefResults) {
-                $item = New-Object System.Windows.Forms.ListViewItem($row.Handbook)
-                foreach ($column in $columns[1..($columns.Count-1)]) {
-                    $value = if ($row.PSObject.Properties.Name -contains $column) { $row.$column } else { "" }
-                    if ($column -eq 'REF.' -and $value -is [string]) {
-                        $value = $value -replace '\.csv$', ''
-                    }
-                    $item.SubItems.Add($value)
-                }
-                $script:listViewCrossRef.Items.Add($item)
-            }
-
-            $script:listViewCrossRef.AutoResizeColumns([System.Windows.Forms.ColumnHeaderAutoResizeStyle]::HeaderSize)
-            Write-Log "Added $($crossRefResults.Count) items to Cross Reference ListView."
-        } else {
-            [System.Windows.Forms.MessageBox]::Show("No matching records found in Cross Reference.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-            Write-Log "No matching records found in Cross Reference."
         }
     } else {
-        Write-Log "No books defined in configuration."
+        Write-Log "No local parts room CSV files found."
+    }
+
+    #### Same Day Parts Room Search ####
+    $sameDayPartsDir = Join-Path $config.PartsRoomDirectory "Same Day Parts Room"
+    if (Test-Path $sameDayPartsDir) {
+        $sameDayCsvFiles = Get-ChildItem -Path $sameDayPartsDir -Filter "*.csv" -File
+        Write-Log "Found $($sameDayCsvFiles.Count) CSV files in Same Day Parts Room."
+
+        foreach ($csvFile in $sameDayCsvFiles) {
+            $siteName = [IO.Path]::GetFileNameWithoutExtension($csvFile.Name)
+            try {
+                $csvData = Import-Csv -Path $csvFile.FullName
+                $filteredData = $csvData | Where-Object {
+                    ($nsnSearch -eq '' -or $_.'Part (NSN)' -like "*$nsnSearch*") -and
+                    ($oemSearch -eq '' -or ($_.'OEM 1' -like "*$oemSearch*" -or $_.'OEM 2' -like "*$oemSearch*" -or $_.'OEM 3' -like "*$oemSearch*")) -and
+                    ($descriptionSearch -eq '' -or $_.Description -like "*$descriptionSearch*")
+                }
+                
+                foreach ($row in $filteredData) {
+                    $newItem = [PSCustomObject]@{
+                        'Part (NSN)' = $row.'Part (NSN)'
+                        'Description' = $row.Description
+                        'QTY' = $row.QTY
+                        '13 Period Usage' = $row.'13 Period Usage'
+                        'Location' = $row.Location
+                        'OEM 1' = $row.'OEM 1'
+                        'OEM 2' = $row.'OEM 2'
+                        'OEM 3' = $row.'OEM 3'
+                        'Source' = $siteName
+                    }
+                    $availabilityResults += $newItem
+                }
+                
+                Write-Log "Found $($filteredData.Count) matching records in Same Day Parts Room '$siteName'."
+            } catch {
+                Write-Log "Failed to read CSV file $($csvFile.FullName). Error: $_"
+            }
+        }
+    } else {
+        Write-Log "Same Day Parts Room directory not found at $sameDayPartsDir"
+    }
+
+    # Populate the ListView with the combined results
+    if ($availabilityResults.Count -gt 0) {
+        foreach ($row in $availabilityResults) {
+            $item = New-Object System.Windows.Forms.ListViewItem($row.'Part (NSN)')
+            $item.SubItems.Add($row.Description)
+            $item.SubItems.Add($row.QTY)
+            $item.SubItems.Add($row.'13 Period Usage')
+            $item.SubItems.Add($row.Location)
+            $item.SubItems.Add($row.'OEM 1')
+            $item.SubItems.Add($row.'OEM 2')
+            $item.SubItems.Add($row.'OEM 3')
+            $item.SubItems.Add($row.Source)
+            $script:listViewCrossRef.Items.Add($item)
+        }
+        $script:listViewCrossRef.AutoResizeColumns([System.Windows.Forms.ColumnHeaderAutoResizeStyle]::HeaderSize)
+        Write-Log "Added $($availabilityResults.Count) items to Parts Availability ListView."
+    } else {
+        [System.Windows.Forms.MessageBox]::Show("No matching parts found in any parts room.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+        Write-Log "No matching parts found in any parts room."
     }
 }
 
 function AddSelectedPart {
     $selectedItems = $script:listViewCrossRef.CheckedItems
     if ($selectedItems.Count -eq 0) {
-        [System.Windows.Forms.MessageBox]::Show("Please select a part from the Cross Reference list.", "No Part Selected", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+        [System.Windows.Forms.MessageBox]::Show("Please select a part from the Parts Availability list.", "No Part Selected", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
         return
     }
 
     foreach ($selectedItem in $selectedItems) {
-        $stockNo = $selectedItem.SubItems[5].Text  # 'STOCK NO.'
-        $partDescription = $selectedItem.SubItems[3].Text  # 'PART DESCRIPTION'
-        $location = $selectedItem.SubItems[7].Text  # 'Location'
-        $source = $selectedItem.SubItems[8].Text  # 'Source'
+        $stockNo = $selectedItem.SubItems[0].Text       # 'Part (NSN)'
+        $partDescription = $selectedItem.SubItems[1].Text  # 'Description'
+        $location = $selectedItem.SubItems[4].Text      # 'Location'
+        $source = $selectedItem.SubItems[8].Text        # 'Source'
+        $availableQty = [int]$selectedItem.SubItems[2].Text # 'QTY'
+        $oemPart = $selectedItem.SubItems[5].Text       # 'OEM 1'
 
         $quantity = Prompt-ForQuantity -partNumber $stockNo
 
@@ -2626,8 +2631,156 @@ function AddSelectedPart {
             $item = New-Object System.Windows.Forms.ListViewItem($stockNo)
             $item.SubItems.Add($partDescription)
             $item.SubItems.Add($quantity.ToString())
-            $item.SubItems.Add($location)
-            $item.SubItems.Add($source)
+            $item.SubItems.Add($sources)
+            $script:listViewSelectedParts.Items.Add($item)
+
+            Write-Log "Added part $stockNo to selected parts. Quantity: $quantity, Source: $source, Location: $location"
+        }
+    }
+}
+
+function PerformSearch {
+    $nsnSearch = $script:textBoxNSN.Text.Trim()
+    $oemSearch = $script:textBoxOEM.Text.Trim()
+    $descriptionSearch = $script:textBoxDescription.Text.Trim()
+
+    Write-Log "Performing parts availability search..."
+    Write-Log "Search criteria - NSN: $nsnSearch, OEM: $oemSearch, Description: $descriptionSearch"
+
+    $availabilityResults = @()
+
+    # Clear the ListView
+    $script:listViewCrossRef.Items.Clear()
+
+    #### Local Parts Room Search ####
+    $csvFiles = Get-ChildItem -Path $config.PartsRoomDirectory -Filter "*.csv" -File | Where-Object { $_.Directory.Name -eq $(Split-Path $config.PartsRoomDirectory -Leaf) }
+
+    if ($csvFiles.Count -gt 0) {
+        foreach ($csvFile in $csvFiles) {
+            $csvFilePath = $csvFile.FullName
+            Write-Log "Searching local parts room file: $csvFilePath"
+            
+            try {
+                $data = Import-Csv -Path $csvFilePath
+                Write-Log "Local parts room CSV file loaded successfully. Row count: $($data.Count)"
+                
+                $filteredData = $data | Where-Object {
+                    ($nsnSearch -eq '' -or $_.'Part (NSN)' -like "*$nsnSearch*" -or $_.'Changed Part (NSN)' -like "*$nsnSearch*") -and
+                    ($oemSearch -eq '' -or ($_.'OEM 1' -like "*$oemSearch*" -or $_.'OEM 2' -like "*$oemSearch*" -or $_.'OEM 3' -like "*$oemSearch*")) -and
+                    ($descriptionSearch -eq '' -or $_.Description -like "*$descriptionSearch*")
+                }
+                
+                foreach ($row in $filteredData) {
+                    $newItem = [PSCustomObject]@{
+                        'Part (NSN)' = $row.'Part (NSN)'
+                        'Description' = $row.Description
+                        'QTY' = $row.QTY
+                        '13 Period Usage' = $row.'13 Period Usage'
+                        'Location' = $row.Location
+                        'OEM 1' = $row.'OEM 1'
+                        'OEM 2' = $row.'OEM 2'
+                        'OEM 3' = $row.'OEM 3'
+                        'Source' = "Local Parts Room"
+                    }
+                    $availabilityResults += $newItem
+                }
+                
+                Write-Log "Found $($filteredData.Count) matching records in Local Parts Room."
+            } catch {
+                Write-Log "Failed to read local parts room CSV file. Error: $_"
+            }
+        }
+    } else {
+        Write-Log "No local parts room CSV files found."
+    }
+
+    #### Same Day Parts Room Search ####
+    $sameDayPartsDir = Join-Path $config.PartsRoomDirectory "Same Day Parts Room"
+    if (Test-Path $sameDayPartsDir) {
+        $sameDayCsvFiles = Get-ChildItem -Path $sameDayPartsDir -Filter "*.csv" -File
+        Write-Log "Found $($sameDayCsvFiles.Count) CSV files in Same Day Parts Room."
+
+        foreach ($csvFile in $sameDayCsvFiles) {
+            $siteName = [IO.Path]::GetFileNameWithoutExtension($csvFile.Name)
+            try {
+                $csvData = Import-Csv -Path $csvFile.FullName
+                $filteredData = $csvData | Where-Object {
+                    ($nsnSearch -eq '' -or $_.'Part (NSN)' -like "*$nsnSearch*") -and
+                    ($oemSearch -eq '' -or ($_.'OEM 1' -like "*$oemSearch*" -or $_.'OEM 2' -like "*$oemSearch*" -or $_.'OEM 3' -like "*$oemSearch*")) -and
+                    ($descriptionSearch -eq '' -or $_.Description -like "*$descriptionSearch*")
+                }
+                
+                foreach ($row in $filteredData) {
+                    $newItem = [PSCustomObject]@{
+                        'Part (NSN)' = $row.'Part (NSN)'
+                        'Description' = $row.Description
+                        'QTY' = $row.QTY
+                        '13 Period Usage' = $row.'13 Period Usage'
+                        'Location' = $row.Location
+                        'OEM 1' = $row.'OEM 1'
+                        'OEM 2' = $row.'OEM 2'
+                        'OEM 3' = $row.'OEM 3'
+                        'Source' = $siteName
+                    }
+                    $availabilityResults += $newItem
+                }
+                
+                Write-Log "Found $($filteredData.Count) matching records in Same Day Parts Room '$siteName'."
+            } catch {
+                Write-Log "Failed to read CSV file $($csvFile.FullName). Error: $_"
+            }
+        }
+    } else {
+        Write-Log "Same Day Parts Room directory not found at $sameDayPartsDir"
+    }
+
+    # Populate the ListView with the combined results
+    if ($availabilityResults.Count -gt 0) {
+        foreach ($row in $availabilityResults) {
+            $item = New-Object System.Windows.Forms.ListViewItem($row.'Part (NSN)')
+            $item.SubItems.Add($row.Description)
+            $item.SubItems.Add($row.QTY)
+            $item.SubItems.Add($row.'13 Period Usage')
+            $item.SubItems.Add($row.Location)
+            $item.SubItems.Add($row.'OEM 1')
+            $item.SubItems.Add($row.'OEM 2')
+            $item.SubItems.Add($row.'OEM 3')
+            $item.SubItems.Add($row.Source)
+            $script:listViewCrossRef.Items.Add($item)
+        }
+        $script:listViewCrossRef.AutoResizeColumns([System.Windows.Forms.ColumnHeaderAutoResizeStyle]::HeaderSize)
+        Write-Log "Added $($availabilityResults.Count) items to Parts Availability ListView."
+    } else {
+        [System.Windows.Forms.MessageBox]::Show("No matching parts found in any parts room.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+        Write-Log "No matching parts found in any parts room."
+    }
+}
+
+function AddSelectedPart {
+    $selectedItems = $script:listViewCrossRef.CheckedItems
+    if ($selectedItems.Count -eq 0) {
+        [System.Windows.Forms.MessageBox]::Show("Please select a part from the Parts Availability list.", "No Part Selected", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+        return
+    }
+
+    foreach ($selectedItem in $selectedItems) {
+        $stockNo = $selectedItem.SubItems[0].Text       # 'Part (NSN)'
+        $partDescription = $selectedItem.SubItems[1].Text  # 'Description'
+        $location = $selectedItem.SubItems[4].Text      # 'Location'
+        $source = $selectedItem.SubItems[8].Text        # 'Source'
+        $availableQty = [int]$selectedItem.SubItems[2].Text # 'QTY'
+        $oemPart = $selectedItem.SubItems[5].Text       # 'OEM 1'
+
+        $quantity = Prompt-ForQuantity -partNumber $stockNo
+
+        if ($quantity -gt 0) {
+            # Check availability and determine sources
+            $sources = Check-Availability -StockNo $stockNo -RequiredQuantity $quantity
+
+            $item = New-Object System.Windows.Forms.ListViewItem($stockNo)
+            $item.SubItems.Add($partDescription)
+            $item.SubItems.Add($quantity.ToString())
+            $item.SubItems.Add($sources)
             $script:listViewSelectedParts.Items.Add($item)
 
             Write-Log "Added part $stockNo to selected parts. Quantity: $quantity, Source: $source, Location: $location"
@@ -2678,22 +2831,24 @@ function Check-Availability {
 function Get-SelectedPartsFromSearch {
     $selectedParts = @()
 
-    # Collect selected items from Cross Reference
+    # Collect selected items from Parts Availability
     foreach ($item in $script:listViewCrossRef.CheckedItems) {
-        $partNumber = $item.SubItems[5].Text  # 'STOCK NO.'
-        $description = $item.SubItems[3].Text  # 'PART DESCRIPTION'
-        $location = $item.SubItems[7].Text  # 'Location'
-        $source = $item.SubItems[8].Text  # 'Source'
+        $partNumber = $item.SubItems[0].Text       # 'Part (NSN)'
+        $partNo = $item.SubItems[5].Text           # 'OEM 1'
+        $description = $item.SubItems[1].Text      # 'Description'
+        $location = $item.SubItems[4].Text         # 'Location'
+        $source = $item.SubItems[8].Text           # 'Source'
 
         # Prompt for quantity
         $quantity = Prompt-ForQuantity -partNumber $partNumber
 
         $selectedParts += [PSCustomObject]@{
-            PartNumber  = $partNumber
+            PartNumber = $partNumber
+            PartNo = $partNo
             Description = $description
-            Quantity    = $quantity
-            Location    = $location
-            Source      = $source
+            Quantity = $quantity
+            Location = $location
+            Source = $source
         }
     }
 
@@ -2796,6 +2951,8 @@ function Search-CrossReferenceData {
 
         foreach ($csvFile in $sectionCsvFiles) {
             $csvFilePath = $csvFile.FullName
+            $sourceFileName = [System.IO.Path]::GetFileNameWithoutExtension($csvFile.Name)
+            
             try {
                 $sectionData = Import-Csv -Path $csvFilePath
                 Write-Log "Processed $($sectionData.Count) rows from $($csvFile.Name)"
@@ -2803,13 +2960,13 @@ function Search-CrossReferenceData {
                 Write-Log "Failed to read CSV file $csvFilePath. Error: $_"
                 continue
             }
-
+        
             $filteredSectionData = $sectionData | Where-Object {
                 ($NSN -eq '' -or $_.'STOCK NO.' -like "*$NSN*") -and
                 ($OEM -eq '' -or $_.'PART NO.' -like "*$OEM*") -and
                 ($Description -eq '' -or $_.'PART DESCRIPTION' -like "*$Description*")
             }
-
+        
             foreach ($item in $filteredSectionData) {
                 $resultItem = [PSCustomObject]@{
                     Handbook = $bookName
@@ -2820,7 +2977,7 @@ function Search-CrossReferenceData {
                     StockNo = if ($item.PSObject.Properties['STOCK NO.']) { $item.'STOCK NO.' } else { "" }
                     PartNo = if ($item.PSObject.Properties['PART NO.']) { $item.'PART NO.' } else { "" }
                     Location = if ($item.PSObject.Properties['Location']) { $item.Location } else { "" }
-                    Source = "Cross Reference"  # Add this line to include the Source
+                    Source = $sourceFileName  # This will be the CSV filename without extension
                 }
                 $crossRefResults += $resultItem
             }
