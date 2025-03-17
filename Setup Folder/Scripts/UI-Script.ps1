@@ -2516,9 +2516,12 @@ function PerformSearch {
                 Write-Log "Local parts room CSV file loaded successfully. Row count: $($data.Count)"
                 
                 $filteredData = $data | Where-Object {
+                    # Add QTY filter: must be greater than 0
                     ($nsnSearch -eq '' -or $_.'Part (NSN)' -like "*$nsnSearch*" -or $_.'Changed Part (NSN)' -like "*$nsnSearch*") -and
                     ($oemSearch -eq '' -or ($_.'OEM 1' -like "*$oemSearch*" -or $_.'OEM 2' -like "*$oemSearch*" -or $_.'OEM 3' -like "*$oemSearch*")) -and
-                    ($descriptionSearch -eq '' -or $_.Description -like "*$descriptionSearch*")
+                    ($descriptionSearch -eq '' -or $_.Description -like "*$descriptionSearch*") -and
+                    # Only include items with quantity > 0
+                    ([int]$_.QTY -gt 0)
                 }
                 
                 foreach ($row in $filteredData) {
@@ -2558,7 +2561,9 @@ function PerformSearch {
                 $filteredData = $csvData | Where-Object {
                     ($nsnSearch -eq '' -or $_.'Part (NSN)' -like "*$nsnSearch*") -and
                     ($oemSearch -eq '' -or ($_.'OEM 1' -like "*$oemSearch*" -or $_.'OEM 2' -like "*$oemSearch*" -or $_.'OEM 3' -like "*$oemSearch*")) -and
-                    ($descriptionSearch -eq '' -or $_.Description -like "*$descriptionSearch*")
+                    ($descriptionSearch -eq '' -or $_.Description -like "*$descriptionSearch*") -and
+                    # Only include items with quantity > 0
+                    ([int]$_.QTY -gt 0)
                 }
                 
                 foreach ($row in $filteredData) {
@@ -2665,9 +2670,29 @@ function PerformSearch {
                 Write-Log "Local parts room CSV file loaded successfully. Row count: $($data.Count)"
                 
                 $filteredData = $data | Where-Object {
+                    # Add QTY filter: must be greater than 0
                     ($nsnSearch -eq '' -or $_.'Part (NSN)' -like "*$nsnSearch*" -or $_.'Changed Part (NSN)' -like "*$nsnSearch*") -and
                     ($oemSearch -eq '' -or ($_.'OEM 1' -like "*$oemSearch*" -or $_.'OEM 2' -like "*$oemSearch*" -or $_.'OEM 3' -like "*$oemSearch*")) -and
                     ($descriptionSearch -eq '' -or $_.Description -like "*$descriptionSearch*")
+                }
+                
+                # Add debug logging for QTY values before filtering
+                Write-Log "Before QTY filtering: $($filteredData.Count) records"
+                foreach ($row in $filteredData) {
+                    Write-Log "QTY value for part $($row.'Part (NSN)'): '$($row.QTY)' (Type: $($row.QTY.GetType().FullName))"
+                }
+                
+                # Now filter for QTY > 0 with better error handling
+                $filteredData = $filteredData | Where-Object {
+                    $qtyValue = 0
+                    if ([int]::TryParse($_.QTY, [ref]$qtyValue)) {
+                        $result = $qtyValue -gt 0
+                        Write-Log "Part $($_.'Part (NSN)') - QTY: $qtyValue - Include: $result"
+                        $result
+                    } else {
+                        Write-Log "Warning: Could not parse QTY value '$($_.QTY)' for part $($_.'Part (NSN)')"
+                        $false  # Exclude items with unparseable QTY
+                    }
                 }
                 
                 foreach ($row in $filteredData) {
@@ -2708,6 +2733,25 @@ function PerformSearch {
                     ($nsnSearch -eq '' -or $_.'Part (NSN)' -like "*$nsnSearch*") -and
                     ($oemSearch -eq '' -or ($_.'OEM 1' -like "*$oemSearch*" -or $_.'OEM 2' -like "*$oemSearch*" -or $_.'OEM 3' -like "*$oemSearch*")) -and
                     ($descriptionSearch -eq '' -or $_.Description -like "*$descriptionSearch*")
+                }
+                
+                # Add debug logging for QTY values before filtering
+                Write-Log "Same Day Parts: Before QTY filtering: $($filteredData.Count) records for site $siteName"
+                foreach ($row in $filteredData) {
+                    Write-Log "Same Day QTY value for part $($row.'Part (NSN)'): '$($row.QTY)' (Type: $($row.QTY.GetType().FullName))"
+                }
+                
+                # Now filter for QTY > 0 with better error handling
+                $filteredData = $filteredData | Where-Object {
+                    $qtyValue = 0
+                    if ([int]::TryParse($_.QTY, [ref]$qtyValue)) {
+                        $result = $qtyValue -gt 0
+                        Write-Log "Same Day Part $($_.'Part (NSN)') - QTY: $qtyValue - Include: $result"
+                        $result
+                    } else {
+                        Write-Log "Warning: Could not parse Same Day QTY value '$($_.QTY)' for part $($_.'Part (NSN)')"
+                        $false  # Exclude items with unparseable QTY
+                    }
                 }
                 
                 foreach ($row in $filteredData) {
