@@ -2246,35 +2246,77 @@ function Process-HistoricalLogs {
 }
 
 # Function to load Labor Logs from CSV
+# Enhanced Load-LaborLogs function with debugging
 function Load-LaborLogs {
     param($listView, $filePath)
-
-    $laborLogs = Import-Csv -Path $filePath
-
-    foreach ($log in $laborLogs) {
-        $item = New-Object System.Windows.Forms.ListViewItem($log.Date)
-        $item.SubItems.Add($log.'Work Order')
-        $item.SubItems.Add($log.Description)
-        $item.SubItems.Add($log.Machine)
-        $item.SubItems.Add($log.Duration)
-        $item.SubItems.Add($log.Notes)
-
-        if ($log.PSObject.Properties.Name -contains 'Parts' -and $log.Parts -ne "") {
-            $parts = $log.Parts | ConvertFrom-Json
-            $script:workOrderParts[$log.'Work Order'] = $parts
-
-            # Construct the detailed parts string
-            $partsDetails = $parts | ForEach-Object {
-                "$($_.PartNumber) - $($_.PartNo) - $($_.Quantity) - $($_.Location) - $($_.Source)"
-            } | Out-String
-            $partsDetails = $partsDetails.Trim().Replace("`r`n", ", ")
-
-            $item.SubItems.Add($partsDetails)
-        } else {
-            $item.SubItems.Add("")
+    
+    Write-Log "=== START Load-LaborLogs ==="
+    Write-Log "Loading labor logs from: $filePath"
+    
+    if (-not (Test-Path $filePath)) {
+        Write-Log "ERROR: Labor logs file not found at: $filePath"
+        return
+    }
+    
+    try {
+        $laborLogs = Import-Csv -Path $filePath
+        Write-Log "Successfully loaded labor logs. Entry count: $($laborLogs.Count)"
+        
+        # Initialize workOrderParts dictionary if needed
+        if ($null -eq $script:workOrderParts) {
+            Write-Log "Initializing workOrderParts dictionary"
+            $script:workOrderParts = @{}
         }
-
-        $listView.Items.Add($item)
+        
+        Write-Log "Processing labor log entries..."
+        foreach ($log in $laborLogs) {
+            $workOrderNumber = $log.'Work Order'
+            Write-Log "Processing work order: $workOrderNumber"
+            
+            $item = New-Object System.Windows.Forms.ListViewItem($log.Date)
+            $item.SubItems.Add($workOrderNumber)
+            $item.SubItems.Add($log.Description)
+            $item.SubItems.Add($log.Machine)
+            $item.SubItems.Add($log.Duration)
+            $item.SubItems.Add($log.Notes)
+            
+            # Handle the Parts column
+            if ($log.PSObject.Properties.Name -contains 'Parts' -and -not [string]::IsNullOrWhiteSpace($log.Parts)) {
+                Write-Log "Work order has parts data: $($log.Parts)"
+                try {
+                    $parts = $log.Parts | ConvertFrom-Json
+                    Write-Log "Successfully parsed JSON parts data. Part count: $($parts.Count)"
+                    
+                    # Store parts in workOrderParts dictionary
+                    $script:workOrderParts[$workOrderNumber] = $parts
+                    
+                    # Create a formatted string for display
+                    $partsDisplay = ($parts | ForEach-Object { 
+                        "$($_.PartNumber) - $($_.PartNo) - Qty:$($_.Quantity)" 
+                    }) -join ", "
+                    
+                    Write-Log "Parts display string: $partsDisplay"
+                    $item.SubItems.Add($partsDisplay)
+                } catch {
+                    Write-Log "ERROR parsing Parts JSON for work order ${workOrderNumber}: $($_.Exception.Message)"
+                    $item.SubItems.Add($log.Parts)
+                }
+            } else {
+                Write-Log "Work order has no parts data"
+                # Add empty Parts column if missing
+                $item.SubItems.Add("")
+            }
+            
+            $listView.Items.Add($item)
+            Write-Log "Added item to list view for work order: $workOrderNumber"
+        }
+        
+        Write-Log "Finished loading labor logs. List view now has $($listView.Items.Count) items"
+        Write-Log "=== END Load-LaborLogs ==="
+    }
+    catch {
+        Write-Log "ERROR in Load-LaborLogs: $($_.Exception.Message)"
+        Write-Log "Stack trace: $($_.ScriptStackTrace)"
     }
 }
 
@@ -2306,672 +2348,495 @@ function Add-LaborLogEntryFromCallLog {
     }
 }
 
-function AddSelectedPart {
-    $selectedItems = $script:listViewCrossRef.CheckedItems
-    if ($selectedItems.Count -eq 0) {
-        [System.Windows.Forms.MessageBox]::Show("Please select a part from the Cross Reference list.", "No Part Selected", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-        return
-    }
-
-    foreach ($selectedItem in $selectedItems) {
-        $stockNo = $selectedItem.SubItems[5].Text  # 'STOCK NO.'
-        $partDescription = $selectedItem.SubItems[3].Text  # 'PART DESCRIPTION'
-        $location = $selectedItem.SubItems[8].Text  # 'Location' (Corrected index)
-        $quantity = Prompt-ForQuantity -partNumber $stockNo
-
-        if ($quantity -gt 0) {
-            # Check availability and determine sources
-            $sources = Check-Availability -StockNo $stockNo -RequiredQuantity $quantity
-
-            $item = New-Object System.Windows.Forms.ListViewItem($stockNo)
-            $item.SubItems.Add($partDescription)
-            $item.SubItems.Add($quantity.ToString())
-            $item.SubItems.Add($sources)
-            $script:listViewSelectedParts.Items.Add($item)
-
-            Write-Log "Added part $stockNo to selected parts. Quantity: $quantity, Source: $sources, Location: $location"
-        }
-    }
-}
-
-
-
 # Add Parts to Work order
 function Add-PartsToWorkOrder {
     param($workOrderNumber)
-
-    $addPartsForm = New-Object System.Windows.Forms.Form
-    $addPartsForm.Text = "Add Parts to Work Order #$workOrderNumber"
-    $addPartsForm.Size = New-Object System.Drawing.Size(1100, 650)
-    $addPartsForm.StartPosition = 'CenterScreen'
     
-    Setup-SearchControls -parentForm $addPartsForm
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = "Add Parts to Work Order #$workOrderNumber"
+    $form.Size = New-Object System.Drawing.Size(800, 600)
+    $form.StartPosition = 'CenterScreen'
     
-    $addSelectedPartsButton = New-Object System.Windows.Forms.Button
-    $addSelectedPartsButton.Text = "Add Selected Parts"
-    $addSelectedPartsButton.Location = New-Object System.Drawing.Point(700, 570)  # Adjusted position to match other buttons
-    $addSelectedPartsButton.Size = New-Object System.Drawing.Size(150, 30)
-    $addPartsForm.Controls.Add($addSelectedPartsButton)
-
-    $addSelectedPartsButton.Add_Click({
-        $selectedParts = Get-SelectedPartsFromSearch
-        if ($selectedParts.Count -gt 0) {
-            Add-PartsToWorkOrderData -workOrderNumber $workOrderNumber -parts $selectedParts
-            [System.Windows.Forms.MessageBox]::Show("Parts added to Work Order #$workOrderNumber.", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-            $addPartsForm.Close()
-        } else {
-            [System.Windows.Forms.MessageBox]::Show("No parts selected to add.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-        }
-    })
-
-    # Only show the dialog once
-    $addPartsForm.ShowDialog()
-}
-
-function Setup-SearchControls {
-    param($parentForm)
-
-    Write-Log "Setting up Search controls..."
-
-    # Create controls with script scope
-    $script:textBoxNSN = New-Object System.Windows.Forms.TextBox
-    $script:textBoxOEM = New-Object System.Windows.Forms.TextBox
-    $script:textBoxDescription = New-Object System.Windows.Forms.TextBox
-    $script:listViewCrossRef = New-Object System.Windows.Forms.ListView
-    $script:listViewSelectedParts = New-Object System.Windows.Forms.ListView
-
-    # Set up NSN controls
+    # Search panel (top)
+    $searchPanel = New-Object System.Windows.Forms.Panel
+    $searchPanel.Location = New-Object System.Drawing.Point(10, 10)
+    $searchPanel.Size = New-Object System.Drawing.Size(770, 80)
+    $form.Controls.Add($searchPanel)
+    
+    # NSN search
     $labelNSN = New-Object System.Windows.Forms.Label
-    $labelNSN.Text = "NSN:"
-    $labelNSN.Location = New-Object System.Drawing.Point(20, 20)
+    $labelNSN.Text = "Part Number/NSN:"
+    $labelNSN.Location = New-Object System.Drawing.Point(10, 15)
     $labelNSN.Size = New-Object System.Drawing.Size(100, 20)
-    $parentForm.Controls.Add($labelNSN)
-
-    $script:textBoxNSN.Location = New-Object System.Drawing.Point(130, 20)
-    $script:textBoxNSN.Size = New-Object System.Drawing.Size(200, 20)
-    $parentForm.Controls.Add($script:textBoxNSN)
-
-    # Set up OEM controls
-    $labelOEM = New-Object System.Windows.Forms.Label
-    $labelOEM.Text = "OEM:"
-    $labelOEM.Location = New-Object System.Drawing.Point(350, 20)
-    $labelOEM.Size = New-Object System.Drawing.Size(100, 20)
-    $parentForm.Controls.Add($labelOEM)
-
-    $script:textBoxOEM.Location = New-Object System.Drawing.Point(460, 20)
-    $script:textBoxOEM.Size = New-Object System.Drawing.Size(200, 20)
-    $parentForm.Controls.Add($script:textBoxOEM)
-
-    # Set up Description controls
-    $labelDescription = New-Object System.Windows.Forms.Label
-    $labelDescription.Text = "Description:"
-    $labelDescription.Location = New-Object System.Drawing.Point(680, 20)
-    $labelDescription.Size = New-Object System.Drawing.Size(100, 20)
-    $parentForm.Controls.Add($labelDescription)
-
-    $script:textBoxDescription.Location = New-Object System.Drawing.Point(790, 20)
-    $script:textBoxDescription.Size = New-Object System.Drawing.Size(200, 20)
-    $parentForm.Controls.Add($script:textBoxDescription)
-
-    # Set up Search button
+    $searchPanel.Controls.Add($labelNSN)
+    
+    $textBoxNSN = New-Object System.Windows.Forms.TextBox
+    $textBoxNSN.Location = New-Object System.Drawing.Point(110, 12)
+    $textBoxNSN.Size = New-Object System.Drawing.Size(150, 20)
+    $searchPanel.Controls.Add($textBoxNSN)
+    
+    # Description search
+    $labelDesc = New-Object System.Windows.Forms.Label
+    $labelDesc.Text = "Description:"
+    $labelDesc.Location = New-Object System.Drawing.Point(280, 15)
+    $labelDesc.Size = New-Object System.Drawing.Size(80, 20)
+    $searchPanel.Controls.Add($labelDesc)
+    
+    $textBoxDesc = New-Object System.Windows.Forms.TextBox
+    $textBoxDesc.Location = New-Object System.Drawing.Point(360, 12)
+    $textBoxDesc.Size = New-Object System.Drawing.Size(250, 20)
+    $searchPanel.Controls.Add($textBoxDesc)
+    
+    # Search button
     $searchButton = New-Object System.Windows.Forms.Button
     $searchButton.Text = "Search"
-    $searchButton.Location = New-Object System.Drawing.Point(1000, 20)
-    $searchButton.Size = New-Object System.Drawing.Size(75, 30)
-    $parentForm.Controls.Add($searchButton)
-
-    # Set up Parts Availability ListView (Combined local and same-day parts)
-    $labelPartsAvailability = New-Object System.Windows.Forms.Label
-    $labelPartsAvailability.Text = "Parts Availability"
-    $labelPartsAvailability.Location = New-Object System.Drawing.Point(20, 60)
-    $labelPartsAvailability.Size = New-Object System.Drawing.Size(150, 20)
-    $parentForm.Controls.Add($labelPartsAvailability)
-
-    $script:listViewCrossRef.Location = New-Object System.Drawing.Point(20, 80)
-    $script:listViewCrossRef.Size = New-Object System.Drawing.Size(1055, 300)
-    $script:listViewCrossRef.View = [System.Windows.Forms.View]::Details
-    $script:listViewCrossRef.FullRowSelect = $true
-    $script:listViewCrossRef.CheckBoxes = $true
-    $script:listViewCrossRef.Columns.Add("Part (NSN)", 100)
-    $script:listViewCrossRef.Columns.Add("Description", 200)
-    $script:listViewCrossRef.Columns.Add("QTY", 50)
-    $script:listViewCrossRef.Columns.Add("13 Period Usage", 100)
-    $script:listViewCrossRef.Columns.Add("Location", 100)
-    $script:listViewCrossRef.Columns.Add("OEM 1", 100)
-    $script:listViewCrossRef.Columns.Add("OEM 2", 100)
-    $script:listViewCrossRef.Columns.Add("OEM 3", 100)
-    $script:listViewCrossRef.Columns.Add("Source", 100)
-    $parentForm.Controls.Add($script:listViewCrossRef)
-
-    # Set up Selected Parts ListView
-    $labelSelectedParts = New-Object System.Windows.Forms.Label
-    $labelSelectedParts.Text = "Selected Parts"
-    $labelSelectedParts.Location = New-Object System.Drawing.Point(20, 390)
-    $labelSelectedParts.Size = New-Object System.Drawing.Size(100, 20)
-    $parentForm.Controls.Add($labelSelectedParts)
-
-    $script:listViewSelectedParts.Location = New-Object System.Drawing.Point(20, 410)
-    $script:listViewSelectedParts.Size = New-Object System.Drawing.Size(1055, 150)
-    $script:listViewSelectedParts.View = [System.Windows.Forms.View]::Details
-    $script:listViewSelectedParts.FullRowSelect = $true
-    $script:listViewSelectedParts.Columns.Add("STOCK NO.", 100)
-    $script:listViewSelectedParts.Columns.Add("PART DESCRIPTION", 400)
-    $script:listViewSelectedParts.Columns.Add("Quantity", 100)
-    $script:listViewSelectedParts.Columns.Add("Source", 455)  # Updated column size to fit content    
-    $parentForm.Controls.Add($script:listViewSelectedParts)
-
-    # Add Part buttons
-    $addSelectedPartButton = New-Object System.Windows.Forms.Button
-    $addSelectedPartButton.Text = "Add Selected Part"
-    $addSelectedPartButton.Location = New-Object System.Drawing.Point(20, 570)
-    $addSelectedPartButton.Size = New-Object System.Drawing.Size(120, 30)
-    $parentForm.Controls.Add($addSelectedPartButton)
-
-    $addSelectedPartsButton = New-Object System.Windows.Forms.Button
-    $addSelectedPartsButton.Text = "Add Parts to work order"
-    $addSelectedPartsButton.Location = New-Object System.Drawing.Point(150, 570)
-    $addSelectedPartsButton.Size = New-Object System.Drawing.Size(150, 30)
-    $parentForm.Controls.Add($addSelectedPartsButton)
-
-    # Add tooltips
-    $tooltip = New-Object System.Windows.Forms.ToolTip
-    $tooltip.SetToolTip($addSelectedPartButton, "Add the selected part from the Parts Availability list to the Selected Parts list")
-    $tooltip.SetToolTip($addSelectedPartsButton, "Add all selected parts to the work order and close this window")
-
+    $searchButton.Location = New-Object System.Drawing.Point(630, 10)
+    $searchButton.Size = New-Object System.Drawing.Size(120, 25)
+    $searchPanel.Controls.Add($searchButton)
+    
+    # Results panel (middle)
+    $resultsPanel = New-Object System.Windows.Forms.Panel
+    $resultsPanel.Location = New-Object System.Drawing.Point(10, 100)
+    $resultsPanel.Size = New-Object System.Drawing.Size(770, 250)
+    $form.Controls.Add($resultsPanel)
+    
+    $resultsLabel = New-Object System.Windows.Forms.Label
+    $resultsLabel.Text = "Search Results:"
+    $resultsLabel.Location = New-Object System.Drawing.Point(10, 5)
+    $resultsLabel.Size = New-Object System.Drawing.Size(100, 20)
+    $resultsPanel.Controls.Add($resultsLabel)
+    
+    $resultsListView = New-Object System.Windows.Forms.ListView
+    $resultsListView.Location = New-Object System.Drawing.Point(10, 25)
+    $resultsListView.Size = New-Object System.Drawing.Size(750, 220)
+    $resultsListView.View = [System.Windows.Forms.View]::Details
+    $resultsListView.FullRowSelect = $true
+    $resultsListView.CheckBoxes = $true
+    $resultsListView.Columns.Add("Part Number", 100)
+    $resultsListView.Columns.Add("Description", 250)
+    $resultsListView.Columns.Add("QTY Available", 80)
+    $resultsListView.Columns.Add("Location", 100)
+    $resultsListView.Columns.Add("OEM Number", 100)
+    $resultsListView.Columns.Add("Source", 100)
+    $resultsPanel.Controls.Add($resultsListView)
+    
+    # Selected parts panel (bottom)
+    $selectedPartsPanel = New-Object System.Windows.Forms.Panel
+    $selectedPartsPanel.Location = New-Object System.Drawing.Point(10, 360)
+    $selectedPartsPanel.Size = New-Object System.Drawing.Size(770, 150)
+    $form.Controls.Add($selectedPartsPanel)
+    
+    $selectedLabel = New-Object System.Windows.Forms.Label
+    $selectedLabel.Text = "Selected Parts:"
+    $selectedLabel.Location = New-Object System.Drawing.Point(10, 5)
+    $selectedLabel.Size = New-Object System.Drawing.Size(100, 20)
+    $selectedPartsPanel.Controls.Add($selectedLabel)
+    
+    $selectedListView = New-Object System.Windows.Forms.ListView
+    $selectedListView.Location = New-Object System.Drawing.Point(10, 25)
+    $selectedListView.Size = New-Object System.Drawing.Size(750, 120)
+    $selectedListView.View = [System.Windows.Forms.View]::Details
+    $selectedListView.FullRowSelect = $true
+    $selectedListView.Columns.Add("Part Number", 100)
+    $selectedListView.Columns.Add("Description", 250)
+    $selectedListView.Columns.Add("Quantity", 80)
+    $selectedListView.Columns.Add("Source", 200)
+    $selectedListView.Columns.Add("Location", 100)
+    $selectedPartsPanel.Controls.Add($selectedListView)
+    
+    # Buttons panel
+    $buttonsPanel = New-Object System.Windows.Forms.Panel
+    $buttonsPanel.Location = New-Object System.Drawing.Point(10, 520)
+    $buttonsPanel.Size = New-Object System.Drawing.Size(770, 40)
+    $form.Controls.Add($buttonsPanel)
+    
+    $addSelectedButton = New-Object System.Windows.Forms.Button
+    $addSelectedButton.Text = "Add Selected Part(s)"
+    $addSelectedButton.Location = New-Object System.Drawing.Point(10, 10)
+    $addSelectedButton.Size = New-Object System.Drawing.Size(150, 25)
+    $buttonsPanel.Controls.Add($addSelectedButton)
+    
+    $removeButton = New-Object System.Windows.Forms.Button
+    $removeButton.Text = "Remove Selected"
+    $removeButton.Location = New-Object System.Drawing.Point(170, 10)
+    $removeButton.Size = New-Object System.Drawing.Size(150, 25)
+    $buttonsPanel.Controls.Add($removeButton)
+    
+    $saveButton = New-Object System.Windows.Forms.Button
+    $saveButton.Text = "Save Parts to Work Order"
+    $saveButton.Location = New-Object System.Drawing.Point(610, 10)
+    $saveButton.Size = New-Object System.Drawing.Size(150, 25)
+    $buttonsPanel.Controls.Add($saveButton)
+    
     # Event handlers
     $searchButton.Add_Click({
-        PerformSearch
+        $nsn = $textBoxNSN.Text.Trim()
+        $desc = $textBoxDesc.Text.Trim()
+        
+        # Clear previous results
+        $resultsListView.Items.Clear()
+        
+        # Search logic - Simplified for clarity
+        $results = Search-Parts -NSN $nsn -Description $desc
+        
+        # Populate results
+        foreach ($part in $results) {
+            $item = New-Object System.Windows.Forms.ListViewItem($part.PartNumber)
+            $item.SubItems.Add($part.Description)
+            $item.SubItems.Add($part.Quantity)
+            $item.SubItems.Add($part.Location)
+            $item.SubItems.Add($part.OEMNumber)
+            $item.SubItems.Add($part.Source)
+            $item.Tag = $part  # Store the full part object for later use
+            $resultsListView.Items.Add($item)
+        }
     })
-
-    $addSelectedPartButton.Add_Click({
-        AddSelectedPart
+    
+    $addSelectedButton.Add_Click({
+        foreach ($item in $resultsListView.CheckedItems) {
+            $partObj = $item.Tag
+            
+            # Prompt for quantity
+            $qty = Get-PartQuantity -PartNumber $partObj.PartNumber -MaxQty $partObj.Quantity
+            
+            if ($qty -gt 0) {
+                # Add to selected parts list
+                $newItem = New-Object System.Windows.Forms.ListViewItem($partObj.PartNumber)
+                $newItem.SubItems.Add($partObj.Description)
+                $newItem.SubItems.Add($qty)
+                $newItem.SubItems.Add($partObj.Source)
+                $newItem.SubItems.Add($partObj.Location)
+                $newItem.Tag = [PSCustomObject]@{
+                    PartNumber = $partObj.PartNumber
+                    Description = $partObj.Description
+                    Quantity = $qty
+                    Source = $partObj.Source
+                    Location = $partObj.Location
+                    OEMNumber = $partObj.OEMNumber
+                }
+                $selectedListView.Items.Add($newItem)
+            }
+        }
     })
-
-    Write-Log "Search controls setup completed."
-}
-
-function PerformSearch {
-    $nsnSearch = $script:textBoxNSN.Text.Trim()
-    $oemSearch = $script:textBoxOEM.Text.Trim()
-    $descriptionSearch = $script:textBoxDescription.Text.Trim()
-
-    Write-Log "Performing parts availability search..."
-    Write-Log "Search criteria - NSN: $nsnSearch, OEM: $oemSearch, Description: $descriptionSearch"
-
-    $availabilityResults = @()
-
-    # Clear the ListView
-    $script:listViewCrossRef.Items.Clear()
-
-    #### Local Parts Room Search ####
-    $csvFiles = Get-ChildItem -Path $config.PartsRoomDirectory -Filter "*.csv" -File | Where-Object { $_.Directory.Name -eq $(Split-Path $config.PartsRoomDirectory -Leaf) }
-
-    if ($csvFiles.Count -gt 0) {
-        foreach ($csvFile in $csvFiles) {
-            $csvFilePath = $csvFile.FullName
-            Write-Log "Searching local parts room file: $csvFilePath"
+    
+    $removeButton.Add_Click({
+        foreach ($item in $selectedListView.SelectedItems) {
+            $selectedListView.Items.Remove($item)
+        }
+    })
+    
+    $saveButton.Add_Click({
+        $partsToAdd = @()
+        
+        foreach ($item in $selectedListView.Items) {
+            $partsToAdd += $item.Tag
+        }
+        
+        if ($partsToAdd.Count -gt 0) {
+            # Simple save function that doesn't depend on complex state
+            Save-PartsToWorkOrder -WorkOrderNumber $workOrderNumber -Parts $partsToAdd
             
-            try {
-                $data = Import-Csv -Path $csvFilePath
-                Write-Log "Local parts room CSV file loaded successfully. Row count: $($data.Count)"
-                
-                $filteredData = $data | Where-Object {
-                    # Add QTY filter: must be greater than 0
-                    ($nsnSearch -eq '' -or $_.'Part (NSN)' -like "*$nsnSearch*" -or $_.'Changed Part (NSN)' -like "*$nsnSearch*") -and
-                    ($oemSearch -eq '' -or ($_.'OEM 1' -like "*$oemSearch*" -or $_.'OEM 2' -like "*$oemSearch*" -or $_.'OEM 3' -like "*$oemSearch*")) -and
-                    ($descriptionSearch -eq '' -or $_.Description -like "*$descriptionSearch*") -and
-                    # Only include items with quantity > 0
-                    ([int]$_.QTY -gt 0)
-                }
-                
-                foreach ($row in $filteredData) {
-                    $newItem = [PSCustomObject]@{
-                        'Part (NSN)' = $row.'Part (NSN)'
-                        'Description' = $row.Description
-                        'QTY' = $row.QTY
-                        '13 Period Usage' = $row.'13 Period Usage'
-                        'Location' = $row.Location
-                        'OEM 1' = $row.'OEM 1'
-                        'OEM 2' = $row.'OEM 2'
-                        'OEM 3' = $row.'OEM 3'
-                        'Source' = "Local Parts Room"
-                    }
-                    $availabilityResults += $newItem
-                }
-                
-                Write-Log "Found $($filteredData.Count) matching records in Local Parts Room."
-            } catch {
-                Write-Log "Failed to read local parts room CSV file. Error: $_"
+            # Force a reload of the labor log ListView
+            if ($script:listViewLaborLog -ne $null) {
+                Write-Log "Forcing reload of Labor Log ListView after adding parts"
+                $script:listViewLaborLog.Items.Clear()
+                Load-LaborLogs -listView $script:listViewLaborLog -filePath (Join-Path $config.LaborDirectory "LaborLogs.csv")
             }
-        }
-    } else {
-        Write-Log "No local parts room CSV files found."
-    }
-
-    #### Same Day Parts Room Search ####
-    $sameDayPartsDir = Join-Path $config.PartsRoomDirectory "Same Day Parts Room"
-    if (Test-Path $sameDayPartsDir) {
-        $sameDayCsvFiles = Get-ChildItem -Path $sameDayPartsDir -Filter "*.csv" -File
-        Write-Log "Found $($sameDayCsvFiles.Count) CSV files in Same Day Parts Room."
-
-        foreach ($csvFile in $sameDayCsvFiles) {
-            $siteName = [IO.Path]::GetFileNameWithoutExtension($csvFile.Name)
-            try {
-                $csvData = Import-Csv -Path $csvFile.FullName
-                $filteredData = $csvData | Where-Object {
-                    ($nsnSearch -eq '' -or $_.'Part (NSN)' -like "*$nsnSearch*") -and
-                    ($oemSearch -eq '' -or ($_.'OEM 1' -like "*$oemSearch*" -or $_.'OEM 2' -like "*$oemSearch*" -or $_.'OEM 3' -like "*$oemSearch*")) -and
-                    ($descriptionSearch -eq '' -or $_.Description -like "*$descriptionSearch*") -and
-                    # Only include items with quantity > 0
-                    ([int]$_.QTY -gt 0)
-                }
-                
-                foreach ($row in $filteredData) {
-                    $newItem = [PSCustomObject]@{
-                        'Part (NSN)' = $row.'Part (NSN)'
-                        'Description' = $row.Description
-                        'QTY' = $row.QTY
-                        '13 Period Usage' = $row.'13 Period Usage'
-                        'Location' = $row.Location
-                        'OEM 1' = $row.'OEM 1'
-                        'OEM 2' = $row.'OEM 2'
-                        'OEM 3' = $row.'OEM 3'
-                        'Source' = $siteName
-                    }
-                    $availabilityResults += $newItem
-                }
-                
-                Write-Log "Found $($filteredData.Count) matching records in Same Day Parts Room '$siteName'."
-            } catch {
-                Write-Log "Failed to read CSV file $($csvFile.FullName). Error: $_"
-            }
-        }
-    } else {
-        Write-Log "Same Day Parts Room directory not found at $sameDayPartsDir"
-    }
-
-    # Populate the ListView with the combined results
-    if ($availabilityResults.Count -gt 0) {
-        foreach ($row in $availabilityResults) {
-            $item = New-Object System.Windows.Forms.ListViewItem($row.'Part (NSN)')
-            $item.SubItems.Add($row.Description)
-            $item.SubItems.Add($row.QTY)
-            $item.SubItems.Add($row.'13 Period Usage')
-            $item.SubItems.Add($row.Location)
-            $item.SubItems.Add($row.'OEM 1')
-            $item.SubItems.Add($row.'OEM 2')
-            $item.SubItems.Add($row.'OEM 3')
-            $item.SubItems.Add($row.Source)
-            $script:listViewCrossRef.Items.Add($item)
-        }
-        $script:listViewCrossRef.AutoResizeColumns([System.Windows.Forms.ColumnHeaderAutoResizeStyle]::HeaderSize)
-        Write-Log "Added $($availabilityResults.Count) items to Parts Availability ListView."
-    } else {
-        [System.Windows.Forms.MessageBox]::Show("No matching parts found in any parts room.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-        Write-Log "No matching parts found in any parts room."
-    }
-}
-
-function AddSelectedPart {
-    $selectedItems = $script:listViewCrossRef.CheckedItems
-    if ($selectedItems.Count -eq 0) {
-        [System.Windows.Forms.MessageBox]::Show("Please select a part from the Parts Availability list.", "No Part Selected", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-        return
-    }
-
-    foreach ($selectedItem in $selectedItems) {
-        $stockNo = $selectedItem.SubItems[0].Text       # 'Part (NSN)'
-        $partDescription = $selectedItem.SubItems[1].Text  # 'Description'
-        $location = $selectedItem.SubItems[4].Text      # 'Location'
-        $source = $selectedItem.SubItems[8].Text        # 'Source'
-        $availableQty = [int]$selectedItem.SubItems[2].Text # 'QTY'
-        $oemPart = $selectedItem.SubItems[5].Text       # 'OEM 1'
-
-        $quantity = Prompt-ForQuantity -partNumber $stockNo
-
-        if ($quantity -gt 0) {
-            # Check availability and determine sources
-            $sources = Check-Availability -StockNo $stockNo -RequiredQuantity $quantity
-
-            $item = New-Object System.Windows.Forms.ListViewItem($stockNo)
-            $item.SubItems.Add($partDescription)
-            $item.SubItems.Add($quantity.ToString())
-            $item.SubItems.Add($sources)
-            $script:listViewSelectedParts.Items.Add($item)
-
-            Write-Log "Added part $stockNo to selected parts. Quantity: $quantity, Source: $source, Location: $location"
-        }
-    }
-}
-
-function PerformSearch {
-    $nsnSearch = $script:textBoxNSN.Text.Trim()
-    $oemSearch = $script:textBoxOEM.Text.Trim()
-    $descriptionSearch = $script:textBoxDescription.Text.Trim()
-
-    Write-Log "Performing parts availability search..."
-    Write-Log "Search criteria - NSN: $nsnSearch, OEM: $oemSearch, Description: $descriptionSearch"
-
-    $availabilityResults = @()
-
-    # Clear the ListView
-    $script:listViewCrossRef.Items.Clear()
-
-    #### Local Parts Room Search ####
-    $csvFiles = Get-ChildItem -Path $config.PartsRoomDirectory -Filter "*.csv" -File | Where-Object { $_.Directory.Name -eq $(Split-Path $config.PartsRoomDirectory -Leaf) }
-
-    if ($csvFiles.Count -gt 0) {
-        foreach ($csvFile in $csvFiles) {
-            $csvFilePath = $csvFile.FullName
-            Write-Log "Searching local parts room file: $csvFilePath"
             
-            try {
-                $data = Import-Csv -Path $csvFilePath
-                Write-Log "Local parts room CSV file loaded successfully. Row count: $($data.Count)"
-                
-                $filteredData = $data | Where-Object {
-                    # Add QTY filter: must be greater than 0
-                    ($nsnSearch -eq '' -or $_.'Part (NSN)' -like "*$nsnSearch*" -or $_.'Changed Part (NSN)' -like "*$nsnSearch*") -and
-                    ($oemSearch -eq '' -or ($_.'OEM 1' -like "*$oemSearch*" -or $_.'OEM 2' -like "*$oemSearch*" -or $_.'OEM 3' -like "*$oemSearch*")) -and
-                    ($descriptionSearch -eq '' -or $_.Description -like "*$descriptionSearch*")
-                }
-                
-                # Add debug logging for QTY values before filtering
-                Write-Log "Before QTY filtering: $($filteredData.Count) records"
-                foreach ($row in $filteredData) {
-                    Write-Log "QTY value for part $($row.'Part (NSN)'): '$($row.QTY)' (Type: $($row.QTY.GetType().FullName))"
-                }
-                
-                # Now filter for QTY > 0 with better error handling
-                $filteredData = $filteredData | Where-Object {
-                    $qtyValue = 0
-                    if ([int]::TryParse($_.QTY, [ref]$qtyValue)) {
-                        $result = $qtyValue -gt 0
-                        Write-Log "Part $($_.'Part (NSN)') - QTY: $qtyValue - Include: $result"
-                        $result
-                    } else {
-                        Write-Log "Warning: Could not parse QTY value '$($_.QTY)' for part $($_.'Part (NSN)')"
-                        $false  # Exclude items with unparseable QTY
-                    }
-                }
-                
-                foreach ($row in $filteredData) {
-                    $newItem = [PSCustomObject]@{
-                        'Part (NSN)' = $row.'Part (NSN)'
-                        'Description' = $row.Description
-                        'QTY' = $row.QTY
-                        '13 Period Usage' = $row.'13 Period Usage'
-                        'Location' = $row.Location
-                        'OEM 1' = $row.'OEM 1'
-                        'OEM 2' = $row.'OEM 2'
-                        'OEM 3' = $row.'OEM 3'
-                        'Source' = "Local Parts Room"
-                    }
-                    $availabilityResults += $newItem
-                }
-                
-                Write-Log "Found $($filteredData.Count) matching records in Local Parts Room."
-            } catch {
-                Write-Log "Failed to read local parts room CSV file. Error: $_"
-            }
+            [System.Windows.Forms.MessageBox]::Show("Parts saved to Work Order #$workOrderNumber", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+            $form.Close()
+        } else {
+            [System.Windows.Forms.MessageBox]::Show("No parts selected to add to the work order.", "Warning", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
         }
-    } else {
-        Write-Log "No local parts room CSV files found."
-    }
-
-    #### Same Day Parts Room Search ####
-    $sameDayPartsDir = Join-Path $config.PartsRoomDirectory "Same Day Parts Room"
-    if (Test-Path $sameDayPartsDir) {
-        $sameDayCsvFiles = Get-ChildItem -Path $sameDayPartsDir -Filter "*.csv" -File
-        Write-Log "Found $($sameDayCsvFiles.Count) CSV files in Same Day Parts Room."
-
-        foreach ($csvFile in $sameDayCsvFiles) {
-            $siteName = [IO.Path]::GetFileNameWithoutExtension($csvFile.Name)
-            try {
-                $csvData = Import-Csv -Path $csvFile.FullName
-                $filteredData = $csvData | Where-Object {
-                    ($nsnSearch -eq '' -or $_.'Part (NSN)' -like "*$nsnSearch*") -and
-                    ($oemSearch -eq '' -or ($_.'OEM 1' -like "*$oemSearch*" -or $_.'OEM 2' -like "*$oemSearch*" -or $_.'OEM 3' -like "*$oemSearch*")) -and
-                    ($descriptionSearch -eq '' -or $_.Description -like "*$descriptionSearch*")
-                }
-                
-                # Add debug logging for QTY values before filtering
-                Write-Log "Same Day Parts: Before QTY filtering: $($filteredData.Count) records for site $siteName"
-                foreach ($row in $filteredData) {
-                    Write-Log "Same Day QTY value for part $($row.'Part (NSN)'): '$($row.QTY)' (Type: $($row.QTY.GetType().FullName))"
-                }
-                
-                # Now filter for QTY > 0 with better error handling
-                $filteredData = $filteredData | Where-Object {
-                    $qtyValue = 0
-                    if ([int]::TryParse($_.QTY, [ref]$qtyValue)) {
-                        $result = $qtyValue -gt 0
-                        Write-Log "Same Day Part $($_.'Part (NSN)') - QTY: $qtyValue - Include: $result"
-                        $result
-                    } else {
-                        Write-Log "Warning: Could not parse Same Day QTY value '$($_.QTY)' for part $($_.'Part (NSN)')"
-                        $false  # Exclude items with unparseable QTY
-                    }
-                }
-                
-                foreach ($row in $filteredData) {
-                    $newItem = [PSCustomObject]@{
-                        'Part (NSN)' = $row.'Part (NSN)'
-                        'Description' = $row.Description
-                        'QTY' = $row.QTY
-                        '13 Period Usage' = $row.'13 Period Usage'
-                        'Location' = $row.Location
-                        'OEM 1' = $row.'OEM 1'
-                        'OEM 2' = $row.'OEM 2'
-                        'OEM 3' = $row.'OEM 3'
-                        'Source' = $siteName
-                    }
-                    $availabilityResults += $newItem
-                }
-                
-                Write-Log "Found $($filteredData.Count) matching records in Same Day Parts Room '$siteName'."
-            } catch {
-                Write-Log "Failed to read CSV file $($csvFile.FullName). Error: $_"
-            }
-        }
-    } else {
-        Write-Log "Same Day Parts Room directory not found at $sameDayPartsDir"
-    }
-
-    # Populate the ListView with the combined results
-    if ($availabilityResults.Count -gt 0) {
-        foreach ($row in $availabilityResults) {
-            $item = New-Object System.Windows.Forms.ListViewItem($row.'Part (NSN)')
-            $item.SubItems.Add($row.Description)
-            $item.SubItems.Add($row.QTY)
-            $item.SubItems.Add($row.'13 Period Usage')
-            $item.SubItems.Add($row.Location)
-            $item.SubItems.Add($row.'OEM 1')
-            $item.SubItems.Add($row.'OEM 2')
-            $item.SubItems.Add($row.'OEM 3')
-            $item.SubItems.Add($row.Source)
-            $script:listViewCrossRef.Items.Add($item)
-        }
-        $script:listViewCrossRef.AutoResizeColumns([System.Windows.Forms.ColumnHeaderAutoResizeStyle]::HeaderSize)
-        Write-Log "Added $($availabilityResults.Count) items to Parts Availability ListView."
-    } else {
-        [System.Windows.Forms.MessageBox]::Show("No matching parts found in any parts room.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-        Write-Log "No matching parts found in any parts room."
-    }
+    })
+    
+    # Show the form
+    $form.ShowDialog()
 }
 
-function AddSelectedPart {
-    $selectedItems = $script:listViewCrossRef.CheckedItems
-    if ($selectedItems.Count -eq 0) {
-        [System.Windows.Forms.MessageBox]::Show("Please select a part from the Parts Availability list.", "No Part Selected", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-        return
-    }
-
-    foreach ($selectedItem in $selectedItems) {
-        $stockNo = $selectedItem.SubItems[0].Text       # 'Part (NSN)'
-        $partDescription = $selectedItem.SubItems[1].Text  # 'Description'
-        $location = $selectedItem.SubItems[4].Text      # 'Location'
-        $source = $selectedItem.SubItems[8].Text        # 'Source'
-        $availableQty = [int]$selectedItem.SubItems[2].Text # 'QTY'
-        $oemPart = $selectedItem.SubItems[5].Text       # 'OEM 1'
-
-        $quantity = Prompt-ForQuantity -partNumber $stockNo
-
-        if ($quantity -gt 0) {
-            # Check availability and determine sources
-            $sources = Check-Availability -StockNo $stockNo -RequiredQuantity $quantity
-
-            $item = New-Object System.Windows.Forms.ListViewItem($stockNo)
-            $item.SubItems.Add($partDescription)
-            $item.SubItems.Add($quantity.ToString())
-            $item.SubItems.Add($sources)
-            $script:listViewSelectedParts.Items.Add($item)
-
-            Write-Log "Added part $stockNo to selected parts. Quantity: $quantity, Source: $source, Location: $location"
-        }
-    }
-}
-
-function Check-Availability {
-    param (
-        [string]$StockNo,
-        [int]$RequiredQuantity
+# Simple helper function to search parts
+function Search-Parts {
+    param(
+        [string]$NSN,
+        [string]$Description
     )
-
-    $sources = @()
-    $remainingQuantity = $RequiredQuantity
-
-    # Check local inventory
-    $myPartsRoomQuantity = Get-MyPartsRoomQuantity -StockNo $StockNo
-    if ($myPartsRoomQuantity -ge $remainingQuantity) {
-        $sources += "My Parts Room: $remainingQuantity"
-        $remainingQuantity = 0
-    } elseif ($myPartsRoomQuantity -gt 0) {
-        $sources += "My Parts Room: $myPartsRoomQuantity"
-        $remainingQuantity -= $myPartsRoomQuantity
-    }
-
-    # Check same-day parts rooms
-    if ($remainingQuantity -gt 0) {
-        $sameDayPartsRooms = Get-SameDayPartsRoomQuantities -StockNo $StockNo
-        foreach ($room in $sameDayPartsRooms) {
-            if ($remainingQuantity -le 0) { break }
-            $availableQuantity = [Math]::Min($room.Quantity, $remainingQuantity)
-            $sources += "$($room.SiteName): $availableQuantity"
-            $remainingQuantity -= $availableQuantity
+    
+    $results = @()
+    
+    # 1. Search Local Parts Room
+    $partsRoomCsv = Join-Path $config.PartsRoomDirectory "*.csv" 
+    $localParts = Get-ChildItem -Path $partsRoomCsv | ForEach-Object {
+        $parts = Import-Csv -Path $_.FullName
+        
+        # Filter based on search criteria
+        $parts | Where-Object {
+            ($NSN -eq "" -or $_.'Part (NSN)' -like "*$NSN*") -and
+            ($Description -eq "" -or $_.Description -like "*$Description*") -and
+            ([int]$_.QTY -gt 0)  # Only show parts with stock
+        } | ForEach-Object {
+            [PSCustomObject]@{
+                PartNumber = $_.'Part (NSN)'
+                Description = $_.Description
+                Quantity = [int]$_.QTY
+                Location = $_.Location
+                OEMNumber = $_.'OEM 1'
+                Source = "Local Parts Room"
+            }
         }
     }
-
-    # Remaining quantity to be sourced from TMDC
-    if ($remainingQuantity -gt 0) {
-        $sources += "TMDC: $remainingQuantity"
-    }
-
-    return ($sources -join "; ")
-}
-
-
-# Get Parts From Search
-function Get-SelectedPartsFromSearch {
-    $selectedParts = @()
-
-    # Collect selected items from Parts Availability
-    foreach ($item in $script:listViewCrossRef.CheckedItems) {
-        $partNumber = $item.SubItems[0].Text       # 'Part (NSN)'
-        $partNo = $item.SubItems[5].Text           # 'OEM 1'
-        $description = $item.SubItems[1].Text      # 'Description'
-        $location = $item.SubItems[4].Text         # 'Location'
-        $source = $item.SubItems[8].Text           # 'Source'
-
-        # Prompt for quantity
-        $quantity = Prompt-ForQuantity -partNumber $partNumber
-
-        $selectedParts += [PSCustomObject]@{
-            PartNumber = $partNumber
-            PartNo = $partNo
-            Description = $description
-            Quantity = $quantity
-            Location = $location
-            Source = $source
+    
+    $results += $localParts
+    
+    # 2. Search Same Day Parts Room (similar pattern to above)
+    $sameDayDir = Join-Path $config.PartsRoomDirectory "Same Day Parts Room"
+    if (Test-Path $sameDayDir) {
+        $sameDayParts = Get-ChildItem -Path "$sameDayDir\*.csv" | ForEach-Object {
+            $siteName = [System.IO.Path]::GetFileNameWithoutExtension($_.Name)
+            $parts = Import-Csv -Path $_.FullName
+            
+            # Filter based on search criteria
+            $parts | Where-Object {
+                ($NSN -eq "" -or $_.'Part (NSN)' -like "*$NSN*") -and
+                ($Description -eq "" -or $_.Description -like "*$Description*") -and
+                ([int]$_.QTY -gt 0)  # Only show parts with stock
+            } | ForEach-Object {
+                [PSCustomObject]@{
+                    PartNumber = $_.'Part (NSN)'
+                    Description = $_.Description
+                    Quantity = [int]$_.QTY
+                    Location = $_.Location
+                    OEMNumber = $_.'OEM 1'
+                    Source = "$siteName (Same Day)"
+                }
+            }
         }
+        
+        $results += $sameDayParts
     }
-
-    return $selectedParts
+    
+    return $results
 }
 
-function Prompt-ForQuantity {
-    param($partNumber)
-
-    $quantityForm = New-Object System.Windows.Forms.Form
-    $quantityForm.Text = "Enter Quantity for Part $partNumber"
-    $quantityForm.Size = New-Object System.Drawing.Size(320, 150)
-    $quantityForm.StartPosition = 'CenterParent'
-
+# Simple helper function to get quantity
+function Get-PartQuantity {
+    param(
+        [string]$PartNumber,
+        [int]$MaxQty
+    )
+    
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = "Enter Quantity for $PartNumber"
+    $form.Size = New-Object System.Drawing.Size(300, 150)
+    $form.StartPosition = "CenterParent"
+    
     $label = New-Object System.Windows.Forms.Label
-    $label.Text = "Quantity:"
-    $label.Location = New-Object System.Drawing.Point(20, 20)
-    $label.Size = New-Object System.Drawing.Size(80, 25)
-    $quantityForm.Controls.Add($label)
-
+    $label.Text = "Quantity (Max: $MaxQty):"
+    $label.Location = New-Object System.Drawing.Point(10, 20)
+    $label.Size = New-Object System.Drawing.Size(150, 20)
+    $form.Controls.Add($label)
+    
     $textBox = New-Object System.Windows.Forms.TextBox
-    $textBox.Location = New-Object System.Drawing.Point(100, 20)
-    $textBox.Size = New-Object System.Drawing.Size(150, 25)
-    $quantityForm.Controls.Add($textBox)
-
+    $textBox.Text = "1"
+    $textBox.Location = New-Object System.Drawing.Point(160, 20)
+    $textBox.Size = New-Object System.Drawing.Size(100, 20)
+    $form.Controls.Add($textBox)
+    
     $okButton = New-Object System.Windows.Forms.Button
     $okButton.Text = "OK"
-    $okButton.Location = New-Object System.Drawing.Point(50, 60)
     $okButton.DialogResult = [System.Windows.Forms.DialogResult]::OK
-    $quantityForm.Controls.Add($okButton)
-
+    $okButton.Location = New-Object System.Drawing.Point(60, 70)
+    $okButton.Size = New-Object System.Drawing.Size(75, 23)
+    $form.Controls.Add($okButton)
+    
     $cancelButton = New-Object System.Windows.Forms.Button
     $cancelButton.Text = "Cancel"
-    $cancelButton.Location = New-Object System.Drawing.Point(150, 60)
     $cancelButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
-    $quantityForm.Controls.Add($cancelButton)
-
-    $quantityForm.AcceptButton = $okButton
-    $quantityForm.CancelButton = $cancelButton
-
-    $dialogResult = $quantityForm.ShowDialog()
-
-    if ($dialogResult -eq [System.Windows.Forms.DialogResult]::OK) {
-        return [int]$textBox.Text
-    } else {
-        return 0
-    }
-}
-
-function Add-PartsToWorkOrderData {
-    param($workOrderNumber, $parts)
-
-    # Initialize the hashtable if it doesn't exist
-    if (-not $script:workOrderParts) {
-        $script:workOrderParts = @{}
-    }
-
-    if (-not $script:workOrderParts.ContainsKey($workOrderNumber)) {
-        $script:workOrderParts[$workOrderNumber] = @()
-    }
-
-    $script:workOrderParts[$workOrderNumber] += $parts
-
-    # Construct the detailed parts string
-    $partsDetails = $script:workOrderParts[$workOrderNumber] | ForEach-Object {
-        "$($_.PartNumber) - $($_.PartNo) - $($_.Quantity) - $($_.Location) - $($_.Source)"
-    } | Out-String
-    $partsDetails = $partsDetails.Trim().Replace("`r`n", ", ")
-
-    # Update the ListView to show detailed parts information
-    foreach ($item in $script:listViewLaborLog.Items) {
-        if ($item.SubItems[1].Text -eq $workOrderNumber) {
-            $item.SubItems[5].Text = $partsDetails  # Assuming "Parts" is at index 5
-            break
+    $cancelButton.Location = New-Object System.Drawing.Point(150, 70)
+    $cancelButton.Size = New-Object System.Drawing.Size(75, 23)
+    $form.Controls.Add($cancelButton)
+    
+    $form.AcceptButton = $okButton
+    $form.CancelButton = $cancelButton
+    
+    $result = $form.ShowDialog()
+    
+    if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
+        $qty = 0
+        if ([int]::TryParse($textBox.Text, [ref]$qty)) {
+            if ($qty -gt 0 -and $qty -le $MaxQty) {
+                return $qty
+            } else {
+                [System.Windows.Forms.MessageBox]::Show("Please enter a valid quantity between 1 and $MaxQty", "Invalid Quantity", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+                return 0
+            }
+        } else {
+            [System.Windows.Forms.MessageBox]::Show("Please enter a valid number", "Invalid Input", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+            return 0
         }
     }
+    
+    return 0
+}
 
-    # Save the updated labor logs
-    Save-LaborLogs -listView $script:listViewLaborLog -filePath $laborLogsFilePath
+# Simple helper function to save parts to work order
+function Save-PartsToWorkOrder {
+    param(
+        [string]$WorkOrderNumber,
+        [array]$Parts
+    )
+    
+    Write-Log "=== START Save-PartsToWorkOrder ==="
+    Write-Log "Saving parts to Work Order: $WorkOrderNumber"
+    Write-Log "Number of parts to save: $($Parts.Count)"
+    
+    # Debug parts list
+    foreach ($part in $Parts) {
+        Write-Log "Part details: PartNumber=$($part.PartNumber), Quantity=$($part.Quantity), Source=$($part.Source)"
+    }
+    
+    # 1. Initialize/update global work order parts dictionary if needed
+    if ($null -eq $script:workOrderParts) {
+        Write-Log "Initializing workOrderParts dictionary"
+        $script:workOrderParts = @{}
+    }
+    
+    # 2. Add/update parts for this work order
+    Write-Log "Updating workOrderParts dictionary for work order: $WorkOrderNumber"
+    $script:workOrderParts[$WorkOrderNumber] = $Parts
+    
+    # 3. Load existing labor logs
+    $laborLogsPath = Join-Path $config.LaborDirectory "LaborLogs.csv"
+    Write-Log "Loading labor logs from: $laborLogsPath"
+    
+    if (-not (Test-Path $laborLogsPath)) {
+        Write-Log "ERROR: Labor logs file not found at: $laborLogsPath"
+        [System.Windows.Forms.MessageBox]::Show("Labor logs file not found at: $laborLogsPath", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        return
+    }
+    
+    try {
+        $laborLogs = Import-Csv -Path $laborLogsPath
+        Write-Log "Successfully loaded labor logs. Entry count: $($laborLogs.Count)"
+        
+        # 4. Find the work order entry
+        $workOrderUpdated = $false
+        foreach ($log in $laborLogs) {
+            if ($log.'Work Order' -eq $WorkOrderNumber) {
+                Write-Log "Found matching work order in logs: $WorkOrderNumber"
+                
+                # Format parts data as JSON
+                $partsJson = ConvertTo-Json -InputObject $Parts -Compress
+                Write-Log "Created JSON for parts: $partsJson"
+                
+                # Update the Parts field
+                $log.Parts = $partsJson
+                $workOrderUpdated = $true
+                Write-Log "Updated parts field for work order $WorkOrderNumber"
+            }
+        }
+        
+        if (-not $workOrderUpdated) {
+            Write-Log "WARNING: Work order $WorkOrderNumber not found in labor logs"
+            [System.Windows.Forms.MessageBox]::Show("Work order $WorkOrderNumber not found in labor logs", "Warning", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+        }
+        
+        # 5. Save back to CSV
+        Write-Log "Saving updated labor logs to: $laborLogsPath"
+        $laborLogs | Export-Csv -Path $laborLogsPath -NoTypeInformation
+        
+        # Verify the save
+        $savedContent = Get-Content -Path $laborLogsPath -Raw
+        Write-Log "First 500 characters of saved CSV: $($savedContent.Substring(0, [Math]::Min(500, $savedContent.Length)))"
+        
+        # 6. Update the ListView in the main form
+        Write-Log "Attempting to update ListView in the main form..."
+        $laborLogListView = $null
+        $mainForms = [System.Windows.Forms.Application]::OpenForms
+        Write-Log "Number of open forms: $($mainForms.Count)"
+        
+        $mainForm = $mainForms | Where-Object { $_.Text -like "*Parts Management System*" }
+        if ($mainForm) {
+            Write-Log "Found main form: $($mainForm.Text)"
+            $tabControls = $mainForm.Controls | Where-Object { $_ -is [System.Windows.Forms.TabControl] }
+            Write-Log "Found $($tabControls.Count) tab controls"
+            
+            foreach ($tabControl in $tabControls) {
+                $laborTab = $tabControl.TabPages | Where-Object { $_.Text -eq "Labor Log" }
+                if ($laborTab) {
+                    Write-Log "Found Labor Log tab"
+                    $listViews = $laborTab.Controls | Where-Object { $_ -is [System.Windows.Forms.ListView] }
+                    Write-Log "Found $($listViews.Count) list views in Labor Log tab"
+                    
+                    foreach ($listView in $listViews) {
+                        Write-Log "ListView column count: $($listView.Columns.Count)"
+                        if ($listView.Columns.Count -ge 7) {  # Check if it's likely the labor log list view
+                            $laborLogListView = $listView
+                            Write-Log "Identified labor log list view"
+                            break
+                        }
+                    }
+                }
+            }
+            
+            if ($laborLogListView) {
+                Write-Log "Processing labor log list view with $($laborLogListView.Items.Count) items"
+                $foundMatchingRow = $false
+                
+                foreach ($item in $laborLogListView.Items) {
+                    if ($item.SubItems.Count -gt 1 -and $item.SubItems[1].Text -eq $WorkOrderNumber) {
+                        Write-Log "Found matching row for work order $WorkOrderNumber"
+                        $foundMatchingRow = $true
+                        
+                        # Build a simple parts summary text
+                        $partsSummary = ($Parts | ForEach-Object {
+                            "$($_.PartNumber) - Qty:$($_.Quantity)"
+                        }) -join ", "
+                        
+                        Write-Log "Parts summary: $partsSummary"
+                        
+                        # Update the Parts column (index 6)
+                        Write-Log "Item has $($item.SubItems.Count) subitems"
+                        if ($item.SubItems.Count -gt 6) {
+                            Write-Log "Updating existing parts column"
+                            $item.SubItems[6].Text = $partsSummary
+                        } else {
+                            Write-Log "Adding new parts column"
+                            $item.SubItems.Add($partsSummary)
+                        }
+                        
+                        # Force ListView refresh
+                        $laborLogListView.Refresh()
+                        Write-Log "ListView refreshed"
+                    }
+                }
+                
+                if (-not $foundMatchingRow) {
+                    Write-Log "WARNING: No matching row found in ListView for work order $WorkOrderNumber"
+                }
+            } else {
+                Write-Log "ERROR: Could not find labor log list view"
+            }
+        } else {
+            Write-Log "ERROR: Could not find main form"
+        }
+        
+        # Also reload the ListView from the CSV to ensure sync
+        Write-Log "Reloading Labor Log ListView from CSV"
+        if ($script:listViewLaborLog -ne $null) {
+            $script:listViewLaborLog.Items.Clear()
+            Load-LaborLogs -listView $script:listViewLaborLog -filePath $laborLogsPath
+            Write-Log "Reloaded Labor Log ListView - now has $($script:listViewLaborLog.Items.Count) items"
+        } else {
+            Write-Log "ERROR: script:listViewLaborLog is null"
+        }
+        
+        Write-Log "=== END Save-PartsToWorkOrder ==="
+    }
+    catch {
+        Write-Log "ERROR in Save-PartsToWorkOrder: $($_.Exception.Message)"
+        Write-Log "Stack trace: $($_.ScriptStackTrace)"
+        [System.Windows.Forms.MessageBox]::Show("Error saving parts to work order: $($_.Exception.Message)", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+    }
 }
 
 # data retrieval logic
@@ -3029,53 +2894,6 @@ function Search-CrossReferenceData {
     }
 
     return $crossRefResults
-}
-
-function Get-MyPartsRoomQuantity {
-    param ($StockNo)
-    $csvFiles = Get-ChildItem -Path $config.PartsRoomDirectory -Filter "*.csv" -File
-    if ($csvFiles.Count -eq 1) {
-        $csvFilePath = $csvFiles[0].FullName
-        try {
-            $partsData = Import-Csv -Path $csvFilePath
-            $part = $partsData | Where-Object { $_.'Part (NSN)' -eq $StockNo }
-            if ($part) {
-                return [int]$part.QTY
-            }
-        } catch {
-            Write-Log "Error reading My Parts Room CSV: $_"
-        }
-    } else {
-        Write-Log "Error: Expected 1 CSV file in Parts Room directory, found $($csvFiles.Count)"
-    }
-    return 0
-}
-
-function Get-SameDayPartsRoomQuantities {
-    param ($StockNo)
-    $results = @()
-    $sameDayPartsDir = Join-Path $config.PartsRoomDirectory "Same Day Parts Room"
-    if (Test-Path $sameDayPartsDir) {
-        $sameDayCsvFiles = Get-ChildItem -Path $sameDayPartsDir -Filter "*.csv" -File
-        foreach ($csvFile in $sameDayCsvFiles) {
-            $siteName = [IO.Path]::GetFileNameWithoutExtension($csvFile.Name)
-            try {
-                $csvData = Import-Csv -Path $csvFile.FullName
-                $part = $csvData | Where-Object { $_.'Part (NSN)' -eq $StockNo }
-                if ($part) {
-                    $results += [PSCustomObject]@{
-                        SiteName = $siteName
-                        Quantity = [int]$part.QTY
-                    }
-                }
-            } catch {
-                Write-Log "Error reading Same Day Parts Room CSV $($csvFile.Name): $_"
-            }
-        }
-    } else {
-        Write-Log "Same Day Parts Room directory not found at $sameDayPartsDir"
-    }
-    return $results | Sort-Object -Property Quantity -Descending
 }
 
 # Main execution
