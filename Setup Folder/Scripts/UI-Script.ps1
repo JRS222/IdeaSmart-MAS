@@ -2218,7 +2218,6 @@ function Process-HistoricalLogs {
 }
 
 # Function to load Labor Logs from CSV
-# Enhanced Load-LaborLogs function with debugging
 function Load-LaborLogs {
     param($listView, $filePath)
     
@@ -2250,7 +2249,9 @@ function Load-LaborLogs {
             $item.SubItems.Add($log.Description)
             $item.SubItems.Add($log.Machine)
             $item.SubItems.Add($log.Duration)
-            $item.SubItems.Add($log.Notes)
+            
+            # First add empty Parts column
+            $partsDisplay = ""
             
             # Handle the Parts column
             if ($log.PSObject.Properties.Name -contains 'Parts' -and -not [string]::IsNullOrWhiteSpace($log.Parts)) {
@@ -2268,16 +2269,15 @@ function Load-LaborLogs {
                     }) -join ", "
                     
                     Write-Log "Parts display string: $partsDisplay"
-                    $item.SubItems.Add($partsDisplay)
                 } catch {
                     Write-Log "ERROR parsing Parts JSON for work order ${workOrderNumber}: $($_.Exception.Message)"
-                    $item.SubItems.Add($log.Parts)
+                    $partsDisplay = $log.Parts
                 }
-            } else {
-                Write-Log "Work order has no parts data"
-                # Add empty Parts column if missing
-                $item.SubItems.Add("")
             }
+            
+            # Now add Parts and Notes in the correct order
+            $item.SubItems.Add($partsDisplay)  # Add parts at index 5
+            $item.SubItems.Add($log.Notes)     # Add notes at index 6
             
             $listView.Items.Add($item)
             Write-Log "Added item to list view for work order: $workOrderNumber"
