@@ -1816,14 +1816,13 @@ function Setup-LaborLogTab {
     $script:listViewLaborLog.FullRowSelect = $true
     $script:listViewLaborLog.Scrollable = $true
     $script:listViewLaborLog.AutoResizeColumns([System.Windows.Forms.ColumnHeaderAutoResizeStyle]::None)
-    $script:listViewLaborLog.Columns.Add("Date", 100) | Out-Null
-    $script:listViewLaborLog.Columns.Add("Work Order", 150) | Out-Null
-    $script:listViewLaborLog.Columns.Add("Description", 300) | Out-Null
-    $script:listViewLaborLog.Columns.Add("Machine", 100) | Out-Null
-    $script:listViewLaborLog.Columns.Add("Duration", 100) | Out-Null
-    $script:listViewLaborLog.Columns.Add("Parts", 300) | Out-Null  # Increase width to 300 pixels
-    $script:listViewLaborLog.Columns.Add("Notes", 150) | Out-Null
-    $laborLogPanel.Controls.Add($script:listViewLaborLog)
+    $script:listViewLaborLog.Columns.Add("Date", 100) | Out-Null            # Index 0
+    $script:listViewLaborLog.Columns.Add("Work Order", 150) | Out-Null      # Index 1
+    $script:listViewLaborLog.Columns.Add("Description", 300) | Out-Null     # Index 2
+    $script:listViewLaborLog.Columns.Add("Machine", 100) | Out-Null         # Index 3
+    $script:listViewLaborLog.Columns.Add("Duration", 100) | Out-Null        # Index 4
+    $script:listViewLaborLog.Columns.Add("Parts", 300) | Out-Null           # Index 5
+    $script:listViewLaborLog.Columns.Add("Notes", 150) | Out-Null           # Index 6
     
     # Tooltip for hovering
     $script:listViewLaborLog.MouseMove += {
@@ -1978,7 +1977,8 @@ function Setup-LaborLogTab {
             $item.SubItems.Add($workOrderNumber)
             $item.SubItems.Add($textBoxTask.Text)
             $item.SubItems.Add($comboBoxMachineId.SelectedItem)
-            $item.SubItems.Add($textBoxDuration.Text)  # Use the duration as entered by the user
+            $item.SubItems.Add($textBoxDuration.Text)
+            $item.SubItems.Add("")  # Empty parts column
             $item.SubItems.Add($textBoxNotes.Text)
             $script:listViewLaborLog.Items.Add($item)
             
@@ -2309,7 +2309,9 @@ function Add-LaborLogEntryFromCallLog {
         $item.SubItems.Add("$($log.Cause) / $($log.Action) / $($log.Noun)")
         $item.SubItems.Add($log.Machine)
         $item.SubItems.Add($durationHours.ToString("F2"))
-        $item.SubItems.Add($log.Notes)
+        $item.SubItems.Add("")  # Add empty parts column
+        $item.SubItems.Add($log.Notes)  # Now notes are at index 6
+        
         $script:listViewLaborLog.Items.Add($item)
         Write-Log "Added Labor Log entry: Date=$($log.Date), Machine=$($log.Machine), Duration=$durationHours hours"
         
@@ -2506,17 +2508,10 @@ function Add-PartsToWorkOrder {
         
         if ($partsToAdd.Count -gt 0) {
             # Simple save function that doesn't depend on complex state
-            Save-PartsToWorkOrder -WorkOrderNumber $workOrderNumber -Parts $partsToAdd
-            
-            # Force a reload of the labor log ListView
-            if ($script:listViewLaborLog -ne $null) {
-                Write-Log "Forcing reload of Labor Log ListView after adding parts"
-                $script:listViewLaborLog.Items.Clear()
-                Load-LaborLogs -listView $script:listViewLaborLog -filePath (Join-Path $config.LaborDirectory "LaborLogs.csv")
+            if (Save-PartsToWorkOrder -WorkOrderNumber $workOrderNumber -Parts $partsToAdd) {
+                # Success is already shown in Save-PartsToWorkOrder
+                $form.Close()
             }
-            
-            [System.Windows.Forms.MessageBox]::Show("Parts saved to Work Order #$workOrderNumber", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-            $form.Close()
         } else {
             [System.Windows.Forms.MessageBox]::Show("No parts selected to add to the work order.", "Warning", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
         }
@@ -2709,47 +2704,24 @@ function Save-PartsToWorkOrder {
     }
     
     try {
-        # 6. Save all labor logs with updated work order IDs and parts
-        $logs = @()
-        foreach ($item in $script:listViewLaborLog.Items) {
-            $currentWorkOrderNumber = $item.SubItems[1].Text
-            
-            $log = [PSCustomObject]@{
-                Date = $item.SubItems[0].Text
-                'Work Order' = $currentWorkOrderNumber
-                'Description' = $item.SubItems[2].Text
-                Machine = $item.SubItems[3].Text
-                Duration = $item.SubItems[4].Text
-                Notes = $item.SubItems[5].Text
-                Parts = if ($script:workOrderParts.ContainsKey($currentWorkOrderNumber)) {
-                          $script:workOrderParts[$currentWorkOrderNumber] | ConvertTo-Json -Compress
-                        } else {
-                          ""
-                        }
-            }
-            $logs += $log
-        }
-        
-        # 7. Save back to CSV
-        Write-Log "Saving updated labor logs to: $laborLogsPath"
-        $logs | Export-Csv -Path $laborLogsPath -NoTypeInformation
-        
-        # 8. Build a formatted parts display for the ListView
+        # 6. Build a formatted parts display for the ListView
         $partsSummary = ($Parts | ForEach-Object {
             "$($_.PartNumber) - Qty:$($_.Quantity)"
         }) -join ", "
         
-        # 9. Update the parts column in the ListView (assumes index 6 is Parts column)
-        if ($targetItem.SubItems.Count > 6) {
-            $targetItem.SubItems[6].Text = $partsSummary
-        } else {
-            $targetItem.SubItems.Add($partsSummary)
-        }
+        # 7. Update the parts column in the ListView (index 5 is Parts column)
+        $targetItem.SubItems[5].Text = $partsSummary
         
         Write-Log ("Parts display updated in ListView for {0}: {1}" -f $WorkOrderNumber, $partsSummary)
+        
+        # 8. Save all labor logs with updated work order IDs and parts
+        Save-LaborLogs -listView $script:listViewLaborLog -filePath $laborLogsPath
+        
+        # 9. Only show one success dialog
         [System.Windows.Forms.MessageBox]::Show("Parts added successfully to $WorkOrderNumber", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
         
         Write-Log "=== END Save-PartsToWorkOrder ==="
+        $form.Close()  # Close the form after saving
         return $true
     }
     catch {

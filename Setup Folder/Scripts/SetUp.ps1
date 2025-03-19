@@ -87,7 +87,7 @@ function Set-InitialConfiguration {
         @{
             Name="LaborLogs"; 
             Path=Join-Path $config.LaborDirectory "LaborLogs.csv";
-            Headers="Date,Work Order,Description,Machine,Duration,Parts,Notes"
+            Headers="Date,Work Order,Description,Machine,Duration,Notes,Parts"
         },
         @{
             Name="Machines"; 
