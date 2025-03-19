@@ -77,22 +77,112 @@ function Set-InitialConfiguration {
     New-Item -ItemType Directory -Force -Path $sameDayPartsRoomDir | Out-Null
     Write-Log "Created Same Day Parts Room directory: $sameDayPartsRoomDir"
 
-    # Create empty prerequisite files
-    $prerequisiteFiles = @(
-        @{Name="CallLogs"; Path=Join-Path $config.CallLogsDirectory "CallLogs.csv"},
-        @{Name="LaborLogs"; Path=Join-Path $config.LaborDirectory "LaborLogs.csv"},
-        @{Name="Machines"; Path=Join-Path $config.DropdownCsvsDirectory "Machines.csv"},
-        @{Name="Causes"; Path=Join-Path $config.DropdownCsvsDirectory "Causes.csv"},
-        @{Name="Actions"; Path=Join-Path $config.DropdownCsvsDirectory "Actions.csv"},
-        @{Name="Nouns"; Path=Join-Path $config.DropdownCsvsDirectory "Nouns.csv"}
+    # Define prerequisite files with their proper headers
+    $emptyPrerequisites = @(
+        @{
+            Name = "CallLogs"
+            Path = Join-Path $config.CallLogsDirectory "CallLogs.csv"
+            Headers = "Date,Machine,Cause,Action,Noun,Time Down,Time Up,Notes"
+        },
+        @{
+            Name = "LaborLogs"
+            Path = Join-Path $config.LaborDirectory "LaborLogs.csv"
+            Headers = "Date,Work Order,Description,Machine,Duration,Notes,Parts"
+        },
+        @{
+            Name = "Machines"
+            Path = Join-Path $config.DropdownCsvsDirectory "Machines.csv"
+            Headers = "Machine Acronym,Machine Number"
+        }
     )
-
-    foreach ($file in $prerequisiteFiles) {
+    
+    # Standard CSV files from setup folder
+    $standardCsvs = @(
+        @{
+            Name = "Causes"
+            Path = Join-Path $config.DropdownCsvsDirectory "Causes.csv"
+            Headers = "Value"
+            SourcePath = Join-Path $setupFolder "Causes.csv"
+        },
+        @{
+            Name = "Actions"
+            Path = Join-Path $config.DropdownCsvsDirectory "Actions.csv"
+            Headers = "Value"
+            SourcePath = Join-Path $setupFolder "Actions.csv"
+        },
+        @{
+            Name = "Nouns"
+            Path = Join-Path $config.DropdownCsvsDirectory "Nouns.csv"
+            Headers = "Value"
+            SourcePath = Join-Path $setupFolder "Nouns.csv"
+        },
+        @{
+            Name = "Sites"
+            Path = Join-Path $config.DropdownCsvsDirectory "Sites.csv"
+            Headers = "Site ID,Full Name"
+            SourcePath = Join-Path $setupFolder "Sites.csv"
+        },
+        @{
+            Name = "ParsedPartsVolumes"
+            Path = Join-Path $config.DropdownCsvsDirectory "Parsed-Parts-Volumes.csv"
+            SourcePath = Join-Path $setupFolder "Parsed-Parts-Volumes.csv"
+        }
+    )
+    
+    # Create empty prerequisite files with proper headers
+    foreach ($file in $emptyPrerequisites) {
         if (-not (Test-Path $file.Path)) {
-            New-Item -ItemType File -Path $file.Path -Force | Out-Null
-            Write-Log "Created empty file: $($file.Path)"
+            # Create the file with headers
+            $file.Headers | Out-File -FilePath $file.Path -Encoding UTF8
+            Write-Log "Created file with headers: $($file.Path)"
         }
         $config.PrerequisiteFiles[$file.Name] = $file.Path
+    }
+    
+    # Copy standard CSV files from setup folder
+    foreach ($file in $standardCsvs) {
+        if (Test-Path $file.SourcePath) {
+            # If Headers property exists, verify headers in source file
+            if ($file.PSObject.Properties.Name -contains "Headers") {
+                $sourceHeaders = (Get-Content $file.SourcePath -TotalCount 1).Trim()
+                if ($sourceHeaders -ne $file.Headers) {
+                    Write-Log "Warning: Source file $($file.SourcePath) has incorrect headers. Fixing when copying."
+                    
+                    # Read data from source file (skip header)
+                    $sourceData = Get-Content $file.SourcePath | Select-Object -Skip 1
+                    
+                    # Write file with correct headers and source data
+                    $file.Headers | Out-File -FilePath $file.Path -Encoding UTF8
+                    if ($sourceData) {
+                        $sourceData | Out-File -FilePath $file.Path -Encoding UTF8 -Append
+                    }
+                } else {
+                    # Headers are correct, simply copy the file
+                    Copy-Item -Path $file.SourcePath -Destination $file.Path -Force
+                }
+            } else {
+                # No header validation needed, simply copy the file
+                Copy-Item -Path $file.SourcePath -Destination $file.Path -Force
+            }
+            Write-Log "Copied $($file.Name) from $($file.SourcePath) to $($file.Path)"
+        } else {
+            Write-Log "Warning: Source file $($file.SourcePath) not found."
+            
+            # If Headers property exists, create empty file with headers
+            if ($file.PSObject.Properties.Name -contains "Headers") {
+                $file.Headers | Out-File -FilePath $file.Path -Encoding UTF8
+                Write-Log "Created empty file with headers: $($file.Path)"
+            } else {
+                Write-Log "Cannot create empty file without headers definition."
+            }
+        }
+        
+        # Store path in config
+        if ($file.Name -eq "ParsedPartsVolumes") {
+            $config.PrerequisiteFiles["Parsed-Parts-Volumes"] = $file.Path
+        } else {
+            $config.PrerequisiteFiles[$file.Name] = $file.Path
+        }
     }
 
     # Save configuration in the Scripts directory
@@ -119,23 +209,6 @@ function Copy-SetupFiles {
         Write-Log "Copied Scripts"
     } else {
         Write-Log "Warning: Scripts directory not found in the SetupFolder: $scriptsSourceDir"
-    }
-
-    # Copy Dropdown CSVs
-    $csvFiles = @("sites.csv", "Parsed-Parts-Volumes.csv", "Causes.csv", "Actions.csv", "Nouns.csv")
-    foreach ($csvFile in $csvFiles) {
-        $sourcePath = Join-Path $setupDir $csvFile
-        $destPath = Join-Path $config.DropdownCsvsDirectory $csvFile
-        if (Test-Path $sourcePath) {
-            Copy-Item -Path $sourcePath -Destination $destPath -Force
-            Write-Log "Copied $csvFile to $destPath"
-            $config.PrerequisiteFiles[$csvFile -replace "\.csv", ""] = $destPath
-        } else {
-            Write-Log "Warning: $csvFile not found in setup directory: $sourcePath"
-            # Create an empty file if it doesn't exist
-            New-Item -ItemType File -Path $destPath -Force | Out-Null
-            Write-Log "Created empty file: $destPath"
-        }
     }
 
     # Save configuration in the Scripts directory
