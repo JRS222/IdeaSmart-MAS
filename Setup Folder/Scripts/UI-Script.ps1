@@ -1816,13 +1816,14 @@ function Setup-LaborLogTab {
     $script:listViewLaborLog.FullRowSelect = $true
     $script:listViewLaborLog.Scrollable = $true
     $script:listViewLaborLog.AutoResizeColumns([System.Windows.Forms.ColumnHeaderAutoResizeStyle]::None)
-    $script:listViewLaborLog.Columns.Add("Date", 100) | Out-Null            # Index 0
-    $script:listViewLaborLog.Columns.Add("Work Order", 150) | Out-Null      # Index 1
-    $script:listViewLaborLog.Columns.Add("Description", 300) | Out-Null     # Index 2
-    $script:listViewLaborLog.Columns.Add("Machine", 100) | Out-Null         # Index 3
-    $script:listViewLaborLog.Columns.Add("Duration", 100) | Out-Null        # Index 4
-    $script:listViewLaborLog.Columns.Add("Parts", 300) | Out-Null           # Index 5
-    $script:listViewLaborLog.Columns.Add("Notes", 150) | Out-Null           # Index 6
+    $script:listViewLaborLog.Columns.Add("Date", 100) | Out-Null
+    $script:listViewLaborLog.Columns.Add("Work Order", 150) | Out-Null
+    $script:listViewLaborLog.Columns.Add("Description", 300) | Out-Null
+    $script:listViewLaborLog.Columns.Add("Machine", 100) | Out-Null
+    $script:listViewLaborLog.Columns.Add("Duration", 100) | Out-Null
+    $script:listViewLaborLog.Columns.Add("Parts", 300) | Out-Null  # Increase width to 300 pixels
+    $script:listViewLaborLog.Columns.Add("Notes", 150) | Out-Null
+    $laborLogPanel.Controls.Add($script:listViewLaborLog)
     
     # Tooltip for hovering
     $script:listViewLaborLog.MouseMove += {
@@ -2218,6 +2219,7 @@ function Process-HistoricalLogs {
 }
 
 # Function to load Labor Logs from CSV
+# Enhanced Load-LaborLogs function with debugging
 function Load-LaborLogs {
     param($listView, $filePath)
     
@@ -2249,9 +2251,7 @@ function Load-LaborLogs {
             $item.SubItems.Add($log.Description)
             $item.SubItems.Add($log.Machine)
             $item.SubItems.Add($log.Duration)
-            
-            # First add empty Parts column
-            $partsDisplay = ""
+            $item.SubItems.Add($log.Notes)
             
             # Handle the Parts column
             if ($log.PSObject.Properties.Name -contains 'Parts' -and -not [string]::IsNullOrWhiteSpace($log.Parts)) {
@@ -2269,15 +2269,16 @@ function Load-LaborLogs {
                     }) -join ", "
                     
                     Write-Log "Parts display string: $partsDisplay"
+                    $item.SubItems.Add($partsDisplay)
                 } catch {
                     Write-Log "ERROR parsing Parts JSON for work order ${workOrderNumber}: $($_.Exception.Message)"
-                    $partsDisplay = $log.Parts
+                    $item.SubItems.Add($log.Parts)
                 }
+            } else {
+                Write-Log "Work order has no parts data"
+                # Add empty Parts column if missing
+                $item.SubItems.Add("")
             }
-            
-            # Now add Parts and Notes in the correct order
-            $item.SubItems.Add($partsDisplay)  # Add parts at index 5
-            $item.SubItems.Add($log.Notes)     # Add notes at index 6
             
             $listView.Items.Add($item)
             Write-Log "Added item to list view for work order: $workOrderNumber"
@@ -2321,7 +2322,6 @@ function Add-LaborLogEntryFromCallLog {
         Write-Log "Error adding Labor Log entry: $_"
     }
 }
-
 # Add Parts to Work order
 function Add-PartsToWorkOrder {
     param($workOrderNumber)
