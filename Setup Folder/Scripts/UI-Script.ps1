@@ -677,6 +677,10 @@ function Show-MainForm {
         if ($listViewLaborLog) {
             Save-LaborLogs -listView $listViewLaborLog -filePath $laborLogsFilePath
         }
+
+        $form.Add_FormClosing({
+            Save-LaborLogs -listView $script:listViewLaborLog -filePath $laborLogsFilePath
+        })
     })
 
     # Add Open Parts Room button
@@ -2218,10 +2222,12 @@ function Process-HistoricalLogs {
     Save-LaborLogs -listView $script:listViewLaborLog -filePath $global:laborLogsFilePath
 }
 
-# Function to load Labor Logs from CSV
 # Enhanced Load-LaborLogs function with debugging
 function Load-LaborLogs {
-    param($listView, $filePath)
+    param(
+        [System.Windows.Forms.ListView]$listView,
+        [string]$filePath
+    )
     
     Write-Log "=== START Load-LaborLogs ==="
     Write-Log "Loading labor logs from: $filePath"
@@ -2232,20 +2238,25 @@ function Load-LaborLogs {
     }
     
     try {
+        # Import the labor logs CSV
         $laborLogs = Import-Csv -Path $filePath
         Write-Log "Successfully loaded labor logs. Entry count: $($laborLogs.Count)"
         
-        # Initialize workOrderParts dictionary if needed
+        # Initialize the workOrderParts dictionary if it doesn't exist
         if ($null -eq $script:workOrderParts) {
             Write-Log "Initializing workOrderParts dictionary"
             $script:workOrderParts = @{}
         }
         
-        Write-Log "Processing labor log entries..."
+        # Clear the ListView before loading new data
+        $listView.Items.Clear()
+        
+        # Process each labor log entry
         foreach ($log in $laborLogs) {
             $workOrderNumber = $log.'Work Order'
             Write-Log "Processing work order: $workOrderNumber"
             
+            # Create a new ListView item for the log entry
             $item = New-Object System.Windows.Forms.ListViewItem($log.Date)
             $item.SubItems.Add($workOrderNumber)
             $item.SubItems.Add($log.Description)
@@ -2256,14 +2267,16 @@ function Load-LaborLogs {
             # Handle the Parts column
             if ($log.PSObject.Properties.Name -contains 'Parts' -and -not [string]::IsNullOrWhiteSpace($log.Parts)) {
                 Write-Log "Work order has parts data: $($log.Parts)"
+                
                 try {
+                    # Deserialize the JSON parts data
                     $parts = $log.Parts | ConvertFrom-Json
                     Write-Log "Successfully parsed JSON parts data. Part count: $($parts.Count)"
                     
-                    # Store parts in workOrderParts dictionary
+                    # Store the parts in the workOrderParts dictionary
                     $script:workOrderParts[$workOrderNumber] = $parts
                     
-                    # Create a formatted string for display
+                    # Create a formatted string for display in the ListView
                     $partsDisplay = ($parts | ForEach-Object { 
                         "$($_.PartNumber) - $($_.PartNo) - Qty:$($_.Quantity)" 
                     }) -join ", "
@@ -2272,14 +2285,14 @@ function Load-LaborLogs {
                     $item.SubItems.Add($partsDisplay)
                 } catch {
                     Write-Log "ERROR parsing Parts JSON for work order ${workOrderNumber}: $($_.Exception.Message)"
-                    $item.SubItems.Add($log.Parts)
+                    $item.SubItems.Add("Invalid Parts Data")  # Add a placeholder for invalid data
                 }
             } else {
                 Write-Log "Work order has no parts data"
-                # Add empty Parts column if missing
-                $item.SubItems.Add("")
+                $item.SubItems.Add("")  # Add an empty column if no parts data exists
             }
             
+            # Add the item to the ListView
             $listView.Items.Add($item)
             Write-Log "Added item to list view for work order: $workOrderNumber"
         }
@@ -2290,6 +2303,7 @@ function Load-LaborLogs {
     catch {
         Write-Log "ERROR in Load-LaborLogs: $($_.Exception.Message)"
         Write-Log "Stack trace: $($_.ScriptStackTrace)"
+        [System.Windows.Forms.MessageBox]::Show("Error loading labor logs: $($_.Exception.Message)", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
     }
 }
 
@@ -2305,8 +2319,9 @@ function Add-LaborLogEntryFromCallLog {
         $duration = Get-TimeDifference -startTime $log.'Time Down' -endTime $log.'Time Up'
         $durationHours = [Math]::Round($duration / 60, 2)
        
+        $workOrderNumber = "Need W/O #-$(New-Guid)"
         $item = New-Object System.Windows.Forms.ListViewItem($log.Date)
-        $item.SubItems.Add("Need W/O #")
+        $item.SubItems.Add($workOrderNumber)
         $item.SubItems.Add("$($log.Cause) / $($log.Action) / $($log.Noun)")
         $item.SubItems.Add($log.Machine)
         $item.SubItems.Add($durationHours.ToString("F2"))
@@ -2683,10 +2698,9 @@ function Save-PartsToWorkOrder {
     
     # 3. For items without a proper work order number, update with row-based identifier
     if ($WorkOrderNumber -eq "Need W/O #") {
-        $newWorkOrderNumber = "Need W/O #-$($targetIndex + 1)"
-        Write-Log "Updating work order from '$WorkOrderNumber' to '$newWorkOrderNumber'"
+        $newWorkOrderNumber = "Need W/O #-$(New-Guid)"
         $targetItem.SubItems[1].Text = $newWorkOrderNumber
-        $WorkOrderNumber = $newWorkOrderNumber  # Update for dictionary storage
+        $WorkOrderNumber = $newWorkOrderNumber
     }
     
     # 4. Add/update parts for this work order in our dictionary
