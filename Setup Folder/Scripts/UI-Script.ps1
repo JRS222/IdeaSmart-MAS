@@ -219,34 +219,36 @@ if ($configUpdated) {
     Write-Log "Config file updated with default paths"
 }
 
-# Function to save Labor Logs to CSV
 function Save-LaborLogs {
     param($listView, $filePath)
-
-    # Save labor logs along with associated parts
-    $laborLogs = @()
-
-    foreach ($item in $listView.Items) {
-        $workOrderNumber = $item.SubItems[1].Text
-
-        $laborLog = [PSCustomObject]@{
-            Date        = $item.SubItems[0].Text
-            WorkOrder   = $workOrderNumber
-            Description = $item.SubItems[2].Text
-            Machine     = $item.SubItems[3].Text
-            Duration    = $item.SubItems[4].Text
-            Notes       = $item.SubItems[5].Text
-            Parts       = if ($script:workOrderParts.ContainsKey($workOrderNumber)) {
-                            $script:workOrderParts[$workOrderNumber] | ConvertTo-Json -Compress
-                          } else {
-                            ""
-                          }
+    
+    try {
+        $logs = @()
+        foreach ($item in $listView.Items) {
+            $workOrderNumber = $item.SubItems[1].Text
+            
+            $log = [PSCustomObject]@{
+                Date = $item.SubItems[0].Text
+                'Work Order' = $workOrderNumber
+                'Description' = $item.SubItems[2].Text
+                Machine = $item.SubItems[3].Text
+                Duration = $item.SubItems[4].Text
+                Notes = $item.SubItems[5].Text
+                Parts = if ($script:workOrderParts.ContainsKey($workOrderNumber)) {
+                          $script:workOrderParts[$workOrderNumber] | ConvertTo-Json -Compress
+                        } else {
+                          ""
+                        }
+            }
+            $logs += $log
         }
-
-        $laborLogs += $laborLog
+        
+        $logs | Export-Csv -Path $filePath -NoTypeInformation -Encoding UTF8
+        Write-Log "Labor logs saved to $filePath with $($logs.Count) entries"
     }
-
-    $laborLogs | Export-Csv -Path $filePath -NoTypeInformation
+    catch {
+        Write-Log "Error saving labor logs: $_"
+    }
 }
 
 # Function to calculate time difference
@@ -1365,36 +1367,6 @@ function Save-CallLogs {
     }
     catch {
         Write-Log "Error saving call logs: $_"
-    }
-}
-
-
-# Function to save Labor Logs to CSV
-function Save-LaborLogs {
-    param (
-        [System.Windows.Forms.ListView]$listView,
-        [string]$filePath
-    )
-    
-    try {
-        $logs = @()
-        foreach ($item in $listView.Items) {
-            $log = [PSCustomObject]@{
-                Date = $item.SubItems[0].Text
-                'Work Order' = $item.SubItems[1].Text
-                'Description' = $item.SubItems[2].Text
-                Machine = $item.SubItems[3].Text
-                Duration = $item.SubItems[4].Text
-                Notes = $item.SubItems[5].Text
-            }
-            $logs += $log
-        }
-        
-        $logs | Export-Csv -Path $filePath -NoTypeInformation -Encoding UTF8
-        Write-Log "Labor logs saved to $filePath"
-    }
-    catch {
-        Write-Log "Error saving labor logs: $_"
     }
 }
 
@@ -2689,22 +2661,44 @@ function Save-PartsToWorkOrder {
     Write-Log "Saving parts to Work Order: $WorkOrderNumber"
     Write-Log "Number of parts to save: $($Parts.Count)"
     
-    # Debug parts list
-    foreach ($part in $Parts) {
-        Write-Log "Part details: PartNumber=$($part.PartNumber), Quantity=$($part.Quantity), Source=$($part.Source)"
-    }
-    
     # 1. Initialize/update global work order parts dictionary if needed
     if ($null -eq $script:workOrderParts) {
         Write-Log "Initializing workOrderParts dictionary"
         $script:workOrderParts = @{}
     }
     
-    # 2. Add/update parts for this work order
+    # 2. Find the item in the ListView 
+    $targetItem = $null
+    $targetIndex = -1
+    
+    for ($i = 0; $i -lt $script:listViewLaborLog.Items.Count; $i++) {
+        $item = $script:listViewLaborLog.Items[$i]
+        if ($item.SubItems[1].Text -eq $WorkOrderNumber) {
+            $targetItem = $item
+            $targetIndex = $i
+            break
+        }
+    }
+    
+    if ($targetItem -eq $null) {
+        Write-Log "WARNING: Work order $WorkOrderNumber not found in ListView"
+        [System.Windows.Forms.MessageBox]::Show("Work order $WorkOrderNumber not found in labor logs", "Warning", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+        return
+    }
+    
+    # 3. For items without a proper work order number, update with row-based identifier
+    if ($WorkOrderNumber -eq "Need W/O #") {
+        $newWorkOrderNumber = "Need W/O #-$($targetIndex + 1)"
+        Write-Log "Updating work order from '$WorkOrderNumber' to '$newWorkOrderNumber'"
+        $targetItem.SubItems[1].Text = $newWorkOrderNumber
+        $WorkOrderNumber = $newWorkOrderNumber  # Update for dictionary storage
+    }
+    
+    # 4. Add/update parts for this work order in our dictionary
     Write-Log "Updating workOrderParts dictionary for work order: $WorkOrderNumber"
     $script:workOrderParts[$WorkOrderNumber] = $Parts
     
-    # 3. Load existing labor logs
+    # 5. Load existing labor logs
     $laborLogsPath = Join-Path $config.LaborDirectory "LaborLogs.csv"
     Write-Log "Loading labor logs from: $laborLogsPath"
     
@@ -2715,127 +2709,54 @@ function Save-PartsToWorkOrder {
     }
     
     try {
-        $laborLogs = Import-Csv -Path $laborLogsPath
-        Write-Log "Successfully loaded labor logs. Entry count: $($laborLogs.Count)"
-        
-        # 4. Find the work order entry
-        $workOrderUpdated = $false
-        foreach ($log in $laborLogs) {
-            if ($log.'Work Order' -eq $WorkOrderNumber) {
-                Write-Log "Found matching work order in logs: $WorkOrderNumber"
-                
-                # Format parts data as JSON
-                $partsJson = ConvertTo-Json -InputObject $Parts -Compress
-                Write-Log "Created JSON for parts: $partsJson"
-                
-                # Update the Parts field
-                $log.Parts = $partsJson
-                $workOrderUpdated = $true
-                Write-Log "Updated parts field for work order $WorkOrderNumber"
-            }
-        }
-        
-        if (-not $workOrderUpdated) {
-            Write-Log "WARNING: Work order $WorkOrderNumber not found in labor logs"
-            [System.Windows.Forms.MessageBox]::Show("Work order $WorkOrderNumber not found in labor logs", "Warning", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-        }
-        
-        # 5. Save back to CSV
-        Write-Log "Saving updated labor logs to: $laborLogsPath"
-        $laborLogs | Export-Csv -Path $laborLogsPath -NoTypeInformation
-        
-        # Verify the save
-        $savedContent = Get-Content -Path $laborLogsPath -Raw
-        Write-Log "First 500 characters of saved CSV: $($savedContent.Substring(0, [Math]::Min(500, $savedContent.Length)))"
-        
-        # 6. Update the ListView in the main form
-        Write-Log "Attempting to update ListView in the main form..."
-        $laborLogListView = $null
-        $mainForms = [System.Windows.Forms.Application]::OpenForms
-        Write-Log "Number of open forms: $($mainForms.Count)"
-        
-        $mainForm = $mainForms | Where-Object { $_.Text -like "*Parts Management System*" }
-        if ($mainForm) {
-            Write-Log "Found main form: $($mainForm.Text)"
-            $tabControls = $mainForm.Controls | Where-Object { $_ -is [System.Windows.Forms.TabControl] }
-            Write-Log "Found $($tabControls.Count) tab controls"
+        # 6. Save all labor logs with updated work order IDs and parts
+        $logs = @()
+        foreach ($item in $script:listViewLaborLog.Items) {
+            $currentWorkOrderNumber = $item.SubItems[1].Text
             
-            foreach ($tabControl in $tabControls) {
-                $laborTab = $tabControl.TabPages | Where-Object { $_.Text -eq "Labor Log" }
-                if ($laborTab) {
-                    Write-Log "Found Labor Log tab"
-                    $listViews = $laborTab.Controls | Where-Object { $_ -is [System.Windows.Forms.ListView] }
-                    Write-Log "Found $($listViews.Count) list views in Labor Log tab"
-                    
-                    foreach ($listView in $listViews) {
-                        Write-Log "ListView column count: $($listView.Columns.Count)"
-                        if ($listView.Columns.Count -ge 7) {  # Check if it's likely the labor log list view
-                            $laborLogListView = $listView
-                            Write-Log "Identified labor log list view"
-                            break
-                        }
-                    }
-                }
-            }
-            
-            if ($laborLogListView) {
-                Write-Log "Processing labor log list view with $($laborLogListView.Items.Count) items"
-                $foundMatchingRow = $false
-                
-                foreach ($item in $laborLogListView.Items) {
-                    if ($item.SubItems.Count -gt 1 -and $item.SubItems[1].Text -eq $WorkOrderNumber) {
-                        Write-Log "Found matching row for work order $WorkOrderNumber"
-                        $foundMatchingRow = $true
-                        
-                        # Build a simple parts summary text
-                        $partsSummary = ($Parts | ForEach-Object {
-                            "$($_.PartNumber) - Qty:$($_.Quantity)"
-                        }) -join ", "
-                        
-                        Write-Log "Parts summary: $partsSummary"
-                        
-                        # Update the Parts column (index 6)
-                        Write-Log "Item has $($item.SubItems.Count) subitems"
-                        if ($item.SubItems.Count -gt 6) {
-                            Write-Log "Updating existing parts column"
-                            $item.SubItems[6].Text = $partsSummary
+            $log = [PSCustomObject]@{
+                Date = $item.SubItems[0].Text
+                'Work Order' = $currentWorkOrderNumber
+                'Description' = $item.SubItems[2].Text
+                Machine = $item.SubItems[3].Text
+                Duration = $item.SubItems[4].Text
+                Notes = $item.SubItems[5].Text
+                Parts = if ($script:workOrderParts.ContainsKey($currentWorkOrderNumber)) {
+                          $script:workOrderParts[$currentWorkOrderNumber] | ConvertTo-Json -Compress
                         } else {
-                            Write-Log "Adding new parts column"
-                            $item.SubItems.Add($partsSummary)
+                          ""
                         }
-                        
-                        # Force ListView refresh
-                        $laborLogListView.Refresh()
-                        Write-Log "ListView refreshed"
-                    }
-                }
-                
-                if (-not $foundMatchingRow) {
-                    Write-Log "WARNING: No matching row found in ListView for work order $WorkOrderNumber"
-                }
-            } else {
-                Write-Log "ERROR: Could not find labor log list view"
             }
-        } else {
-            Write-Log "ERROR: Could not find main form"
+            $logs += $log
         }
         
-        # Also reload the ListView from the CSV to ensure sync
-        Write-Log "Reloading Labor Log ListView from CSV"
-        if ($script:listViewLaborLog -ne $null) {
-            $script:listViewLaborLog.Items.Clear()
-            Load-LaborLogs -listView $script:listViewLaborLog -filePath $laborLogsPath
-            Write-Log "Reloaded Labor Log ListView - now has $($script:listViewLaborLog.Items.Count) items"
+        # 7. Save back to CSV
+        Write-Log "Saving updated labor logs to: $laborLogsPath"
+        $logs | Export-Csv -Path $laborLogsPath -NoTypeInformation
+        
+        # 8. Build a formatted parts display for the ListView
+        $partsSummary = ($Parts | ForEach-Object {
+            "$($_.PartNumber) - Qty:$($_.Quantity)"
+        }) -join ", "
+        
+        # 9. Update the parts column in the ListView (assumes index 6 is Parts column)
+        if ($targetItem.SubItems.Count > 6) {
+            $targetItem.SubItems[6].Text = $partsSummary
         } else {
-            Write-Log "ERROR: script:listViewLaborLog is null"
+            $targetItem.SubItems.Add($partsSummary)
         }
+        
+        Write-Log ("Parts display updated in ListView for {0}: {1}" -f $WorkOrderNumber, $partsSummary)
+        [System.Windows.Forms.MessageBox]::Show("Parts added successfully to $WorkOrderNumber", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
         
         Write-Log "=== END Save-PartsToWorkOrder ==="
+        return $true
     }
     catch {
         Write-Log "ERROR in Save-PartsToWorkOrder: $($_.Exception.Message)"
         Write-Log "Stack trace: $($_.ScriptStackTrace)"
         [System.Windows.Forms.MessageBox]::Show("Error saving parts to work order: $($_.Exception.Message)", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        return $false
     }
 }
 
