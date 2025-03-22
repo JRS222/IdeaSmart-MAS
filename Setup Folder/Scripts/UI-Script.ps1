@@ -814,8 +814,26 @@ function Test-WildcardMatch {
         [string]$InputString,
         [string]$Pattern
     )
-    $regexPattern = '^' + [regex]::Escape($Pattern).Replace('\*', '.*') + '$'
-    return $InputString -match $regexPattern
+    
+    Write-Log "Testing match: Input='$InputString' Pattern='$Pattern'"
+    
+    if ([string]::IsNullOrWhiteSpace($InputString) -or [string]::IsNullOrWhiteSpace($Pattern)) {
+        return $false
+    }
+    
+    # Convert the wildcard pattern to a regex pattern
+    # First escape any regex special characters
+    $regexPattern = [regex]::Escape($Pattern)
+    # Then replace * with .*
+    $regexPattern = $regexPattern.Replace('\*', '.*')
+    # Add start and end anchors
+    $regexPattern = "^$regexPattern$"
+    
+    Write-Log "Regex pattern: $regexPattern"
+    
+    $result = $InputString -match $regexPattern
+    Write-Log "Match result: $result"
+    return $result
 }
 
 # Function to set up the Search tab with enhanced debugging
@@ -892,7 +910,7 @@ function Setup-SearchTab {
     $searchPanel.Controls.Add($labelAvailability)
 
     $script:listViewAvailability.Location = New-Object System.Drawing.Point(20, 160)
-    $script:listViewAvailability.Size = New-Object System.Drawing.Size(850, 150)
+    $script:listViewAvailability.Size = New-Object System.Drawing.Size(1100, 150)
     $script:listViewAvailability.View = [System.Windows.Forms.View]::Details
     $script:listViewAvailability.FullRowSelect = $true
     $script:listViewAvailability.CheckBoxes = $true
@@ -915,7 +933,7 @@ function Setup-SearchTab {
     $searchPanel.Controls.Add($labelSameDayAvailability)
 
     $script:listViewSameDayAvailability.Location = New-Object System.Drawing.Point(20, 350)
-    $script:listViewSameDayAvailability.Size = New-Object System.Drawing.Size(850, 150)
+    $script:listViewSameDayAvailability.Size = New-Object System.Drawing.Size(1100, 150)
     $script:listViewSameDayAvailability.View = [System.Windows.Forms.View]::Details
     $script:listViewSameDayAvailability.FullRowSelect = $true
     $script:listViewSameDayAvailability.CheckBoxes = $true
@@ -938,7 +956,7 @@ function Setup-SearchTab {
     $searchPanel.Controls.Add($labelCrossRef)
 
     $script:listViewCrossRef.Location = New-Object System.Drawing.Point(20, 540)
-    $script:listViewCrossRef.Size = New-Object System.Drawing.Size(850, 150)
+    $script:listViewCrossRef.Size = New-Object System.Drawing.Size(1100, 150)
     $script:listViewCrossRef.View = [System.Windows.Forms.View]::Details
     $script:listViewCrossRef.FullRowSelect = $true
     $script:listViewCrossRef.CheckBoxes = $true
@@ -1053,18 +1071,34 @@ function Setup-SearchTab {
         }
 
         $filteredData = $data | Where-Object {
-            ($nsnSearch -eq '' -or $_.'Part (NSN)' -like "*$nsnSearch*" -or $_.'Changed Part (NSN)' -like "*$nsnSearch*") -and
-            ($oemSearch -eq '' -or ($_.'OEM 1' -like "*$oemSearch*" -or $_.'OEM 2' -like "*$oemSearch*" -or $_.'OEM 3' -like "*$oemSearch*")) -and
-            ($descriptionSearch -eq '' -or $_.Description -like "*$descriptionSearch*") -and
-    ([int]$_.QTY -gt 0)
+            $matchesNSN = if ($nsnSearch -eq '') {
+                $true
+            } else {
+                # Remove hyphens from both the search term and the NSN for comparison
+                $cleanNSN = $_.'Part (NSN)' -replace '-', ''
+                $cleanSearch = $nsnSearch -replace '-', ''
+                # Use contains rather than exact match
+                $cleanNSN -like "*$cleanSearch*"
+            }
+        
+            $matchesOEM = ($oemSearch -eq '') -or 
+                          ($_.'OEM 1' -like "*$oemSearch*") -or 
+                          ($_.'OEM 2' -like "*$oemSearch*") -or 
+                          ($_.'OEM 3' -like "*$oemSearch*")
+            
+            $matchesDesc = ($descriptionSearch -eq '') -or 
+                           ($_.Description -like "*$descriptionSearch*")
+            
+            $matchesNSN -and $matchesOEM -and $matchesDesc
         }
 
         Write-Log "Found $($filteredData.Count) matching records in Availability."
 
         $script:listViewAvailability.Items.Clear()
-
+        
         if ($filteredData.Count -gt 0) {
             foreach ($row in $filteredData) {
+                Write-Log "Adding row to listview: $($row.'Part (NSN)')"  # Add debug logging
                 $item = New-Object System.Windows.Forms.ListViewItem($row.'Part (NSN)')
                 $item.SubItems.Add($row.Description)
                 $item.SubItems.Add($row.QTY)
@@ -1101,7 +1135,7 @@ function Setup-SearchTab {
                         $row | Add-Member -NotePropertyName 'SiteName' -NotePropertyValue $siteName -Force
                         $sameDayData += $row
                     }
-                    Write-Log "Processed $($csvData.Count) rows from $($csvFile.Name)"
+                    # Write-Log "Processed $($csvData.Count) rows from $($csvFile.Name)"
                 } catch {
                     Write-Log "Failed to read CSV file $($csvFile.FullName). Error: $_"
                 }
@@ -1110,8 +1144,7 @@ function Setup-SearchTab {
             $filteredSameDayData = $sameDayData | Where-Object {
                 ($nsnSearch -eq '' -or $_.'Part (NSN)' -like "*$nsnSearch*") -and
                 ($oemSearch -eq '' -or ($_.'OEM 1' -like "*$oemSearch*" -or $_.'OEM 2' -like "*$oemSearch*" -or $_.'OEM 3' -like "*$oemSearch*")) -and
-                ($descriptionSearch -eq '' -or $_.Description -like "*$descriptionSearch*") -and
-    ([int]$_.QTY -gt 0)
+                ($descriptionSearch -eq '' -or $_.Description -like "*$descriptionSearch*")
             }
 
             Write-Log "Found $($filteredSameDayData.Count) matching records in Same Day Parts Availability."
@@ -1197,15 +1230,17 @@ function Setup-SearchTab {
                         Write-Log "Failed to read CSV file $csvFilePath. Error: $_"
                         continue
                     }
-                
+
                     $filteredSectionData = $sectionData | Where-Object {
                         ($nsnSearch -eq '' -or $_.'STOCK NO.' -like "*$nsnSearch*") -and
                         ($oemSearch -eq '' -or $_.'PART NO.' -like "*$oemSearch*") -and
                         ($descriptionSearch -eq '' -or $_.'PART DESCRIPTION' -like "*$descriptionSearch*")
                     }
-                
-                    foreach ($item in $filteredSectionData) {
 
+                    foreach ($item in $filteredSectionData) {
+                        $item | Add-Member -NotePropertyName 'Handbook' -NotePropertyValue $bookName -Force
+                        $item | Add-Member -NotePropertyName 'Section Name' -NotePropertyValue $sectionName -Force
+                        $crossRefResults += $item
                     }
                 }
             }
