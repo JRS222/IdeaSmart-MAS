@@ -1278,10 +1278,1595 @@ function Setup-SearchTab {
     Write-Log "Search tab setup completed."
 }
 
-# Function to update Parts Books
+# Function to update Parts Books with the latest inventory data
 function Update-PartsBooks {
-    Write-Log "Updating Parts Books..."
-    [System.Windows.Forms.MessageBox]::Show("Parts Books update not implemented yet.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+    param(
+        [string]$sourceCSVPath
+    )
+    
+    Write-Log "Starting Parts Books update process..."
+    
+    # Show progress form
+    $progressForm = New-Object System.Windows.Forms.Form
+    $progressForm.Text = "Updating Parts Books"
+    $progressForm.Size = New-Object System.Drawing.Size(400, 150)
+    $progressForm.StartPosition = 'CenterScreen'
+    
+    $progressLabel = New-Object System.Windows.Forms.Label
+    $progressLabel.Location = New-Object System.Drawing.Point(10, 20)
+    $progressLabel.Size = New-Object System.Drawing.Size(370, 20)
+    $progressLabel.Text = "Loading source data..."
+    $progressForm.Controls.Add($progressLabel)
+    
+    $progressBar = New-Object System.Windows.Forms.ProgressBar
+    $progressBar.Location = New-Object System.Drawing.Point(10, 50)
+    $progressBar.Size = New-Object System.Drawing.Size(370, 20)
+    $progressBar.Style = [System.Windows.Forms.ProgressBarStyle]::Blocks
+    $progressForm.Controls.Add($progressBar)
+    
+    $bookLabel = New-Object System.Windows.Forms.Label
+    $bookLabel.Location = New-Object System.Drawing.Point(10, 80)
+    $bookLabel.Size = New-Object System.Drawing.Size(370, 20)
+    $bookLabel.Text = ""
+    $progressForm.Controls.Add($bookLabel)
+    
+    # Show the progress form
+    $progressForm.Show()
+    $progressForm.Refresh()
+    
+    if (-not (Test-Path $sourceCSVPath)) {
+        Write-Log "Error: Source CSV file not found at $sourceCSVPath"
+        [System.Windows.Forms.MessageBox]::Show("Source CSV file not found at $sourceCSVPath", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        $progressForm.Close()
+        return $false
+    }
+    
+    # Load the source data
+    $sourceData = Import-Csv -Path $sourceCSVPath
+    
+    # Create dictionaries for faster lookups
+    $nsnDict = @{}
+    $oemDict = @{}
+    
+    foreach ($part in $sourceData) {
+        # Store by NSN
+        if (-not [string]::IsNullOrEmpty($part.'Part (NSN)')) {
+            $nsnDict[$part.'Part (NSN)'] = $part
+        }
+        
+        # Store by OEM numbers
+        if (-not [string]::IsNullOrEmpty($part.'OEM 1')) {
+            $normalizedOEM = Normalize-OEM -oem $part.'OEM 1'
+            if (-not [string]::IsNullOrEmpty($normalizedOEM)) {
+                $oemDict[$normalizedOEM] = $part
+            }
+        }
+        if (-not [string]::IsNullOrEmpty($part.'OEM 2')) {
+            $normalizedOEM = Normalize-OEM -oem $part.'OEM 2'
+            if (-not [string]::IsNullOrEmpty($normalizedOEM)) {
+                $oemDict[$normalizedOEM] = $part
+            }
+        }
+        if (-not [string]::IsNullOrEmpty($part.'OEM 3')) {
+            $normalizedOEM = Normalize-OEM -oem $part.'OEM 3'
+            if (-not [string]::IsNullOrEmpty($normalizedOEM)) {
+                $oemDict[$normalizedOEM] = $part
+            }
+        }
+    }
+    
+    $progressLabel.Text = "Loaded $($sourceData.Count) parts from source CSV"
+    $progressForm.Refresh()
+    Write-Log "Loaded $($sourceData.Count) parts, $($nsnDict.Count) unique NSNs, $($oemDict.Count) unique OEMs"
+    
+    # Get all the parts books from the configuration
+    if (-not $config.Books -or $config.Books.PSObject.Properties.Count -eq 0) {
+        Write-Log "No parts books found in configuration"
+        [System.Windows.Forms.MessageBox]::Show("No parts books found in configuration", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        $progressForm.Close()
+        return $false
+    }
+    
+    # Collect books to process
+    $booksToProcess = @()
+    foreach ($bookProp in $config.Books.PSObject.Properties) {
+        $bookName = $bookProp.Name
+        $bookDir = Join-Path $config.PartsBooksDirectory $bookName
+        $combinedSectionsDir = Join-Path $bookDir "CombinedSections"
+        
+        if (Test-Path $combinedSectionsDir) {
+            $booksToProcess += @{
+                Name = $bookName
+                Directory = $bookDir
+                CombinedSectionsDir = $combinedSectionsDir
+                ExcelPath = Join-Path $bookDir "$bookName.xlsx"
+            }
+        } else {
+            Write-Log "Warning: CombinedSections directory not found for book: $bookName"
+        }
+    }
+    
+    $totalBooks = $booksToProcess.Count
+    if ($totalBooks -eq 0) {
+        Write-Log "No parts books with combined sections found to update"
+        [System.Windows.Forms.MessageBox]::Show("No parts books with combined sections found to update", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        $progressForm.Close()
+        return $false
+    }
+    
+    # Set up counters and progress
+    $progressBar.Maximum = $totalBooks
+    $progressBar.Value = 0
+    $totalUpdatedCSVs = 0
+    $totalUpdatedParts = 0
+    
+    # Process each book
+    for ($bookIndex = 0; $bookIndex -lt $totalBooks; $bookIndex++) {
+        $book = $booksToProcess[$bookIndex]
+        $progressBar.Value = $bookIndex
+        $bookLabel.Text = "Processing book: $($book.Name)"
+        $progressLabel.Text = "Scanning sections..."
+        $progressForm.Refresh()
+        
+        Write-Log "Processing book: $($book.Name)"
+        
+        # Get all section CSV files in this book
+        $sectionFiles = Get-ChildItem -Path $book.CombinedSectionsDir -Filter "Section *.csv"
+        if ($sectionFiles.Count -eq 0) {
+            Write-Log "No section CSV files found for book: $($book.Name)"
+            continue
+        }
+        
+        $sectionsWithChanges = @()
+        $bookUpdatedParts = 0
+        
+        # Process each section CSV file
+        foreach ($sectionFile in $sectionFiles) {
+            $sectionName = $sectionFile.BaseName
+            $progressLabel.Text = "Processing section: $sectionName"
+            $progressForm.Refresh()
+            
+            try {
+                # Load the section CSV
+                $sectionData = Import-Csv -Path $sectionFile.FullName
+                $sectionUpdated = $false
+                $sectionUpdatedParts = 0
+                
+                # Process each part in the section
+                foreach ($part in $sectionData) {
+                    $stockNo = $part.'STOCK NO.'
+                    $partNo = $part.'PART NO.'
+                    
+                    # Try to match by NSN first
+                    if (-not [string]::IsNullOrEmpty($stockNo) -and $stockNo -ne "NSL") {
+                        if ($nsnDict.ContainsKey($stockNo)) {
+                            $sourcePart = $nsnDict[$stockNo]
+                            
+                            # Update QTY and Location if different
+                            if ($part.QTY -ne $sourcePart.QTY -or $part.Location -ne $sourcePart.Location) {
+                                $part.QTY = $sourcePart.QTY
+                                $part.Location = $sourcePart.Location
+                                $sectionUpdated = $true
+                                $sectionUpdatedParts++
+                            }
+                        } else {
+                            # NSN not found in current inventory
+                            if ($part.QTY -ne "0" -or $part.Location -ne "Not in current inventory") {
+                                $part.QTY = "0"
+                                $part.Location = "Not in current inventory"
+                                $sectionUpdated = $true
+                                $sectionUpdatedParts++
+                            }
+                        }
+                    }
+                    # If NSN didn't work, try to match by OEM number
+                    elseif (-not [string]::IsNullOrEmpty($partNo)) {
+                        $normalizedPartNo = Normalize-OEM -oem $partNo
+                        if (-not [string]::IsNullOrEmpty($normalizedPartNo) -and $oemDict.ContainsKey($normalizedPartNo)) {
+                            $sourcePart = $oemDict[$normalizedPartNo]
+                            
+                            # Update QTY and Location if different
+                            if ($part.QTY -ne $sourcePart.QTY -or $part.Location -ne $sourcePart.Location) {
+                                $part.QTY = $sourcePart.QTY
+                                $part.Location = $sourcePart.Location
+                                $sectionUpdated = $true
+                                $sectionUpdatedParts++
+                            }
+                        } else {
+                            # OEM not found in current inventory
+                            if ($part.QTY -ne "0" -or $part.Location -ne "Not in current inventory") {
+                                $part.QTY = "0"
+                                $part.Location = "Not in current inventory"
+                                $sectionUpdated = $true
+                                $sectionUpdatedParts++
+                            }
+                        }
+                    }
+                }
+                
+                # Save the updated section if changes were made
+                if ($sectionUpdated) {
+                    $sectionData | Export-Csv -Path $sectionFile.FullName -NoTypeInformation
+                    $sectionsWithChanges += $sectionName
+                    $bookUpdatedParts += $sectionUpdatedParts
+                    $totalUpdatedCSVs++
+                    $totalUpdatedParts += $sectionUpdatedParts
+                    Write-Log "Updated section $sectionName with $sectionUpdatedParts changes"
+                }
+            } catch {
+                Write-Log "Error processing section $sectionName : $($_.Exception.Message)"
+            }
+        }
+        
+        # Update the Excel workbook if it exists and if sections were updated
+        if ($sectionsWithChanges.Count -gt 0 -and (Test-Path $book.ExcelPath)) {
+            $progressLabel.Text = "Updating Excel workbook..."
+            $bookLabel.Text = "Processing book: $($book.Name) - Excel update"
+            $progressForm.Refresh()
+            
+            try {
+                $excel = New-Object -ComObject Excel.Application
+                $excel.Visible = $false
+                $excel.DisplayAlerts = $false
+                
+                $workbook = $excel.Workbooks.Open($book.ExcelPath)
+                
+                # Update each worksheet that corresponds to a section with changes
+                foreach ($sectionName in $sectionsWithChanges) {
+                    try {
+                        # Try to get the worksheet with exact section name
+                        $worksheet = $null
+                        try {
+                            $worksheet = $workbook.Worksheets.Item($sectionName)
+                        } catch {
+                            # Try to find with similar name
+                            foreach ($ws in $workbook.Worksheets) {
+                                if ($ws.Name -like "*$sectionName*") {
+                                    $worksheet = $ws
+                                    break
+                                }
+                            }
+                        }
+                        
+                        if ($worksheet -ne $null) {
+                            # Find the QTY and Location columns
+                            $qtyCol = $null
+                            $locationCol = $null
+                            
+                            # Get column indices
+                            $lastCol = 20  # Reasonable limit
+                            for ($col = 1; $col -le $lastCol; $col++) {
+                                $colName = $worksheet.Cells.Item(1, $col).Text
+                                if ($colName -eq "QTY") {
+                                    $qtyCol = $col
+                                } elseif ($colName -eq "LOCATION") {
+                                    $locationCol = $col
+                                }
+                                
+                                # Once we found both columns, we can break
+                                if ($qtyCol -and $locationCol) {
+                                    break
+                                }
+                            }
+                            
+                            # Find the STOCK NO. and PART NO. columns
+                            $stockNoCol = $null
+                            $partNoCol = $null
+                            
+                            for ($col = 1; $col -le $lastCol; $col++) {
+                                $colName = $worksheet.Cells.Item(1, $col).Text
+                                if ($colName -eq "STOCK NO.") {
+                                    $stockNoCol = $col
+                                } elseif ($colName -eq "PART NO.") {
+                                    $partNoCol = $col
+                                }
+                                
+                                # Once we found both columns, we can break
+                                if ($stockNoCol -and $partNoCol) {
+                                    break
+                                }
+                            }
+                            
+                            # We need at least stock or part number columns
+                            if ($stockNoCol -or $partNoCol) {
+                                # We need QTY and Location columns to update
+                                if ($qtyCol -and $locationCol) {
+                                    # Load the section data for reference
+                                    $sectionFile = Get-ChildItem -Path $book.CombinedSectionsDir -Filter "$sectionName.csv" | Select-Object -First 1
+                                    if ($sectionFile) {
+                                        $sectionData = Import-Csv -Path $sectionFile.FullName
+                                        
+                                        # Create a lookup dictionary by stock number and part number
+                                        $sectionDict = @{}
+                                        foreach ($part in $sectionData) {
+                                            $stockNo = $part.'STOCK NO.'
+                                            if (-not [string]::IsNullOrEmpty($stockNo)) {
+                                                $sectionDict[$stockNo] = $part
+                                            }
+                                            
+                                            $partNo = $part.'PART NO.'
+                                            if (-not [string]::IsNullOrEmpty($partNo)) {
+                                                $sectionDict[$partNo] = $part
+                                            }
+                                        }
+                                        
+                                        # Now update the cells in the worksheet
+                                        $lastRow = $worksheet.UsedRange.Rows.Count
+                                        for ($row = 2; $row -le $lastRow; $row++) {
+                                            $key = $null
+                                            
+                                            # Try to get the key from STOCK NO. first
+                                            if ($stockNoCol) {
+                                                $stockNo = $worksheet.Cells.Item($row, $stockNoCol).Text
+                                                if (-not [string]::IsNullOrEmpty($stockNo)) {
+                                                    $key = $stockNo
+                                                }
+                                            }
+                                            
+                                            # If no stock number, try PART NO.
+                                            if (-not $key -and $partNoCol) {
+                                                $partNo = $worksheet.Cells.Item($row, $partNoCol).Text
+                                                if (-not [string]::IsNullOrEmpty($partNo)) {
+                                                    $key = $partNo
+                                                }
+                                            }
+                                            
+                                            # If we have a key and it's in our dictionary
+                                            if ($key -and $sectionDict.ContainsKey($key)) {
+                                                $part = $sectionDict[$key]
+                                                
+                                                # Update QTY
+                                                $worksheet.Cells.Item($row, $qtyCol).Value2 = $part.QTY
+                                                
+                                                # Update Location
+                                                $worksheet.Cells.Item($row, $locationCol).Value2 = $part.Location
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } catch {
+                        Write-Log "Error updating worksheet $sectionName : $($_.Exception.Message)"
+                    }
+                }
+                
+                # Save the workbook
+                $workbook.Save()
+                Write-Log "Updated Excel workbook for $($book.Name)"
+                
+                # Close the workbook
+                $workbook.Close($false)
+                $excel.Quit()
+            } catch {
+                Write-Log "Error updating Excel workbook: $($_.Exception.Message)"
+            } finally {
+                if ($excel) {
+                    [System.Runtime.Interopservices.Marshal]::ReleaseComObject($excel) | Out-Null
+                }
+                [System.GC]::Collect()
+                [System.GC]::WaitForPendingFinalizers()
+            }
+        }
+        
+        Write-Log "Completed updating book $($book.Name) - Updated $bookUpdatedParts parts"
+    }
+    
+    # Close the progress form
+    $progressForm.Close()
+    
+    $message = "Parts Books update completed:`n"
+    $message += "- Updated $totalUpdatedParts parts`n"
+    $message += "- Updated $totalUpdatedCSVs section CSV files`n"
+    $message += "- Processed $totalBooks books"
+    
+    Write-Log $message
+    [System.Windows.Forms.MessageBox]::Show($message, "Update Complete", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+    
+    return $true
+}
+    
+    # Get all the parts books from the configuration
+    if (-not $config.Books -or $config.Books.PSObject.Properties.Count -eq 0) {
+        Write-Log "No parts books found in configuration"
+        [System.Windows.Forms.MessageBox]::Show("No parts books found in configuration", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        $progressForm.Close()
+        return $false
+    }
+        function Update-PartsRoom {
+            Write-Log "Starting Parts Room update process..."
+            
+            # Get the configuration
+            if (-not $config) {
+                Write-Log "Error: Configuration not available"
+                [System.Windows.Forms.MessageBox]::Show("Configuration not available. Cannot update Parts Room.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+                return
+            }
+            
+            # Check if a previously selected site exists in the config
+            $selectedSiteName = $null
+            $selectedSiteId = $null
+            
+            # Check parts room directory for existing CSV files
+            $existingCsvFile = Get-ChildItem -Path $config.PartsRoomDirectory -Filter "*.csv" | Select-Object -First 1
+            if ($existingCsvFile) {
+                $selectedSiteName = [System.IO.Path]::GetFileNameWithoutExtension($existingCsvFile.Name)
+                Write-Log "Found existing Parts Room data for site: $selectedSiteName"
+                
+                # Get the site ID from Sites.csv
+                $sitesPath = Join-Path $config.DropdownCsvsDirectory "Sites.csv"
+                if (Test-Path $sitesPath) {
+                    $sites = Import-Csv -Path $sitesPath
+                    $siteIdColumn = if ($sites[0].PSObject.Properties.Name -contains "Site ID") { "Site ID" } else { $sites[0].PSObject.Properties.Name[0] }
+                    $fullNameColumn = if ($sites[0].PSObject.Properties.Name -contains "Full Name") { "Full Name" } else { $sites[0].PSObject.Properties.Name[1] }
+                    
+                    $matchingSite = $sites | Where-Object { $_.$fullNameColumn -eq $selectedSiteName }
+                    if ($matchingSite) {
+                        $selectedSiteId = $matchingSite.$siteIdColumn
+                        Write-Log "Found Site ID for ${selectedSiteName}: $selectedSiteId"
+                    }
+                }
+            }
+            
+            # Ask user if they want to update the existing site or select a new one
+            $dialogResult = [System.Windows.Forms.DialogResult]::Yes
+            if ($selectedSiteName) {
+                $dialogResult = [System.Windows.Forms.MessageBox]::Show(
+                    "Do you want to update the existing Parts Room data for $selectedSiteName?`n`nClick 'Yes' to update the existing site.`nClick 'No' to select a different site.",
+                    "Update Parts Room",
+                    [System.Windows.Forms.MessageBoxButtons]::YesNoCancel,
+                    [System.Windows.Forms.MessageBoxIcon]::Question)
+            }
+            
+            if ($dialogResult -eq [System.Windows.Forms.DialogResult]::Cancel) {
+                Write-Log "Parts Room update cancelled by user"
+                return
+            }
+            
+            # If user wants to select a new site, or no existing site was found
+            if ($dialogResult -eq [System.Windows.Forms.DialogResult]::No -or -not $selectedSiteName) {
+                # Load the sites from the CSV
+                $sitesPath = Join-Path $config.DropdownCsvsDirectory "Sites.csv"
+                Write-Log "Loading Sites from CSV at $sitesPath..."
+                
+                if (-not (Test-Path $sitesPath)) {
+                    Write-Log "Error: Sites.csv not found at $sitesPath"
+                    [System.Windows.Forms.MessageBox]::Show("Sites CSV file not found. Cannot update Parts Room.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+                    return
+                }
+                
+                $sites = Import-Csv -Path $sitesPath
+                
+                # Check if the CSV was loaded successfully
+                if ($sites.Count -eq 0) {
+                    Write-Log "Error: No data found in the Sites.csv file"
+                    [System.Windows.Forms.MessageBox]::Show("No data found in the Sites.csv file.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+                    return
+                }
+                
+                # Determine the correct column names
+                $siteIdColumn = if ($sites[0].PSObject.Properties.Name -contains "Site ID") { "Site ID" } else { $sites[0].PSObject.Properties.Name[0] }
+                $fullNameColumn = if ($sites[0].PSObject.Properties.Name -contains "Full Name") { "Full Name" } else { $sites[0].PSObject.Properties.Name[1] }
+                Write-Log "Site ID Column: $siteIdColumn, Full Name Column: $fullNameColumn"
+                
+                # Create the form for site selection
+                Write-Log "Creating form for site selection..."
+                $form = New-Object System.Windows.Forms.Form
+                $form.Text = "Select Facility"
+                $form.Size = New-Object System.Drawing.Size(400, 200)
+                $form.StartPosition = "CenterScreen"
+                
+                # Create the dropdown menu
+                $dropdown = New-Object System.Windows.Forms.ComboBox
+                $dropdown.Location = New-Object System.Drawing.Point(10, 20)
+                $dropdown.Size = New-Object System.Drawing.Size(360, 20)
+                $dropdown.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
+                
+                # Populate the dropdown with the full names
+                foreach ($site in $sites) {
+                    $fullName = $site.$fullNameColumn
+                    if (![string]::IsNullOrWhiteSpace($fullName)) {
+                        $dropdown.Items.Add($fullName)
+                    }
+                }
+                
+                Write-Log "Dropdown populated with site names."
+                $form.Controls.Add($dropdown)
+                
+                # Create the "Select" button
+                $button = New-Object System.Windows.Forms.Button
+                $button.Location = New-Object System.Drawing.Point(150, 60)
+                $button.Size = New-Object System.Drawing.Size(75, 23)
+                $button.Text = "Select"
+                $button.Add_Click({
+                    $form.Tag = $dropdown.SelectedItem
+                    $form.Close()
+                })
+                $form.Controls.Add($button)
+                
+                # Show the form and get the selected site
+                Write-Log "Showing form for site selection..."
+                $form.ShowDialog()
+                $selectedSiteName = $form.Tag
+                
+                if (-not $selectedSiteName) {
+                    Write-Log "No site selected, cancelling operation."
+                    return
+                }
+                
+                Write-Log "Selected Site: $selectedSiteName"
+                $selectedRow = $sites | Where-Object { $_.$fullNameColumn -eq $selectedSiteName }
+                $selectedSiteId = $selectedRow.$siteIdColumn
+            }
+            
+            # Now we have a site name and ID, proceed with downloading and processing the data
+            if (-not $selectedSiteId) {
+                Write-Log "Error: Cannot determine site ID for $selectedSiteName"
+                [System.Windows.Forms.MessageBox]::Show("Cannot determine site ID for $selectedSiteName. Update cancelled.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+                return
+            }
+            
+            # Construct the URL for the selected site
+            $url = "http://emarssu5.eng.usps.gov/pemarsnp/nm_national_stock.stockroom_by_site?p_site_id=$selectedSiteId&p_search_type=DESC&p_search_string=&p_boh_radio=-1"
+            Write-Log "URL for site ${selectedSiteName}: $url"
+            
+            # Download HTML content
+            Write-Log "Downloading HTML content for $selectedSiteName..."
+            try {
+                $progressForm = New-Object System.Windows.Forms.Form
+                $progressForm.Text = "Updating Parts Room"
+                $progressForm.Size = New-Object System.Drawing.Size(400, 150)
+                $progressForm.StartPosition = 'CenterScreen'
+                
+                $progressLabel = New-Object System.Windows.Forms.Label
+                $progressLabel.Location = New-Object System.Drawing.Point(10, 20)
+                $progressLabel.Size = New-Object System.Drawing.Size(370, 20)
+                $progressLabel.Text = "Downloading data for $selectedSiteName..."
+                $progressForm.Controls.Add($progressLabel)
+                
+                $progressBar = New-Object System.Windows.Forms.ProgressBar
+                $progressBar.Location = New-Object System.Drawing.Point(10, 50)
+                $progressBar.Size = New-Object System.Drawing.Size(370, 20)
+                $progressBar.Style = [System.Windows.Forms.ProgressBarStyle]::Marquee
+                $progressForm.Controls.Add($progressBar)
+                
+                # Show the progress form
+                $progressForm.Show()
+                $progressForm.Refresh()
+                
+                # Download the HTML content
+                $htmlContent = Invoke-WebRequest -Uri $url -UseBasicParsing
+                $htmlFilePath = Join-Path $config.PartsRoomDirectory "$selectedSiteName.html"
+                Write-Log "Saving HTML content to $htmlFilePath..."
+                Set-Content -Path $htmlFilePath -Value $htmlContent.Content -Encoding UTF8
+                
+                # Update the progress label
+                $progressLabel.Text = "Processing HTML data..."
+                $progressForm.Refresh()
+                
+                # Process the HTML content
+                Write-Log "Processing the downloaded HTML file for $selectedSiteName using DOM..."
+                
+                $logPath = Join-Path $config.PartsRoomDirectory "error_log.txt"
+                $htmlDoc = $null
+                
+                try {
+                    # Create a COM object for HTML Document
+                    $htmlDoc = New-Object -ComObject "HTMLFile"
+                    
+                    # Read the HTML file content
+                    $htmlFileContent = Get-Content -Path $htmlFilePath -Raw -ErrorAction Stop
+                    if ([string]::IsNullOrWhiteSpace($htmlFileContent)) {
+                        throw "HTML file content is empty or null"
+                    }
+                    
+                    # Attempt to load the HTML
+                    try {
+                        # For newer PowerShell versions
+                        $htmlDoc.IHTMLDocument2_write($htmlFileContent)
+                    } catch {
+                        # Fallback method for older PowerShell versions
+                        $src = [System.Text.Encoding]::Unicode.GetBytes($htmlFileContent)
+                        $htmlDoc.write($src)
+                    }
+                    
+                    Write-Log "HTML document loaded into DOM successfully."
+                    
+                    # Find the main table with the parts data
+                    $tables = $htmlDoc.getElementsByTagName("table")
+                    $mainTable = $null
+                    
+                    Write-Log "Found $($tables.length) tables in the document."
+                    
+                    # Try multiple methods to find the main table
+                    foreach ($table in $tables) {
+                        # Try with className
+                        if ($table.className -eq "MAIN") {
+                            $mainTable = $table
+                            Write-Log "Found main table using className property."
+                            break
+                        }
+                        
+                        # Try with getAttribute
+                        try {
+                            if ($table.getAttribute("class") -eq "MAIN") {
+                                $mainTable = $table
+                                Write-Log "Found main table using getAttribute method."
+                                break
+                            }
+                        } catch {
+                            # Ignore errors with getAttribute
+                        }
+                        
+                        # Check if it's a wide table with borders and multiple columns
+                        try {
+                            if ($table.border -eq "1" -and $table.summary -match "stock") {
+                                $mainTable = $table
+                                Write-Log "Found main table by border and summary attributes."
+                                break
+                            }
+                        } catch {
+                            # Ignore errors with border/summary checks
+                        }
+                    }
+                    
+                    if ($null -eq $mainTable) {
+                        # Last resort: find a table with at least 6 columns
+                        foreach ($table in $tables) {
+                            try {
+                                $headerRow = $table.rows.item(0)
+                                if ($headerRow -and $headerRow.cells.length -ge 6) {
+                                    $mainTable = $table
+                                    Write-Log "Found table with $($headerRow.cells.length) columns, using as main table."
+                                    break
+                                }
+                            } catch {
+                                # Ignore errors with checking rows/cells
+                            }
+                        }
+                    }
+                    
+                    if ($null -eq $mainTable) {
+                        throw "Could not find the main parts table in the HTML content"
+                    }
+                    
+                    # Get all rows from the table
+                    $rows = $mainTable.getElementsByTagName("tr")
+                    Write-Log "Number of rows found: $($rows.length)"
+                    
+                    # Initialize array to hold parsed data
+                    $parsedData = @()
+                    
+                    # Update the progress bar
+                    $progressBar.Style = [System.Windows.Forms.ProgressBarStyle]::Blocks
+                    $progressBar.Maximum = $rows.length
+                    $progressBar.Value = 0
+                    
+                    # Process each row (skip first row which is the header)
+                    for ($i = 1; $i -lt $rows.length; $i++) {
+                        $progressBar.Value = $i
+                        $progressLabel.Text = "Processing row $i of $($rows.length)..."
+                        $progressForm.Refresh()
+                        
+                        try {
+                            $row = $rows.item($i)
+                            if ($null -eq $row) {
+                                Write-Log "Warning: Row $i is null, skipping"
+                                continue
+                            }
+                            
+                            # Skip rows that don't have the MAIN class or enough cells
+                            $rowClass = try { $row.className } catch { "" }
+                            if ($rowClass -ne "MAIN" -and $rowClass -ne "HILITE") {
+                                Write-Log "Skipping row $i - not a main data row (class: $rowClass)"
+                                continue
+                            }
+                            
+                            # Get all cells in the row
+                            $cells = $row.getElementsByTagName("td")
+                            
+                            if ($null -eq $cells -or $cells.length -lt 6) {
+                                Write-Log "Skipping row $i - insufficient cells (found: $(if ($null -eq $cells) { "null" } else { $cells.length }))"
+                                continue
+                            }
+                            
+                            # Extract part information from cells safely
+                            $partNSN = try { $cells.item(0).innerText.Trim() } catch { "" }
+                            $description = try { $cells.item(1).innerText.Trim() } catch { "" }
+                            $qtyText = try { $cells.item(2).innerText } catch { "0" }
+                            $usageText = try { $cells.item(3).innerText } catch { "0" }
+                            $location = try { $cells.item(5).innerText.Trim() } catch { "" }
+                            
+                            # Use regex to extract digits only
+                            $qty = [int]($qtyText -replace '[^\d]', '')
+                            $usage = [int]($usageText -replace '[^\d]', '')
+                            
+                            # Extract OEM information from cell 4 safely
+                            $oem1 = ""
+                            $oem2 = ""
+                            $oem3 = ""
+                            
+                            try {
+                                $oemCell = $cells.item(4)
+                                if ($oemCell) {
+                                    $oemDivs = $oemCell.getElementsByTagName("div")
+                                    
+                                    if ($oemDivs -and $oemDivs.length -gt 0) {
+                                        # Process each div to extract OEM information
+                                        for ($j = 0; $j -lt $oemDivs.length; $j++) {
+                                            try {
+                                                $oemDiv = $oemDivs.item($j)
+                                                if ($oemDiv) {
+                                                    $oemText = $oemDiv.innerText.Trim()
+                                                    
+                                                    # Extract OEM number from text like "OEM:1 12345"
+                                                    if ($oemText -match "OEM:1\s+(.+)") {
+                                                        $oem1 = $matches[1]
+                                                    } elseif ($oemText -match "OEM:2\s+(.+)") {
+                                                        $oem2 = $matches[1]
+                                                    } elseif ($oemText -match "OEM:3\s+(.+)") {
+                                                        $oem3 = $matches[1]
+                                                    }
+                                                }
+                                            } catch {
+                                                Write-Log "Warning: Error processing OEM div $j in row $i : $($_.Exception.Message)"
+                                            }
+                                        }
+                                    }
+                                }
+                            } catch {
+                                Write-Log "Warning: Error processing OEM cell in row $i : $($_.Exception.Message)"
+                            }
+                            
+                            # Create object with parsed data
+                            $parsedData += [PSCustomObject]@{
+                                "Part (NSN)" = $partNSN
+                                "Description" = $description
+                                "QTY" = $qty
+                                "13 Period Usage" = $usage
+                                "Location" = $location
+                                "OEM 1" = $oem1
+                                "OEM 2" = $oem2
+                                "OEM 3" = $oem3
+                            }
+                            
+                            Write-Log "Added row ${i}: Part(NSN)=$partNSN, Description=$description, QTY=$qty, Location=$location"
+                        } catch {
+                            Write-Log "Error processing row $i : $($_.Exception.Message)"
+                            # Continue with next row instead of stopping
+                        }
+                    }
+                    
+                    Write-Log "Number of parsed data entries: $($parsedData.Count)"
+                    
+                    if ($parsedData.Count -eq 0) {
+                        throw "No data parsed from HTML content"
+                    }
+                    
+                    # Check if there's an existing CSV file with parts book data that we need to preserve
+                    $tempCsvPath = Join-Path $config.PartsRoomDirectory "temp_$selectedSiteName.csv"
+                    $csvFilePath = Join-Path $config.PartsRoomDirectory "$selectedSiteName.csv"
+                    $existingData = $null
+                    
+                    if (Test-Path $csvFilePath) {
+                        Write-Log "Found existing CSV file. Will merge with new data..."
+                        $progressLabel.Text = "Merging with existing data..."
+                        $progressForm.Refresh()
+                        
+                        # Load the existing data
+                        $existingData = Import-Csv -Path $csvFilePath
+                        
+                        # Identify column names from book references (any column not in the base set)
+                        $baseColumns = @("Part (NSN)", "Description", "QTY", "13 Period Usage", "Location", "OEM 1", "OEM 2", "OEM 3", "Changed Part (NSN)")
+                        $bookColumns = $existingData[0].PSObject.Properties.Name | Where-Object { $baseColumns -notcontains $_ }
+                        Write-Log "Found book reference columns: $($bookColumns -join ', ')"
+                        
+                        # First, export the new data to a temporary file
+                        $parsedData | Export-Csv -Path $tempCsvPath -NoTypeInformation
+                        
+                        # Now read it back to ensure formatting is consistent
+                        $newData = Import-Csv -Path $tempCsvPath
+                        
+                        # Add any missing columns from the existing data to the new data
+                        foreach ($column in $bookColumns) {
+                            if ($newData[0].PSObject.Properties.Name -notcontains $column) {
+                                $newData | ForEach-Object { $_ | Add-Member -NotePropertyName $column -NotePropertyValue "" }
+                            }
+                        }
+                        
+                        # Add 'Changed Part (NSN)' column if it doesn't exist
+                        if ($newData[0].PSObject.Properties.Name -notcontains 'Changed Part (NSN)') {
+                            $newData | ForEach-Object { $_ | Add-Member -NotePropertyName 'Changed Part (NSN)' -NotePropertyValue "" }
+                        }
+                        
+                        # Update progress for the merge operation
+                        $progressBar.Value = 0
+                        $progressBar.Maximum = $newData.Count
+                        
+                        # Create a dictionary for faster lookups of existing data
+                        $existingDict = @{}
+                        foreach ($item in $existingData) {
+                            if (-not [string]::IsNullOrEmpty($item.'Part (NSN)')) {
+                                $existingDict[$item.'Part (NSN)'] = $item
+                            }
+                        }
+                        
+                        # Counters for stats
+                        $updatedCount = 0
+                        $newCount = 0
+                        
+                        # Process each item in the new data
+                        for ($i = 0; $i -lt $newData.Count; $i++) {
+                            $progressBar.Value = $i
+                            if ($i % 10 -eq 0) {  # Update the label less frequently for performance
+                                $progressLabel.Text = "Merging item $i of $($newData.Count)..."
+                                $progressForm.Refresh()
+                            }
+                            
+                            $item = $newData[$i]
+                            $partNSN = $item.'Part (NSN)'
+                            
+                            # Skip items with no Part (NSN)
+                            if ([string]::IsNullOrEmpty($partNSN)) {
+                                continue
+                            }
+                            
+                            # Check if this part exists in the existing data
+                            if ($existingDict.ContainsKey($partNSN)) {
+                                # Update QTY and Location from new data
+                                $existingItem = $existingDict[$partNSN]
+                                
+                                # Check if QTY or Location has changed
+                                if ($existingItem.QTY -ne $item.QTY -or $existingItem.Location -ne $item.Location) {
+                                    $existingItem.QTY = $item.QTY
+                                    $existingItem.Location = $item.Location
+                                    $existingItem.'13 Period Usage' = $item.'13 Period Usage'
+                                    $updatedCount++
+                                    Write-Log "Updated part ${partNSN}: QTY=$($item.QTY), Location=$($item.Location)"
+                                }
+                                
+                                # Update OEM information if it's more complete in the new data
+                                if ([string]::IsNullOrEmpty($existingItem.'OEM 1') -and -not [string]::IsNullOrEmpty($item.'OEM 1')) {
+                                    $existingItem.'OEM 1' = $item.'OEM 1'
+                                }
+                                if ([string]::IsNullOrEmpty($existingItem.'OEM 2') -and -not [string]::IsNullOrEmpty($item.'OEM 2')) {
+                                    $existingItem.'OEM 2' = $item.'OEM 2'
+                                }
+                                if ([string]::IsNullOrEmpty($existingItem.'OEM 3') -and -not [string]::IsNullOrEmpty($item.'OEM 3')) {
+                                    $existingItem.'OEM 3' = $item.'OEM 3'
+                                }
+                            } else {
+                                # This is a new part, add it to the existing data with empty book references
+                                foreach ($column in $bookColumns) {
+                                    if ($item.PSObject.Properties.Name -notcontains $column) {
+                                        $item | Add-Member -NotePropertyName $column -NotePropertyValue ""
+                                    }
+                                }
+                                
+                                # Add to the dictionary for future reference
+                                $existingDict[$partNSN] = $item
+                                
+                                # Add to the existing data list
+                                $existingData += $item
+                                $newCount++
+                                Write-Log "Added new part: $partNSN"
+                            }
+                        }
+                        
+                        # Now check for parts that exist in the existing data but not in the new data
+                        # They might have been removed from inventory
+                        $removedParts = @()
+                        foreach ($existingItem in $existingData) {
+                            $partNSN = $existingItem.'Part (NSN)'
+                            if (-not [string]::IsNullOrEmpty($partNSN)) {
+                                $found = $false
+                                foreach ($newItem in $newData) {
+                                    if ($newItem.'Part (NSN)' -eq $partNSN) {
+                                        $found = $true
+                                        break
+                                    }
+                                }
+                                
+                                if (-not $found) {
+                                    # Mark this part as potentially removed from inventory
+                                    $existingItem.QTY = "0"
+                                    $existingItem.Location = "Not in current inventory"
+                                    $removedParts += $partNSN
+                                }
+                            }
+                        }
+                        
+                        if ($removedParts.Count -gt 0) {
+                            Write-Log "Marked $($removedParts.Count) parts as not in current inventory"
+                        }
+                        
+                        # Export the updated data back to the main CSV file
+                        $progressLabel.Text = "Saving updated data..."
+                        $progressForm.Refresh()
+                        
+                        $existingData | Export-Csv -Path $csvFilePath -NoTypeInformation
+                        
+                        # Clean up the temporary file
+                        if (Test-Path $tempCsvPath) {
+                            Remove-Item -Path $tempCsvPath -Force
+                        }
+                        
+                        Write-Log "Merged data successfully: Updated $updatedCount parts, added $newCount new parts, marked $($removedParts.Count) parts as not in current inventory"
+                        [System.Windows.Forms.MessageBox]::Show("Parts Room data updated successfully:`n- Updated $updatedCount existing parts`n- Added $newCount new parts`n- Marked $($removedParts.Count) parts as not in current inventory", "Update Complete", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                    } else {
+                        # No existing file, just save the new data
+                        $progressLabel.Text = "Saving data to CSV..."
+                        $progressForm.Refresh()
+                        
+                        # Export parsed data to CSV
+                        $parsedData | Export-Csv -Path $csvFilePath -NoTypeInformation
+                        Write-Log "Created new CSV file at $csvFilePath with $($parsedData.Count) parts"
+                        [System.Windows.Forms.MessageBox]::Show("Parts Room data has been created successfully with $($parsedData.Count) parts.", "Update Complete", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                    }
+                    
+                    # Now check if we need to update the Excel file
+                    $excelFilePath = Join-Path $config.PartsRoomDirectory "$selectedSiteName.xlsx"
+                    if (Test-Path $excelFilePath) {
+                        $updateExcel = [System.Windows.Forms.MessageBox]::Show(
+                            "Do you want to update the Excel file with the new data?`n`nNote: This will create a new Excel file. Your existing links to figures in parts books will be preserved in the CSV file.",
+                            "Update Excel",
+                            [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                            [System.Windows.Forms.MessageBoxIcon]::Question)
+                        
+                        if ($updateExcel -eq [System.Windows.Forms.DialogResult]::Yes) {
+                            $progressLabel.Text = "Updating Excel file..."
+                            $progressForm.Refresh()
+                            Update-ExcelFile -siteName $selectedSiteName -csvPath $csvFilePath -excelPath $excelFilePath
+                        }
+                    } else {
+                        $createExcel = [System.Windows.Forms.MessageBox]::Show(
+                            "Do you want to create an Excel file with the new data?",
+                            "Create Excel",
+                            [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                            [System.Windows.Forms.MessageBoxIcon]::Question)
+                        
+                        if ($createExcel -eq [System.Windows.Forms.DialogResult]::Yes) {
+                            $progressLabel.Text = "Creating Excel file..."
+                            $progressForm.Refresh()
+                            Update-ExcelFile -siteName $selectedSiteName -csvPath $csvFilePath -excelPath $excelFilePath
+                        }
+                    }
+                    
+                    # Ask if the user wants to update parts books with the latest QTY and Location data
+                    $updatePartsBooks = [System.Windows.Forms.MessageBox]::Show(
+                        "Do you want to update Parts Books with the latest quantity and location information?",
+                        "Update Parts Books",
+                        [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                        [System.Windows.Forms.MessageBoxIcon]::Question)
+                        
+                    if ($updatePartsBooks -eq [System.Windows.Forms.DialogResult]::Yes) {
+                        $progressLabel.Text = "Updating Parts Books..."
+                        $progressForm.Refresh()
+                        Update-PartsBooks -sourceCSVPath $csvFilePath
+                    }
+                } catch {
+                    Write-Log "Error: $($_.Exception.Message)"
+                    Write-Log "Stack Trace: $($_.ScriptStackTrace)"
+                    $errorMessage = "Error: $($_.Exception.Message)`r`nStack Trace: $($_.ScriptStackTrace)"
+                    $errorMessage | Out-File -FilePath $logPath -Append
+                    [System.Windows.Forms.MessageBox]::Show("An error occurred. Please check the error log at $logPath for details.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+                } finally {
+                    # Clean up COM objects
+                    if ($null -ne $htmlDoc) {
+                        try {
+                            [System.Runtime.Interopservices.Marshal]::ReleaseComObject($htmlDoc) | Out-Null
+                        } catch {
+                            Write-Log "Warning: Failed to release COM object: $($_.Exception.Message)"
+                        }
+                    }
+                    [System.GC]::Collect()
+                    [System.GC]::WaitForPendingFinalizers()
+                    
+                    # Close the progress form
+                    $progressForm.Close()
+                }
+            } catch {
+                Write-Log "Error downloading HTML content: $($_.Exception.Message)"
+                [System.Windows.Forms.MessageBox]::Show("Failed to download HTML content: $($_.Exception.Message)", "Download Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+            }
+        }
+
+function Update-PartsRoom {
+    Write-Log "Starting Parts Room update process..."
+    
+    # Get the configuration
+    if (-not $config) {
+        Write-Log "Error: Configuration not available"
+        [System.Windows.Forms.MessageBox]::Show("Configuration not available. Cannot update Parts Room.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        return
+    }
+    
+    # Check if a previously selected site exists in the config
+    $selectedSiteName = $null
+    $selectedSiteId = $null
+    
+    # Check parts room directory for existing CSV files
+    $existingCsvFile = Get-ChildItem -Path $config.PartsRoomDirectory -Filter "*.csv" | Select-Object -First 1
+    if ($existingCsvFile) {
+        $selectedSiteName = [System.IO.Path]::GetFileNameWithoutExtension($existingCsvFile.Name)
+        Write-Log "Found existing Parts Room data for site: $selectedSiteName"
+        
+        # Get the site ID from Sites.csv
+        $sitesPath = Join-Path $config.DropdownCsvsDirectory "Sites.csv"
+        if (Test-Path $sitesPath) {
+            $sites = Import-Csv -Path $sitesPath
+            $siteIdColumn = if ($sites[0].PSObject.Properties.Name -contains "Site ID") { "Site ID" } else { $sites[0].PSObject.Properties.Name[0] }
+            $fullNameColumn = if ($sites[0].PSObject.Properties.Name -contains "Full Name") { "Full Name" } else { $sites[0].PSObject.Properties.Name[1] }
+            
+            $matchingSite = $sites | Where-Object { $_.$fullNameColumn -eq $selectedSiteName }
+            if ($matchingSite) {
+                $selectedSiteId = $matchingSite.$siteIdColumn
+                Write-Log "Found Site ID for ${selectedSiteName}: ${selectedSiteId}"
+            }
+        }
+    }
+    
+    # Ask user if they want to update the existing site or select a new one
+    $dialogResult = [System.Windows.Forms.DialogResult]::Yes
+    if ($selectedSiteName) {
+        $dialogResult = [System.Windows.Forms.MessageBox]::Show(
+            "Do you want to update the existing Parts Room data for $selectedSiteName?`n`nClick 'Yes' to update the existing site.`nClick 'No' to select a different site.",
+            "Update Parts Room",
+            [System.Windows.Forms.MessageBoxButtons]::YesNoCancel,
+            [System.Windows.Forms.MessageBoxIcon]::Question)
+    }
+    
+    if ($dialogResult -eq [System.Windows.Forms.DialogResult]::Cancel) {
+        Write-Log "Parts Room update cancelled by user"
+        return
+    }
+    
+    # If user wants to select a new site, or no existing site was found
+    if ($dialogResult -eq [System.Windows.Forms.DialogResult]::No -or -not $selectedSiteName) {
+        # Load the sites from the CSV
+        $sitesPath = Join-Path $config.DropdownCsvsDirectory "Sites.csv"
+        Write-Log "Loading Sites from CSV at $sitesPath..."
+        
+        if (-not (Test-Path $sitesPath)) {
+            Write-Log "Error: Sites.csv not found at $sitesPath"
+            [System.Windows.Forms.MessageBox]::Show("Sites CSV file not found. Cannot update Parts Room.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+            return
+        }
+        
+        $sites = Import-Csv -Path $sitesPath
+        
+        # Check if the CSV was loaded successfully
+        if ($sites.Count -eq 0) {
+            Write-Log "Error: No data found in the Sites.csv file"
+            [System.Windows.Forms.MessageBox]::Show("No data found in the Sites.csv file.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+            return
+        }
+        
+        # Determine the correct column names
+        $siteIdColumn = if ($sites[0].PSObject.Properties.Name -contains "Site ID") { "Site ID" } else { $sites[0].PSObject.Properties.Name[0] }
+        $fullNameColumn = if ($sites[0].PSObject.Properties.Name -contains "Full Name") { "Full Name" } else { $sites[0].PSObject.Properties.Name[1] }
+        Write-Log "Site ID Column: $siteIdColumn, Full Name Column: $fullNameColumn"
+        
+        # Create the form for site selection
+        Write-Log "Creating form for site selection..."
+        $form = New-Object System.Windows.Forms.Form
+        $form.Text = "Select Facility"
+        $form.Size = New-Object System.Drawing.Size(400, 200)
+        $form.StartPosition = "CenterScreen"
+        
+        # Create the dropdown menu
+        $dropdown = New-Object System.Windows.Forms.ComboBox
+        $dropdown.Location = New-Object System.Drawing.Point(10, 20)
+        $dropdown.Size = New-Object System.Drawing.Size(360, 20)
+        $dropdown.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
+        
+        # Populate the dropdown with the full names
+        foreach ($site in $sites) {
+            $fullName = $site.$fullNameColumn
+            if (![string]::IsNullOrWhiteSpace($fullName)) {
+                $dropdown.Items.Add($fullName)
+            }
+        }
+        
+        Write-Log "Dropdown populated with site names."
+        $form.Controls.Add($dropdown)
+        
+        # Create the "Select" button
+        $button = New-Object System.Windows.Forms.Button
+        $button.Location = New-Object System.Drawing.Point(150, 60)
+        $button.Size = New-Object System.Drawing.Size(75, 23)
+        $button.Text = "Select"
+        $button.Add_Click({
+            $form.Tag = $dropdown.SelectedItem
+            $form.Close()
+        })
+        $form.Controls.Add($button)
+        
+        # Show the form and get the selected site
+        Write-Log "Showing form for site selection..."
+        $form.ShowDialog()
+        $selectedSiteName = $form.Tag
+        
+        if (-not $selectedSiteName) {
+            Write-Log "No site selected, cancelling operation."
+            return
+        }
+        
+        Write-Log "Selected Site: $selectedSiteName"
+        $selectedRow = $sites | Where-Object { $_.$fullNameColumn -eq $selectedSiteName }
+        $selectedSiteId = $selectedRow.$siteIdColumn
+    }
+    
+    # Now we have a site name and ID, proceed with downloading and processing the data
+    if (-not $selectedSiteId) {
+        Write-Log "Error: Cannot determine site ID for $selectedSiteName"
+        [System.Windows.Forms.MessageBox]::Show("Cannot determine site ID for $selectedSiteName. Update cancelled.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        return
+    }
+    
+    # Construct the URL for the selected site
+    $url = "http://emarssu5.eng.usps.gov/pemarsnp/nm_national_stock.stockroom_by_site?p_site_id=$selectedSiteId&p_search_type=DESC&p_search_string=&p_boh_radio=-1"
+    Write-Log "URL for site ${selectedSiteName}: $url"
+    
+    # Download HTML content
+    Write-Log "Downloading HTML content for $selectedSiteName..."
+    try {
+        $progressForm = New-Object System.Windows.Forms.Form
+        $progressForm.Text = "Updating Parts Room"
+        $progressForm.Size = New-Object System.Drawing.Size(400, 150)
+        $progressForm.StartPosition = 'CenterScreen'
+        
+        $progressLabel = New-Object System.Windows.Forms.Label
+        $progressLabel.Location = New-Object System.Drawing.Point(10, 20)
+        $progressLabel.Size = New-Object System.Drawing.Size(370, 20)
+        $progressLabel.Text = "Downloading data for $selectedSiteName..."
+        $progressForm.Controls.Add($progressLabel)
+        
+        $progressBar = New-Object System.Windows.Forms.ProgressBar
+        $progressBar.Location = New-Object System.Drawing.Point(10, 50)
+        $progressBar.Size = New-Object System.Drawing.Size(370, 20)
+        $progressBar.Style = [System.Windows.Forms.ProgressBarStyle]::Marquee
+        $progressForm.Controls.Add($progressBar)
+        
+        # Show the progress form
+        $progressForm.Show()
+        $progressForm.Refresh()
+        
+        # Download the HTML content
+        $htmlContent = Invoke-WebRequest -Uri $url -UseBasicParsing
+        $htmlFilePath = Join-Path $config.PartsRoomDirectory "$selectedSiteName.html"
+        Write-Log "Saving HTML content to $htmlFilePath..."
+        Set-Content -Path $htmlFilePath -Value $htmlContent.Content -Encoding UTF8
+        
+        # Update the progress label
+        $progressLabel.Text = "Processing HTML data..."
+        $progressForm.Refresh()
+        
+        # Process the HTML content
+        Write-Log "Processing the downloaded HTML file for $selectedSiteName using DOM..."
+        
+        $logPath = Join-Path $config.PartsRoomDirectory "error_log.txt"
+        $htmlDoc = $null
+        
+        try {
+            # Create a COM object for HTML Document
+            $htmlDoc = New-Object -ComObject "HTMLFile"
+            
+            # Read the HTML file content
+            $htmlFileContent = Get-Content -Path $htmlFilePath -Raw -ErrorAction Stop
+            if ([string]::IsNullOrWhiteSpace($htmlFileContent)) {
+                throw "HTML file content is empty or null"
+            }
+            
+            # Attempt to load the HTML
+            try {
+                # For newer PowerShell versions
+                $htmlDoc.IHTMLDocument2_write($htmlFileContent)
+            } catch {
+                # Fallback method for older PowerShell versions
+                $src = [System.Text.Encoding]::Unicode.GetBytes($htmlFileContent)
+                $htmlDoc.write($src)
+            }
+            
+            Write-Log "HTML document loaded into DOM successfully."
+            
+            # Find the main table with the parts data
+            $tables = $htmlDoc.getElementsByTagName("table")
+            $mainTable = $null
+            
+            Write-Log "Found $($tables.length) tables in the document."
+            
+            # Try multiple methods to find the main table
+            foreach ($table in $tables) {
+                # Try with className
+                if ($table.className -eq "MAIN") {
+                    $mainTable = $table
+                    Write-Log "Found main table using className property."
+                    break
+                }
+                
+                # Try with getAttribute
+                try {
+                    if ($table.getAttribute("class") -eq "MAIN") {
+                        $mainTable = $table
+                        Write-Log "Found main table using getAttribute method."
+                        break
+                    }
+                } catch {
+                    # Ignore errors with getAttribute
+                }
+                
+                # Check if it's a wide table with borders and multiple columns
+                try {
+                    if ($table.border -eq "1" -and $table.summary -match "stock") {
+                        $mainTable = $table
+                        Write-Log "Found main table by border and summary attributes."
+                        break
+                    }
+                } catch {
+                    # Ignore errors with border/summary checks
+                }
+            }
+            
+            if ($null -eq $mainTable) {
+                # Last resort: find a table with at least 6 columns
+                foreach ($table in $tables) {
+                    try {
+                        $headerRow = $table.rows.item(0)
+                        if ($headerRow -and $headerRow.cells.length -ge 6) {
+                            $mainTable = $table
+                            Write-Log "Found table with $($headerRow.cells.length) columns, using as main table."
+                            break
+                        }
+                    } catch {
+                        # Ignore errors with checking rows/cells
+                    }
+                }
+            }
+            
+            if ($null -eq $mainTable) {
+                throw "Could not find the main parts table in the HTML content"
+            }
+            
+            # Get all rows from the table
+            $rows = $mainTable.getElementsByTagName("tr")
+            Write-Log "Number of rows found: $($rows.length)"
+            
+            # Initialize array to hold parsed data
+            $parsedData = @()
+            
+            # Update the progress bar
+            $progressBar.Style = [System.Windows.Forms.ProgressBarStyle]::Blocks
+            $progressBar.Maximum = $rows.length
+            $progressBar.Value = 0
+            
+            # Process each row (skip first row which is the header)
+            for ($i = 1; $i -lt $rows.length; $i++) {
+                $progressBar.Value = $i
+                $progressLabel.Text = "Processing row $i of $($rows.length)..."
+                $progressForm.Refresh()
+                
+                try {
+                    $row = $rows.item($i)
+                    if ($null -eq $row) {
+                        Write-Log "Warning: Row $i is null, skipping"
+                        continue
+                    }
+                    
+                    # Skip rows that don't have the MAIN class or enough cells
+                    $rowClass = try { $row.className } catch { "" }
+                    if ($rowClass -ne "MAIN" -and $rowClass -ne "HILITE") {
+                        Write-Log "Skipping row $i - not a main data row (class: $rowClass)"
+                        continue
+                    }
+                    
+                    # Get all cells in the row
+                    $cells = $row.getElementsByTagName("td")
+                    
+                    if ($null -eq $cells -or $cells.length -lt 6) {
+                        Write-Log "Skipping row $i - insufficient cells (found: $(if ($null -eq $cells) { "null" } else { $cells.length }))"
+                        continue
+                    }
+                    
+                    # Extract part information from cells safely
+                    $partNSN = try { $cells.item(0).innerText.Trim() } catch { "" }
+                    $description = try { $cells.item(1).innerText.Trim() } catch { "" }
+                    $qtyText = try { $cells.item(2).innerText } catch { "0" }
+                    $usageText = try { $cells.item(3).innerText } catch { "0" }
+                    $location = try { $cells.item(5).innerText.Trim() } catch { "" }
+                    
+                    # Use regex to extract digits only
+                    $qty = [int]($qtyText -replace '[^\d]', '')
+                    $usage = [int]($usageText -replace '[^\d]', '')
+                    
+                    # Extract OEM information from cell 4 safely
+                    $oem1 = ""
+                    $oem2 = ""
+                    $oem3 = ""
+                    
+                    try {
+                        $oemCell = $cells.item(4)
+                        if ($oemCell) {
+                            $oemDivs = $oemCell.getElementsByTagName("div")
+                            
+                            if ($oemDivs -and $oemDivs.length -gt 0) {
+                                # Process each div to extract OEM information
+                                for ($j = 0; $j -lt $oemDivs.length; $j++) {
+                                    try {
+                                        $oemDiv = $oemDivs.item($j)
+                                        if ($oemDiv) {
+                                            $oemText = $oemDiv.innerText.Trim()
+                                            
+                                            # Extract OEM number from text like "OEM:1 12345"
+                                            if ($oemText -match "OEM:1\s+(.+)") {
+                                                $oem1 = $matches[1]
+                                            } elseif ($oemText -match "OEM:2\s+(.+)") {
+                                                $oem2 = $matches[1]
+                                            } elseif ($oemText -match "OEM:3\s+(.+)") {
+                                                $oem3 = $matches[1]
+                                            }
+                                        }
+                                    } catch {
+                                        Write-Log "Warning: Error processing OEM div $j in row $i : $($_.Exception.Message)"
+                                    }
+                                }
+                            }
+                        }
+                    } catch {
+                        Write-Log "Warning: Error processing OEM cell in row $i : $($_.Exception.Message)"
+                    }
+                    
+                    # Create object with parsed data
+                    $parsedData += [PSCustomObject]@{
+                        "Part (NSN)" = $partNSN
+                        "Description" = $description
+                        "QTY" = $qty
+                        "13 Period Usage" = $usage
+                        "Location" = $location
+                        "OEM 1" = $oem1
+                        "OEM 2" = $oem2
+                        "OEM 3" = $oem3
+                    }
+                    
+                    Write-Log "Added row ${i}: Part(NSN)=$partNSN, Description=$description, QTY=$qty, Location=$location"
+                } catch {
+                    Write-Log "Error processing row $i : $($_.Exception.Message)"
+                    # Continue with next row instead of stopping
+                }
+            }
+            
+            Write-Log "Number of parsed data entries: $($parsedData.Count)"
+            
+            if ($parsedData.Count -eq 0) {
+                throw "No data parsed from HTML content"
+            }
+            
+            # Check if there's an existing CSV file with parts book data that we need to preserve
+            $tempCsvPath = Join-Path $config.PartsRoomDirectory "temp_$selectedSiteName.csv"
+            $csvFilePath = Join-Path $config.PartsRoomDirectory "$selectedSiteName.csv"
+            $existingData = $null
+            
+            if (Test-Path $csvFilePath) {
+                Write-Log "Found existing CSV file. Will merge with new data..."
+                $progressLabel.Text = "Merging with existing data..."
+                $progressForm.Refresh()
+                
+                # Load the existing data
+                $existingData = Import-Csv -Path $csvFilePath
+                
+                # Identify column names from book references (any column not in the base set)
+                $baseColumns = @("Part (NSN)", "Description", "QTY", "13 Period Usage", "Location", "OEM 1", "OEM 2", "OEM 3", "Changed Part (NSN)")
+                $bookColumns = $existingData[0].PSObject.Properties.Name | Where-Object { $baseColumns -notcontains $_ }
+                Write-Log "Found book reference columns: $($bookColumns -join ', ')"
+                
+                # First, export the new data to a temporary file
+                $parsedData | Export-Csv -Path $tempCsvPath -NoTypeInformation
+                
+                # Now read it back to ensure formatting is consistent
+                $newData = Import-Csv -Path $tempCsvPath
+                
+                # Add any missing columns from the existing data to the new data
+                foreach ($column in $bookColumns) {
+                    if ($newData[0].PSObject.Properties.Name -notcontains $column) {
+                        $newData | ForEach-Object { $_ | Add-Member -NotePropertyName $column -NotePropertyValue "" }
+                    }
+                }
+                
+                # Add 'Changed Part (NSN)' column if it doesn't exist
+                if ($newData[0].PSObject.Properties.Name -notcontains 'Changed Part (NSN)') {
+                    $newData | ForEach-Object { $_ | Add-Member -NotePropertyName 'Changed Part (NSN)' -NotePropertyValue "" }
+                }
+                
+                # Update progress for the merge operation
+                $progressBar.Value = 0
+                $progressBar.Maximum = $newData.Count
+                
+                # Create a dictionary for faster lookups of existing data
+                $existingDict = @{}
+                foreach ($item in $existingData) {
+                    if (-not [string]::IsNullOrEmpty($item.'Part (NSN)')) {
+                        $existingDict[$item.'Part (NSN)'] = $item
+                    }
+                }
+                
+                # Counters for stats
+                $updatedCount = 0
+                $newCount = 0
+                
+                # Process each item in the new data
+                for ($i = 0; $i -lt $newData.Count; $i++) {
+                    $progressBar.Value = $i
+                    if ($i % 10 -eq 0) {  # Update the label less frequently for performance
+                        $progressLabel.Text = "Merging item $i of $($newData.Count)..."
+                        $progressForm.Refresh()
+                    }
+                    
+                    $item = $newData[$i]
+                    $partNSN = $item.'Part (NSN)'
+                    
+                    # Skip items with no Part (NSN)
+                    if ([string]::IsNullOrEmpty($partNSN)) {
+                        continue
+                    }
+                    
+                    # Check if this part exists in the existing data
+                    if ($existingDict.ContainsKey($partNSN)) {
+                        # Update QTY and Location from new data
+                        $existingItem = $existingDict[$partNSN]
+                        
+                        # Check if QTY or Location has changed
+                        if ($existingItem.QTY -ne $item.QTY -or $existingItem.Location -ne $item.Location) {
+                            $existingItem.QTY = $item.QTY
+                            $existingItem.Location = $item.Location
+                            $existingItem.'13 Period Usage' = $item.'13 Period Usage'
+                            $updatedCount++
+                            Write-Log "Updated part ${partNSN}: QTY=$($item.QTY), Location=$($item.Location)"
+                        }
+                        
+                        # Update OEM information if it's more complete in the new data
+                        if ([string]::IsNullOrEmpty($existingItem.'OEM 1') -and -not [string]::IsNullOrEmpty($item.'OEM 1')) {
+                            $existingItem.'OEM 1' = $item.'OEM 1'
+                        }
+                        if ([string]::IsNullOrEmpty($existingItem.'OEM 2') -and -not [string]::IsNullOrEmpty($item.'OEM 2')) {
+                            $existingItem.'OEM 2' = $item.'OEM 2'
+                        }
+                        if ([string]::IsNullOrEmpty($existingItem.'OEM 3') -and -not [string]::IsNullOrEmpty($item.'OEM 3')) {
+                            $existingItem.'OEM 3' = $item.'OEM 3'
+                        }
+                    } else {
+                        # This is a new part, add it to the existing data with empty book references
+                        foreach ($column in $bookColumns) {
+                            if ($item.PSObject.Properties.Name -notcontains $column) {
+                                $item | Add-Member -NotePropertyName $column -NotePropertyValue ""
+                            }
+                        }
+                        
+                        # Add to the dictionary for future reference
+                        $existingDict[$partNSN] = $item
+                        
+                        # Add to the existing data list
+                        $existingData += $item
+                        $newCount++
+                        Write-Log "Added new part: $partNSN"
+                    }
+                }
+                
+                # Now check for parts that exist in the existing data but not in the new data
+                # They might have been removed from inventory
+                $removedParts = @()
+                foreach ($existingItem in $existingData) {
+                    $partNSN = $existingItem.'Part (NSN)'
+                    if (-not [string]::IsNullOrEmpty($partNSN)) {
+                        $found = $false
+                        foreach ($newItem in $newData) {
+                            if ($newItem.'Part (NSN)' -eq $partNSN) {
+                                $found = $true
+                                break
+                            }
+                        }
+                        
+                        if (-not $found) {
+                            # Mark this part as potentially removed from inventory
+                            $existingItem.QTY = "0"
+                            $existingItem.Location = "Not in current inventory"
+                            $removedParts += $partNSN
+                        }
+                    }
+                }
+                
+                if ($removedParts.Count -gt 0) {
+                    Write-Log "Marked $($removedParts.Count) parts as not in current inventory"
+                }
+                
+                # Export the updated data back to the main CSV file
+                $progressLabel.Text = "Saving updated data..."
+                $progressForm.Refresh()
+                
+                $existingData | Export-Csv -Path $csvFilePath -NoTypeInformation
+                
+                # Clean up the temporary file
+                if (Test-Path $tempCsvPath) {
+                    Remove-Item -Path $tempCsvPath -Force
+                }
+                
+                Write-Log "Merged data successfully: Updated $updatedCount parts, added $newCount new parts, marked $($removedParts.Count) parts as not in current inventory"
+                [System.Windows.Forms.MessageBox]::Show("Parts Room data updated successfully:`n- Updated $updatedCount existing parts`n- Added $newCount new parts`n- Marked $($removedParts.Count) parts as not in current inventory", "Update Complete", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+            } else {
+                # No existing file, just save the new data
+                $progressLabel.Text = "Saving data to CSV..."
+                $progressForm.Refresh()
+                
+                # Export parsed data to CSV
+                $parsedData | Export-Csv -Path $csvFilePath -NoTypeInformation
+                Write-Log "Created new CSV file at $csvFilePath with $($parsedData.Count) parts"
+                [System.Windows.Forms.MessageBox]::Show("Parts Room data has been created successfully with $($parsedData.Count) parts.", "Update Complete", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+            }
+            
+            # Now check if we need to update the Excel file
+            $excelFilePath = Join-Path $config.PartsRoomDirectory "$selectedSiteName.xlsx"
+            if (Test-Path $excelFilePath) {
+                $updateExcel = [System.Windows.Forms.MessageBox]::Show(
+                    "Do you want to update the Excel file with the new data?`n`nNote: This will create a new Excel file. Your existing links to figures in parts books will be preserved in the CSV file.",
+                    "Update Excel",
+                    [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                    [System.Windows.Forms.MessageBoxIcon]::Question)
+                
+                if ($updateExcel -eq [System.Windows.Forms.DialogResult]::Yes) {
+                    $progressLabel.Text = "Updating Excel file..."
+                    $progressForm.Refresh()
+                    Update-ExcelFile -siteName $selectedSiteName -csvPath $csvFilePath -excelPath $excelFilePath
+                }
+            } else {
+                $createExcel = [System.Windows.Forms.MessageBox]::Show(
+                    "Do you want to create an Excel file with the new data?",
+                    "Create Excel",
+                    [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                    [System.Windows.Forms.MessageBoxIcon]::Question)
+                
+                if ($createExcel -eq [System.Windows.Forms.DialogResult]::Yes) {
+                    $progressLabel.Text = "Creating Excel file..."
+                    $progressForm.Refresh()
+                    Update-ExcelFile -siteName $selectedSiteName -csvPath $csvFilePath -excelPath $excelFilePath
+                }
+            }
+            
+            # Ask if the user wants to update parts books with the latest QTY and Location data
+            $updatePartsBooks = [System.Windows.Forms.MessageBox]::Show(
+                "Do you want to update Parts Books with the latest quantity and location information?",
+                "Update Parts Books",
+                [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                [System.Windows.Forms.MessageBoxIcon]::Question)
+                
+            if ($updatePartsBooks -eq [System.Windows.Forms.DialogResult]::Yes) {
+                $progressLabel.Text = "Updating Parts Books..."
+                $progressForm.Refresh()
+                Update-PartsBooks -sourceCSVPath $csvFilePath
+            }
+        } catch {
+            Write-Log "Error: $($_.Exception.Message)"
+            Write-Log "Stack Trace: $($_.ScriptStackTrace)"
+            $errorMessage = "Error: $($_.Exception.Message)`r`nStack Trace: $($_.ScriptStackTrace)"
+            $errorMessage | Out-File -FilePath $logPath -Append
+            [System.Windows.Forms.MessageBox]::Show("An error occurred. Please check the error log at $logPath for details.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        } finally {
+            # Clean up COM objects
+            if ($null -ne $htmlDoc) {
+                try {
+                    [System.Runtime.Interopservices.Marshal]::ReleaseComObject($htmlDoc) | Out-Null
+                } catch {
+                    Write-Log "Warning: Failed to release COM object: $($_.Exception.Message)"
+                }
+            }
+            [System.GC]::Collect()
+            [System.GC]::WaitForPendingFinalizers()
+            
+            # Close the progress form
+            $progressForm.Close()
+        }
+    } catch {
+        Write-Log "Error downloading HTML content: $($_.Exception.Message)"
+        [System.Windows.Forms.MessageBox]::Show("Failed to download HTML content: $($_.Exception.Message)", "Download Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+    }
 }
 
 # Function to update Parts Room
@@ -1655,35 +3240,207 @@ function Update-PartsRoom {
                 throw "No data parsed from HTML content"
             }
             
-            # Updating progress for CSV export
-            $progressLabel.Text = "Exporting data to CSV..."
-            $progressForm.Refresh()
-            
-            # Export parsed data to CSV
+            # Check if there's an existing CSV file with parts book data that we need to preserve
+            $tempCsvPath = Join-Path $config.PartsRoomDirectory "temp_$selectedSiteName.csv"
             $csvFilePath = Join-Path $config.PartsRoomDirectory "$selectedSiteName.csv"
-            $parsedData | Export-Csv -Path $csvFilePath -NoTypeInformation
-            
-            # Creating Excel file
-            $progressLabel.Text = "Creating Excel file..."
-            $progressForm.Refresh()
-            
-            # Create Excel workbook
-            $excelFilePath = Join-Path $config.PartsRoomDirectory "$selectedSiteName.xlsx"
-            Create-ExcelFromCsv -siteName $selectedSiteName -csvDirectory $config.PartsRoomDirectory -excelDirectory $config.PartsRoomDirectory
+            $existingData = $null
             
             if (Test-Path $csvFilePath) {
-                Write-Log "CSV file created successfully at $csvFilePath"
-                if (Test-Path $excelFilePath) {
-                    Write-Log "Excel file created successfully at $excelFilePath"
-                    [System.Windows.Forms.MessageBox]::Show("Parts Room data has been updated successfully for $selectedSiteName.", "Update Complete", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-                } else {
-                    Write-Log "Failed to create Excel file."
-                    [System.Windows.Forms.MessageBox]::Show("CSV file has been created, but Excel file creation failed.", "Partial Update", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+                Write-Log "Found existing CSV file. Will merge with new data..."
+                $progressLabel.Text = "Merging with existing data..."
+                $progressForm.Refresh()
+                
+                # Load the existing data
+                $existingData = Import-Csv -Path $csvFilePath
+                
+                # Identify column names from book references (any column not in the base set)
+                $baseColumns = @("Part (NSN)", "Description", "QTY", "13 Period Usage", "Location", "OEM 1", "OEM 2", "OEM 3", "Changed Part (NSN)")
+                $bookColumns = $existingData[0].PSObject.Properties.Name | Where-Object { $baseColumns -notcontains $_ }
+                Write-Log "Found book reference columns: $($bookColumns -join ', ')"
+                
+                # First, export the new data to a temporary file
+                $parsedData | Export-Csv -Path $tempCsvPath -NoTypeInformation
+                
+                # Now read it back to ensure formatting is consistent
+                $newData = Import-Csv -Path $tempCsvPath
+                
+                # Add any missing columns from the existing data to the new data
+                foreach ($column in $bookColumns) {
+                    if ($newData[0].PSObject.Properties.Name -notcontains $column) {
+                        $newData | ForEach-Object { $_ | Add-Member -NotePropertyName $column -NotePropertyValue "" }
+                    }
                 }
+                
+                # Add 'Changed Part (NSN)' column if it doesn't exist
+                if ($newData[0].PSObject.Properties.Name -notcontains 'Changed Part (NSN)') {
+                    $newData | ForEach-Object { $_ | Add-Member -NotePropertyName 'Changed Part (NSN)' -NotePropertyValue "" }
+                }
+                
+                # Update progress for the merge operation
+                $progressBar.Value = 0
+                $progressBar.Maximum = $newData.Count
+                
+                # Create a dictionary for faster lookups of existing data
+                $existingDict = @{}
+                foreach ($item in $existingData) {
+                    if (-not [string]::IsNullOrEmpty($item.'Part (NSN)')) {
+                        $existingDict[$item.'Part (NSN)'] = $item
+                    }
+                }
+                
+                # Counters for stats
+                $updatedCount = 0
+                $newCount = 0
+                
+                # Process each item in the new data
+                for ($i = 0; $i -lt $newData.Count; $i++) {
+                    $progressBar.Value = $i
+                    if ($i % 10 -eq 0) {  # Update the label less frequently for performance
+                        $progressLabel.Text = "Merging item $i of $($newData.Count)..."
+                        $progressForm.Refresh()
+                    }
+                    
+                    $item = $newData[$i]
+                    $partNSN = $item.'Part (NSN)'
+                    
+                    # Skip items with no Part (NSN)
+                    if ([string]::IsNullOrEmpty($partNSN)) {
+                        continue
+                    }
+                    
+                    # Check if this part exists in the existing data
+                    if ($existingDict.ContainsKey($partNSN)) {
+                        # Update QTY and Location from new data
+                        $existingItem = $existingDict[$partNSN]
+                        
+                        # Check if QTY or Location has changed
+                        if ($existingItem.QTY -ne $item.QTY -or $existingItem.Location -ne $item.Location) {
+                            $existingItem.QTY = $item.QTY
+                            $existingItem.Location = $item.Location
+                            $existingItem.'13 Period Usage' = $item.'13 Period Usage'
+                            $updatedCount++
+                            Write-Log "Updated part ${partNSN}: QTY=$($item.QTY), Location=$($item.Location)"
+                        }
+                        
+                        # Update OEM information if it's more complete in the new data
+                        if ([string]::IsNullOrEmpty($existingItem.'OEM 1') -and -not [string]::IsNullOrEmpty($item.'OEM 1')) {
+                            $existingItem.'OEM 1' = $item.'OEM 1'
+                        }
+                        if ([string]::IsNullOrEmpty($existingItem.'OEM 2') -and -not [string]::IsNullOrEmpty($item.'OEM 2')) {
+                            $existingItem.'OEM 2' = $item.'OEM 2'
+                        }
+                        if ([string]::IsNullOrEmpty($existingItem.'OEM 3') -and -not [string]::IsNullOrEmpty($item.'OEM 3')) {
+                            $existingItem.'OEM 3' = $item.'OEM 3'
+                        }
+                    } else {
+                        # This is a new part, add it to the existing data with empty book references
+                        foreach ($column in $bookColumns) {
+                            if ($item.PSObject.Properties.Name -notcontains $column) {
+                                $item | Add-Member -NotePropertyName $column -NotePropertyValue ""
+                            }
+                        }
+                        
+                        # Add to the dictionary for future reference
+                        $existingDict[$partNSN] = $item
+                        
+                        # Add to the existing data list
+                        $existingData += $item
+                        $newCount++
+                        Write-Log "Added new part: $partNSN"
+                    }
+                }
+                
+                # Now check for parts that exist in the existing data but not in the new data
+                # They might have been removed from inventory
+                $removedParts = @()
+                foreach ($existingItem in $existingData) {
+                    $partNSN = $existingItem.'Part (NSN)'
+                    if (-not [string]::IsNullOrEmpty($partNSN)) {
+                        $found = $false
+                        foreach ($newItem in $newData) {
+                            if ($newItem.'Part (NSN)' -eq $partNSN) {
+                                $found = $true
+                                break
+                            }
+                        }
+                        
+                        if (-not $found) {
+                            # Mark this part as potentially removed from inventory
+                            $existingItem.QTY = "0"
+                            $existingItem.Location = "Not in current inventory"
+                            $removedParts += $partNSN
+                        }
+                    }
+                }
+                
+                if ($removedParts.Count -gt 0) {
+                    Write-Log "Marked $($removedParts.Count) parts as not in current inventory"
+                }
+                
+                # Export the updated data back to the main CSV file
+                $progressLabel.Text = "Saving updated data..."
+                $progressForm.Refresh()
+                
+                $existingData | Export-Csv -Path $csvFilePath -NoTypeInformation
+                
+                # Clean up the temporary file
+                if (Test-Path $tempCsvPath) {
+                    Remove-Item -Path $tempCsvPath -Force
+                }
+                
+                Write-Log "Merged data successfully: Updated $updatedCount parts, added $newCount new parts, marked $($removedParts.Count) parts as not in current inventory"
+                [System.Windows.Forms.MessageBox]::Show("Parts Room data updated successfully:`n- Updated $updatedCount existing parts`n- Added $newCount new parts`n- Marked $($removedParts.Count) parts as not in current inventory", "Update Complete", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
             } else {
-                throw "Failed to create CSV file."
+                # No existing file, just save the new data
+                $progressLabel.Text = "Saving data to CSV..."
+                $progressForm.Refresh()
+                
+                # Export parsed data to CSV
+                $parsedData | Export-Csv -Path $csvFilePath -NoTypeInformation
+                Write-Log "Created new CSV file at $csvFilePath with $($parsedData.Count) parts"
+                [System.Windows.Forms.MessageBox]::Show("Parts Room data has been created successfully with $($parsedData.Count) parts.", "Update Complete", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
             }
             
+            # Now check if we need to update the Excel file
+            $excelFilePath = Join-Path $config.PartsRoomDirectory "$selectedSiteName.xlsx"
+            if (Test-Path $excelFilePath) {
+                $updateExcel = [System.Windows.Forms.MessageBox]::Show(
+                    "Do you want to update the Excel file with the new data?`n`nNote: This will create a new Excel file. Your existing links to figures in parts books will be preserved in the CSV file.",
+                    "Update Excel",
+                    [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                    [System.Windows.Forms.MessageBoxIcon]::Question)
+                
+                if ($updateExcel -eq [System.Windows.Forms.DialogResult]::Yes) {
+                    $progressLabel.Text = "Updating Excel file..."
+                    $progressForm.Refresh()
+                    Update-ExcelFile -siteName $selectedSiteName -csvPath $csvFilePath -excelPath $excelFilePath
+                }
+            } else {
+                $createExcel = [System.Windows.Forms.MessageBox]::Show(
+                    "Do you want to create an Excel file with the new data?",
+                    "Create Excel",
+                    [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                    [System.Windows.Forms.MessageBoxIcon]::Question)
+                
+                if ($createExcel -eq [System.Windows.Forms.DialogResult]::Yes) {
+                    $progressLabel.Text = "Creating Excel file..."
+                    $progressForm.Refresh()
+                    Update-ExcelFile -siteName $selectedSiteName -csvPath $csvFilePath -excelPath $excelFilePath
+                }
+            }
+            
+            # Ask if the user wants to update parts books with the latest QTY and Location data
+            $updatePartsBooks = [System.Windows.Forms.MessageBox]::Show(
+                "Do you want to update Parts Books with the latest quantity and location information?",
+                "Update Parts Books",
+                [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                [System.Windows.Forms.MessageBoxIcon]::Question)
+                
+            if ($updatePartsBooks -eq [System.Windows.Forms.DialogResult]::Yes) {
+                $progressLabel.Text = "Updating Parts Books..."
+                $progressForm.Refresh()
+                Update-PartsBooks -sourceCSVPath $csvFilePath
+            }
         } catch {
             Write-Log "Error: $($_.Exception.Message)"
             Write-Log "Stack Trace: $($_.ScriptStackTrace)"
@@ -3366,4 +5123,3 @@ function Search-CrossReferenceData {
 Show-MainForm
 Write-Log "Application closed"
 
-Read-Host
