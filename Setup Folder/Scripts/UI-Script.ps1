@@ -1286,8 +1286,532 @@ function Update-PartsBooks {
 
 # Function to update Parts Room
 function Update-PartsRoom {
-    Write-Log "Updating Parts Room..."
-    [System.Windows.Forms.MessageBox]::Show("Parts Room update not implemented yet.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+    Write-Log "Starting Parts Room update process..."
+    
+    # Get the configuration
+    if (-not $config) {
+        Write-Log "Error: Configuration not available"
+        [System.Windows.Forms.MessageBox]::Show("Configuration not available. Cannot update Parts Room.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        return
+    }
+    
+    # Check if a previously selected site exists in the config
+    $selectedSiteName = $null
+    $selectedSiteId = $null
+    
+    # Check parts room directory for existing CSV files
+    $existingCsvFile = Get-ChildItem -Path $config.PartsRoomDirectory -Filter "*.csv" | Select-Object -First 1
+    if ($existingCsvFile) {
+        $selectedSiteName = [System.IO.Path]::GetFileNameWithoutExtension($existingCsvFile.Name)
+        Write-Log "Found existing Parts Room data for site: $selectedSiteName"
+        
+        # Get the site ID from Sites.csv
+        $sitesPath = Join-Path $config.DropdownCsvsDirectory "Sites.csv"
+        if (Test-Path $sitesPath) {
+            $sites = Import-Csv -Path $sitesPath
+            $siteIdColumn = if ($sites[0].PSObject.Properties.Name -contains "Site ID") { "Site ID" } else { $sites[0].PSObject.Properties.Name[0] }
+            $fullNameColumn = if ($sites[0].PSObject.Properties.Name -contains "Full Name") { "Full Name" } else { $sites[0].PSObject.Properties.Name[1] }
+            
+            $matchingSite = $sites | Where-Object { $_.$fullNameColumn -eq $selectedSiteName }
+            if ($matchingSite) {
+                $selectedSiteId = $matchingSite.$siteIdColumn
+                Write-Log "Found Site ID for ${selectedSiteName}: $selectedSiteId"
+            }
+        }
+    }
+    
+    # Ask user if they want to update the existing site or select a new one
+    $dialogResult = [System.Windows.Forms.DialogResult]::Yes
+    if ($selectedSiteName) {
+        $dialogResult = [System.Windows.Forms.MessageBox]::Show(
+            "Do you want to update the existing Parts Room data for $selectedSiteName?`n`nClick 'Yes' to update the existing site.`nClick 'No' to select a different site.",
+            "Update Parts Room",
+            [System.Windows.Forms.MessageBoxButtons]::YesNoCancel,
+            [System.Windows.Forms.MessageBoxIcon]::Question)
+    }
+    
+    if ($dialogResult -eq [System.Windows.Forms.DialogResult]::Cancel) {
+        Write-Log "Parts Room update cancelled by user"
+        return
+    }
+    
+    # If user wants to select a new site, or no existing site was found
+    if ($dialogResult -eq [System.Windows.Forms.DialogResult]::No -or -not $selectedSiteName) {
+        # Load the sites from the CSV
+        $sitesPath = Join-Path $config.DropdownCsvsDirectory "Sites.csv"
+        Write-Log "Loading Sites from CSV at $sitesPath..."
+        
+        if (-not (Test-Path $sitesPath)) {
+            Write-Log "Error: Sites.csv not found at $sitesPath"
+            [System.Windows.Forms.MessageBox]::Show("Sites CSV file not found. Cannot update Parts Room.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+            return
+        }
+        
+        $sites = Import-Csv -Path $sitesPath
+        
+        # Check if the CSV was loaded successfully
+        if ($sites.Count -eq 0) {
+            Write-Log "Error: No data found in the Sites.csv file"
+            [System.Windows.Forms.MessageBox]::Show("No data found in the Sites.csv file.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+            return
+        }
+        
+        # Determine the correct column names
+        $siteIdColumn = if ($sites[0].PSObject.Properties.Name -contains "Site ID") { "Site ID" } else { $sites[0].PSObject.Properties.Name[0] }
+        $fullNameColumn = if ($sites[0].PSObject.Properties.Name -contains "Full Name") { "Full Name" } else { $sites[0].PSObject.Properties.Name[1] }
+        Write-Log "Site ID Column: $siteIdColumn, Full Name Column: $fullNameColumn"
+        
+        # Create the form for site selection
+        Write-Log "Creating form for site selection..."
+        $form = New-Object System.Windows.Forms.Form
+        $form.Text = "Select Facility"
+        $form.Size = New-Object System.Drawing.Size(400, 200)
+        $form.StartPosition = "CenterScreen"
+        
+        # Create the dropdown menu
+        $dropdown = New-Object System.Windows.Forms.ComboBox
+        $dropdown.Location = New-Object System.Drawing.Point(10, 20)
+        $dropdown.Size = New-Object System.Drawing.Size(360, 20)
+        $dropdown.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
+        
+        # Populate the dropdown with the full names
+        foreach ($site in $sites) {
+            $fullName = $site.$fullNameColumn
+            if (![string]::IsNullOrWhiteSpace($fullName)) {
+                $dropdown.Items.Add($fullName)
+            }
+        }
+        
+        Write-Log "Dropdown populated with site names."
+        $form.Controls.Add($dropdown)
+        
+        # Create the "Select" button
+        $button = New-Object System.Windows.Forms.Button
+        $button.Location = New-Object System.Drawing.Point(150, 60)
+        $button.Size = New-Object System.Drawing.Size(75, 23)
+        $button.Text = "Select"
+        $button.Add_Click({
+            $form.Tag = $dropdown.SelectedItem
+            $form.Close()
+        })
+        $form.Controls.Add($button)
+        
+        # Show the form and get the selected site
+        Write-Log "Showing form for site selection..."
+        $form.ShowDialog()
+        $selectedSiteName = $form.Tag
+        
+        if (-not $selectedSiteName) {
+            Write-Log "No site selected, cancelling operation."
+            return
+        }
+        
+        Write-Log "Selected Site: $selectedSiteName"
+        $selectedRow = $sites | Where-Object { $_.$fullNameColumn -eq $selectedSiteName }
+        $selectedSiteId = $selectedRow.$siteIdColumn
+    }
+    
+    # Now we have a site name and ID, proceed with downloading and processing the data
+    if (-not $selectedSiteId) {
+        Write-Log "Error: Cannot determine site ID for $selectedSiteName"
+        [System.Windows.Forms.MessageBox]::Show("Cannot determine site ID for $selectedSiteName. Update cancelled.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        return
+    }
+    
+    # Construct the URL for the selected site
+    $url = "http://emarssu5.eng.usps.gov/pemarsnp/nm_national_stock.stockroom_by_site?p_site_id=$selectedSiteId&p_search_type=DESC&p_search_string=&p_boh_radio=-1"
+    Write-Log "URL for site ${selectedSiteName}: $url"
+    
+    # Download HTML content
+    Write-Log "Downloading HTML content for $selectedSiteName..."
+    try {
+        $progressForm = New-Object System.Windows.Forms.Form
+        $progressForm.Text = "Updating Parts Room"
+        $progressForm.Size = New-Object System.Drawing.Size(400, 150)
+        $progressForm.StartPosition = 'CenterScreen'
+        
+        $progressLabel = New-Object System.Windows.Forms.Label
+        $progressLabel.Location = New-Object System.Drawing.Point(10, 20)
+        $progressLabel.Size = New-Object System.Drawing.Size(370, 20)
+        $progressLabel.Text = "Downloading data for $selectedSiteName..."
+        $progressForm.Controls.Add($progressLabel)
+        
+        $progressBar = New-Object System.Windows.Forms.ProgressBar
+        $progressBar.Location = New-Object System.Drawing.Point(10, 50)
+        $progressBar.Size = New-Object System.Drawing.Size(370, 20)
+        $progressBar.Style = [System.Windows.Forms.ProgressBarStyle]::Marquee
+        $progressForm.Controls.Add($progressBar)
+        
+        # Show the progress form
+        $progressForm.Show()
+        $progressForm.Refresh()
+        
+        # Download the HTML content
+        $htmlContent = Invoke-WebRequest -Uri $url -UseBasicParsing
+        $htmlFilePath = Join-Path $config.PartsRoomDirectory "$selectedSiteName.html"
+        Write-Log "Saving HTML content to $htmlFilePath..."
+        Set-Content -Path $htmlFilePath -Value $htmlContent.Content -Encoding UTF8
+        
+        # Update the progress label
+        $progressLabel.Text = "Processing HTML data..."
+        $progressForm.Refresh()
+        
+        # Process the HTML content
+        Write-Log "Processing the downloaded HTML file for $selectedSiteName using DOM..."
+        
+        $logPath = Join-Path $config.PartsRoomDirectory "error_log.txt"
+        $htmlDoc = $null
+        
+        try {
+            # Create a COM object for HTML Document
+            $htmlDoc = New-Object -ComObject "HTMLFile"
+            
+            # Read the HTML file content
+            $htmlFileContent = Get-Content -Path $htmlFilePath -Raw -ErrorAction Stop
+            if ([string]::IsNullOrWhiteSpace($htmlFileContent)) {
+                throw "HTML file content is empty or null"
+            }
+            
+            # Attempt to load the HTML
+            try {
+                # For newer PowerShell versions
+                $htmlDoc.IHTMLDocument2_write($htmlFileContent)
+            } catch {
+                # Fallback method for older PowerShell versions
+                $src = [System.Text.Encoding]::Unicode.GetBytes($htmlFileContent)
+                $htmlDoc.write($src)
+            }
+            
+            Write-Log "HTML document loaded into DOM successfully."
+            
+            # Find the main table with the parts data
+            $tables = $htmlDoc.getElementsByTagName("table")
+            $mainTable = $null
+            
+            Write-Log "Found $($tables.length) tables in the document."
+            
+            # Try multiple methods to find the main table
+            foreach ($table in $tables) {
+                # Try with className
+                if ($table.className -eq "MAIN") {
+                    $mainTable = $table
+                    Write-Log "Found main table using className property."
+                    break
+                }
+                
+                # Try with getAttribute
+                try {
+                    if ($table.getAttribute("class") -eq "MAIN") {
+                        $mainTable = $table
+                        Write-Log "Found main table using getAttribute method."
+                        break
+                    }
+                } catch {
+                    # Ignore errors with getAttribute
+                }
+                
+                # Check if it's a wide table with borders and multiple columns
+                try {
+                    if ($table.border -eq "1" -and $table.summary -match "stock") {
+                        $mainTable = $table
+                        Write-Log "Found main table by border and summary attributes."
+                        break
+                    }
+                } catch {
+                    # Ignore errors with border/summary checks
+                }
+            }
+            
+            if ($null -eq $mainTable) {
+                # Last resort: find a table with at least 6 columns
+                foreach ($table in $tables) {
+                    try {
+                        $headerRow = $table.rows.item(0)
+                        if ($headerRow -and $headerRow.cells.length -ge 6) {
+                            $mainTable = $table
+                            Write-Log "Found table with $($headerRow.cells.length) columns, using as main table."
+                            break
+                        }
+                    } catch {
+                        # Ignore errors with checking rows/cells
+                    }
+                }
+            }
+            
+            if ($null -eq $mainTable) {
+                throw "Could not find the main parts table in the HTML content"
+            }
+            
+            # Get all rows from the table
+            $rows = $mainTable.getElementsByTagName("tr")
+            Write-Log "Number of rows found: $($rows.length)"
+            
+            # Initialize array to hold parsed data
+            $parsedData = @()
+            
+            # Update the progress bar
+            $progressBar.Style = [System.Windows.Forms.ProgressBarStyle]::Blocks
+            $progressBar.Maximum = $rows.length
+            $progressBar.Value = 0
+            
+            # Process each row (skip first row which is the header)
+            for ($i = 1; $i -lt $rows.length; $i++) {
+                $progressBar.Value = $i
+                $progressLabel.Text = "Processing row $i of $($rows.length)..."
+                $progressForm.Refresh()
+                
+                try {
+                    $row = $rows.item($i)
+                    if ($null -eq $row) {
+                        Write-Log "Warning: Row $i is null, skipping"
+                        continue
+                    }
+                    
+                    # Skip rows that don't have the MAIN class or enough cells
+                    $rowClass = try { $row.className } catch { "" }
+                    if ($rowClass -ne "MAIN" -and $rowClass -ne "HILITE") {
+                        Write-Log "Skipping row $i - not a main data row (class: $rowClass)"
+                        continue
+                    }
+                    
+                    # Get all cells in the row
+                    $cells = $row.getElementsByTagName("td")
+                    
+                    if ($null -eq $cells -or $cells.length -lt 6) {
+                        Write-Log "Skipping row $i - insufficient cells (found: $(if ($null -eq $cells) { "null" } else { $cells.length }))"
+                        continue
+                    }
+                    
+                    # Extract part information from cells safely
+                    $partNSN = try { $cells.item(0).innerText.Trim() } catch { "" }
+                    $description = try { $cells.item(1).innerText.Trim() } catch { "" }
+                    $qtyText = try { $cells.item(2).innerText } catch { "0" }
+                    $usageText = try { $cells.item(3).innerText } catch { "0" }
+                    $location = try { $cells.item(5).innerText.Trim() } catch { "" }
+                    
+                    # Use regex to extract digits only
+                    $qty = [int]($qtyText -replace '[^\d]', '')
+                    $usage = [int]($usageText -replace '[^\d]', '')
+                    
+                    # Extract OEM information from cell 4 safely
+                    $oem1 = ""
+                    $oem2 = ""
+                    $oem3 = ""
+                    
+                    try {
+                        $oemCell = $cells.item(4)
+                        if ($oemCell) {
+                            $oemDivs = $oemCell.getElementsByTagName("div")
+                            
+                            if ($oemDivs -and $oemDivs.length -gt 0) {
+                                # Process each div to extract OEM information
+                                for ($j = 0; $j -lt $oemDivs.length; $j++) {
+                                    try {
+                                        $oemDiv = $oemDivs.item($j)
+                                        if ($oemDiv) {
+                                            $oemText = $oemDiv.innerText.Trim()
+                                            
+                                            # Extract OEM number from text like "OEM:1 12345"
+                                            if ($oemText -match "OEM:1\s+(.+)") {
+                                                $oem1 = $matches[1]
+                                            } elseif ($oemText -match "OEM:2\s+(.+)") {
+                                                $oem2 = $matches[1]
+                                            } elseif ($oemText -match "OEM:3\s+(.+)") {
+                                                $oem3 = $matches[1]
+                                            }
+                                        }
+                                    } catch {
+                                        Write-Log "Warning: Error processing OEM div $j in row $i : $($_.Exception.Message)"
+                                    }
+                                }
+                            }
+                        }
+                    } catch {
+                        Write-Log "Warning: Error processing OEM cell in row $i : $($_.Exception.Message)"
+                    }
+                    
+                    # Create object with parsed data
+                    $parsedData += [PSCustomObject]@{
+                        "Part (NSN)" = $partNSN
+                        "Description" = $description
+                        "QTY" = $qty
+                        "13 Period Usage" = $usage
+                        "Location" = $location
+                        "OEM 1" = $oem1
+                        "OEM 2" = $oem2
+                        "OEM 3" = $oem3
+                    }
+                    
+                    Write-Log "Added row ${i}: Part(NSN)=$partNSN, Description=$description, QTY=$qty, Location=$location"
+                } catch {
+                    Write-Log "Error processing row $i : $($_.Exception.Message)"
+                    # Continue with next row instead of stopping
+                }
+            }
+            
+            Write-Log "Number of parsed data entries: $($parsedData.Count)"
+            
+            if ($parsedData.Count -eq 0) {
+                throw "No data parsed from HTML content"
+            }
+            
+            # Updating progress for CSV export
+            $progressLabel.Text = "Exporting data to CSV..."
+            $progressForm.Refresh()
+            
+            # Export parsed data to CSV
+            $csvFilePath = Join-Path $config.PartsRoomDirectory "$selectedSiteName.csv"
+            $parsedData | Export-Csv -Path $csvFilePath -NoTypeInformation
+            
+            # Creating Excel file
+            $progressLabel.Text = "Creating Excel file..."
+            $progressForm.Refresh()
+            
+            # Create Excel workbook
+            $excelFilePath = Join-Path $config.PartsRoomDirectory "$selectedSiteName.xlsx"
+            Create-ExcelFromCsv -siteName $selectedSiteName -csvDirectory $config.PartsRoomDirectory -excelDirectory $config.PartsRoomDirectory
+            
+            if (Test-Path $csvFilePath) {
+                Write-Log "CSV file created successfully at $csvFilePath"
+                if (Test-Path $excelFilePath) {
+                    Write-Log "Excel file created successfully at $excelFilePath"
+                    [System.Windows.Forms.MessageBox]::Show("Parts Room data has been updated successfully for $selectedSiteName.", "Update Complete", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+                } else {
+                    Write-Log "Failed to create Excel file."
+                    [System.Windows.Forms.MessageBox]::Show("CSV file has been created, but Excel file creation failed.", "Partial Update", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+                }
+            } else {
+                throw "Failed to create CSV file."
+            }
+            
+        } catch {
+            Write-Log "Error: $($_.Exception.Message)"
+            Write-Log "Stack Trace: $($_.ScriptStackTrace)"
+            $errorMessage = "Error: $($_.Exception.Message)`r`nStack Trace: $($_.ScriptStackTrace)"
+            $errorMessage | Out-File -FilePath $logPath -Append
+            [System.Windows.Forms.MessageBox]::Show("An error occurred. Please check the error log at $logPath for details.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        } finally {
+            # Clean up COM objects
+            if ($null -ne $htmlDoc) {
+                try {
+                    [System.Runtime.Interopservices.Marshal]::ReleaseComObject($htmlDoc) | Out-Null
+                } catch {
+                    Write-Log "Warning: Failed to release COM object: $($_.Exception.Message)"
+                }
+            }
+            [System.GC]::Collect()
+            [System.GC]::WaitForPendingFinalizers()
+            
+            # Close the progress form
+            $progressForm.Close()
+        }
+    } catch {
+        Write-Log "Error downloading HTML content: $($_.Exception.Message)"
+        [System.Windows.Forms.MessageBox]::Show("Failed to download HTML content: $($_.Exception.Message)", "Download Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+    }
+}
+
+# Function to create and format Excel file from CSV
+function Create-ExcelFromCsv {
+    param(
+        [string]$siteName,
+        [string]$csvDirectory,
+        [string]$excelDirectory,
+        [string]$tableName = "My_Parts_Room"
+    )
+    try {
+        Write-Log "Starting to create Excel file from CSV for $siteName..."
+        $csvFilePath = Join-Path $csvDirectory "$siteName.csv"
+        $excelFilePath = Join-Path $excelDirectory "$siteName.xlsx"
+        
+        if (-not (Test-Path $csvFilePath)) {
+            throw "CSV file not found at $csvFilePath"
+        }
+
+        $excel = New-Object -ComObject Excel.Application
+        $excel.Visible = $false
+        $excel.DisplayAlerts = $false
+
+        if (Test-Path $excelFilePath) {
+            Remove-Item -Path $excelFilePath -Force
+            Write-Log "Removed existing Excel file"
+        }
+        
+        $workbook = $excel.Workbooks.Add()
+        $worksheet = $workbook.Worksheets.Item(1)
+        $worksheet.Name = "Parts Data"
+
+        # Import CSV data directly instead of using QueryTables
+        $csvData = Import-Csv -Path $csvFilePath
+        
+        # Add headers first
+        $headers = $csvData[0].PSObject.Properties.Name
+        for ($col = 1; $col -le $headers.Count; $col++) {
+            $worksheet.Cells.Item(1, $col).Value2 = $headers[$col-1]
+        }
+        
+        # Then add data rows
+        $row = 2
+        foreach ($dataRow in $csvData) {
+            $col = 1
+            foreach ($header in $headers) {
+                $worksheet.Cells.Item($row, $col).Value2 = $dataRow.$header
+                $col++
+            }
+            $row++
+        }
+
+        # Format as table
+        $usedRange = $worksheet.UsedRange
+        if ($worksheet.ListObjects.Count -gt 0) {
+            $worksheet.ListObjects.Item(1).Unlist()
+        }
+        $listObject = $worksheet.ListObjects.Add([Microsoft.Office.Interop.Excel.XlListObjectSourceType]::xlSrcRange, $usedRange, $null, [Microsoft.Office.Interop.Excel.XlYesNoGuess]::xlYes)
+        $listObject.Name = $tableName
+        $listObject.TableStyle = "TableStyleMedium2"
+
+        # Apply formatting
+        $usedRange.Cells.VerticalAlignment = -4108 # xlCenter
+        $usedRange.Cells.HorizontalAlignment = -4108 # xlCenter
+        $usedRange.Cells.WrapText = $false
+        $usedRange.Cells.Font.Name = "Courier New"
+        $usedRange.Cells.Font.Size = 12
+
+        # AutoFit columns
+        $usedRange.Columns.AutoFit() | Out-Null
+
+        # Left-align the Description column if it exists
+        $descriptionColumn = $listObject.ListColumns | Where-Object { $_.Name -eq "Description" }
+        if ($descriptionColumn) {
+            $descriptionColumn.Range.Offset(1, 0).HorizontalAlignment = -4131 # xlLeft
+        }
+
+        # Remove any columns named "Importing data..."
+        for ($col = $headers.Count; $col -ge 1; $col--) {
+            $columnHeader = $worksheet.Cells.Item(1, $col).Value2
+            if ($columnHeader -eq "Importing data...") {
+                $column = $worksheet.Columns.Item($col)
+                $column.Delete()
+                Write-Log "Removed 'Importing data...' column"
+            }
+        }
+
+        # Save and close
+        $workbook.SaveAs($excelFilePath, [Microsoft.Office.Interop.Excel.XlFileFormat]::xlOpenXMLWorkbook)
+        $workbook.Close($false)
+        $excel.Quit()
+        Write-Host "Excel file created successfully at $excelFilePath"
+    }
+    catch {
+        Write-Host "Error during Excel file creation: $($_.Exception.Message)"
+    }
+    finally {
+        if ($excel) {
+            [System.Runtime.Interopservices.Marshal]::ReleaseComObject($excel) | Out-Null
+        }
+        [System.GC]::Collect()
+        [System.GC]::WaitForPendingFinalizers()
+    }
 }
 
 # Function to take a part out
