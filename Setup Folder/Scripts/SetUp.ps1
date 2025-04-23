@@ -1,6 +1,33 @@
+################################################################################
+#                                                                              #
+#                          Parts Book Manager Setup                            #
+#                                                                              #
+################################################################################
+
+################################################################################
+#                          Required .NET Assemblies                            #
+################################################################################
+
 # Load required assemblies for the Windows Forms GUI
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+
+################################################################################
+#                           Global Variables                                   #
+################################################################################
+
+# Configuration variables
+# $script:currentDir = $PSScriptRoot         Current script directory
+# $script:setupFolder = Split-Path -Parent $PSScriptRoot   Parent directory
+# $script:config = $null                     Configuration object
+
+# File paths
+# $script:configPath = $null                 Path to configuration file
+# $script:logPath = "setup_log.log"          Path to log file
+
+################################################################################
+#                            Core Utilities                                    #
+################################################################################
 
 function Write-Log {
     param([string]$message)
@@ -9,7 +36,6 @@ function Write-Log {
     # Optionally, you can also write to a log file:
     "$timestamp - $message" | Out-File -Append -FilePath "setup_log.log"
 }
-
 
 # Function to show a folder browser dialog
 function Show-FolderBrowserDialog {
@@ -21,6 +47,10 @@ function Show-FolderBrowserDialog {
     }
     return $null
 }
+
+################################################################################
+#                        Configuration Functions                               #
+################################################################################
 
 # Function to set up the initial configuration
 function Set-InitialConfiguration {
@@ -127,6 +157,10 @@ function Set-InitialConfiguration {
 
     return $config
 }
+
+################################################################################
+#                          Setup Operations                                    #
+################################################################################
 
 # Function to copy setup files to the necessary directories
 function Copy-SetupFiles {
@@ -480,6 +514,10 @@ function Set-PartsRoom {
     }
 }
 
+################################################################################
+#                       Integration Functions                                  #
+################################################################################
+
 # Function to run Parts-Books-Creator.ps1
 function Run-PartsBookCreator {
     param($config)
@@ -596,6 +634,9 @@ Write-Host "=======================================" -ForegroundColor Yellow
     }
 }
 
+################################################################################
+#                           Main Execution                                     #
+################################################################################
 
 # Main setup logic
 function Run-Setup {

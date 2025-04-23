@@ -1,6 +1,40 @@
+################################################################################
+#                                                                              #
+#                          Parts Books Creator                                 #
+#                                                                              #
+################################################################################
+
+################################################################################
+#                          Required .NET Assemblies                            #
+################################################################################
+
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName Microsoft.Office.Interop.Excel
+
+################################################################################
+#                           Global Variables                                   #
+################################################################################
+
+<#
+
+# Configuration variables
+$global:configPath = Join-Path $PSScriptRoot "Config.json"  # Path to configuration
+$script:ScriptDirectory = $PSScriptRoot    # Script directory path
+$script:configPath = Join-Path $script:ScriptDirectory "Config.json"  # Config path
+
+# UI Controls
+$global:listView = New-Object System.Windows.Forms.ListView  # ListView for books
+
+# Progress UI elements
+$global:progressForm = New-Object System.Windows.Forms.Form  # Progress form
+$global:progressBar = New-Object System.Windows.Forms.ProgressBar  # Progress bar
+$global:progressLabel = New-Object System.Windows.Forms.Label  # Progress description
+$global:bookLabel = New-Object System.Windows.Forms.Label  # Current book label
+
+# State tracking
+$script:existingBooks = $null             # Existing books collection 
+$script:machinesUpdated = $false          # Flag for machines list update
 
 $global:configPath = Join-Path $PSScriptRoot "Config.json"
 $script:ScriptDirectory = $PSScriptRoot
@@ -9,7 +43,9 @@ $global:listView = New-Object System.Windows.Forms.ListView
 
 # Load configuration
 $configPath = Join-Path $PSScriptRoot "Config.json"
-Write-Host "Attempting to load config from: $configPath"
+Write-Host "Attempting to load config from: $configPath" 
+
+#>
 
 if (Test-Path $configPath) {
     $config = Get-Content -Path $configPath | ConvertFrom-Json
@@ -67,30 +103,7 @@ try {
     exit
 }
 
-function Get-ExistingBooks {
-    Write-Host "Config path in Get-ExistingBooks: $script:configPath"
-    if (-not (Test-Path $script:configPath)) {
-        Write-Host "Config file not found at $script:configPath"
-        return @{}  # Return an empty hashtable
-    }
-    $config = Get-Content -Path $script:configPath | ConvertFrom-Json
-    if ($null -eq $config) {
-        Write-Host "Failed to load config from $script:configPath"
-        return @{}
-    }
-    Write-Host "Config loaded in Get-ExistingBooks"
-    $books = @{}
-    if ($config.PSObject.Properties.Name -contains "Books" -and $null -ne $config.Books) {
-        Write-Host "Config contains 'Books' property"
-        foreach ($key in $config.Books.PSObject.Properties.Name) {
-            Write-Host "Adding book '$key' to existingBooks"
-            $books[$key] = $config.Books.$key
-        }
-    } else {
-        Write-Host "Config does not contain 'Books' property or it's null"
-    }
-    return $books
-}
+
 
 # Initialize $existingBooks
 $existingBooks = Get-ExistingBooks
@@ -120,29 +133,34 @@ Write-Host "DropdownCsvsDirectory: $($config.DropdownCsvsDirectory)"
 Write-Host "PartsBooksDirectory: $($config.PartsBooksDirectory)"
 Write-Host "PartsRoomDirectory: $($config.PartsRoomDirectory)"
 
-# Function to update progress
-function Update-Progress($stepName, $percentComplete, $currentBook) {
-    $global:progressBar.Value = $percentComplete
-    $global:progressLabel.Text = $stepName
-    $global:bookLabel.Text = "Current Book: $currentBook"
-    $global:progressForm.Refresh()
-    [System.Windows.Forms.Application]::DoEvents()
-}
+################################################################################
+#                       Configuration Management                               #
+################################################################################
 
-# Show a message box (only used for final message now)
-function Show-Message ($message, $title = "Information") {
-    [System.Windows.Forms.MessageBox]::Show($message, $title, [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-}
-
-# Function to sanitize file/folder names
-function Sanitize-Name($name) {
-    $invalidChars = [System.IO.Path]::GetInvalidFileNameChars() + [System.IO.Path]::GetInvalidPathChars()
-    foreach ($char in $invalidChars) {
-        $name = $name -replace [regex]::Escape($char), '-'
+function Get-ExistingBooks {
+    Write-Host "Config path in Get-ExistingBooks: $script:configPath"
+    if (-not (Test-Path $script:configPath)) {
+        Write-Host "Config file not found at $script:configPath"
+        return @{}  # Return an empty hashtable
     }
-    return $name
+    $config = Get-Content -Path $script:configPath | ConvertFrom-Json
+    if ($null -eq $config) {
+        Write-Host "Failed to load config from $script:configPath"
+        return @{}
+    }
+    Write-Host "Config loaded in Get-ExistingBooks"
+    $books = @{}
+    if ($config.PSObject.Properties.Name -contains "Books" -and $null -ne $config.Books) {
+        Write-Host "Config contains 'Books' property"
+        foreach ($key in $config.Books.PSObject.Properties.Name) {
+            Write-Host "Adding book '$key' to existingBooks"
+            $books[$key] = $config.Books.$key
+        }
+    } else {
+        Write-Host "Config does not contain 'Books' property or it's null"
+    }
+    return $books
 }
-
 
 function Update-ConfigBooks($newBooks) {
     Write-Host "Config path in Update-ConfigBooks: $script:configPath"
@@ -194,6 +212,41 @@ function Update-Config($bookName, $volumesToUrlPath, $sectionNamesCsvPath) {
     $config | ConvertTo-Json -Depth 4 | Set-Content -Path $configPath
     Write-Host "Config updated for book: $bookName"
 }
+
+################################################################################
+#                      UI and Progress Reporting                               #
+################################################################################
+
+# Function to update progress
+function Update-Progress($stepName, $percentComplete, $currentBook) {
+    $global:progressBar.Value = $percentComplete
+    $global:progressLabel.Text = $stepName
+    $global:bookLabel.Text = "Current Book: $currentBook"
+    $global:progressForm.Refresh()
+    [System.Windows.Forms.Application]::DoEvents()
+}
+
+# Show a message box (only used for final message now)
+function Show-Message ($message, $title = "Information") {
+    [System.Windows.Forms.MessageBox]::Show($message, $title, [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+}
+
+################################################################################
+#                           Utility Functions                                  #
+################################################################################
+
+# Function to sanitize file/folder names
+function Sanitize-Name($name) {
+    $invalidChars = [System.IO.Path]::GetInvalidFileNameChars() + [System.IO.Path]::GetInvalidPathChars()
+    foreach ($char in $invalidChars) {
+        $name = $name -replace [regex]::Escape($char), '-'
+    }
+    return $name
+}
+
+################################################################################
+#                       HTML and Web Processing                                #
+################################################################################
 
 # Function to get HTML content
 function Get-VerifiedHtmlContent($handbookName) {
@@ -620,6 +673,10 @@ function Process-HTMLToCSV($htmlContent, $htmlFilePath) {
     Write-Host "CSV created successfully!"
 }
 
+################################################################################
+#                           File Operations                                    #
+################################################################################
+
 # Function to download and process HTML files
 function Download-And-Process-HTML($volumesToUrlData, $directoryPath, $currentBook) {
     $HTMLCSVDirectoryPath = Join-Path $directoryPath "HTML and CSV Files"
@@ -833,6 +890,10 @@ function Combine-CSVFiles($sourceDir, $siteCsvPath, $partsBookName) {
     Write-Host "CSV files combined and saved to $NewPartsBooksDirectory"
     return $NewPartsBooksDirectory
 }
+
+################################################################################
+#                          Excel Operations                                    #
+################################################################################
 
 function Create-ExcelWorkbook($sourceDir, $combinedCsvDir) {
     $excelWorkbookPath = Join-Path $sourceDir "$((Split-Path $sourceDir -Leaf)).xlsx"
@@ -1083,6 +1144,10 @@ function Create-ExcelFromCsv {
         [System.GC]::WaitForPendingFinalizers()
     }
 }
+
+################################################################################
+#                           Main Execution                                     #
+################################################################################
 
 # Main execution
 $existingBooks = Get-ExistingBooks
