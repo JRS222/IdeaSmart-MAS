@@ -123,21 +123,6 @@ function Set-InitialConfiguration {
             Name="Machines"; 
             Path=Join-Path $config.DropdownCsvsDirectory "Machines.csv";
             Headers="Machine Acronym,Machine Number"
-        },
-        @{
-            Name="Causes"; 
-            Path=Join-Path $config.DropdownCsvsDirectory "Causes.csv";
-            Headers="Value"
-        },
-        @{
-            Name="Actions"; 
-            Path=Join-Path $config.DropdownCsvsDirectory "Actions.csv";
-            Headers="Value"
-        },
-        @{
-            Name="Nouns"; 
-            Path=Join-Path $config.DropdownCsvsDirectory "Nouns.csv";
-            Headers="Value"
         }
     )
 
@@ -188,12 +173,15 @@ function Copy-SetupFiles {
         if (Test-Path $sourcePath) {
             Copy-Item -Path $sourcePath -Destination $destPath -Force
             Write-Log "Copied $csvFile to $destPath"
+            # Always add to PrerequisiteFiles when successfully copied
             $config.PrerequisiteFiles[$csvFile -replace "\.csv", ""] = $destPath
         } else {
             Write-Log "Warning: $csvFile not found in setup directory: $sourcePath"
-            # Create an empty file if it doesn't exist
-            New-Item -ItemType File -Path $destPath -Force | Out-Null
-            Write-Log "Created empty file: $destPath"
+            if ($csvFile -in @("sites.csv", "Parsed-Parts-Volumes.csv")) {
+                New-Item -ItemType File -Path $destPath -Force | Out-Null
+                Write-Log "Created empty file: $destPath"
+                $config.PrerequisiteFiles[$csvFile -replace "\.csv", ""] = $destPath
+            }
         }
     }
 
@@ -379,6 +367,32 @@ function Set-PartsRoom {
             # Get all rows from the table
             $rows = $mainTable.getElementsByTagName("tr")
             Write-Host "Number of rows found: $($rows.length)"
+
+            # Create progress bar form
+            $progressForm = New-Object System.Windows.Forms.Form
+            $progressForm.Text = "Processing Parts Data"
+            $progressForm.Size = New-Object System.Drawing.Size(400, 100)
+            $progressForm.StartPosition = 'CenterScreen'
+            $progressForm.FormBorderStyle = 'FixedDialog'
+            $progressForm.MaximizeBox = $false
+            $progressForm.MinimizeBox = $false
+
+            $progressBar = New-Object System.Windows.Forms.ProgressBar
+            $progressBar.Size = New-Object System.Drawing.Size(360, 20)
+            $progressBar.Location = New-Object System.Drawing.Point(10, 20)
+            $progressBar.Minimum = 0
+            $progressBar.Maximum = $rows.length - 1  # Skip header row
+            $progressForm.Controls.Add($progressBar)
+
+            $statusLabel = New-Object System.Windows.Forms.Label
+            $statusLabel.Size = New-Object System.Drawing.Size(360, 20)
+            $statusLabel.Location = New-Object System.Drawing.Point(10, 50)
+            $statusLabel.Text = "Processing data..."
+            $progressForm.Controls.Add($statusLabel)
+
+            # Show the progress form
+            $progressForm.Show()
+            $progressForm.Refresh()
             
             # Initialize array to hold parsed data
             $parsedData = @()
@@ -386,16 +400,21 @@ function Set-PartsRoom {
             # Process each row (skip first row which is the header)
             for ($i = 1; $i -lt $rows.length; $i++) {
                 try {
+                    # Update progress bar
+                    $progressBar.Value = $i
+                    $progressForm.Refresh()
+                    [System.Windows.Forms.Application]::DoEvents()
+                    $statusLabel.Text = "Processing row $i of $($rows.length - 1)..."
+                    
                     $row = $rows.item($i)
                     if ($null -eq $row) {
-                        Write-Host "Warning: Row $i is null, skipping"
+                        # Continue processing instead of writing to host
                         continue
                     }
                     
                     # Skip rows that don't have the MAIN class or enough cells
                     $rowClass = try { $row.className } catch { "" }
                     if ($rowClass -ne "MAIN" -and $rowClass -ne "HILITE") {
-                        Write-Host "Skipping row $i - not a main data row (class: $rowClass)"
                         continue
                     }
                     
@@ -403,7 +422,6 @@ function Set-PartsRoom {
                     $cells = $row.getElementsByTagName("td")
                     
                     if ($null -eq $cells -or $cells.length -lt 6) {
-                        Write-Host "Skipping row $i - insufficient cells (found: $(if ($null -eq $cells) { "null" } else { $cells.length }))"
                         continue
                     }
                     
@@ -446,13 +464,13 @@ function Set-PartsRoom {
                                             }
                                         }
                                     } catch {
-                                        Write-Host "Warning: Error processing OEM div $j in row $i : $($_.Exception.Message)"
+                                        # Ignore errors on OEM processing
                                     }
                                 }
                             }
                         }
                     } catch {
-                        Write-Host "Warning: Error processing OEM cell in row $i : $($_.Exception.Message)"
+                        # Ignore errors on OEM cell processing
                     }
                     
                     # Create object with parsed data
@@ -467,18 +485,21 @@ function Set-PartsRoom {
                         "OEM 3" = $oem3
                     }
                     
-                    Write-Host "Added row ${i}: Part(NSN)=$partNSN, Description=$description, QTY=$qty, Location=$location"
                 } catch {
-                    Write-Host "Error processing row $i : $($_.Exception.Message)"
-                    # Continue with next row instead of stopping
+                    # Log error to file but don't display to console
+                    "Error processing row $i : $($_.Exception.Message)" | Out-File -FilePath $logPath -Append
                 }
             }
             
-            Write-Host "Number of parsed data entries: $($parsedData.Count)"
+            # Close the progress form
+            $progressForm.Close()
             
-            if ($parsedData.Count -eq 0) {
-                throw "No data parsed from HTML content"
-            }
+            $statusLabel.Text = "Finalizing data..."
+            $progressBar.Value = $progressBar.Maximum
+            
+            # Show final message with results count
+            Write-Host "Processed $($parsedData.Count) entries from $($rows.length - 1) rows" -ForegroundColor Green
+            
             
             # Export parsed data to CSV
             $csvFilePath = Join-Path $config.PartsRoomDirectory "$selectedSite.csv"

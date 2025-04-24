@@ -301,47 +301,156 @@ function Create-ExcelFromCsv {
     )
     try {
         Write-Log "Starting to create Excel file from CSV for $siteName..."
+        
+        # Add timing diagnostics
+        $startTime = Get-Date
+        
+        # Show progress form if not already visible
+        $progressForm = New-Object System.Windows.Forms.Form
+        $progressForm.Text = "Creating Parts Room Excel"
+        $progressForm.Size = New-Object System.Drawing.Size(400, 150)
+        $progressForm.StartPosition = 'CenterScreen'
+        
+        $progressBar = New-Object System.Windows.Forms.ProgressBar
+        $progressBar.Size = New-Object System.Drawing.Size(360,20)
+        $progressBar.Location = New-Object System.Drawing.Point(10,10)
+        $progressForm.Controls.Add($progressBar)
+        
+        $progressLabel = New-Object System.Windows.Forms.Label
+        $progressLabel.Size = New-Object System.Drawing.Size(360,40)
+        $progressLabel.Location = New-Object System.Drawing.Point(10,40)
+        $progressForm.Controls.Add($progressLabel)
+        
+        $timeLabel = New-Object System.Windows.Forms.Label
+        $timeLabel.Size = New-Object System.Drawing.Size(360,20)
+        $timeLabel.Location = New-Object System.Drawing.Point(10,90)
+        $progressForm.Controls.Add($timeLabel)
+        
+        $progressForm.Show()
+        $progressForm.Refresh()
+        
         $csvFilePath = Join-Path $csvDirectory "$siteName.csv"
         $excelFilePath = Join-Path $excelDirectory "$siteName.xlsx"
+        
+        $progressLabel.Text = "Loading CSV file..."
+        $progressBar.Value = 5
+        $progressForm.Refresh()
         
         if (-not (Test-Path $csvFilePath)) {
             throw "CSV file not found at $csvFilePath"
         }
 
+        # Read CSV data
+        $loadStart = Get-Date
+        $csvData = Import-Csv -Path $csvFilePath
+        $loadEnd = Get-Date
+        $loadDuration = ($loadEnd - $loadStart).TotalSeconds
+        Write-Log "CSV loading completed in $loadDuration seconds"
+        $timeLabel.Text = "CSV loaded in $loadDuration seconds"
+        $progressForm.Refresh()
+        
+        $progressLabel.Text = "Creating Excel application..."
+        $progressBar.Value = 10
+        $progressForm.Refresh()
+        
+        # Create Excel
+        $excelStart = Get-Date
         $excel = New-Object -ComObject Excel.Application
         $excel.Visible = $false
         $excel.DisplayAlerts = $false
-
+        
         if (Test-Path $excelFilePath) {
-            Remove-Item -Path $excelFilePath -Force
-            Write-Log "Removed existing Excel file"
+            $workbook = $excel.Workbooks.Open($excelFilePath)
+        } else {
+            $workbook = $excel.Workbooks.Add()
         }
         
-        $workbook = $excel.Workbooks.Add()
+        $excelEnd = Get-Date
+        $excelDuration = ($excelEnd - $excelStart).TotalSeconds
+        Write-Log "Excel application created in $excelDuration seconds"
+        $timeLabel.Text = "Excel app created in $excelDuration seconds"
+        
+        $progressLabel.Text = "Setting up worksheet..."
+        $progressBar.Value = 15
+        $progressForm.Refresh()
+
         $worksheet = $workbook.Worksheets.Item(1)
         $worksheet.Name = "Parts Data"
 
-        # Import CSV data directly instead of using QueryTables
-        $csvData = Import-Csv -Path $csvFilePath
+        # Clear existing content
+        $worksheet.Cells.Clear()
         
+        $progressLabel.Text = "Adding headers..."
+        $progressBar.Value = 20
+        $progressForm.Refresh()
+
         # Add headers first
         $headers = $csvData[0].PSObject.Properties.Name
         for ($col = 1; $col -le $headers.Count; $col++) {
             $worksheet.Cells.Item(1, $col).Value2 = $headers[$col-1]
         }
         
-        # Then add data rows
-        $row = 2
-        foreach ($dataRow in $csvData) {
-            $col = 1
-            foreach ($header in $headers) {
-                $worksheet.Cells.Item($row, $col).Value2 = $dataRow.$header
-                $col++
+        $progressLabel.Text = "Preparing to add data rows..."
+        $progressBar.Value = 25
+        $progressForm.Refresh()
+        
+        # Optimize by using array assignment for data
+        $rowCount = $csvData.Count
+        $colCount = $headers.Count
+        
+        # Create a 2D array to hold all data
+        $dataArray = New-Object 'object[,]' $rowCount, $colCount
+        
+        $progressLabel.Text = "Filling data array..."
+        $progressBar.Value = 30
+        $progressForm.Refresh()
+        
+        # Fill the array with data
+        $arrayStart = Get-Date
+        for ($rowIdx = 0; $rowIdx -lt $rowCount; $rowIdx++) {
+            $dataRow = $csvData[$rowIdx]
+            for ($colIdx = 0; $colIdx -lt $colCount; $colIdx++) {
+                $header = $headers[$colIdx]
+                $dataArray[$rowIdx, $colIdx] = $dataRow.$header
             }
-            $row++
+            
+            # Update progress every 100 rows
+            if ($rowIdx % 100 -eq 0 -or $rowIdx -eq $rowCount - 1) {
+                $percent = 30 + ($rowIdx / $rowCount * 20)  # Scale from 30% to 50%
+                $progressBar.Value = [int]$percent
+                $progressLabel.Text = "Filling data array: row $($rowIdx+1) of $rowCount"
+                $progressForm.Refresh()
+                [System.Windows.Forms.Application]::DoEvents()
+            }
         }
+        $arrayEnd = Get-Date
+        $arrayDuration = ($arrayEnd - $arrayStart).TotalSeconds
+        Write-Log "Data array filled in $arrayDuration seconds"
+        $timeLabel.Text = "Array filled in $arrayDuration seconds"
+        
+        $progressLabel.Text = "Writing data to Excel..."
+        $progressBar.Value = 50
+        $progressForm.Refresh()
+        
+        # Get the range to fill (offset by 1 for header row)
+        $startRange = $worksheet.Cells.Item(2, 1)
+        $endRange = $worksheet.Cells.Item($rowCount + 1, $colCount)
+        $dataRange = $worksheet.Range($startRange, $endRange)
+        
+        # Fill the range in one operation
+        $rangeStart = Get-Date
+        $dataRange.Value2 = $dataArray
+        $rangeEnd = Get-Date
+        $rangeDuration = ($rangeEnd - $rangeStart).TotalSeconds
+        Write-Log "Excel range filled in $rangeDuration seconds"
+        $timeLabel.Text = "Excel range filled in $rangeDuration seconds"
+        
+        $progressLabel.Text = "Formatting table..."
+        $progressBar.Value = 70
+        $progressForm.Refresh()
 
         # Format as table
+        $formatStart = Get-Date
         $usedRange = $worksheet.UsedRange
         if ($worksheet.ListObjects.Count -gt 0) {
             $worksheet.ListObjects.Item(1).Unlist()
@@ -349,16 +458,38 @@ function Create-ExcelFromCsv {
         $listObject = $worksheet.ListObjects.Add([Microsoft.Office.Interop.Excel.XlListObjectSourceType]::xlSrcRange, $usedRange, $null, [Microsoft.Office.Interop.Excel.XlYesNoGuess]::xlYes)
         $listObject.Name = $tableName
         $listObject.TableStyle = "TableStyleMedium2"
+        $formatEnd = Get-Date
+        $formatDuration = ($formatEnd - $formatStart).TotalSeconds
+        Write-Log "Table formatting completed in $formatDuration seconds"
+        $timeLabel.Text = "Table formatted in $formatDuration seconds"
+        
+        $progressLabel.Text = "Applying cell formatting..."
+        $progressBar.Value = 80
+        $progressForm.Refresh()
 
         # Apply formatting
+        $cellFormatStart = Get-Date
         $usedRange.Cells.VerticalAlignment = -4108 # xlCenter
         $usedRange.Cells.HorizontalAlignment = -4108 # xlCenter
         $usedRange.Cells.WrapText = $false
         $usedRange.Cells.Font.Name = "Courier New"
         $usedRange.Cells.Font.Size = 12
+        $cellFormatEnd = Get-Date
+        $cellFormatDuration = ($cellFormatEnd - $cellFormatStart).TotalSeconds
+        Write-Log "Cell formatting completed in $cellFormatDuration seconds"
+        $timeLabel.Text = "Cell formatting in $cellFormatDuration seconds"
+        
+        $progressLabel.Text = "Auto-fitting columns..."
+        $progressBar.Value = 90
+        $progressForm.Refresh()
 
         # AutoFit columns
+        $autoFitStart = Get-Date
         $usedRange.Columns.AutoFit() | Out-Null
+        $autoFitEnd = Get-Date
+        $autoFitDuration = ($autoFitEnd - $autoFitStart).TotalSeconds
+        Write-Log "Column auto-fit completed in $autoFitDuration seconds"
+        $timeLabel.Text = "Columns auto-fit in $autoFitDuration seconds"
 
         # Left-align the Description column if it exists
         $descriptionColumn = $listObject.ListColumns | Where-Object { $_.Name -eq "Description" }
@@ -375,15 +506,39 @@ function Create-ExcelFromCsv {
                 Write-Log "Removed 'Importing data...' column"
             }
         }
+        
+        $progressLabel.Text = "Saving Excel file..."
+        $progressBar.Value = 95
+        $progressForm.Refresh()
 
         # Save and close
+        $saveStart = Get-Date
         $workbook.SaveAs($excelFilePath, [Microsoft.Office.Interop.Excel.XlFileFormat]::xlOpenXMLWorkbook)
         $workbook.Close($false)
         $excel.Quit()
-        Write-Host "Excel file created successfully at $excelFilePath"
+        $saveEnd = Get-Date
+        $saveDuration = ($saveEnd - $saveStart).TotalSeconds
+        Write-Log "Excel file saved in $saveDuration seconds"
+        
+        $endTime = Get-Date
+        $totalDuration = ($endTime - $startTime).TotalSeconds
+        Write-Log "Excel file created successfully at $excelFilePath in total time: $totalDuration seconds"
+        
+        $progressBar.Value = 100
+        $progressLabel.Text = "Excel file created successfully!"
+        $timeLabel.Text = "Total time: $totalDuration seconds"
+        $progressForm.Refresh()
+        Start-Sleep -Seconds 2  # Show completion for 2 seconds
+        $progressForm.Close()
     }
     catch {
-        Write-Host "Error during Excel file creation: $($_.Exception.Message)"
+        Write-Log "Error during Excel file creation: $($_.Exception.Message)"
+        if ($progressForm -and $progressForm.Visible) {
+            $progressLabel.Text = "Error: $($_.Exception.Message)"
+            $progressForm.Refresh()
+            Start-Sleep -Seconds 3  # Show error for 3 seconds
+            $progressForm.Close()
+        }
     }
     finally {
         if ($excel) {
@@ -714,7 +869,6 @@ function Process-HistoricalLogs {
         return
     }
 
-    Ensure-LaborLogsCsvExists -filePath $global:laborLogsFilePath
     $script:listViewLaborLog.Items.Clear()  # Clear the ListView
     $script:processedCallLogs = @{}  # Clear the dictionary
     $callLogs = Import-Csv -Path $callLogsFilePath
@@ -1638,8 +1792,6 @@ function Setup-LaborLogTab {
     param($parentTab, $tabControl)
 
     Write-Log "Setting up Labor Log tab..."
-
-    Ensure-LaborLogsCsvExists -filePath $laborLogsFilePath
 
     $laborLogPanel = New-Object System.Windows.Forms.Panel
     $laborLogPanel.Dock = 'Fill'
@@ -2796,22 +2948,69 @@ function Update-PartsBooks {
                 
                 $workbook = $excel.Workbooks.Open($book.ExcelPath)
                 
+                # Calculate base progress and progress weight for this phase
+                $baseProgress = $bookIndex / $totalBooks * 100
+                $progressWeight = 100 / $totalBooks / 2  # Half of book's progress weight for Excel
+                
+                # Track total operations to perform
+                $totalOperations = $sectionsWithChanges.Count * 10  # Rough estimate of operations per section
+                $currentOperation = 0
+                
                 # Update each worksheet that corresponds to a section with changes
                 foreach ($sectionName in $sectionsWithChanges) {
                     try {
-                        # Try to get the worksheet with exact section name
+                        # Update progress for section start
+                        $currentOperation += 5  # Increment for starting section
+                        $sectionProgress = $currentOperation / $totalOperations * $progressWeight
+                        $totalProgress = $baseProgress + $sectionProgress
+                        $progressBar.Value = [Math]::Min([int]$totalProgress, 100)
+                        $progressLabel.Text = "Processing section: $sectionName"
+                        $progressForm.Refresh()
+                        
+                        # Create a mapping of possible truncated names to full section names
+                        $possibleNames = @()
+                        $possibleNames += $sectionName  # Original name
+                        
+                        # Add truncated version (Excel limits worksheet names to 31 chars)
+                        $truncatedName = $sectionName.Substring(0, [Math]::Min(31, $sectionName.Length)) -replace '[:\\/?*\[\]]', ''
+                        $possibleNames += $truncatedName
+                        
+                        # Also look for section number only (e.g., "Section 1")
+                        if ($sectionName -match '^(Section \d+)') {
+                            $possibleNames += $matches[1]
+                        }
+                        
+                        # Try to find the worksheet with any of the possible names
                         $worksheet = $null
-                        try {
-                            $worksheet = $workbook.Worksheets.Item($sectionName)
-                        } catch {
-                            # Try to find with similar name
+                        foreach ($nameVariant in $possibleNames) {
+                            try {
+                                $worksheet = $workbook.Worksheets.Item($nameVariant)
+                                Write-Log "Found worksheet using name variant: $nameVariant"
+                                break  # Exit loop if worksheet found
+                            } catch {
+                                # Continue to next name variant
+                                continue
+                            }
+                        }
+                        
+                        # If still not found, try fuzzy matching
+                        if ($worksheet -eq $null) {
+                            Write-Log "Could not find exact worksheet match for $sectionName, trying fuzzy matching..."
                             foreach ($ws in $workbook.Worksheets) {
-                                if ($ws.Name -like "*$sectionName*") {
+                                # Check if worksheet name starts with the section number
+                                if ($sectionName -match '^(Section \d+)' -and 
+                                    $ws.Name -match "^$($matches[1])") {
                                     $worksheet = $ws
+                                    Write-Log "Found worksheet using fuzzy match: $($ws.Name)"
                                     break
                                 }
                             }
                         }
+                        
+                        # Update progress for finding the worksheet
+                        $currentOperation += 5
+                        $progressBar.Value = [Math]::Min([int]($baseProgress + $currentOperation / $totalOperations * $progressWeight), 100)
+                        $progressForm.Refresh()
                         
                         if ($worksheet -ne $null) {
                             # Find the QTY and Location columns
@@ -2878,6 +3077,19 @@ function Update-PartsBooks {
                                         # Now update the cells in the worksheet
                                         $lastRow = $worksheet.UsedRange.Rows.Count
                                         for ($row = 2; $row -le $lastRow; $row++) {
+                                            # Update progress every 10 rows for performance
+                                            if (($row % 10) -eq 0 -or $row -eq $lastRow) {
+                                                $rowProgress = ($row - 2) / ($lastRow - 2) * 10  # Scale to progress units
+                                                $currentOperation += $rowProgress
+                                                $cellProgress = $currentOperation / $totalOperations * $progressWeight
+                                                $totalProgress = $baseProgress + $cellProgress
+                                                
+                                                $progressBar.Value = [Math]::Min([int]$totalProgress, 100)
+                                                $progressLabel.Text = "Processing section: $sectionName - Row $row of $lastRow"
+                                                $progressForm.Refresh()
+                                                [System.Windows.Forms.Application]::DoEvents()
+                                            }
+                                            
                                             $key = $null
                                             
                                             # Try to get the key from STOCK NO. first
@@ -2912,13 +3124,15 @@ function Update-PartsBooks {
                             }
                         }
                     } catch {
-                        Write-Log "Error updating worksheet $sectionName : $($_.Exception.Message)"
+                        Write-Log "Error updating worksheet ${sectionName}: $($_.Exception.Message)"
                     }
                 }
                 
                 # Save the workbook
+                $progressBar.Value = [Math]::Min([int]($baseProgress + $progressWeight), 100)
+                $progressLabel.Text = "Saving Excel workbook..."
+                $progressForm.Refresh()
                 $workbook.Save()
-                Write-Log "Updated Excel workbook for $($book.Name)"
                 
                 # Close the workbook
                 $workbook.Close($false)
@@ -3774,12 +3988,6 @@ if ($configUpdated) {
     Write-Log "Config file updated with default paths"
 }
 
-# Ensure Labor directory exists
-if (-not (Test-Path $config.LaborDirectory)) {
-    New-Item -ItemType Directory -Path $config.LaborDirectory | Out-Null
-    Write-Log "Created Labor directory: $config.LaborDirectory"
-}
-
 ################################################################################
 #                           Main Execution                                     #
 ################################################################################
@@ -3933,4 +4141,3 @@ function Show-MainForm {
 # Main execution
 Show-MainForm
 Write-Log "Application closed"
-
