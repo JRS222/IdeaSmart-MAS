@@ -1,0 +1,203 @@
+2025-04-26 03:41:09 - Starting Run-Setup
+2025-04-26 03:41:09 - Starting Set-InitialConfiguration
+2025-04-26 03:41:09 - Current Directory: C:\Users\YYQTP0\Desktop\Setup Folder\Scripts
+2025-04-26 03:41:09 - Setup Folder: C:\Users\YYQTP0\Desktop\Setup Folder
+2025-04-26 03:41:17 - Created Root Directory at C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory
+2025-04-26 03:41:17 - Creating subdirectories...
+2025-04-26 03:41:17 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Parts Books
+2025-04-26 03:41:17 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts
+2025-04-26 03:41:17 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs
+2025-04-26 03:41:17 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Parts Room
+2025-04-26 03:41:17 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Labor
+2025-04-26 03:41:17 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Call Logs
+2025-04-26 03:41:17 - Created Same Day Parts Room directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Parts Room\Same Day Parts Room
+2025-04-26 03:41:17 - Created file with headers: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Call Logs\CallLogs.csv
+2025-04-26 03:41:17 - Created file with headers: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Labor\LaborLogs.csv
+2025-04-26 03:41:17 - Created file with headers: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs\Machines.csv
+2025-04-26 03:41:18 - Configuration saved at C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Config.json
+2025-04-26 03:41:18 - Starting Copy-SetupFiles
+2025-04-26 03:41:18 - Setup Directory:
+2025-04-26 03:41:18 - Copying Scripts...
+Join-Path : Cannot bind argument to parameter 'Path' because it is null.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:160 char:35
++     $scriptsSourceDir = Join-Path $setupDir "Scripts"
++                                   ~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Join-Path], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.JoinPathCom
+   mand
+
+Test-Path : Cannot bind argument to parameter 'Path' because it is null.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:161 char:19
++     if (Test-Path $scriptsSourceDir) {
++                   ~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Test-Path], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.TestPathCom
+   mand
+
+Join-Path : Cannot bind argument to parameter 'Path' because it is null.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:171 char:33
++         $sourcePath = Join-Path $setupDir $csvFile
++                                 ~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Join-Path], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.JoinPathCom
+   mand
+
+Join-Path : Cannot bind argument to parameter 'Path' because it is null.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:172 char:31
++ ...    $destPath = Join-Path $script:config.DropdownCsvsDirectory $csvFil ...
++                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Join-Path], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.JoinPathCom
+   mand
+
+Test-Path : Cannot bind argument to parameter 'Path' because it is null.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:173 char:23
++         if (Test-Path $sourcePath) {
++                       ~~~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Test-Path], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.TestPathCom
+   mand
+
+Join-Path : Cannot bind argument to parameter 'Path' because it is null.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:171 char:33
++         $sourcePath = Join-Path $setupDir $csvFile
++                                 ~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Join-Path], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.JoinPathCom
+   mand
+
+Join-Path : Cannot bind argument to parameter 'Path' because it is null.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:172 char:31
++ ...    $destPath = Join-Path $script:config.DropdownCsvsDirectory $csvFil ...
++                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Join-Path], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.JoinPathCom
+   mand
+
+Test-Path : Cannot bind argument to parameter 'Path' because it is null.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:173 char:23
++         if (Test-Path $sourcePath) {
++                       ~~~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Test-Path], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.TestPathCom
+   mand
+
+Join-Path : Cannot bind argument to parameter 'Path' because it is null.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:171 char:33
++         $sourcePath = Join-Path $setupDir $csvFile
++                                 ~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Join-Path], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.JoinPathCom
+   mand
+
+Join-Path : Cannot bind argument to parameter 'Path' because it is null.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:172 char:31
++ ...    $destPath = Join-Path $script:config.DropdownCsvsDirectory $csvFil ...
++                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Join-Path], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.JoinPathCom
+   mand
+
+Test-Path : Cannot bind argument to parameter 'Path' because it is null.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:173 char:23
++         if (Test-Path $sourcePath) {
++                       ~~~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Test-Path], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.TestPathCom
+   mand
+
+Join-Path : Cannot bind argument to parameter 'Path' because it is null.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:171 char:33
++         $sourcePath = Join-Path $setupDir $csvFile
++                                 ~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Join-Path], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.JoinPathCom
+   mand
+
+Join-Path : Cannot bind argument to parameter 'Path' because it is null.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:172 char:31
++ ...    $destPath = Join-Path $script:config.DropdownCsvsDirectory $csvFil ...
++                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Join-Path], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.JoinPathCom
+   mand
+
+Test-Path : Cannot bind argument to parameter 'Path' because it is null.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:173 char:23
++         if (Test-Path $sourcePath) {
++                       ~~~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Test-Path], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.TestPathCom
+   mand
+
+Join-Path : Cannot bind argument to parameter 'Path' because it is null.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:171 char:33
++         $sourcePath = Join-Path $setupDir $csvFile
++                                 ~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Join-Path], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.JoinPathCom
+   mand
+
+Join-Path : Cannot bind argument to parameter 'Path' because it is null.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:172 char:31
++ ...    $destPath = Join-Path $script:config.DropdownCsvsDirectory $csvFil ...
++                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Join-Path], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.JoinPathCom
+   mand
+
+Test-Path : Cannot bind argument to parameter 'Path' because it is null.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:173 char:23
++         if (Test-Path $sourcePath) {
++                       ~~~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Test-Path], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.TestPathCom
+   mand
+
+Join-Path : Cannot bind argument to parameter 'Path' because it is null.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:189 char:40
++ ... pt:configFilePath = Join-Path $script:config.ScriptsDirectory "Config ...
++                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Join-Path], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.JoinPathCom
+   mand
+
+2025-04-26 03:41:18 - Configuration saved at C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Config.json
+OK
+Join-Path : Cannot bind argument to parameter 'Path' because it is null.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:205 char:28
++ ...   $sitesPath = Join-Path $script:config.DropdownCsvsDirectory "Sites. ...
++                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Join-Path], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.JoinPathCom
+   mand
+
+Loading Sites from CSV at ...
+Import-Csv : Cannot validate argument on parameter 'Path'. The argument is null or empty. Provide an argument that is
+not null or empty, and then try the command again.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:207 char:31
++     $sites = Import-Csv -Path $sitesPath
++                               ~~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Import-Csv], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationError,Microsoft.PowerShell.Commands.ImportCsvCommand
+
+OK
+No data found in the Sites.csv file. Exiting...
+Join-Path : Cannot bind argument to parameter 'Path' because it is null.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:546 char:39
++ ... tsBookCreatorPath = Join-Path $script:config.ScriptsDirectory "Parts- ...
++                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Join-Path], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.JoinPathCom
+   mand
+
+Test-Path : Cannot bind argument to parameter 'Path' because it is null.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:548 char:19
++     if (Test-Path $partsBookCreatorPath) {
++                   ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Test-Path], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.TestPathCom
+   mand
+
+2025-04-26 03:41:27 - Setup completed successfully!
+Setup completed. Press Enter to exit:
