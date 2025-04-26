@@ -915,23 +915,26 @@ function Create-ExcelWorkbook($sourceDir, $combinedCsvDir) {
         Update-Progress "Finding section CSV files..." 50 (Split-Path $sourceDir -Leaf)
         $sectionCsvFiles = Get-ChildItem -Path $combinedCsvDir -Filter "Section *.csv" -ErrorAction SilentlyContinue
         
-        if ($sectionCsvFiles.Count -eq 0) {
+        if ($null -eq $sectionCsvFiles -or $sectionCsvFiles.Count -eq 0) {
             Write-Host "No Section CSV files found in $combinedCsvDir"
             throw "No Section CSV files found"
         }
 
+        # Safer sorting with error handling
         $sectionCsvFiles = $sectionCsvFiles | Sort-Object { 
             if ($_.BaseName -match 'Section (\d+)') {
-                [int]$matches[1]
+                return [int]$matches[1]
             } else {
-                0  # Default value if no match
+                return 0
             }
-        } -Descending        Write-Host "Found $($sectionCsvFiles.Count) section CSV files"
+        } -Descending
+        
+        Write-Host "Found $($sectionCsvFiles.Count) section CSV files"
         
         $csvLoadTime = (Get-Date) - $startTime
         Write-Host "CSV files located in $($csvLoadTime.TotalSeconds) seconds"
 
-        $totalSheets = $sectionCsvFiles.Count
+        $totalSheets = [int]$sectionCsvFiles.Count
         $processedSheets = 0
         
         # Timing data
@@ -939,10 +942,10 @@ function Create-ExcelWorkbook($sourceDir, $combinedCsvDir) {
 
         foreach ($file in $sectionCsvFiles) {
             $sheetStartTime = Get-Date
-            $processedSheets++
-            $baseProgress = 50  # Starting point for this phase
-            $progressWeight = 25  # Weight of this phase as percentage
-            $sheetProgress = ($processedSheets / $totalSheets)
+            $processedSheets = [int]$processedSheets + 1
+            $baseProgress = [double]50  # Starting point for this phase
+            $progressWeight = [double]25  # Weight of this phase as percentage
+            $sheetProgress = [double]$processedSheets / [double]$totalSheets
             $percentComplete = [double]$baseProgress + ([double]$sheetProgress * [double]$progressWeight)
             
             $worksheetName = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
@@ -968,103 +971,108 @@ function Create-ExcelWorkbook($sourceDir, $combinedCsvDir) {
             }
 
             # Prepare 2D array for data
-            $rowCount = $csvContent.Count
+            $rowCount = if ($null -eq $csvContent) { 0 } else { $csvContent.Count }
             Update-Progress "Preparing data for $rowCount rows in $worksheetName" $percentComplete (Split-Path $sourceDir -Leaf)
             
             # Optimize for larger data sets - use array approach
-            $dataArray = New-Object 'object[,]' $rowCount, $orderedHeaders.Count
-            
-            # Fill the array with data
-            $totalRows = $csvContent.Count
-            $rowsProcessed = 0
-            $dataStart = Get-Date
-            
-            foreach ($rowItem in $csvContent) {
-                $rowsProcessed++
-                # Calculate percentage within this sheet
-                $rowProgress = ($rowsProcessed / $totalRows)
-                # Calculate sheet contribution to overall progress
-                $sheetContribution = $rowProgress / $totalSheets
-                # Calculate final percentage
-                $detailedProgress = [double]$baseProgress + ([double]$sheetProgress * [double]$progressWeight) + ([double]$sheetContribution * [double]$progressWeight)                
-                if ($rowsProcessed % 50 -eq 0 -or $rowsProcessed -eq $totalRows) {  # Update progress every 50 rows
-                    Update-Progress "Processing sheet ${worksheetName}: row $rowsProcessed of $totalRows" [Math]::Min([int]$detailedProgress, 100) (Split-Path $sourceDir -Leaf)
-                }
+            if ($rowCount -gt 0) {
+                $dataArray = New-Object 'object[,]' $rowCount, $orderedHeaders.Count
                 
-                # Fill array row
-                for ($i = 0; $i -lt $orderedHeaders.Count; $i++) {
-                    $header = $orderedHeaders[$i]
-                    $cellValue = $rowItem.$header
+                # Fill the array with data
+                $totalRows = [int]$rowCount
+                $rowsProcessed = 0
+                $dataStart = Get-Date
+                
+                foreach ($rowItem in $csvContent) {
+                    $rowsProcessed = [int]$rowsProcessed + 1
+                    # Calculate percentage within this sheet
+                    $rowProgress = [double]$rowsProcessed / [double]$totalRows
+                    # Calculate sheet contribution to overall progress
+                    $sheetContribution = [double]$rowProgress / [double]$totalSheets
+                    # Calculate final percentage
+                    $detailedProgress = [double]$baseProgress + ([double]$sheetProgress * [double]$progressWeight) + ([double]$sheetContribution * [double]$progressWeight)
                     
-                    # Special handling for REF. column with hyperlinks
-                    if ($header -eq 'REF.' -and $cellValue -match 'Figure \d+-\d+') {
-                        $dataArray[$rowsProcessed-1, $i] = $cellValue -replace '\.csv$', ''
-                    } else {
-                        $dataArray[$rowsProcessed-1, $i] = $cellValue
+                    if ($rowsProcessed % 50 -eq 0 -or $rowsProcessed -eq $totalRows) {  # Update progress every 50 rows
+                        Update-Progress "Processing sheet ${worksheetName}: row $rowsProcessed of $totalRows" [Math]::Min([int]$detailedProgress, 100) (Split-Path $sourceDir -Leaf)
+                    }
+                    
+                    # Fill array row
+                    for ($i = 0; $i -lt $orderedHeaders.Count; $i++) {
+                        $header = $orderedHeaders[$i]
+                        $cellValue = $rowItem.$header
+                        
+                        # Special handling for REF. column with hyperlinks
+                        if ($header -eq 'REF.' -and $cellValue -match 'Figure \d+-\d+') {
+                            $dataArray[$rowsProcessed-1, $i] = $cellValue -replace '\.csv$', ''
+                        } else {
+                            $dataArray[$rowsProcessed-1, $i] = $cellValue
+                        }
                     }
                 }
-            }
-            $dataEnd = Get-Date
-            $dataDuration = ($dataEnd - $dataStart).TotalSeconds
-            
-            # Calculate position for data range
-            $startRow = 2  # Start after header row
-            $startCol = 1
-            $endRow = $startRow + $rowCount - 1
-            $endCol = $startCol + $orderedHeaders.Count - 1
-            
-            # Write data to worksheet in one operation
-            Update-Progress "Writing data to worksheet $worksheetName" $percentComplete (Split-Path $sourceDir -Leaf)
-            $writeStart = Get-Date
-            
-            if ($rowCount -gt 0) {
+                $dataEnd = Get-Date
+                $dataDuration = ($dataEnd - $dataStart).TotalSeconds
+                
+                # Calculate position for data range
+                $startRow = 2  # Start after header row
+                $startCol = 1
+                $endRow = $startRow + $rowCount - 1
+                $endCol = $startCol + $orderedHeaders.Count - 1
+                
+                # Write data to worksheet in one operation
+                Update-Progress "Writing data to worksheet $worksheetName" $percentComplete (Split-Path $sourceDir -Leaf)
+                $writeStart = Get-Date
+                
                 $startCell = $worksheet.Cells.Item($startRow, $startCol)
                 $endCell = $worksheet.Cells.Item($endRow, $endCol)
                 $dataRange = $worksheet.Range($startCell, $endCell)
                 $dataRange.Value2 = $dataArray
-            }
-            
-            $writeEnd = Get-Date
-            $writeDuration = ($writeEnd - $writeStart).TotalSeconds
-            
-            # Add hyperlinks for REF. column
-            Update-Progress "Adding hyperlinks to worksheet $worksheetName" $percentComplete (Split-Path $sourceDir -Leaf)
-            $linkStart = Get-Date
-            
-            # Find REF. column index
-            $refColIndex = -1
-            for ($i = 0; $i -lt $orderedHeaders.Count; $i++) {
-                if ($orderedHeaders[$i] -eq 'REF.') {
-                    $refColIndex = $i + 1  # Excel columns are 1-based
-                    break
+                
+                $writeEnd = Get-Date
+                $writeDuration = ($writeEnd - $writeStart).TotalSeconds
+                
+                # Add hyperlinks for REF. column
+                Update-Progress "Adding hyperlinks to worksheet $worksheetName" $percentComplete (Split-Path $sourceDir -Leaf)
+                $linkStart = Get-Date
+                
+                # Find REF. column index
+                $refColIndex = -1
+                for ($i = 0; $i -lt $orderedHeaders.Count; $i++) {
+                    if ($orderedHeaders[$i] -eq 'REF.') {
+                        $refColIndex = $i + 1  # Excel columns are 1-based
+                        break
+                    }
                 }
-            }
-            
-            if ($refColIndex -gt 0) {
-                for ($row = 2; $row -le $rowCount + 1; $row++) {
-                    $cellValue = $worksheet.Cells.Item($row, $refColIndex).Value2
-                    if ($cellValue -and $cellValue -match 'Figure \d+-\d+') {
-                        $figureNumber = $cellValue
-                        $htmlFileName = "$figureNumber.html"
-                        $htmlFilePath = Join-Path -Path $sourceDir -ChildPath "HTML and CSV Files\$htmlFileName"
-                        
-                        if (Test-Path $htmlFilePath) {
-                            $cell = $worksheet.Cells.Item($row, $refColIndex)
-                            $worksheet.Hyperlinks.Add($cell, $htmlFilePath, "", "", $figureNumber) | Out-Null
-                        }
-                        
-                        # Update progress occasionally to keep UI responsive
-                        if (($row - 2) % 50 -eq 0 -or $row -eq $rowCount + 1) {
-                            $linkProgress = (($row - 2) / $rowCount)
-                            $linkPercent = $baseProgress + ($sheetProgress * $progressWeight) + ($linkProgress * $progressWeight * 0.2)
-                            Update-Progress "Adding hyperlinks: $($row-1) of $rowCount in $worksheetName" [Math]::Min([int]$linkPercent, 100) (Split-Path $sourceDir -Leaf)
+                
+                if ($refColIndex -gt 0) {
+                    for ($row = 2; $row -le $rowCount + 1; $row++) {
+                        $cellValue = $worksheet.Cells.Item($row, $refColIndex).Value2
+                        if ($cellValue -and $cellValue -match 'Figure \d+-\d+') {
+                            $figureNumber = $cellValue
+                            $htmlFileName = "$figureNumber.html"
+                            $htmlFilePath = Join-Path -Path $sourceDir -ChildPath "HTML and CSV Files\$htmlFileName"
+                            
+                            if (Test-Path $htmlFilePath) {
+                                $cell = $worksheet.Cells.Item($row, $refColIndex)
+                                $worksheet.Hyperlinks.Add($cell, $htmlFilePath, "", "", $figureNumber) | Out-Null
+                            }
+                            
+                            # Update progress occasionally to keep UI responsive
+                            if (($row - 2) % 50 -eq 0 -or $row -eq $rowCount + 1) {
+                                $linkProgress = [double]($row - 2) / [double]$rowCount
+                                $linkPercent = [double]$baseProgress + ([double]$sheetProgress * [double]$progressWeight) + ([double]$linkProgress * [double]$progressWeight * 0.2)
+                                Update-Progress "Adding hyperlinks: $($row-1) of $rowCount in $worksheetName" [Math]::Min([int]$linkPercent, 100) (Split-Path $sourceDir -Leaf)
+                            }
                         }
                     }
                 }
+                
+                $linkEnd = Get-Date
+                $linkDuration = ($linkEnd - $linkStart).TotalSeconds
+            } else {
+                $dataDuration = 0
+                $writeDuration = 0
+                $linkDuration = 0
             }
-            
-            $linkEnd = Get-Date
-            $linkDuration = ($linkEnd - $linkStart).TotalSeconds
             
             # Format as table
             Update-Progress "Formatting table for $worksheetName" $percentComplete (Split-Path $sourceDir -Leaf)
@@ -1128,8 +1136,10 @@ function Create-ExcelWorkbook($sourceDir, $combinedCsvDir) {
         $totalDuration = ($endTime - $startTime).TotalSeconds
         Write-Host "Total Excel workbook creation time: $totalDuration seconds"
         Write-Host "Sheet timing details:"
+        
+        # Fix for the Write-Host error - separate the operations
         $formattedOutput = $sheetTimes | Format-Table -AutoSize | Out-String
-Write-Host $formattedOutput
+        Write-Host $formattedOutput
         
         return $true
     }
@@ -1355,55 +1365,57 @@ function Create-ExcelFromCsv {
         $progressForm.Refresh()
         
         # Optimize by using array assignment for data
-        $rowCount = $csvData.Count
-        $colCount = $headers.Count
+        $rowCount = if ($null -eq $csvData) { 0 } else { $csvData.Count }
+        $colCount = if ($null -eq $headers) { 0 } else { $headers.Count }
         
-        # Create a 2D array to hold all data
-        $dataArray = New-Object 'object[,]' $rowCount, $colCount
-        
-        $progressLabel.Text = "Filling data array..."
-        $progressBar.Value = 30
-        $progressForm.Refresh()
-        
-        # Fill the array with data
-        $arrayStart = Get-Date
-        for ($rowIdx = 0; $rowIdx -lt $rowCount; $rowIdx++) {
-            $dataRow = $csvData[$rowIdx]
-            for ($colIdx = 0; $colIdx -lt $colCount; $colIdx++) {
-                $header = $headers[$colIdx]
-                $dataArray[$rowIdx, $colIdx] = $dataRow.$header
-            }
+        if ($rowCount -gt 0 -and $colCount -gt 0) {
+            # Create a 2D array to hold all data
+            $dataArray = New-Object 'object[,]' $rowCount, $colCount
             
-            # Update progress every 100 rows
-            if ($rowIdx % 100 -eq 0 -or $rowIdx -eq $rowCount - 1) {
-                $percent = [double]30 + ([double]$rowIdx / [double]$rowCount * [double]20)
-                $progressBar.Value = [int]$percent
-                $progressLabel.Text = "Filling data array: row $($rowIdx+1) of $rowCount"
-                $progressForm.Refresh()
-                [System.Windows.Forms.Application]::DoEvents()
+            $progressLabel.Text = "Filling data array..."
+            $progressBar.Value = 30
+            $progressForm.Refresh()
+            
+            # Fill the array with data
+            $arrayStart = Get-Date
+            for ($rowIdx = 0; $rowIdx -lt $rowCount; $rowIdx++) {
+                $dataRow = $csvData[$rowIdx]
+                for ($colIdx = 0; $colIdx -lt $colCount; $colIdx++) {
+                    $header = $headers[$colIdx]
+                    $dataArray[$rowIdx, $colIdx] = $dataRow.$header
+                }
+                
+                # Update progress every 100 rows
+                if ($rowIdx % 100 -eq 0 -or $rowIdx -eq $rowCount - 1) {
+                    $percent = [double]30 + ([double]$rowIdx / [double]$rowCount * [double]20)  # Scale from 30% to 50%
+                    $progressBar.Value = [int]$percent
+                    $progressLabel.Text = "Filling data array: row $($rowIdx+1) of $rowCount"
+                    $progressForm.Refresh()
+                    [System.Windows.Forms.Application]::DoEvents()
+                }
             }
+            $arrayEnd = Get-Date
+            $arrayDuration = ($arrayEnd - $arrayStart).TotalSeconds
+            Write-Log "Data array filled in $arrayDuration seconds"
+            $timeLabel.Text = "Array filled in $arrayDuration seconds"
+            
+            $progressLabel.Text = "Writing data to Excel..."
+            $progressBar.Value = 50
+            $progressForm.Refresh()
+            
+            # Get the range to fill (offset by 1 for header row)
+            $startRange = $worksheet.Cells.Item(2, 1)
+            $endRange = $worksheet.Cells.Item($rowCount + 1, $colCount)
+            $dataRange = $worksheet.Range($startRange, $endRange)
+            
+            # Fill the range in one operation
+            $rangeStart = Get-Date
+            $dataRange.Value2 = $dataArray
+            $rangeEnd = Get-Date
+            $rangeDuration = ($rangeEnd - $rangeStart).TotalSeconds
+            Write-Log "Excel range filled in $rangeDuration seconds"
+            $timeLabel.Text = "Excel range filled in $rangeDuration seconds"
         }
-        $arrayEnd = Get-Date
-        $arrayDuration = ($arrayEnd - $arrayStart).TotalSeconds
-        Write-Log "Data array filled in $arrayDuration seconds"
-        $timeLabel.Text = "Array filled in $arrayDuration seconds"
-        
-        $progressLabel.Text = "Writing data to Excel..."
-        $progressBar.Value = 50
-        $progressForm.Refresh()
-        
-        # Get the range to fill (offset by 1 for header row)
-        $startRange = $worksheet.Cells.Item(2, 1)
-        $endRange = $worksheet.Cells.Item($rowCount + 1, $colCount)
-        $dataRange = $worksheet.Range($startRange, $endRange)
-        
-        # Fill the range in one operation
-        $rangeStart = Get-Date
-        $dataRange.Value2 = $dataArray
-        $rangeEnd = Get-Date
-        $rangeDuration = ($rangeEnd - $rangeStart).TotalSeconds
-        Write-Log "Excel range filled in $rangeDuration seconds"
-        $timeLabel.Text = "Excel range filled in $rangeDuration seconds"
         
         $progressLabel.Text = "Formatting table..."
         $progressBar.Value = 70
@@ -1452,19 +1464,28 @@ function Create-ExcelFromCsv {
         $timeLabel.Text = "Columns auto-fit in $autoFitDuration seconds"
 
         # Left-align the Description column if it exists
-        $descriptionColumn = $listObject.ListColumns | Where-Object { $_.Name -eq "Description" }
-        if ($descriptionColumn) {
-            $descriptionColumn.Range.Offset(1, 0).HorizontalAlignment = -4131 # xlLeft
+        $descriptionColumn = $null
+        try {
+            $descriptionColumn = $listObject.ListColumns | Where-Object { $_.Name -eq "Description" }
+            if ($descriptionColumn) {
+                $descriptionColumn.Range.Offset(1, 0).HorizontalAlignment = -4131 # xlLeft
+            }
+        } catch {
+            Write-Log "Error while formatting Description column: $_"
         }
 
         # Remove any columns named "Importing data..."
-        for ($col = $headers.Count; $col -ge 1; $col--) {
-            $columnHeader = $worksheet.Cells.Item(1, $col).Value2
-            if ($columnHeader -eq "Importing data...") {
-                $column = $worksheet.Columns.Item($col)
-                $column.Delete()
-                Write-Log "Removed 'Importing data...' column"
+        try {
+            for ($col = $headers.Count; $col -ge 1; $col--) {
+                $columnHeader = $worksheet.Cells.Item(1, $col).Value2
+                if ($columnHeader -eq "Importing data...") {
+                    $column = $worksheet.Columns.Item($col)
+                    $column.Delete()
+                    Write-Log "Removed 'Importing data...' column"
+                }
             }
+        } catch {
+            Write-Log "Error while removing columns: $_"
         }
         
         $progressLabel.Text = "Saving Excel file..."
@@ -1501,8 +1522,13 @@ function Create-ExcelFromCsv {
         }
     }
     finally {
+        # Clean up even if there's an error
         if ($excel) {
-            [System.Runtime.Interopservices.Marshal]::ReleaseComObject($excel) | Out-Null
+            try {
+                [System.Runtime.Interopservices.Marshal]::ReleaseComObject($excel) | Out-Null
+            } catch {
+                Write-Log "Error releasing Excel COM object: $_"
+            }
         }
         [System.GC]::Collect()
         [System.GC]::WaitForPendingFinalizers()
