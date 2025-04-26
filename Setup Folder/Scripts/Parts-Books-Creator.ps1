@@ -920,8 +920,13 @@ function Create-ExcelWorkbook($sourceDir, $combinedCsvDir) {
             throw "No Section CSV files found"
         }
 
-        $sectionCsvFiles = $sectionCsvFiles | Sort-Object { [int]($_.BaseName -replace 'Section (\d+)', '$1') } -Descending
-        Write-Host "Found $($sectionCsvFiles.Count) section CSV files"
+        $sectionCsvFiles = $sectionCsvFiles | Sort-Object { 
+            if ($_.BaseName -match 'Section (\d+)') {
+                [int]$matches[1]
+            } else {
+                0  # Default value if no match
+            }
+        } -Descending        Write-Host "Found $($sectionCsvFiles.Count) section CSV files"
         
         $csvLoadTime = (Get-Date) - $startTime
         Write-Host "CSV files located in $($csvLoadTime.TotalSeconds) seconds"
@@ -938,7 +943,7 @@ function Create-ExcelWorkbook($sourceDir, $combinedCsvDir) {
             $baseProgress = 50  # Starting point for this phase
             $progressWeight = 25  # Weight of this phase as percentage
             $sheetProgress = ($processedSheets / $totalSheets)
-            $percentComplete = $baseProgress + ($sheetProgress * $progressWeight)
+            $percentComplete = [double]$baseProgress + ([double]$sheetProgress * [double]$progressWeight)
             
             $worksheetName = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
             Update-Progress "Loading CSV for sheet: $worksheetName" $percentComplete (Split-Path $sourceDir -Leaf)
@@ -981,8 +986,7 @@ function Create-ExcelWorkbook($sourceDir, $combinedCsvDir) {
                 # Calculate sheet contribution to overall progress
                 $sheetContribution = $rowProgress / $totalSheets
                 # Calculate final percentage
-                $detailedProgress = $baseProgress + ($sheetProgress * $progressWeight) + ($sheetContribution * $progressWeight)
-                
+                $detailedProgress = [double]$baseProgress + ([double]$sheetProgress * [double]$progressWeight) + ([double]$sheetContribution * [double]$progressWeight)                
                 if ($rowsProcessed % 50 -eq 0 -or $rowsProcessed -eq $totalRows) {  # Update progress every 50 rows
                     Update-Progress "Processing sheet ${worksheetName}: row $rowsProcessed of $totalRows" [Math]::Min([int]$detailedProgress, 100) (Split-Path $sourceDir -Leaf)
                 }
@@ -1371,7 +1375,7 @@ function Create-ExcelFromCsv {
             
             # Update progress every 100 rows
             if ($rowIdx % 100 -eq 0 -or $rowIdx -eq $rowCount - 1) {
-                $percent = 30 + ($rowIdx / $rowCount * 20)  # Scale from 30% to 50%
+                $percent = [double]30 + ([double]$rowIdx / [double]$rowCount * [double]20)
                 $progressBar.Value = [int]$percent
                 $progressLabel.Text = "Filling data array: row $($rowIdx+1) of $rowCount"
                 $progressForm.Refresh()
