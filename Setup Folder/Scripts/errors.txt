@@ -1,10 +1,4 @@
-  Processed 21 rows from Figure 4-8.csv
-  Processing file: Figure 4-9.csv
-  Processed 13 rows from Figure 4-9.csv
-Saved combined section to: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Parts Books\MS-120 Computerized Forwarding System - CFS (Vol. B)\CombinedSections\Section 4.csv
-Updated Site CSV: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Parts Room\ALTOONA PO, PA, 16635-9997.csv
-CSV files combined and saved to C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Parts Books\MS-120 Computerized Forwarding System - CFS (Vol. B)\CombinedSections
-Starting Excel workbook creation for C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Parts Books\MS-120 Computerized Forwarding System - CFS (Vol. B)
-Found 3 section CSV files
-CSV files located in 1.6122931 seconds
-Error in Create-ExcelWorkbook: Method invocation failed because [System.Object[]] does not contain a method named 'op_Subtraction'.
+Error in Create-ExcelWorkbook: A positional parameter cannot be found that accepts argument 'Write-Host'.
+Cancel
+2025-04-26 04:37:14 - Setup completed successfully!
+Setup completed. Press Enter to exit:
