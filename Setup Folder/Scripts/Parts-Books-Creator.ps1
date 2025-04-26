@@ -40,12 +40,12 @@ $global:configPath = Join-Path $PSScriptRoot "Config.json"
 $script:ScriptDirectory = $PSScriptRoot
 $script:configPath = Join-Path $script:ScriptDirectory "Config.json"
 $global:listView = New-Object System.Windows.Forms.ListView
+#>
 
 # Load configuration
 $configPath = Join-Path $PSScriptRoot "Config.json"
 Write-Host "Attempting to load config from: $configPath" 
 
-#>
 
 if (Test-Path $configPath) {
     $config = Get-Content -Path $configPath | ConvertFrom-Json
@@ -103,36 +103,6 @@ try {
     exit
 }
 
-
-
-# Initialize $existingBooks
-$existingBooks = Get-ExistingBooks
-if ($null -eq $existingBooks) {
-    $existingBooks = @{}
-    Write-Host "Warning: existingBooks was null, initializing empty hashtable"
-}
-
-Write-Host "Existing books: $($existingBooks.Keys -join ', ')"
-
-foreach ($row in $csvData) {
-    Write-Host "Processing row: $($row.'Full Name')"
-    if (-not $existingBooks.ContainsKey($row.'Full Name')) {
-        $item = New-Object System.Windows.Forms.ListViewItem($row.'Full Name')
-        $item.SubItems.Add($row.'MS Book No')
-        $item.SubItems.Add($row.'Volume')
-        $listView.Items.Add($item)
-        Write-Host "Added item to ListView: $($row.'Full Name')"
-    } else {
-        Write-Host "Skipped existing book: $($row.'Full Name')"
-    }
-}
-Write-Host "ListView items count: $($listView.Items.Count)"
-
-Write-Host "Script is running from: "
-Write-Host "DropdownCsvsDirectory: $($config.DropdownCsvsDirectory)"
-Write-Host "PartsBooksDirectory: $($config.PartsBooksDirectory)"
-Write-Host "PartsRoomDirectory: $($config.PartsRoomDirectory)"
-
 ################################################################################
 #                       Configuration Management                               #
 ################################################################################
@@ -161,6 +131,35 @@ function Get-ExistingBooks {
     }
     return $books
 }
+
+ 
+# Initialize $existingBooks
+$existingBooks = Get-ExistingBooks
+if ($null -eq $existingBooks) {
+    $existingBooks = @{}
+    Write-Host "Warning: existingBooks was null, initializing empty hashtable"
+}
+
+Write-Host "Existing books: $($existingBooks.Keys -join ', ')"
+
+foreach ($row in $csvData) {
+    Write-Host "Processing row: $($row.'Full Name')"
+    if (-not $existingBooks.ContainsKey($row.'Full Name')) {
+        $item = New-Object System.Windows.Forms.ListViewItem($row.'Full Name')
+        $item.SubItems.Add($row.'MS Book No')
+        $item.SubItems.Add($row.'Volume')
+        $listView.Items.Add($item)
+        Write-Host "Added item to ListView: $($row.'Full Name')"
+    } else {
+        Write-Host "Skipped existing book: $($row.'Full Name')"
+    }
+}
+Write-Host "ListView items count: $($global:listView.Items.Count)"
+
+Write-Host "Script is running from: "
+Write-Host "DropdownCsvsDirectory: $($config.DropdownCsvsDirectory)"
+Write-Host "PartsBooksDirectory: $($config.PartsBooksDirectory)"
+Write-Host "PartsRoomDirectory: $($config.PartsRoomDirectory)"
 
 function Update-ConfigBooks($newBooks) {
     Write-Host "Config path in Update-ConfigBooks: $script:configPath"
@@ -1529,19 +1528,19 @@ $label.Text = 'Please select one or more handbooks:'
 $form.Controls.Add($label)
 
 # Create a ListView instead of a DataGridView
-$listView.Location = New-Object System.Drawing.Point(10,40)
-$listView.Size = New-Object System.Drawing.Size(760, 450)
-$listView.View = [System.Windows.Forms.View]::Details
-$listView.FullRowSelect = $true
-$listView.CheckBoxes = $true
-$form.Controls.Add($listView)
+$global:listView.Location = New-Object System.Drawing.Point(10,40)
+$global:listView.Size = New-Object System.Drawing.Size(760, 450)
+$global:listView.View = [System.Windows.Forms.View]::Details
+$global:listView.FullRowSelect = $true
+$global:listView.CheckBoxes = $true
+$form.Controls.Add($global:listView)
 
 # Add columns to the ListView
-$listView.Columns.Add("Full Name", 300)
-$listView.Columns.Add("MS Book No", 100)
-$listView.Columns.Add("Volume", 100)
+$global:listView.Columns.Add("Full Name", 300)
+$global:listView.Columns.Add("MS Book No", 100)
+$global:listView.Columns.Add("Volume", 100)
 
-Write-Host "ListView items count: $($listView.Items.Count)"
+Write-Host "ListView items count: $($global:listView.Items.Count)"
 $button = New-Object System.Windows.Forms.Button
 $button.Location = New-Object System.Drawing.Point(10, 500)
 $button.Size = New-Object System.Drawing.Size(100, 30)
@@ -1550,7 +1549,7 @@ $form.Controls.Add($button)
 
 # Button click event
 $button.Add_Click({
-    $selectedItems = $listView.CheckedItems
+    $selectedItems = $global:listView.CheckedItems
 
     if ($selectedItems.Count -eq 0) {
         [System.Windows.Forms.MessageBox]::Show("Please select at least one handbook.", "No Selection", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
