@@ -1,0 +1,65 @@
+2025-04-26 03:53:10 - Starting Run-Setup
+2025-04-26 03:53:10 - Starting Set-InitialConfiguration
+2025-04-26 03:53:10 - Current Directory: C:\Users\YYQTP0\Desktop\Setup Folder\Scripts
+2025-04-26 03:53:10 - Setup Folder: C:\Users\YYQTP0\Desktop\Setup Folder
+2025-04-26 03:53:17 - Created Root Directory at C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory
+2025-04-26 03:53:17 - Creating subdirectories...
+2025-04-26 03:53:17 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Parts Books
+2025-04-26 03:53:17 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts
+2025-04-26 03:53:17 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs
+2025-04-26 03:53:17 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Parts Room
+2025-04-26 03:53:17 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Labor
+2025-04-26 03:53:17 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Call Logs
+2025-04-26 03:53:17 - Created Same Day Parts Room directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Parts Room\Same Day Parts Room
+2025-04-26 03:53:17 - Created file with headers: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Call Logs\CallLogs.csv
+2025-04-26 03:53:17 - Created file with headers: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Labor\LaborLogs.csv
+2025-04-26 03:53:17 - Created file with headers: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs\Machines.csv
+2025-04-26 03:53:17 - Configuration saved at C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Config.json
+2025-04-26 03:53:17 - Starting Copy-SetupFiles
+2025-04-26 03:53:17 - Setup Directory: C:\Users\YYQTP0\Desktop\Setup Folder
+2025-04-26 03:53:17 - Copying Scripts...
+2025-04-26 03:53:17 - Copied Scripts
+2025-04-26 03:53:17 - Copied sites.csv to C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs\sites.csv
+2025-04-26 03:53:17 - Copied Parsed-Parts-Volumes.csv to C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs\Parsed-Parts-Volumes.csv
+2025-04-26 03:53:17 - Copied Causes.csv to C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs\Causes.csv
+2025-04-26 03:53:17 - Copied Actions.csv to C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs\Actions.csv
+2025-04-26 03:53:17 - Copied Nouns.csv to C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs\Nouns.csv
+2025-04-26 03:53:17 - Configuration saved at C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Config.json
+OK
+Join-Path : Cannot bind argument to parameter 'Path' because it is null.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:204 char:28
++ ...   $sitesPath = Join-Path $script:config.DropdownCsvsDirectory "Sites. ...
++                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Join-Path], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.JoinPathCom
+   mand
+
+Loading Sites from CSV at ...
+Import-Csv : Cannot validate argument on parameter 'Path'. The argument is null or empty. Provide an argument that is
+not null or empty, and then try the command again.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:206 char:31
++     $sites = Import-Csv -Path $sitesPath
++                               ~~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Import-Csv], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationError,Microsoft.PowerShell.Commands.ImportCsvCommand
+
+OK
+No data found in the Sites.csv file. Exiting...
+Join-Path : Cannot bind argument to parameter 'Path' because it is null.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:545 char:39
++ ... tsBookCreatorPath = Join-Path $script:config.ScriptsDirectory "Parts- ...
++                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Join-Path], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.JoinPathCom
+   mand
+
+Test-Path : Cannot bind argument to parameter 'Path' because it is null.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:547 char:19
++     if (Test-Path $partsBookCreatorPath) {
++                   ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Test-Path], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.TestPathCom
+   mand
+
+2025-04-26 03:53:21 - Setup completed successfully!
+Setup completed. Press Enter to exit:
