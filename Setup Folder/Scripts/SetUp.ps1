@@ -201,7 +201,7 @@ function Set-PartsRoom {
     param($script:config)
 
     # Load the sites from the CSV
-    $sitesPath = Join-Path $script:config.DropdownCsvsDirectory "Sites.csv"
+    $sitesPath = Join-Path $config.DropdownCsvsDirectory "Sites.csv"
     Write-Host "Loading Sites from CSV at $sitesPath..."
     $sites = Import-Csv -Path $sitesPath
 
@@ -542,7 +542,7 @@ function Set-PartsRoom {
 # Function to run Parts-Books-Creator.ps1
 function Run-PartsBookCreator {
     param($script:config)
-    $partsBookCreatorPath = Join-Path $script:config.ScriptsDirectory "Parts-Books-Creator.ps1"
+    $partsBookCreatorPath = Join-Path $config.ScriptsDirectory "Parts-Books-Creator.ps1"
     
     if (Test-Path $partsBookCreatorPath) {
         Write-Host "Running Parts-Books-Creator.ps1 from $partsBookCreatorPath"
