@@ -140,8 +140,7 @@ function Set-InitialConfiguration {
     $script:config | ConvertTo-Json -Depth 4 | Set-Content -Path $script:configFilePath
     Write-Log "Configuration saved at $script:configFilePath"
 
-    return $script:config
-}
+    return $config}
 
 ################################################################################
 #                          Setup Operations                                    #
@@ -149,17 +148,17 @@ function Set-InitialConfiguration {
 
 # Function to copy setup files to the necessary directories
 function Copy-SetupFiles {
-    param($script:config)
+    param($config)
     Write-Log "Starting Copy-SetupFiles"
     
-    $setupDir = $script:config.SetupFolder
+    $setupDir = $config.SetupFolder
     Write-Log "Setup Directory: $setupDir"
 
     # Copy Scripts
     Write-Log "Copying Scripts..."
     $scriptsSourceDir = Join-Path $setupDir "Scripts"
     if (Test-Path $scriptsSourceDir) {
-        Copy-Item -Path "$scriptsSourceDir\*" -Destination $script:config.ScriptsDirectory -Recurse -Force
+        Copy-Item -Path "$scriptsSourceDir\*" -Destination $config.ScriptsDirectory -Recurse -Force
         Write-Log "Copied Scripts"
     } else {
         Write-Log "Warning: Scripts directory not found in the SetupFolder: $scriptsSourceDir"
@@ -169,26 +168,26 @@ function Copy-SetupFiles {
     $csvFiles = @("sites.csv", "Parsed-Parts-Volumes.csv", "Causes.csv", "Actions.csv", "Nouns.csv")
     foreach ($csvFile in $csvFiles) {
         $sourcePath = Join-Path $setupDir $csvFile
-        $destPath = Join-Path $script:config.DropdownCsvsDirectory $csvFile
+        $destPath = Join-Path $config.DropdownCsvsDirectory $csvFile
         if (Test-Path $sourcePath) {
             Copy-Item -Path $sourcePath -Destination $destPath -Force
             Write-Log "Copied $csvFile to $destPath"
             # Always add to PrerequisiteFiles when successfully copied
-            $script:config.PrerequisiteFiles[$csvFile -replace "\.csv", ""] = $destPath
+            $config.PrerequisiteFiles[$csvFile -replace "\.csv", ""] = $destPath
         } else {
             Write-Log "Warning: $csvFile not found in setup directory: $sourcePath"
             if ($csvFile -in @("sites.csv", "Parsed-Parts-Volumes.csv")) {
                 New-Item -ItemType File -Path $destPath -Force | Out-Null
                 Write-Log "Created empty file: $destPath"
-                $script:config.PrerequisiteFiles[$csvFile -replace "\.csv", ""] = $destPath
+                $config.PrerequisiteFiles[$csvFile -replace "\.csv", ""] = $destPath
             }
         }
     }
 
     # Save configuration in the Scripts directory
-    $script:configFilePath = Join-Path $script:config.ScriptsDirectory "Config.json"
-    $script:config | ConvertTo-Json -Depth 4 | Set-Content -Path $script:configFilePath
-    Write-Log "Configuration saved at $script:configFilePath"
+    $configFilePath = Join-Path $config.ScriptsDirectory "Config.json"
+    $config | ConvertTo-Json -Depth 4 | Set-Content -Path $configFilePath
+    Write-Log "Configuration saved at $configFilePath"
 
     [System.Windows.Forms.MessageBox]::Show(
         "Setup files have been copied successfully.",
@@ -583,17 +582,14 @@ function Run-Setup {
     Write-Log "Starting Run-Setup"
     
     # Set up the initial configuration
-    $script:config = Set-InitialConfiguration
+    $config = Set-InitialConfiguration
 
     # Copy setup files
-    Copy-SetupFiles -config $script:config
-
+    Copy-SetupFiles -config $config
     # Ask for site to download and process
-    Set-PartsRoom -config $script:config
-
+    Set-PartsRoom -config $config
     # Run the Parts Book Creator script
-    Run-PartsBookCreator -config $script:config
-
+    Run-PartsBookCreator -config $config
     Write-Log "Setup completed successfully!"
     
     # Add this pause to keep the window open
