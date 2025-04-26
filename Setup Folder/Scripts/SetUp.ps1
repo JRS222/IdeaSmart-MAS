@@ -17,13 +17,13 @@ Add-Type -AssemblyName System.Drawing
 ################################################################################
 
 # Configuration variables
-$script:currentDir = $PSScriptRoot         #Current script directory
-$script:setupFolder = Split-Path -Parent $PSScriptRoot   #Parent directory
-$script:config = $null                     #Configuration object
+$currentDir = $PSScriptRoot         #Current script directory
+$setupFolder = Split-Path -Parent $PSScriptRoot   #Parent directory
+$config = $null                     #Configuration object
 
 # File paths
-$script:configPath = $null                 # Path to configuration file
-$script:logPath = "setup_log.log"          # Path to log file
+$configPath = $null                 # Path to configuration file
+$logPath = "setup_log.log"          # Path to log file
 
 ################################################################################
 #                            Core Utilities                                    #
@@ -57,15 +57,15 @@ function Set-InitialConfiguration {
     Write-Log "Starting Set-InitialConfiguration"
     
     # Get the current script's directory
-    $script:currentDir = $PSScriptRoot
-    if (-not $script:currentDir) {
-        $script:currentDir = (Get-Location).Path
-        Write-Log "Warning: Unable to determine script directory. Using current directory: $script:currentDir"
+    $currentDir = $PSScriptRoot
+    if (-not $currentDir) {
+        $currentDir = (Get-Location).Path
+        Write-Log "Warning: Unable to determine script directory. Using current directory: $currentDir"
     }
-    $script:setupFolder = Split-Path -Parent $script:currentDir
+    $setupFolder = Split-Path -Parent $currentDir
 
-    Write-Log "Current Directory: $script:currentDir"
-    Write-Log "Setup Folder: $script:setupFolder"
+    Write-Log "Current Directory: $currentDir"
+    Write-Log "Setup Folder: $setupFolder"
     
     # Select parent directory
     $parentDir = Show-FolderBrowserDialog -Description "Select parent directory for PartsBookManagerRootDirectory"
@@ -80,7 +80,7 @@ function Set-InitialConfiguration {
     Write-Log "Created Root Directory at $rootDir"
 
     # Define subdirectories in the config
-    $script:config = @{
+   $config = @{
         RootDirectory        = $rootDir
         PartsBooksDirectory  = Join-Path $rootDir "Parts Books"
         ScriptsDirectory     = Join-Path $rootDir "Scripts"
@@ -91,19 +91,19 @@ function Set-InitialConfiguration {
         Books                = @{}
         PrerequisiteFiles    = @{}
         SupervisorEmail      = "default@example.com"
-        SetupFolder          = $script:setupFolder
+        SetupFolder          = $setupFolder
     }
 
     # Create subdirectories
     Write-Log "Creating subdirectories..."
     $subDirs = @("PartsBooksDirectory", "ScriptsDirectory", "DropdownCsvsDirectory", "PartsRoomDirectory", "LaborDirectory", "CallLogsDirectory")
     foreach ($dir in $subDirs) {
-        New-Item -ItemType Directory -Force -Path $script:config[$dir] | Out-Null
-        Write-Log "Created directory: $($script:config[$dir])"
+        New-Item -ItemType Directory -Force -Path$config[$dir] | Out-Null
+        Write-Log "Created directory: $($config[$dir])"
     }
 
     # Create Same Day Parts Room directory
-    $sameDayPartsRoomDir = Join-Path $script:config.PartsRoomDirectory "Same Day Parts Room"
+    $sameDayPartsRoomDir = Join-Path$config.PartsRoomDirectory "Same Day Parts Room"
     New-Item -ItemType Directory -Force -Path $sameDayPartsRoomDir | Out-Null
     Write-Log "Created Same Day Parts Room directory: $sameDayPartsRoomDir"
 
@@ -111,17 +111,17 @@ function Set-InitialConfiguration {
     $prerequisiteFiles = @(
         @{
             Name="CallLogs"; 
-            Path=Join-Path $script:config.CallLogsDirectory "CallLogs.csv";
+            Path=Join-Path $config.CallLogsDirectory "CallLogs.csv";
             Headers="Date,Machine,Cause,Action,Noun,Time Down,Time Up,Notes"
         },
         @{
             Name="LaborLogs"; 
-            Path=Join-Path $script:config.LaborDirectory "LaborLogs.csv";
+            Path=Join-Path $config.LaborDirectory "LaborLogs.csv";
             Headers="Date,Work Order,Description,Machine,Duration,Notes,Parts"
         },
         @{
             Name="Machines"; 
-            Path=Join-Path $script:config.DropdownCsvsDirectory "Machines.csv";
+            Path=Join-Path $config.DropdownCsvsDirectory "Machines.csv";
             Headers="Machine Acronym,Machine Number"
         }
     )
@@ -132,13 +132,13 @@ function Set-InitialConfiguration {
             $file.Headers | Out-File -FilePath $file.Path -Encoding UTF8
             Write-Log "Created file with headers: $($file.Path)"
         }
-        $script:config.PrerequisiteFiles[$file.Name] = $file.Path
+       $config.PrerequisiteFiles[$file.Name] = $file.Path
     }
 
     # Save configuration in the Scripts directory
-    $script:configFilePath = Join-Path $script:config.ScriptsDirectory "Config.json"
-    $script:config | ConvertTo-Json -Depth 4 | Set-Content -Path $script:configFilePath
-    Write-Log "Configuration saved at $script:configFilePath"
+   $configFilePath = Join-Path$config.ScriptsDirectory "Config.json"
+   $config | ConvertTo-Json -Depth 4 | Set-Content -Path$configFilePath
+    Write-Log "Configuration saved at$configFilePath"
 
     return $config}
 
@@ -198,7 +198,7 @@ function Copy-SetupFiles {
 
 # Function to parse and export HTML data into CSV format using DOM
 function Set-PartsRoom {
-    param($script:config)
+    param($config)
 
     # Load the sites from the CSV
     $sitesPath = Join-Path $config.DropdownCsvsDirectory "Sites.csv"
@@ -265,7 +265,7 @@ function Set-PartsRoom {
         Write-Host "Downloading HTML content for $selectedSite..."
         try {
             $htmlContent = Invoke-WebRequest -Uri $url -UseBasicParsing
-            $htmlFilePath = Join-Path $script:config.PartsRoomDirectory "$selectedSite.html"
+            $htmlFilePath = Join-Path$config.PartsRoomDirectory "$selectedSite.html"
             Write-Host "Saving HTML content to $htmlFilePath..."
             Set-Content -Path $htmlFilePath -Value $htmlContent.Content -Encoding UTF8
 
@@ -280,7 +280,7 @@ function Set-PartsRoom {
 
         Write-Host "Processing the downloaded HTML file for $selectedSite using DOM..."
 
-        $script:logPath = Join-Path $script:config.PartsRoomDirectory "error_log.txt"
+        $logPath = Join-Path$config.PartsRoomDirectory "error_log.txt"
         $htmlDoc = $null
 
         try {
@@ -486,7 +486,7 @@ function Set-PartsRoom {
                     
                 } catch {
                     # Log error to file but don't display to console
-                    "Error processing row $i : $($_.Exception.Message)" | Out-File -FilePath $script:logPath -Append
+                    "Error processing row $i : $($_.Exception.Message)" | Out-File -FilePath $logPath -Append
                 }
             }
             
@@ -501,7 +501,7 @@ function Set-PartsRoom {
             
             
             # Export parsed data to CSV
-            $csvFilePath = Join-Path $script:config.PartsRoomDirectory "$selectedSite.csv"
+            $csvFilePath = Join-Path$config.PartsRoomDirectory "$selectedSite.csv"
             $parsedData | Export-Csv -Path $csvFilePath -NoTypeInformation
             
             if (Test-Path $csvFilePath) {
@@ -515,8 +515,8 @@ function Set-PartsRoom {
             Write-Host "Error: $($_.Exception.Message)"
             Write-Host "Stack Trace: $($_.ScriptStackTrace)"
             $errorMessage = "Error: $($_.Exception.Message)`r`nStack Trace: $($_.ScriptStackTrace)"
-            $errorMessage | Out-File -FilePath $script:logPath -Append
-            [System.Windows.Forms.MessageBox]::Show("An error occurred. Please check the error log at $script:logPath for details.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+            $errorMessage | Out-File -FilePath $logPath -Append
+            [System.Windows.Forms.MessageBox]::Show("An error occurred. Please check the error log at $logPath for details.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
         } finally {
             # Clean up COM objects
             if ($null -ne $htmlDoc) {
@@ -541,14 +541,14 @@ function Set-PartsRoom {
 
 # Function to run Parts-Books-Creator.ps1
 function Run-PartsBookCreator {
-    param($script:config)
+    param($config)
     $partsBookCreatorPath = Join-Path $config.ScriptsDirectory "Parts-Books-Creator.ps1"
     
     if (Test-Path $partsBookCreatorPath) {
         Write-Host "Running Parts-Books-Creator.ps1 from $partsBookCreatorPath"
         
         # Check for the required CSV file
-        $requiredCsvPath = Join-Path $script:config.DropdownCsvsDirectory "Parsed-Parts-Volumes.csv"
+        $requiredCsvPath = Join-Path$config.DropdownCsvsDirectory "Parsed-Parts-Volumes.csv"
         Write-Host "Checking for required CSV file at: $requiredCsvPath"
         
         if (-not (Test-Path $requiredCsvPath)) {
