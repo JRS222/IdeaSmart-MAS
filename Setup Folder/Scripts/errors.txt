@@ -1,191 +1,2502 @@
-2025-04-26 04:03:46 - Starting Run-Setup
-2025-04-26 04:03:46 - Starting Set-InitialConfiguration
-2025-04-26 04:03:46 - Current Directory: C:\Users\YYQTP0\Desktop\Setup Folder\Scripts
-2025-04-26 04:03:46 - Setup Folder: C:\Users\YYQTP0\Desktop\Setup Folder
-2025-04-26 04:03:54 - Created Root Directory at C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory
-2025-04-26 04:03:54 - Creating subdirectories...
-New-Item : A parameter cannot be found that matches parameter name 'Path$config'.
-At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:101 char:45
-+         New-Item -ItemType Directory -Force -Path$config[$dir] | Out- ...
-+                                             ~~~~~~~~~~~~
-    + CategoryInfo          : InvalidArgument: (:) [New-Item], ParameterBindingException
-    + FullyQualifiedErrorId : NamedParameterNotFound,Microsoft.PowerShell.Commands.NewItemCommand
-
-2025-04-26 04:03:54 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Parts Books
-New-Item : A parameter cannot be found that matches parameter name 'Path$config'.
-At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:101 char:45
-+         New-Item -ItemType Directory -Force -Path$config[$dir] | Out- ...
-+                                             ~~~~~~~~~~~~
-    + CategoryInfo          : InvalidArgument: (:) [New-Item], ParameterBindingException
-    + FullyQualifiedErrorId : NamedParameterNotFound,Microsoft.PowerShell.Commands.NewItemCommand
-
-2025-04-26 04:03:54 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts
-New-Item : A parameter cannot be found that matches parameter name 'Path$config'.
-At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:101 char:45
-+         New-Item -ItemType Directory -Force -Path$config[$dir] | Out- ...
-+                                             ~~~~~~~~~~~~
-    + CategoryInfo          : InvalidArgument: (:) [New-Item], ParameterBindingException
-    + FullyQualifiedErrorId : NamedParameterNotFound,Microsoft.PowerShell.Commands.NewItemCommand
-
-2025-04-26 04:03:54 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs
-New-Item : A parameter cannot be found that matches parameter name 'Path$config'.
-At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:101 char:45
-+         New-Item -ItemType Directory -Force -Path$config[$dir] | Out- ...
-+                                             ~~~~~~~~~~~~
-    + CategoryInfo          : InvalidArgument: (:) [New-Item], ParameterBindingException
-    + FullyQualifiedErrorId : NamedParameterNotFound,Microsoft.PowerShell.Commands.NewItemCommand
-
-2025-04-26 04:03:54 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Parts Room
-New-Item : A parameter cannot be found that matches parameter name 'Path$config'.
-At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:101 char:45
-+         New-Item -ItemType Directory -Force -Path$config[$dir] | Out- ...
-+                                             ~~~~~~~~~~~~
-    + CategoryInfo          : InvalidArgument: (:) [New-Item], ParameterBindingException
-    + FullyQualifiedErrorId : NamedParameterNotFound,Microsoft.PowerShell.Commands.NewItemCommand
-
-2025-04-26 04:03:54 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Labor
-New-Item : A parameter cannot be found that matches parameter name 'Path$config'.
-At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:101 char:45
-+         New-Item -ItemType Directory -Force -Path$config[$dir] | Out- ...
-+                                             ~~~~~~~~~~~~
-    + CategoryInfo          : InvalidArgument: (:) [New-Item], ParameterBindingException
-    + FullyQualifiedErrorId : NamedParameterNotFound,Microsoft.PowerShell.Commands.NewItemCommand
-
-2025-04-26 04:03:54 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Call Logs
-Join-Path$config.PartsRoomDirectory : The term 'Join-Path$config.PartsRoomDirectory' is not recognized as the name of
-a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included,
-verify that the path is correct and try again.
-At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:106 char:28
-+ ...    $sameDayPartsRoomDir = Join-Path$config.PartsRoomDirectory "Same D ...
-+                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : ObjectNotFound: (Join-Path$config.PartsRoomDirectory:String) [], CommandNotFoundExceptio
-   n
-    + FullyQualifiedErrorId : CommandNotFoundException
-
-New-Item : Cannot bind argument to parameter 'Path' because it is null.
-At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:107 char:47
-+ ... ew-Item -ItemType Directory -Force -Path $sameDayPartsRoomDir | Out-N ...
-+                                              ~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : InvalidData: (:) [New-Item], ParameterBindingValidationException
-    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.NewItemComm
-   and
-
-2025-04-26 04:03:54 - Created Same Day Parts Room directory:
-Out-File : Could not find a part of the path 'C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Call
-Logs\CallLogs.csv'.
-At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:132 char:29
-+ ...          $file.Headers | Out-File -FilePath $file.Path -Encoding UTF8
-+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : OpenError: (:) [Out-File], DirectoryNotFoundException
-    + FullyQualifiedErrorId : FileOpenFailure,Microsoft.PowerShell.Commands.OutFileCommand
-
-2025-04-26 04:03:54 - Created file with headers: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Call Logs\CallLogs.csv
-Out-File : Could not find a part of the path
-'C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Labor\LaborLogs.csv'.
-At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:132 char:29
-+ ...          $file.Headers | Out-File -FilePath $file.Path -Encoding UTF8
-+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : OpenError: (:) [Out-File], DirectoryNotFoundException
-    + FullyQualifiedErrorId : FileOpenFailure,Microsoft.PowerShell.Commands.OutFileCommand
-
-2025-04-26 04:03:54 - Created file with headers: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Labor\LaborLogs.csv
-Out-File : Could not find a part of the path 'C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown
-CSVs\Machines.csv'.
-At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:132 char:29
-+ ...          $file.Headers | Out-File -FilePath $file.Path -Encoding UTF8
-+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : OpenError: (:) [Out-File], DirectoryNotFoundException
-    + FullyQualifiedErrorId : FileOpenFailure,Microsoft.PowerShell.Commands.OutFileCommand
-
-2025-04-26 04:03:54 - Created file with headers: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs\Machines.csv
-Join-Path$config.ScriptsDirectory : The term 'Join-Path$config.ScriptsDirectory' is not recognized as the name of a
-cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify
-that the path is correct and try again.
-At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:139 char:22
-+    $configFilePath = Join-Path$config.ScriptsDirectory "Config.json"
-+                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : ObjectNotFound: (Join-Path$config.ScriptsDirectory:String) [], CommandNotFoundException
-    + FullyQualifiedErrorId : CommandNotFoundException
-
-Set-Content : A parameter cannot be found that matches parameter name 'Path$configFilePath'.
-At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:140 char:52
-+ ...  $config | ConvertTo-Json -Depth 4 | Set-Content -Path$configFilePath
-+                                                      ~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : InvalidArgument: (:) [Set-Content], ParameterBindingException
-    + FullyQualifiedErrorId : NamedParameterNotFound,Microsoft.PowerShell.Commands.SetContentCommand
-
-2025-04-26 04:03:54 - Configuration saved at
-2025-04-26 04:03:54 - Starting Copy-SetupFiles
-2025-04-26 04:03:54 - Setup Directory: C:\Users\YYQTP0\Desktop\Setup Folder
-2025-04-26 04:03:54 - Copying Scripts...
-2025-04-26 04:03:54 - Copied Scripts
-Copy-Item : Could not find a part of the path 'C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown
-CSVs\sites.csv'.
-At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:173 char:13
-+             Copy-Item -Path $sourcePath -Destination $destPath -Force
-+             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (:) [Copy-Item], DirectoryNotFoundException
-    + FullyQualifiedErrorId : System.IO.DirectoryNotFoundException,Microsoft.PowerShell.Commands.CopyItemCommand
-
-2025-04-26 04:03:54 - Copied sites.csv to C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs\sites.csv
-Copy-Item : Could not find a part of the path 'C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown
-CSVs\Parsed-Parts-Volumes.csv'.
-At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:173 char:13
-+             Copy-Item -Path $sourcePath -Destination $destPath -Force
-+             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (:) [Copy-Item], DirectoryNotFoundException
-    + FullyQualifiedErrorId : System.IO.DirectoryNotFoundException,Microsoft.PowerShell.Commands.CopyItemCommand
-
-2025-04-26 04:03:54 - Copied Parsed-Parts-Volumes.csv to C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs\Parsed-Parts-Volumes.csv
-Copy-Item : Could not find a part of the path 'C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown
-CSVs\Causes.csv'.
-At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:173 char:13
-+             Copy-Item -Path $sourcePath -Destination $destPath -Force
-+             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (:) [Copy-Item], DirectoryNotFoundException
-    + FullyQualifiedErrorId : System.IO.DirectoryNotFoundException,Microsoft.PowerShell.Commands.CopyItemCommand
-
-2025-04-26 04:03:54 - Copied Causes.csv to C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs\Causes.csv
-Copy-Item : Could not find a part of the path 'C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown
-CSVs\Actions.csv'.
-At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:173 char:13
-+             Copy-Item -Path $sourcePath -Destination $destPath -Force
-+             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (:) [Copy-Item], DirectoryNotFoundException
-    + FullyQualifiedErrorId : System.IO.DirectoryNotFoundException,Microsoft.PowerShell.Commands.CopyItemCommand
-
-2025-04-26 04:03:54 - Copied Actions.csv to C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs\Actions.csv
-Copy-Item : Could not find a part of the path 'C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown
-CSVs\Nouns.csv'.
-At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:173 char:13
-+             Copy-Item -Path $sourcePath -Destination $destPath -Force
-+             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (:) [Copy-Item], DirectoryNotFoundException
-    + FullyQualifiedErrorId : System.IO.DirectoryNotFoundException,Microsoft.PowerShell.Commands.CopyItemCommand
-
-2025-04-26 04:03:54 - Copied Nouns.csv to C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs\Nouns.csv
-Set-Content : Could not find a part of the path
-'C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Config.json'.
-At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:189 char:41
-+ ... $config | ConvertTo-Json -Depth 4 | Set-Content -Path $configFilePath
-+                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : ObjectNotFound: (C:\Users\YYQTP0...pts\Config.json:String) [Set-Content], DirectoryNotFo
-   undException
-    + FullyQualifiedErrorId : GetContentWriterDirectoryNotFoundError,Microsoft.PowerShell.Commands.SetContentCommand
-
-2025-04-26 04:03:55 - Configuration saved at C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Config.json
+295
+Dropdown populated with site names.
+Showing form for site selection...
+Cancel
+Selected Site: ABILENE PO, TX, 79601-9997
+Downloading HTML content for ABILENE PO, TX, 79601-9997...
+Saving HTML content to C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Parts Room\ABILENE PO, TX, 79601-9997.html...
 OK
-Loading Sites from CSV at C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs\Sites.csv...
-Import-Csv : Could not find a part of the path 'C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown
-CSVs\Sites.csv'.
-At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:206 char:14
-+     $sites = Import-Csv -Path $sitesPath
-+              ~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : OpenError: (:) [Import-Csv], DirectoryNotFoundException
-    + FullyQualifiedErrorId : FileOpenFailure,Microsoft.PowerShell.Commands.ImportCsvCommand
+Processing the downloaded HTML file for ABILENE PO, TX, 79601-9997 using DOM...
+HTML document loaded into DOM successfully.
+Found 1 tables in the document.
+Found main table using className property.
+Number of rows found: 3611
+Processed 3609 entries from 3610 rows
+CSV file created successfully at C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Parts Room\ABILENE PO, TX, 79601-9997.csv
+OK
+Running Parts-Books-Creator.ps1 from C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1
+Checking for required CSV file at: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs\Parsed-Parts-Volumes.csv
+Attempting to load config from: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Config.json
+Config loaded successfully
+Parts Books Directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Parts Books
+HandbookSelectionCSV path: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs\Parsed-Parts-Volumes.csv
+CSV data loaded successfully. Row count: 96
+First row:
+MS Book No Volume Full Name
+---------- ------ ---------
+120        B      MS-120 Computerized Forwarding System - CFS (Vol. B)
 
-OK
-No data found in the Sites.csv file. Exiting...
-OK
-2025-04-26 04:04:03 - Setup completed successfully!
-Setup completed. Press Enter to exit:
+
+
+Config path in Get-ExistingBooks: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Config.json
+Config loaded in Get-ExistingBooks
+Config contains 'Books' property
+Existing books:
+Processing row: MS-120 Computerized Forwarding System - CFS (Vol. B)
+
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 120
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-120 Computerized Forwarding System - CFS (Vol. B)
+Processing row: MS-136 Package Bar Code Sorter - PBCS (Vol. D)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 136
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : D
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-136 Package Bar Code Sorter - PBCS (Vol. D)
+Processing row: MS-138 Small Parcel And Bundle Sorter - SPBS-1/SPBS-2 (Vol. D)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 138
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : D
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-138 Small Parcel And Bundle Sorter - SPBS-1/SPBS-2 (Vol. D)
+Processing row: MS-141 Dual Pass Rough Cull System - DPRCS (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 141
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-141 Dual Pass Rough Cull System - DPRCS (Vol. B)
+Processing row: MS-145 Universal Keystation - UK-1 &amp; UK-2 (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 145
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-145 Universal Keystation - UK-1 &amp; UK-2 (Vol. B)
+Processing row: MS-148 Integrated Mail Handling System - IMHS (Vol. D)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 148
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : D
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-148 Integrated Mail Handling System - IMHS (Vol. D)
+Processing row: MS-150 Remote Computer Reader - RCR (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 150
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-150 Remote Computer Reader - RCR (Vol. B)
+Processing row: MS-154 Letter Mail Labeling Machine 400C - LMLM (Vol. C)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 154
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : C
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-154 Letter Mail Labeling Machine 400C - LMLM (Vol. C)
+Processing row: MS-155 Remote Bar Coding System/Image Processing Subsystem - RBCS/IPSS (Vol. C)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 155
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : C
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-155 Remote Bar Coding System/Image Processing Subsystem - RBCS/IPSS (Vol. C)
+Processing row: MS-158 Fixed Mechanization Process Control System - FMPCS (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 158
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-158 Fixed Mechanization Process Control System - FMPCS (Vol. B)
+Processing row: MS-166 Advanced Facer Canceler Subsystem - Optical Character Reader - AFCS - OCR (Vol. D)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 166
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : D
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-166 Advanced Facer Canceler Subsystem - Optical Character Reader - AFCS - OCR (Vol. D)
+Processing row: MS-168 Bar Code Sorter Sweep Rack - BCSSR (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 168
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-168 Bar Code Sorter Sweep Rack - BCSSR (Vol. B)
+Processing row: MS-172 Flats Canceler/Stacker Model 15 (w/Modified Canceler) - FCSM (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 172
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-172 Flats Canceler/Stacker Model 15 (w/Modified Canceler) - FCSM (Vol. B)
+Processing row: MS-174 Identification Code Sort - ICS (Vol. C)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 174
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : C
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-174 Identification Code Sort - ICS (Vol. C)
+Processing row: MS-178 Automated Flat Sorting Machine 100 - AFSM 100 (Vol. D)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 178
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : D
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-178 Automated Flat Sorting Machine 100 - AFSM 100 (Vol. D)
+Processing row: MS-178 Automated Flat Sorting Machine 100/Automated Tray Handling System - AFSM 100/ATHS (Vol. F2)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 178
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : F2
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-178 Automated Flat Sorting Machine 100/Automated Tray Handling System - AFSM 100/ATHS (Vol. F2)
+Processing row: MS-178 Automated Flat Sorting Machine 100 - Automatic Induction - AFSM 100-ai (Vol. G2)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 178
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : G2
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-178 Automated Flat Sorting Machine 100 - Automatic Induction - AFSM 100-ai (Vol. G2)
+Processing row: MS-178 Automated Flat Sorting Machine 100 Ink Jet Canceller - AFSM100 (Vol. I2)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 178
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : I2
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-178 Automated Flat Sorting Machine 100 Ink Jet Canceller - AFSM100 (Vol. I2)
+Processing row: MS-178 Ink Jet Canceller - IJC (Vol. IJC)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 178
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : IJC
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-178 Ink Jet Canceller - IJC (Vol. IJC)
+Processing row: MS-179 Automatic Airline Assignment - AAA (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 179
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-179 Automatic Airline Assignment - AAA (Vol. B)
+Processing row: MS-180 Semi Automatic Scan Where You Band - SASWYB (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 180
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-180 Semi Automatic Scan Where You Band - SASWYB (Vol. B)
+Processing row: MS-192 Robotic Containerization System - RCS (Vol. D)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 192
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : D
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-192 Robotic Containerization System - RCS (Vol. D)
+Processing row: MS-196 Singulate-Scan-Induction Unit - SSIU (Vol. D)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 196
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : D
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-196 Singulate-Scan-Induction Unit - SSIU (Vol. D)
+Processing row: MS-202 Automated Package Processing System - APPS (Vol. D)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 202
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : D
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-202 Automated Package Processing System - APPS (Vol. D)
+Processing row: MS-209 Flats Sequencing System - FSS (Vol. I)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 209
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : I
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-209 Flats Sequencing System - FSS (Vol. I)
+Processing row: MS-211 Postal Pak Unloader, Type C - PPU - C (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 211
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-211 Postal Pak Unloader, Type C - PPU - C (Vol. B)
+Processing row: MS-212 Wide Field Of View Camera - WFOV (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 212
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-212 Wide Field Of View Camera - WFOV (Vol. B)
+Processing row: MS-216 Postal Automated Redirection System - PARS (Vol. C)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 216
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : C
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-216 Postal Automated Redirection System - PARS (Vol. C)
+Processing row: MS-221 Accusort Tray Management System - TMS (Vol. D)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 221
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : D
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-221 Accusort Tray Management System - TMS (Vol. D)
+Processing row: MS-222 Accusort AKL Staging Buffer - AKL-25 (Vol. D)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 222
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : D
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-222 Accusort AKL Staging Buffer - AKL-25 (Vol. D)
+Processing row: MS-223 Automatic Flats Tray Lidder - AFTL (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 223
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-223 Automatic Flats Tray Lidder - AFTL (Vol. B)
+Processing row: MS-224 37pc Ink Jet Printer - IJP (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 224
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-224 37pc Ink Jet Printer - IJP (Vol. B)
+Processing row: MS-228 Delivery Bar Code Sorter Input/Output Subsystem D - DIOSS-D (Vol. C)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 228
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : C
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-228 Delivery Bar Code Sorter Input/Output Subsystem D - DIOSS-D (Vol. C)
+Processing row: MS-229 Delivery Bar Code Sorter Phase 2 - DBCS (Vol. C)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 229
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : C
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-229 Delivery Bar Code Sorter Phase 2 - DBCS (Vol. C)
+Processing row: MS-229 Delivery Bar Code Sorter Phase 3 - DBCS (Vol. D)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 229
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : D
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-229 Delivery Bar Code Sorter Phase 3 - DBCS (Vol. D)
+Processing row: MS-229 Delivery Bar Code Sorter Phase 4 - DBCS (Vol. E)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 229
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : E
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-229 Delivery Bar Code Sorter Phase 4 - DBCS (Vol. E)
+Processing row: MS-229 Delivery Bar Code Sorter Phase 5 - DBCS (Vol. F)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 229
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : F
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-229 Delivery Bar Code Sorter Phase 5 - DBCS (Vol. F)
+Processing row: MS-230 Sortec Sortation System - SSS (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 230
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-230 Sortec Sortation System - SSS (Vol. B)
+Processing row: MS-232 Lockheed Martin Tray Management System - TMS (Vol. D)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 232
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : D
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-232 Lockheed Martin Tray Management System - TMS (Vol. D)
+Processing row: MS-234 Reciprocating Vertical Lift - CIPRO (Vol. D)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 234
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : D
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-234 Reciprocating Vertical Lift - CIPRO (Vol. D)
+Processing row: MS-235 Delivery Bar Code Sorter Output Subsystem Phase 2 - DBCS/OSS (Vol. C)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 235
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : C
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-235 Delivery Bar Code Sorter Output Subsystem Phase 2 - DBCS/OSS (Vol. C)
+Processing row: MS-235 Delivery Bar Code Sorter Output Subsystem Phase 3 - DBCS/OSS (Vol. D)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 235
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : D
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-235 Delivery Bar Code Sorter Output Subsystem Phase 3 - DBCS/OSS (Vol. D)
+Processing row: MS-235 Delivery Bar Code Sorter Output Subsystem Phase 4 - DBCS/OSS (Vol. E)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 235
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : E
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-235 Delivery Bar Code Sorter Output Subsystem Phase 4 - DBCS/OSS (Vol. E)
+Processing row: MS-235 Delivery Bar Code Sorter Output Subsystem Phase 5 - DBCS/OSS (Vol. F)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 235
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : F
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-235 Delivery Bar Code Sorter Output Subsystem Phase 5 - DBCS/OSS (Vol. F)
+Processing row: MS-238 CASI Staging Tracking And Retrieval System - STAR (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 238
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-238 CASI Staging Tracking And Retrieval System - STAR (Vol. B)
+Processing row: MS-240 Automatic Tray Sleever II - ATS II (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 240
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-240 Automatic Tray Sleever II - ATS II (Vol. B)
+Processing row: MS-242 Enhanced Airline Assignment - EAA (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 242
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-242 Enhanced Airline Assignment - EAA (Vol. B)
+Processing row: MS-243 Automatic Tray Unsleever - ATU (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 243
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-243 Automatic Tray Unsleever - ATU (Vol. B)
+Processing row: MS-244 Tag Blaster - TAGBLSTR (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 244
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-244 Tag Blaster - TAGBLSTR (Vol. B)
+Processing row: MS-245 Automatic Flats Tray Unlidder - AFTU (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 245
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-245 Automatic Flats Tray Unlidder - AFTU (Vol. B)
+Processing row: MS-246 In Line Scale - ILS (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 246
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-246 In Line Scale - ILS (Vol. B)
+Processing row: MS-247 Daifuku Staging Unit - DSU (Vol. D)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 247
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : D
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-247 Daifuku Staging Unit - DSU (Vol. D)
+Processing row: MS-249 Delivery Bar Code Sorter Input/Output Subsystem - C - DIOSS-C (Vol. C)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 249
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : C
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-249 Delivery Bar Code Sorter Input/Output Subsystem - C - DIOSS-C (Vol. C)
+Processing row: MS-250 Delivery Bar Code Sorter Input/Output Subsystem - E Phase 2 - DIOSS-E (Vol. C)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 250
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : C
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-250 Delivery Bar Code Sorter Input/Output Subsystem - E Phase 2 - DIOSS-E (Vol. C)
+Processing row: MS-250 Delivery Bar Code Sorter Input/Output Subsystem - E Phase 3 - DIOSS-E (Vol. D)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 250
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : D
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-250 Delivery Bar Code Sorter Input/Output Subsystem - E Phase 3 - DIOSS-E (Vol. D)
+Processing row: MS-250 Delivery Bar Code Sorter Input/Output Subsystem - E Phase 4 - DIOSS-E (Vol. E)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 250
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : E
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-250 Delivery Bar Code Sorter Input/Output Subsystem - E Phase 4 - DIOSS-E (Vol. E)
+Processing row: MS-250 Delivery Bar Code Sorter Input/Output Subsystem - E Phase 5 - DIOSS-E (Vol. F)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 250
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : F
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-250 Delivery Bar Code Sorter Input/Output Subsystem - E Phase 5 - DIOSS-E (Vol. F)
+Processing row: MS-251 Delivery Bar Code Sorter Input/Output Subsystem - B Phase 2 - DIOSS-B (Vol. C)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 251
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : C
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-251 Delivery Bar Code Sorter Input/Output Subsystem - B Phase 2 - DIOSS-B (Vol. C)
+Processing row: MS-251 Delivery Bar Code Sorter Input/Output Subsystem - B Phase 3 - DIOSS-B (Vol. D)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 251
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : D
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-251 Delivery Bar Code Sorter Input/Output Subsystem - B Phase 3 - DIOSS-B (Vol. D)
+Processing row: MS-251 Delivery Bar Code Sorter Input/Output Subsystem - B Phase 4 - DIOSS-B (Vol. E)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 251
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : E
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-251 Delivery Bar Code Sorter Input/Output Subsystem - B Phase 4 - DIOSS-B (Vol. E)
+Processing row: MS-251 Delivery Bar Code Sorter Input/Output Subsystem - B Phase 5 - DIOSS-B (Vol. F)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 251
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : F
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-251 Delivery Bar Code Sorter Input/Output Subsystem - B Phase 5 - DIOSS-B (Vol. F)
+Processing row: MS-252 Combined Input/Output Subsystem - C Phase 2 - CIOSS-C (Vol. C)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 252
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : C
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-252 Combined Input/Output Subsystem - C Phase 2 - CIOSS-C (Vol. C)
+Processing row: MS-252 Combined Input/Output Subsystem - C Phase 3 - CIOSS-C (Vol. D)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 252
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : D
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-252 Combined Input/Output Subsystem - C Phase 3 - CIOSS-C (Vol. D)
+Processing row: MS-252 Combined Input/Output Subsystem - C Phase 4 - CIOSS-C (Vol. E)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 252
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : E
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-252 Combined Input/Output Subsystem - C Phase 4 - CIOSS-C (Vol. E)
+Processing row: MS-252 Combined Input/Output Subsystem - C Phase 5 - CIOSS-C (Vol. F)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 252
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : F
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-252 Combined Input/Output Subsystem - C Phase 5 - CIOSS-C (Vol. F)
+Processing row: MS-254 Delivery Bar Code Sorter Phase 6 - DBCS 6 (Vol. C)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 254
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : C
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-254 Delivery Bar Code Sorter Phase 6 - DBCS 6 (Vol. C)
+Processing row: MS-261 Ventilation and Filtration System - VFS (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 261
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-261 Ventilation and Filtration System - VFS (Vol. B)
+Processing row: MS-261 Ventilation and Filtration System for AFCS - VFS (Vol. D)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 261
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : D
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-261 Ventilation and Filtration System for AFCS - VFS (Vol. D)
+Processing row: MS-266 Advanced Facer Canceler System 200 - AFCS 200 (Vol. C)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 266
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : C
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-266 Advanced Facer Canceler System 200 - AFCS 200 (Vol. C)
+Processing row: MS-267 Low Cost Reject Encoding Machine - LCREM (Vol. C)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 267
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : C
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-267 Low Cost Reject Encoding Machine - LCREM (Vol. C)
+Processing row: MS-268 Flats Remote Encoding System - FRES (Vol. C)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 268
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : C
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-268 Flats Remote Encoding System - FRES (Vol. C)
+Processing row: MS-271 Dual Pass Rough Cull with Control Modification - DPRC-CM (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 271
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-271 Dual Pass Rough Cull with Control Modification - DPRC-CM (Vol. B)
+Processing row: MS-272 Automated Parcel Bundle Sorter - APBS (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 272
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-272 Automated Parcel Bundle Sorter - APBS (Vol. B)
+Processing row: MS-272 Automated Parcel Bundle Sorter Siemens Feed System - APBS-SFS (Vol. C2)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 272
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : C2
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-272 Automated Parcel Bundle Sorter Siemens Feed System - APBS-SFS (Vol. C2)
+Processing row: MS-272 Automated Parcel Bundle Sorter Lockheed Martin Feed System - APBS-LMFS (Vol. D2)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 272
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : D2
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-272 Automated Parcel Bundle Sorter Lockheed Martin Feed System - APBS-LMFS (Vol. D2)
+Processing row: MS-273 Package Sorter Overhead Camera - PSOC (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 273
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-273 Package Sorter Overhead Camera - PSOC (Vol. B)
+Processing row: MS-275 Small Package Sorting System - SPSS (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 275
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-275 Small Package Sorting System - SPSS (Vol. B)
+Processing row: MS-295 Automatic Tray Sleever, Upgraded - ATSU (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 295
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-295 Automatic Tray Sleever, Upgraded - ATSU (Vol. B)
+Processing row: MS-297 Automated Delivery Unit Sorter - ADUS (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 297
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-297 Automated Delivery Unit Sorter - ADUS (Vol. B)
+Processing row: MS-298 DELIVERY BAR CODE SORTER Phase 3-5 LAU PH2 - DBCS 3-5 LAU PH2 (Vol. C)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 298
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : C
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-298 DELIVERY BAR CODE SORTER Phase 3-5 LAU PH2 - DBCS 3-5 LAU PH2 (Vol. C)
+Processing row: MS-299 DELIVERY BAR CODE SORTER Phase 6 LAU PH2 - DBCS 6 LAU PH2 (Vol. C)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 299
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : C
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-299 DELIVERY BAR CODE SORTER Phase 6 LAU PH2 - DBCS 6 LAU PH2 (Vol. C)
+Processing row: MS-300 Universal Sort System - ACT - USS (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 300
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-300 Universal Sort System - ACT - USS (Vol. B)
+Processing row: MS-300 Universal Sort System - Honeywell - USS (Vol. C)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 300
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : C
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-300 Universal Sort System - Honeywell - USS (Vol. C)
+Processing row: MS-301 Enhanced Package Processing System - EPPS (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 301
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-301 Enhanced Package Processing System - EPPS (Vol. B)
+Processing row: MS-302 Automated Guided Vehicles - Seegrid - AGV (Vol. A2)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 302
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : A2
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-302 Automated Guided Vehicles - Seegrid - AGV (Vol. A2)
+Processing row: MS-302 Automated Guided Vehicles - Daifuku - AGV (Vol. B2)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 302
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B2
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-302 Automated Guided Vehicles - Daifuku - AGV (Vol. B2)
+Processing row: MS-302 Automated Guided Vehicles - EITS - AGV (Vol. C2)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 302
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : C2
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-302 Automated Guided Vehicles - EITS - AGV (Vol. C2)
+Processing row: MS-303 Small Delivery Unit Sorter - SDUS (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 303
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-303 Small Delivery Unit Sorter - SDUS (Vol. B)
+Processing row: MS-304 Low Cost Tray Sorter - LCTS (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 304
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-304 Low Cost Tray Sorter - LCTS (Vol. B)
+Processing row: MS-305 Single Induction Package Sorter - SIPS (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 305
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-305 Single Induction Package Sorter - SIPS (Vol. B)
+Processing row: MS-306 Biohazard Detection System - BDS (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 306
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-306 Biohazard Detection System - BDS (Vol. B)
+Processing row: MS-307 High Output Package Sorter - HOPS (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 307
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-307 High Output Package Sorter - HOPS (Vol. B)
+Processing row: MS-308 Low Cost Universal Sorter - LCUS (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 308
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-308 Low Cost Universal Sorter - LCUS (Vol. B)
+Processing row: MS-310 Parcel Sorting Machine (PSM) Induction Vision Robot - PIVR (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 310
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-310 Parcel Sorting Machine (PSM) Induction Vision Robot - PIVR (Vol. B)
+Processing row: MS-311 Robotic Induction System - RIS (Vol. B)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 311
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : B
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-311 Robotic Induction System - RIS (Vol. B)
+Processing row: MS-312 Robust Bulk Universal Sorter - RBUS (Vol. A)
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : 312
+Name      :
+
+BackColor : Color [Window]
+Bounds    : {X=0,Y=0,Width=0,Height=0}
+Font      : [Font: Name=Microsoft Sans Serif, Size=8.25, Units=3, GdiCharSet=0, GdiVerticalFont=False]
+ForeColor : Color [WindowText]
+Tag       :
+Text      : A
+Name      :
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:151 char:9
++         $listView.Items.Add($item)
++         ~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+Added item to ListView: MS-312 Robust Bulk Universal Sorter - RBUS (Vol. A)
+ListView items count: 0
+Script is running from:
+DropdownCsvsDirectory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs
+PartsBooksDirectory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Parts Books
+PartsRoomDirectory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Parts Room
+Config path in Get-ExistingBooks: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Config.json
+Config loaded in Get-ExistingBooks
+Config contains 'Books' property
+Existing books:
+The property 'Location' cannot be found on this object. Verify that the property exists and can be set.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:1531 char:1
++ $global:listView.Location = New-Object System.Drawing.Point(10,40)
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : PropertyNotFound
+
+The property 'Size' cannot be found on this object. Verify that the property exists and can be set.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:1532 char:1
++ $global:listView.Size = New-Object System.Drawing.Size(760, 450)
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : PropertyNotFound
+
+The property 'View' cannot be found on this object. Verify that the property exists and can be set.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:1533 char:1
++ $global:listView.View = [System.Windows.Forms.View]::Details
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : PropertyNotFound
+
+The property 'FullRowSelect' cannot be found on this object. Verify that the property exists and can be set.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:1534 char:1
++ $global:listView.FullRowSelect = $true
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : PropertyNotFound
+
+The property 'CheckBoxes' cannot be found on this object. Verify that the property exists and can be set.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:1535 char:1
++ $global:listView.CheckBoxes = $true
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : PropertyNotFound
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:1539 char:1
++ $global:listView.Columns.Add("Full Name", 300)
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:1540 char:1
++ $global:listView.Columns.Add("MS Book No", 100)
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+You cannot call a method on a null-valued expression.
+At C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Parts-Books-Creator.ps1:1541 char:1
++ $global:listView.Columns.Add("Volume", 100)
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : InvokeMethodOnNull
+
+ListView items count: 0
