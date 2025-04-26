@@ -1,65 +1,191 @@
-2025-04-26 03:53:10 - Starting Run-Setup
-2025-04-26 03:53:10 - Starting Set-InitialConfiguration
-2025-04-26 03:53:10 - Current Directory: C:\Users\YYQTP0\Desktop\Setup Folder\Scripts
-2025-04-26 03:53:10 - Setup Folder: C:\Users\YYQTP0\Desktop\Setup Folder
-2025-04-26 03:53:17 - Created Root Directory at C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory
-2025-04-26 03:53:17 - Creating subdirectories...
-2025-04-26 03:53:17 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Parts Books
-2025-04-26 03:53:17 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts
-2025-04-26 03:53:17 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs
-2025-04-26 03:53:17 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Parts Room
-2025-04-26 03:53:17 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Labor
-2025-04-26 03:53:17 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Call Logs
-2025-04-26 03:53:17 - Created Same Day Parts Room directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Parts Room\Same Day Parts Room
-2025-04-26 03:53:17 - Created file with headers: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Call Logs\CallLogs.csv
-2025-04-26 03:53:17 - Created file with headers: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Labor\LaborLogs.csv
-2025-04-26 03:53:17 - Created file with headers: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs\Machines.csv
-2025-04-26 03:53:17 - Configuration saved at C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Config.json
-2025-04-26 03:53:17 - Starting Copy-SetupFiles
-2025-04-26 03:53:17 - Setup Directory: C:\Users\YYQTP0\Desktop\Setup Folder
-2025-04-26 03:53:17 - Copying Scripts...
-2025-04-26 03:53:17 - Copied Scripts
-2025-04-26 03:53:17 - Copied sites.csv to C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs\sites.csv
-2025-04-26 03:53:17 - Copied Parsed-Parts-Volumes.csv to C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs\Parsed-Parts-Volumes.csv
-2025-04-26 03:53:17 - Copied Causes.csv to C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs\Causes.csv
-2025-04-26 03:53:17 - Copied Actions.csv to C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs\Actions.csv
-2025-04-26 03:53:17 - Copied Nouns.csv to C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs\Nouns.csv
-2025-04-26 03:53:17 - Configuration saved at C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Config.json
-OK
-Join-Path : Cannot bind argument to parameter 'Path' because it is null.
-At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:204 char:28
-+ ...   $sitesPath = Join-Path $script:config.DropdownCsvsDirectory "Sites. ...
-+                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : InvalidData: (:) [Join-Path], ParameterBindingValidationException
-    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.JoinPathCom
-   mand
+2025-04-26 04:03:46 - Starting Run-Setup
+2025-04-26 04:03:46 - Starting Set-InitialConfiguration
+2025-04-26 04:03:46 - Current Directory: C:\Users\YYQTP0\Desktop\Setup Folder\Scripts
+2025-04-26 04:03:46 - Setup Folder: C:\Users\YYQTP0\Desktop\Setup Folder
+2025-04-26 04:03:54 - Created Root Directory at C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory
+2025-04-26 04:03:54 - Creating subdirectories...
+New-Item : A parameter cannot be found that matches parameter name 'Path$config'.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:101 char:45
++         New-Item -ItemType Directory -Force -Path$config[$dir] | Out- ...
++                                             ~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [New-Item], ParameterBindingException
+    + FullyQualifiedErrorId : NamedParameterNotFound,Microsoft.PowerShell.Commands.NewItemCommand
 
-Loading Sites from CSV at ...
-Import-Csv : Cannot validate argument on parameter 'Path'. The argument is null or empty. Provide an argument that is
-not null or empty, and then try the command again.
-At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:206 char:31
+2025-04-26 04:03:54 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Parts Books
+New-Item : A parameter cannot be found that matches parameter name 'Path$config'.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:101 char:45
++         New-Item -ItemType Directory -Force -Path$config[$dir] | Out- ...
++                                             ~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [New-Item], ParameterBindingException
+    + FullyQualifiedErrorId : NamedParameterNotFound,Microsoft.PowerShell.Commands.NewItemCommand
+
+2025-04-26 04:03:54 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts
+New-Item : A parameter cannot be found that matches parameter name 'Path$config'.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:101 char:45
++         New-Item -ItemType Directory -Force -Path$config[$dir] | Out- ...
++                                             ~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [New-Item], ParameterBindingException
+    + FullyQualifiedErrorId : NamedParameterNotFound,Microsoft.PowerShell.Commands.NewItemCommand
+
+2025-04-26 04:03:54 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs
+New-Item : A parameter cannot be found that matches parameter name 'Path$config'.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:101 char:45
++         New-Item -ItemType Directory -Force -Path$config[$dir] | Out- ...
++                                             ~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [New-Item], ParameterBindingException
+    + FullyQualifiedErrorId : NamedParameterNotFound,Microsoft.PowerShell.Commands.NewItemCommand
+
+2025-04-26 04:03:54 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Parts Room
+New-Item : A parameter cannot be found that matches parameter name 'Path$config'.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:101 char:45
++         New-Item -ItemType Directory -Force -Path$config[$dir] | Out- ...
++                                             ~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [New-Item], ParameterBindingException
+    + FullyQualifiedErrorId : NamedParameterNotFound,Microsoft.PowerShell.Commands.NewItemCommand
+
+2025-04-26 04:03:54 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Labor
+New-Item : A parameter cannot be found that matches parameter name 'Path$config'.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:101 char:45
++         New-Item -ItemType Directory -Force -Path$config[$dir] | Out- ...
++                                             ~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [New-Item], ParameterBindingException
+    + FullyQualifiedErrorId : NamedParameterNotFound,Microsoft.PowerShell.Commands.NewItemCommand
+
+2025-04-26 04:03:54 - Created directory: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Call Logs
+Join-Path$config.PartsRoomDirectory : The term 'Join-Path$config.PartsRoomDirectory' is not recognized as the name of
+a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included,
+verify that the path is correct and try again.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:106 char:28
++ ...    $sameDayPartsRoomDir = Join-Path$config.PartsRoomDirectory "Same D ...
++                               ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (Join-Path$config.PartsRoomDirectory:String) [], CommandNotFoundExceptio
+   n
+    + FullyQualifiedErrorId : CommandNotFoundException
+
+New-Item : Cannot bind argument to parameter 'Path' because it is null.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:107 char:47
++ ... ew-Item -ItemType Directory -Force -Path $sameDayPartsRoomDir | Out-N ...
++                                              ~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [New-Item], ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.NewItemComm
+   and
+
+2025-04-26 04:03:54 - Created Same Day Parts Room directory:
+Out-File : Could not find a part of the path 'C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Call
+Logs\CallLogs.csv'.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:132 char:29
++ ...          $file.Headers | Out-File -FilePath $file.Path -Encoding UTF8
++                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OpenError: (:) [Out-File], DirectoryNotFoundException
+    + FullyQualifiedErrorId : FileOpenFailure,Microsoft.PowerShell.Commands.OutFileCommand
+
+2025-04-26 04:03:54 - Created file with headers: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Call Logs\CallLogs.csv
+Out-File : Could not find a part of the path
+'C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Labor\LaborLogs.csv'.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:132 char:29
++ ...          $file.Headers | Out-File -FilePath $file.Path -Encoding UTF8
++                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OpenError: (:) [Out-File], DirectoryNotFoundException
+    + FullyQualifiedErrorId : FileOpenFailure,Microsoft.PowerShell.Commands.OutFileCommand
+
+2025-04-26 04:03:54 - Created file with headers: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Labor\LaborLogs.csv
+Out-File : Could not find a part of the path 'C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown
+CSVs\Machines.csv'.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:132 char:29
++ ...          $file.Headers | Out-File -FilePath $file.Path -Encoding UTF8
++                              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OpenError: (:) [Out-File], DirectoryNotFoundException
+    + FullyQualifiedErrorId : FileOpenFailure,Microsoft.PowerShell.Commands.OutFileCommand
+
+2025-04-26 04:03:54 - Created file with headers: C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs\Machines.csv
+Join-Path$config.ScriptsDirectory : The term 'Join-Path$config.ScriptsDirectory' is not recognized as the name of a
+cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify
+that the path is correct and try again.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:139 char:22
++    $configFilePath = Join-Path$config.ScriptsDirectory "Config.json"
++                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (Join-Path$config.ScriptsDirectory:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
+
+Set-Content : A parameter cannot be found that matches parameter name 'Path$configFilePath'.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:140 char:52
++ ...  $config | ConvertTo-Json -Depth 4 | Set-Content -Path$configFilePath
++                                                      ~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Set-Content], ParameterBindingException
+    + FullyQualifiedErrorId : NamedParameterNotFound,Microsoft.PowerShell.Commands.SetContentCommand
+
+2025-04-26 04:03:54 - Configuration saved at
+2025-04-26 04:03:54 - Starting Copy-SetupFiles
+2025-04-26 04:03:54 - Setup Directory: C:\Users\YYQTP0\Desktop\Setup Folder
+2025-04-26 04:03:54 - Copying Scripts...
+2025-04-26 04:03:54 - Copied Scripts
+Copy-Item : Could not find a part of the path 'C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown
+CSVs\sites.csv'.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:173 char:13
++             Copy-Item -Path $sourcePath -Destination $destPath -Force
++             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:) [Copy-Item], DirectoryNotFoundException
+    + FullyQualifiedErrorId : System.IO.DirectoryNotFoundException,Microsoft.PowerShell.Commands.CopyItemCommand
+
+2025-04-26 04:03:54 - Copied sites.csv to C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs\sites.csv
+Copy-Item : Could not find a part of the path 'C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown
+CSVs\Parsed-Parts-Volumes.csv'.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:173 char:13
++             Copy-Item -Path $sourcePath -Destination $destPath -Force
++             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:) [Copy-Item], DirectoryNotFoundException
+    + FullyQualifiedErrorId : System.IO.DirectoryNotFoundException,Microsoft.PowerShell.Commands.CopyItemCommand
+
+2025-04-26 04:03:54 - Copied Parsed-Parts-Volumes.csv to C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs\Parsed-Parts-Volumes.csv
+Copy-Item : Could not find a part of the path 'C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown
+CSVs\Causes.csv'.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:173 char:13
++             Copy-Item -Path $sourcePath -Destination $destPath -Force
++             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:) [Copy-Item], DirectoryNotFoundException
+    + FullyQualifiedErrorId : System.IO.DirectoryNotFoundException,Microsoft.PowerShell.Commands.CopyItemCommand
+
+2025-04-26 04:03:54 - Copied Causes.csv to C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs\Causes.csv
+Copy-Item : Could not find a part of the path 'C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown
+CSVs\Actions.csv'.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:173 char:13
++             Copy-Item -Path $sourcePath -Destination $destPath -Force
++             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:) [Copy-Item], DirectoryNotFoundException
+    + FullyQualifiedErrorId : System.IO.DirectoryNotFoundException,Microsoft.PowerShell.Commands.CopyItemCommand
+
+2025-04-26 04:03:54 - Copied Actions.csv to C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs\Actions.csv
+Copy-Item : Could not find a part of the path 'C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown
+CSVs\Nouns.csv'.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:173 char:13
++             Copy-Item -Path $sourcePath -Destination $destPath -Force
++             ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:) [Copy-Item], DirectoryNotFoundException
+    + FullyQualifiedErrorId : System.IO.DirectoryNotFoundException,Microsoft.PowerShell.Commands.CopyItemCommand
+
+2025-04-26 04:03:54 - Copied Nouns.csv to C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs\Nouns.csv
+Set-Content : Could not find a part of the path
+'C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Config.json'.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:189 char:41
++ ... $config | ConvertTo-Json -Depth 4 | Set-Content -Path $configFilePath
++                                         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (C:\Users\YYQTP0...pts\Config.json:String) [Set-Content], DirectoryNotFo
+   undException
+    + FullyQualifiedErrorId : GetContentWriterDirectoryNotFoundError,Microsoft.PowerShell.Commands.SetContentCommand
+
+2025-04-26 04:03:55 - Configuration saved at C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Scripts\Config.json
+OK
+Loading Sites from CSV at C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown CSVs\Sites.csv...
+Import-Csv : Could not find a part of the path 'C:\Users\YYQTP0\Documents\PartsBookManagerRootDirectory\Dropdown
+CSVs\Sites.csv'.
+At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:206 char:14
 +     $sites = Import-Csv -Path $sitesPath
-+                               ~~~~~~~~~~
-    + CategoryInfo          : InvalidData: (:) [Import-Csv], ParameterBindingValidationException
-    + FullyQualifiedErrorId : ParameterArgumentValidationError,Microsoft.PowerShell.Commands.ImportCsvCommand
++              ~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : OpenError: (:) [Import-Csv], DirectoryNotFoundException
+    + FullyQualifiedErrorId : FileOpenFailure,Microsoft.PowerShell.Commands.ImportCsvCommand
 
 OK
 No data found in the Sites.csv file. Exiting...
-Join-Path : Cannot bind argument to parameter 'Path' because it is null.
-At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:545 char:39
-+ ... tsBookCreatorPath = Join-Path $script:config.ScriptsDirectory "Parts- ...
-+                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : InvalidData: (:) [Join-Path], ParameterBindingValidationException
-    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.JoinPathCom
-   mand
-
-Test-Path : Cannot bind argument to parameter 'Path' because it is null.
-At C:\Users\YYQTP0\Desktop\Setup Folder\Scripts\SetUp.ps1:547 char:19
-+     if (Test-Path $partsBookCreatorPath) {
-+                   ~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : InvalidData: (:) [Test-Path], ParameterBindingValidationException
-    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.TestPathCom
-   mand
-
-2025-04-26 03:53:21 - Setup completed successfully!
+OK
+2025-04-26 04:04:03 - Setup completed successfully!
 Setup completed. Press Enter to exit:
