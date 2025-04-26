@@ -16,8 +16,6 @@ Add-Type -AssemblyName Microsoft.Office.Interop.Excel
 #                           Global Variables                                   #
 ################################################################################
 
-<#
-
 # Configuration variables
 $global:configPath = Join-Path $PSScriptRoot "Config.json"  # Path to configuration
 $script:ScriptDirectory = $PSScriptRoot    # Script directory path
@@ -37,10 +35,8 @@ $script:existingBooks = $null             # Existing books collection
 $script:machinesUpdated = $false          # Flag for machines list update
 
 $global:configPath = Join-Path $PSScriptRoot "Config.json"
-$script:ScriptDirectory = $PSScriptRoot
-$script:configPath = Join-Path $script:ScriptDirectory "Config.json"
 $global:listView = New-Object System.Windows.Forms.ListView
-#>
+
 
 # Load configuration
 $configPath = Join-Path $PSScriptRoot "Config.json"
