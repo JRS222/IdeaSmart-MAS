@@ -1128,7 +1128,8 @@ function Create-ExcelWorkbook($sourceDir, $combinedCsvDir) {
         $totalDuration = ($endTime - $startTime).TotalSeconds
         Write-Host "Total Excel workbook creation time: $totalDuration seconds"
         Write-Host "Sheet timing details:"
-        $sheetTimes | Format-Table -AutoSize | Out-String | Write-Host
+        $formattedOutput = $sheetTimes | Format-Table -AutoSize | Out-String
+Write-Host $formattedOutput
         
         return $true
     }
