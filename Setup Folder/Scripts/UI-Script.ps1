@@ -2949,19 +2949,17 @@ function Update-PartsBooks {
         }
         
         # Update the Excel workbook if it exists and if sections were updated
-		if ($sectionsWithChanges.Count -gt 0 -and (Test-Path $book.ExcelPath)) {
-		    $progressLabel.Text = "Updating Excel workbook..."
-		    $bookLabel.Text = "Processing book: $($book.Name) - Excel update"
-		    $progressForm.Refresh()
-		
-		    $excel = $null
-		    $workbook = $null
-		
-		    try {
-		        $excel = New-Object -ComObject Excel.Application
-		        $excel.Visible = $false
-		        $excel.DisplayAlerts = $false
-		        $workbook = $excel.Workbooks.Open($book.ExcelPath)
+        if ($sectionsWithChanges.Count -gt 0 -and (Test-Path $book.ExcelPath)) {
+            $progressLabel.Text = "Updating Excel workbook..."
+            $bookLabel.Text = "Processing book: $($book.Name) - Excel update"
+            $progressForm.Refresh()
+            
+            try {
+                $excel = New-Object -ComObject Excel.Application
+                $excel.Visible = $false
+                $excel.DisplayAlerts = $false
+                
+                $workbook = $excel.Workbooks.Open($book.ExcelPath)
                 
                 # Calculate base progress and progress weight for this phase
                 $baseProgress = $bookIndex / $totalBooks * 100
