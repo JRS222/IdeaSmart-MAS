@@ -74,6 +74,14 @@ function Initialize-Config {
     $configPath = Join-Path $PSScriptRoot "Config.json"
     if (Test-Path $configPath) {
         $config = Get-Content -Path $configPath | ConvertFrom-Json
+		if (-not ($config.PSObject.Properties.Name -contains 'SameDayPartsRooms')) {
+			$config | Add-Member -NotePropertyName 'SameDayPartsRooms' -NotePropertyValue @()
+			Write-Log "Backfilled missing SameDayPartsRooms key."
+		}
+		if (-not ($config.PSObject.Properties.Name -contains 'Books')) {
+			$config | Add-Member -NotePropertyName 'Books' -NotePropertyValue @{}
+			Write-Log "Backfilled missing Books key."
+		}
         Write-Log "Config loaded successfully"
     } else {
         Write-Log "Config file not found. Using default configuration."
@@ -299,6 +307,10 @@ function Create-ExcelFromCsv {
         [string]$excelDirectory,
         [string]$tableName = "My_Parts_Room"
     )
+	
+	$excel = $null
+	$workbook = $null
+	
     try {
         Write-Log "Starting to create Excel file from CSV for $siteName..."
         
@@ -541,7 +553,7 @@ function Create-ExcelFromCsv {
         }
     }
     finally {
-        if ($excel) {
+        if ($null -ne $excel) {
             [System.Runtime.Interopservices.Marshal]::ReleaseComObject($excel) | Out-Null
         }
         [System.GC]::Collect()
@@ -964,7 +976,7 @@ function Update-NotificationIcon {
 
     if ($script:unacknowledgedEntries.Count -gt 0) {
         $script:notificationIcon.Visible = $true
-        $script:notificationIcon.Text = "●$($script:unacknowledgedEntries.Count)"
+        $script:notificationIcon.Text = "•$($script:unacknowledgedEntries.Count)"
     } else {
         $script:notificationIcon.Visible = $false
     }
@@ -1804,6 +1816,7 @@ function Setup-LaborLogTab {
     $script:listViewLaborLog.View = [System.Windows.Forms.View]::Details
     $script:listViewLaborLog.FullRowSelect = $true
     $script:listViewLaborLog.Scrollable = $true
+	$script:listViewLaborLog.ShowItemToolTips = $true
     $script:listViewLaborLog.AutoResizeColumns([System.Windows.Forms.ColumnHeaderAutoResizeStyle]::None)
     $script:listViewLaborLog.Columns.Add("Date", 100) | Out-Null
     $script:listViewLaborLog.Columns.Add("Work Order", 150) | Out-Null
@@ -1815,7 +1828,7 @@ function Setup-LaborLogTab {
     $laborLogPanel.Controls.Add($script:listViewLaborLog)
     
     # Tooltip for hovering
-    $script:listViewLaborLog.MouseMove += {
+    $script:listViewLaborLog.MouseMove.Add_MouseMove({
         param($sender, $e)
         $item = $script:listViewLaborLog.GetItemAt($e.X, $e.Y)
         if ($item -ne $null) {
@@ -1824,10 +1837,10 @@ function Setup-LaborLogTab {
         } else {
             $script:listViewLaborLog.ToolTipText = ""
         }
-    }
+    })
 
     # Double-Click for details
-    $script:listViewLaborLog.DoubleClick += {
+    $script:listViewLaborLog.DoubleClick.Add_DoubleClick({
         $selectedItems = $script:listViewLaborLog.SelectedItems
         if ($selectedItems.Count -gt 0) {
             $item = $selectedItems[0]
@@ -1861,11 +1874,11 @@ function Setup-LaborLogTab {
                 $detailsForm.ShowDialog()
             }
         }
-    }
+    })
     
     # Initialize notification icon
     $script:notificationIcon = New-Object System.Windows.Forms.Label
-    $script:notificationIcon.Text = "●"
+    $script:notificationIcon.Text = "•"
     $script:notificationIcon.ForeColor = [System.Drawing.Color]::Red
     $script:notificationIcon.Font = New-Object System.Drawing.Font("Arial", 16, [System.Drawing.FontStyle]::Bold)
     $script:notificationIcon.Size = New-Object System.Drawing.Size(20, 20)
@@ -3140,7 +3153,7 @@ function Update-PartsBooks {
             } catch {
                 Write-Log "Error updating Excel workbook: $($_.Exception.Message)"
             } finally {
-                if ($excel) {
+                if ($null -ne $excel) {
                     [System.Runtime.Interopservices.Marshal]::ReleaseComObject($excel) | Out-Null
                 }
                 [System.GC]::Collect()
@@ -3177,7 +3190,7 @@ function Update-PartsRoom {
     
     # Check if a previously selected site exists in the config
     $selectedSiteName = $null
-    $selectedSiteId = $null
+    $selectedSiteID = $null
     
     # Check parts room directory for existing CSV files
     $existingCsvFile = Get-ChildItem -Path $config.PartsRoomDirectory -Filter "*.csv" | Select-Object -First 1
@@ -3189,13 +3202,13 @@ function Update-PartsRoom {
         $sitesPath = Join-Path $config.DropdownCsvsDirectory "Sites.csv"
         if (Test-Path $sitesPath) {
             $sites = Import-Csv -Path $sitesPath
-            $siteIdColumn = if ($sites[0].PSObject.Properties.Name -contains "Site ID") { "Site ID" } else { $sites[0].PSObject.Properties.Name[0] }
+            $SiteIDColumn = if ($sites[0].PSObject.Properties.Name -contains "Site ID") { "Site ID" } else { $sites[0].PSObject.Properties.Name[0] }
             $fullNameColumn = if ($sites[0].PSObject.Properties.Name -contains "Full Name") { "Full Name" } else { $sites[0].PSObject.Properties.Name[1] }
             
             $matchingSite = $sites | Where-Object { $_.$fullNameColumn -eq $selectedSiteName }
             if ($matchingSite) {
-                $selectedSiteId = $matchingSite.$siteIdColumn
-                Write-Log "Found Site ID for ${selectedSiteName}: ${selectedSiteId}"
+                $selectedSiteID = $matchingSite.$SiteIDColumn
+                Write-Log "Found Site ID for ${selectedSiteName}: ${selectedSiteID}"
             }
         }
     }
@@ -3237,9 +3250,9 @@ function Update-PartsRoom {
         }
         
         # Determine the correct column names
-        $siteIdColumn = if ($sites[0].PSObject.Properties.Name -contains "Site ID") { "Site ID" } else { $sites[0].PSObject.Properties.Name[0] }
+        $SiteIDColumn = if ($sites[0].PSObject.Properties.Name -contains "Site ID") { "Site ID" } else { $sites[0].PSObject.Properties.Name[0] }
         $fullNameColumn = if ($sites[0].PSObject.Properties.Name -contains "Full Name") { "Full Name" } else { $sites[0].PSObject.Properties.Name[1] }
-        Write-Log "Site ID Column: $siteIdColumn, Full Name Column: $fullNameColumn"
+        Write-Log "Site ID Column: $SiteIDColumn, Full Name Column: $fullNameColumn"
         
         # Create the form for site selection
         Write-Log "Creating form for site selection..."
@@ -3288,18 +3301,18 @@ function Update-PartsRoom {
         
         Write-Log "Selected Site: $selectedSiteName"
         $selectedRow = $sites | Where-Object { $_.$fullNameColumn -eq $selectedSiteName }
-        $selectedSiteId = $selectedRow.$siteIdColumn
+        $selectedSiteID = $selectedRow.$SiteIDColumn
     }
     
     # Now we have a site name and ID, proceed with downloading and processing the data
-    if (-not $selectedSiteId) {
+    if (-not $selectedSiteID) {
         Write-Log "Error: Cannot determine site ID for $selectedSiteName"
         [System.Windows.Forms.MessageBox]::Show("Cannot determine site ID for $selectedSiteName. Update cancelled.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
         return
     }
     
     # Construct the URL for the selected site
-    $url = "http://emarssu5.eng.usps.gov/pemarsnp/nm_national_stock.stockroom_by_site?p_site_id=$selectedSiteId&p_search_type=DESC&p_search_string=&p_boh_radio=-1"
+    $url = "http://emarssu3.eng.usps.gov/pemarsnp/nm_national_stock.stockroom_by_site?p_site_id=$selectedSiteID&p_search_type=DESC&p_search_string=&p_boh_radio=-1"
     Write-Log "URL for site ${selectedSiteName}: $url"
     
     # Download HTML content
@@ -3708,7 +3721,9 @@ function Update-PartsRoom {
                 if ($updateExcel -eq [System.Windows.Forms.DialogResult]::Yes) {
                     $progressLabel.Text = "Updating Excel file..."
                     $progressForm.Refresh()
-                    Update-ExcelFile -siteName $selectedSiteName -csvPath $csvFilePath -excelPath $excelFilePath
+                    Create-ExcelFromCsv -siteName $selectedSiteName `
+                      -csvDirectory (Split-Path $csvFilePath -Parent) `
+                      -excelDirectory (Split-Path $excelFilePath -Parent)
                 }
             } else {
                 $createExcel = [System.Windows.Forms.MessageBox]::Show(
@@ -3720,7 +3735,9 @@ function Update-PartsRoom {
                 if ($createExcel -eq [System.Windows.Forms.DialogResult]::Yes) {
                     $progressLabel.Text = "Creating Excel file..."
                     $progressForm.Refresh()
-                    Update-ExcelFile -siteName $selectedSiteName -csvPath $csvFilePath -excelPath $excelFilePath
+                    Create-ExcelFromCsv -siteName $selectedSiteName `
+                      -csvDirectory (Split-Path $csvFilePath -Parent) `
+                      -excelDirectory (Split-Path $excelFilePath -Parent)
                 }
             }
             
@@ -3769,8 +3786,15 @@ function Get-ExcelFiles {
     if ($config.Books) {
         Write-Log "Processing Books from config:"
         foreach ($book in $config.Books.PSObject.Properties) {
-            $bookDir = Join-Path $config.PartsBooksDirectory $book.Name
-            $excelFilePath = Get-ChildItem -Path $bookDir -Filter "*.xlsx" | Select-Object -First 1 -ExpandProperty FullName
+		  $volumesCsvPath = $book.Value.VolumesToUrlCsvPath
+		  if ($volumesCsvPath) {
+			  $bookDir = Split-Path -Path $volumesCsvPath -Parent
+		  } else {
+			  $bookDir = Join-Path $config.PartsBooksDirectory $book.Name
+		  }
+		  if (-not (Test-Path $bookDir)) { Write-Log "Directory not found for: $($book.Name)"; continue }
+		  $excelFilePath = Get-ChildItem -Path $bookDir -Filter "*.xlsx" -ErrorAction SilentlyContinue |
+						   Select-Object -First 1 -ExpandProperty FullName
             Write-Log "Checking file: $excelFilePath"
             if ($excelFilePath -and (Test-Path $excelFilePath)) {
                 $excelFiles += @{
@@ -3814,6 +3838,9 @@ function Add-SameDayPartsRoom {
         $sites = Import-Csv -Path $sitesPath
 
         # Exclude sites already in SameDayPartsRooms
+		if (-not $config.SameDayPartsRooms) {
+			$config | Add-Member -NotePropertyName SameDayPartsRooms -NotePropertyValue @() -Force
+		}
         $existingSites = $config.SameDayPartsRooms | ForEach-Object { $_.SiteID }
         $sitesToAdd = $sites | Where-Object { $existingSites -notcontains $_.'Site ID' }
 
@@ -3848,7 +3875,7 @@ function Add-SameDayPartsRoom {
         $config.SameDayPartsRooms += $selectedSites
 
         # Save the updated configuration
-        $config | ConvertTo-Json -Depth 4 | Set-Content -Path $configPath
+        $config | ConvertTo-Json -Depth 6 | Set-Content -Path $configPath
 
         # Create subdirectory for Same Day Parts Room
         $sameDayPartsRoomDir = Join-Path $config.PartsRoomDirectory "Same Day Parts Room"
@@ -3859,13 +3886,13 @@ function Add-SameDayPartsRoom {
 
         # Process each selected site
         foreach ($site in $selectedSites) {
-            $siteID = $site.SiteID
+            $SiteID = $site.SiteID
             $siteName = $site.FullName
 
             # Get site URL from Sites.csv
-            $siteInfo = $sites | Where-Object { $_.'Site ID' -eq $siteID }
+            $siteInfo = $sites | Where-Object { $_.'Site ID' -eq $SiteID }
             if ($siteInfo) {
-                $siteUrl = "http://emarssu5.eng.usps.gov/pemarsnp/nm_national_stock.stockroom_by_site?p_site_id=$($siteID)&p_search_type=DESC&p_search_string=&p_boh_radio=-1"
+                $siteUrl = "http://emarssu5.eng.usps.gov/pemarsnp/nm_national_stock.stockroom_by_site?p_site_id=$($SiteID)&p_search_type=DESC&p_search_string=&p_boh_radio=-1"
 
                 if ($siteUrl) {
                     # Download HTML
@@ -3885,10 +3912,10 @@ function Add-SameDayPartsRoom {
                     $parsedData | Export-Csv -Path $csvFilePath -NoTypeInformation
                     Write-Log "Parsed HTML and saved CSV for site $siteName to $csvFilePath"
                 } else {
-                    Write-Log "URL not found for site $siteID"
+                    Write-Log "URL not found for site $SiteID"
                 }
             } else {
-                Write-Log "Site information not found for site $siteID"
+                Write-Log "Site information not found for site $SiteID"
             }
         }
 
@@ -3897,6 +3924,179 @@ function Add-SameDayPartsRoom {
     })
 
     $form.ShowDialog()
+}
+
+function Add-PartsBookFromCatalog {
+
+    param($config)
+
+    $parsedCsvPath = Join-Path $config.DropdownCsvsDirectory "Parsed-Parts-Volumes.csv"
+    if (-not (Test-Path $parsedCsvPath) -or (Get-Item $parsedCsvPath).Length -eq 0) {
+        [System.Windows.Forms.MessageBox]::Show(
+            "Parsed-Parts-Volumes.csv is missing or empty. Run Handbook-Dropdowns-CSV-Creator first.",
+            "Cannot Add Books",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Warning)
+        return
+    }
+
+    $csvData = Import-Csv $parsedCsvPath
+    $alreadyHave = if ($config.Books) { $config.Books.PSObject.Properties.Name } else { @() }
+
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = "Add Parts Book"
+    $form.Size = New-Object System.Drawing.Size(720, 520)
+    $form.StartPosition = 'CenterScreen'
+
+    $checkedList = New-Object System.Windows.Forms.CheckedListBox
+    $checkedList.Location = New-Object System.Drawing.Point(10, 10)
+    $checkedList.Size = New-Object System.Drawing.Size(690, 430)
+    $checkedList.CheckOnClick = $true
+
+    foreach ($row in $csvData) {
+        $bookName = ($row.'Full Name' -replace '[^\w\s-]', '' -replace '\s+', ' ').Trim()
+        $display  = "$($row.'Full Name')   MS$($row.'MS Book No') Vol $($row.Volume)"
+        if ($alreadyHave -contains $bookName) { $display += "   [already installed]" }
+        $checkedList.Items.Add($display) | Out-Null
+    }
+    $form.Controls.Add($checkedList)
+
+    $ok = New-Object System.Windows.Forms.Button
+    $ok.Text = "Add Selected"
+    $ok.Location = New-Object System.Drawing.Point(520, 450)
+    $ok.Size = New-Object System.Drawing.Size(180, 30)
+    $ok.DialogResult = [System.Windows.Forms.DialogResult]::OK
+    $form.Controls.Add($ok)
+
+    if ($form.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) { return }
+
+    if (-not $config.Books) {
+        $config | Add-Member -NotePropertyName Books -NotePropertyValue @{} -Force
+    }
+
+    $added = 0
+    foreach ($idx in $checkedList.CheckedIndices) {
+        $row = $csvData[$idx]
+        $bookName = ($row.'Full Name' -replace '[^\w\s-]', '' -replace '\s+', ' ').Trim()
+        if ($alreadyHave -contains $bookName) { continue }
+
+        $bookDir = Join-Path $config.PartsBooksDirectory $bookName
+        New-Item -ItemType Directory -Force -Path $bookDir | Out-Null
+
+        $config.Books | Add-Member -NotePropertyName $bookName -NotePropertyValue @{
+            VolumesToUrlCsvPath = Join-Path $bookDir "Volumes-to-URL.csv"
+            SectionNamesCsvPath = Join-Path $bookDir "SectionNames.txt"
+        } -Force
+        $added++
+    }
+
+    $configPath = Join-Path $config.ScriptsDirectory "Config.json"
+    $config | ConvertTo-Json -Depth 6 | Set-Content -Path $configPath
+    Write-Log "Added $added book(s) to config."
+
+    [System.Windows.Forms.MessageBox]::Show(
+        "Added $added book(s). Use 'Create Parts Book' to download and index their contents.",
+        "Books Added",
+        [System.Windows.Forms.MessageBoxButtons]::OK,
+        [System.Windows.Forms.MessageBoxIcon]::Information)
+}
+
+function Remove-PartsBook {
+    param($config)
+
+    $books = if ($config.Books) { @($config.Books.PSObject.Properties.Name) } else { @() }
+    if ($books.Count -eq 0) {
+        [System.Windows.Forms.MessageBox]::Show("No books configured.", "Nothing to Remove")
+        return
+    }
+
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = "Remove Parts Book"
+    $form.Size = New-Object System.Drawing.Size(500, 350)
+    $form.StartPosition = 'CenterScreen'
+
+    $list = New-Object System.Windows.Forms.CheckedListBox
+    $list.Location = New-Object System.Drawing.Point(10, 10)
+    $list.Size = New-Object System.Drawing.Size(470, 240)
+    foreach ($b in $books) { $list.Items.Add($b) | Out-Null }
+    $form.Controls.Add($list)
+
+    $ok = New-Object System.Windows.Forms.Button
+    $ok.Text = "Remove Selected from Config"
+    $ok.Location = New-Object System.Drawing.Point(270, 260)
+    $ok.Size = New-Object System.Drawing.Size(210, 30)
+    $ok.DialogResult = [System.Windows.Forms.DialogResult]::OK
+    $form.Controls.Add($ok)
+
+    if ($form.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) { return }
+
+    $removed = 0
+    foreach ($idx in $list.CheckedIndices) {
+        $name = $list.Items[$idx]
+        $config.Books.PSObject.Properties.Remove($name)
+        $removed++
+    }
+
+    $configPath = Join-Path $config.ScriptsDirectory "Config.json"
+    $config | ConvertTo-Json -Depth 6 | Set-Content -Path $configPath
+    Write-Log "Removed $removed book(s) from config. Files on disk preserved."
+
+    [System.Windows.Forms.MessageBox]::Show(
+        "Removed $removed book(s) from config. The downloaded files were left on disk.",
+        "Books Removed",
+        [System.Windows.Forms.MessageBoxButtons]::OK,
+        [System.Windows.Forms.MessageBoxIcon]::Information)
+}
+
+function Remove-SameDayPartsRoom {
+    param($config)
+
+    if (-not $config.SameDayPartsRooms -or $config.SameDayPartsRooms.Count -eq 0) {
+        [System.Windows.Forms.MessageBox]::Show("No Same Day sites configured.", "Nothing to Remove")
+        return
+    }
+
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = "Remove Same Day Parts Room Site"
+    $form.Size = New-Object System.Drawing.Size(500, 350)
+    $form.StartPosition = 'CenterScreen'
+
+    $list = New-Object System.Windows.Forms.CheckedListBox
+    $list.Location = New-Object System.Drawing.Point(10, 10)
+    $list.Size = New-Object System.Drawing.Size(470, 240)
+    foreach ($s in $config.SameDayPartsRooms) {
+        $list.Items.Add("$($s.SiteID)   $($s.FullName)") | Out-Null
+    }
+    $form.Controls.Add($list)
+
+    $ok = New-Object System.Windows.Forms.Button
+    $ok.Text = "Remove Selected"
+    $ok.Location = New-Object System.Drawing.Point(270, 260)
+    $ok.Size = New-Object System.Drawing.Size(210, 30)
+    $ok.DialogResult = [System.Windows.Forms.DialogResult]::OK
+    $form.Controls.Add($ok)
+
+    if ($form.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) { return }
+
+    $keep = @()
+    $remove = @{}
+    foreach ($idx in $list.CheckedIndices) {
+        $remove[$config.SameDayPartsRooms[$idx].SiteID] = $true
+    }
+    foreach ($s in $config.SameDayPartsRooms) {
+        if (-not $remove.ContainsKey($s.SiteID)) { $keep += $s }
+    }
+    $config.SameDayPartsRooms = $keep
+
+    $configPath = Join-Path $config.ScriptsDirectory "Config.json"
+    $config | ConvertTo-Json -Depth 6 | Set-Content -Path $configPath
+    Write-Log "Removed $($remove.Count) Same Day site(s) from config. Files preserved."
+
+    [System.Windows.Forms.MessageBox]::Show(
+        "Removed $($remove.Count) site(s) from config. The cached CSVs were left on disk.",
+        "Sites Removed",
+        [System.Windows.Forms.MessageBoxButtons]::OK,
+        [System.Windows.Forms.MessageBoxIcon]::Information)
 }
 
 ################################################################################
@@ -4105,37 +4305,46 @@ function Show-MainForm {
     $actionsTab.Controls.Add($actionsPanel)
 
     # Define action buttons
-    $actionButtons = @(
-        @{Text="Update Parts Books"; Action={ Update-PartsBooks }}
-        @{Text="Update Parts Room"; Action={ Update-PartsRoom }}
-        @{Text="Take a Part Out"; Action={ Take-PartOut }}
-        @{Text="Search for a Part"; Action={ $tabControl.SelectedTab = $searchTab }}
-        @{Text="Request a Part to be Ordered"; Action={ Request-PartOrder }}
-        @{Text="Request a Work Order"; Action={ Request-WorkOrder }}
-        @{Text="Make an MTSC Ticket"; Action={ Make-MTSCTicket }}
-        @{Text="Search Knowledge Base"; Action={ Search-KnowledgeBase }}
-        @{Text="Add Same Day Parts Room"; Action={ Add-SameDayPartsRoom }}
-        @{Text="Add 1-Day Parts Room"; Action={ [System.Windows.Forms.MessageBox]::Show("This feature is not yet implemented.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information) }}
-        @{Text="Add 2-Day Parts Room"; Action={ [System.Windows.Forms.MessageBox]::Show("This feature is not yet implemented.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information) }}
-    )
+	$actionButtons = @(
+		@{Text="Update Parts Books";           Action={ Update-PartsBooks }}
+		@{Text="Update Parts Room";            Action={ Update-PartsRoom }}
+		@{Text="Take a Part Out";              Action={ Take-PartOut }}
+		@{Text="Search for a Part";            Action={ $tabControl.SelectedTab = $searchTab }}
+		@{Text="Request a Part to be Ordered"; Action={ Request-PartOrder }}
+		@{Text="Request a Work Order";         Action={ Request-WorkOrder }}
+		@{Text="Make an MTSC Ticket";          Action={ Make-MTSCTicket }}
+		@{Text="Search Knowledge Base";        Action={ Search-KnowledgeBase }}
 
-    foreach ($actionButton in $actionButtons) {
-        $button = New-Button $actionButton.Text $actionButton.Action
-        $actionsPanel.Controls.Add($button)
-    }
+		# Parts Books management
+		@{Text="Add Parts Book";               Action={ Add-PartsBookFromCatalog -config $config }}
+		@{Text="Remove Parts Book";            Action={ Remove-PartsBook -config $config }}
+
+		# Same Day Parts Room management
+		@{Text="Add Same Day Parts Room";      Action={ Add-SameDayPartsRoom }}
+		@{Text="Remove Same Day Parts Room";   Action={ Remove-SameDayPartsRoom -config $config }}
+
+		# Placeholders
+		@{Text="Add 1-Day Parts Room";         Action={ [System.Windows.Forms.MessageBox]::Show("Not yet implemented.") }}
+		@{Text="Add 2-Day Parts Room";         Action={ [System.Windows.Forms.MessageBox]::Show("Not yet implemented.") }}
+	)
+
+		foreach ($actionButton in $actionButtons) {
+			$button = New-Button $actionButton.Text $actionButton.Action
+			$actionsPanel.Controls.Add($button)
+		}
 
 
-    # Search Tab
-    $searchTab = New-Object System.Windows.Forms.TabPage
-    $searchTab.Text = "Search"
-    $tabControl.TabPages.Add($searchTab)
+		# Search Tab
+		$searchTab = New-Object System.Windows.Forms.TabPage
+		$searchTab.Text = "Search"
+		$tabControl.TabPages.Add($searchTab)
 
-    # Call the function to set up the search interface within the searchTab
-    Setup-SearchTab -parentTab $searchTab -config $config
+		# Call the function to set up the search interface within the searchTab
+		Setup-SearchTab -parentTab $searchTab -config $config
 
-    Write-Log "UI setup completed"
-    $form.ShowDialog()
-}
+		Write-Log "UI setup completed"
+		$form.ShowDialog()
+	}
 
 
 # Main execution
