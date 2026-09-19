@@ -2953,6 +2953,9 @@ function Update-PartsBooks {
             $progressLabel.Text = "Updating Excel workbook..."
             $bookLabel.Text = "Processing book: $($book.Name) - Excel update"
             $progressForm.Refresh()
+
+			$excel = $null
+    		$workbook = $null
             
             try {
                 $excel = New-Object -ComObject Excel.Application
