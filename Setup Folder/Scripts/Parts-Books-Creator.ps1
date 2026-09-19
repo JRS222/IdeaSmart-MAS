@@ -949,13 +949,18 @@ function Create-ExcelWorkbook($sourceDir, $combinedCsvDir) {
     Write-Host "Starting Excel workbook creation for $sourceDir"
 
     $excelWorkbookPath = Join-Path $sourceDir "$((Split-Path $sourceDir -Leaf)).xlsx"
-    $excel = New-Object -ComObject Excel.Application
-    $excel.Visible = $false
-    $workbook = $excel.Workbooks.Add()
-	$excel = $null
-	$workbook = $null
+
+    # Declare before try so the finally block is always safe to run,
+    # even if New-Object itself throws.
+    $excel = $null
+    $workbook = $null
 
     try {
+        $excel = New-Object -ComObject Excel.Application
+        $excel.Visible = $false
+        $excel.DisplayAlerts = $false
+        $workbook = $excel.Workbooks.Add()
+
         # Remove default sheets
         while ($workbook.Sheets.Count -gt 1) {
             $workbook.Sheets.Item(1).Delete()
@@ -1216,7 +1221,7 @@ function Create-ExcelWorkbook($sourceDir, $combinedCsvDir) {
         }
         if ($null -ne $excel) {
             try { $excel.Quit() } catch { Write-Host "Error quitting Excel: $_" }
-            [System.Runtime.Interopservices.Marshal]::ReleaseComObject($excel) | Out-Null
+            try { [System.Runtime.Interopservices.Marshal]::ReleaseComObject($excel) | Out-Null } catch { }
         }
         [System.GC]::Collect()
         [System.GC]::WaitForPendingFinalizers()
