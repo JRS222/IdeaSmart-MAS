@@ -12,6 +12,21 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName Microsoft.Office.Interop.Excel
 
+Set-StrictMode -Version 2.0
+$ErrorActionPreference = 'Stop'
+$PSDefaultParameterValues['*:ErrorAction'] = 'Stop'
+
+# Log every error with full location info
+trap {
+    Write-Host "===== UNHANDLED ERROR ====="
+    Write-Host "Message : $($_.Exception.Message)"
+    Write-Host "Line    : $($_.InvocationInfo.ScriptLineNumber)"
+    Write-Host "Code    : $($_.InvocationInfo.Line.Trim())"
+    Write-Host "Stack   : $($_.ScriptStackTrace)"
+    Write-Host "==========================="
+    break
+}
+
 ################################################################################
 #                           Global Variables                                   #
 ################################################################################
@@ -22,7 +37,7 @@ $script:ScriptDirectory = $PSScriptRoot    # Script directory path
 $script:configPath = Join-Path $script:ScriptDirectory "Config.json"  # Config path
 
 # UI Controls
-$global:listView = New-Object System.Windows.Forms.ListView  # ListView for books
+$script:booksListView = New-Object System.Windows.Forms.ListView
 
 # Progress UI elements
 $global:progressForm = New-Object System.Windows.Forms.Form  # Progress form
@@ -35,8 +50,7 @@ $script:existingBooks = $null             # Existing books collection
 $script:machinesUpdated = $false          # Flag for machines list update
 
 $global:configPath = Join-Path $PSScriptRoot "Config.json"
-$global:listView = New-Object System.Windows.Forms.ListView
-
+$script:booksListView = New-Object System.Windows.Forms.ListView
 
 # Load configuration
 $configPath = Join-Path $PSScriptRoot "Config.json"
@@ -49,6 +63,12 @@ if (Test-Path $configPath) {
 } else {
     Write-Host "Error: Config file not found at $configPath"
     exit
+}
+
+# Used consistently so the picker and config writer agree.
+function Get-BookKey {
+    param([string]$FullName)
+    return ($FullName -replace '[^\w\s-]', '' -replace '\s+', ' ').Trim()
 }
 
 $partsBooksDirPath = $config.PartsBooksDirectory
@@ -116,11 +136,25 @@ function Get-ExistingBooks {
     }
     Write-Host "Config loaded in Get-ExistingBooks"
     $books = @{}
-    if ($config.PSObject.Properties.Name -contains "Books" -and $null -ne $config.Books) {
+
+    $hasBooks = ($config.PSObject.Properties.Name -contains "Books")
+    if ($hasBooks -and ($null -ne $config.Books)) {
         Write-Host "Config contains 'Books' property"
-        foreach ($key in $config.Books.PSObject.Properties.Name) {
-            Write-Host "Adding book '$key' to existingBooks"
-            $books[$key] = $config.Books.$key
+
+        # Handle both possible shapes that ConvertFrom-Json can produce:
+        #   1. PSCustomObject with NoteProperties (the default)
+        #   2. Hashtable / IDictionary (some PS versions, or -AsHashtable)
+        if ($config.Books -is [System.Collections.IDictionary]) {
+            foreach ($key in $config.Books.Keys) {
+                Write-Host "Adding book '$key' to existingBooks"
+                $books[$key] = $config.Books[$key]
+            }
+        } else {
+            foreach ($prop in @($config.Books.PSObject.Properties)) {
+                $key = $prop.Name
+                Write-Host "Adding book '$key' to existingBooks"
+                $books[$key] = $prop.Value
+            }
         }
     } else {
         Write-Host "Config does not contain 'Books' property or it's null"
@@ -140,17 +174,18 @@ Write-Host "Existing books: $($existingBooks.Keys -join ', ')"
 
 foreach ($row in $csvData) {
     Write-Host "Processing row: $($row.'Full Name')"
-    if (-not $existingBooks.ContainsKey($row.'Full Name')) {
+    $key = Get-BookKey $row.'Full Name'
+    if (-not $existingBooks.ContainsKey($key)) {
         $item = New-Object System.Windows.Forms.ListViewItem($row.'Full Name')
         $item.SubItems.Add($row.'MS Book No')
         $item.SubItems.Add($row.'Volume')
-        $listView.Items.Add($item)
+        $script:booksListView.Items.Add($item)
         Write-Host "Added item to ListView: $($row.'Full Name')"
     } else {
         Write-Host "Skipped existing book: $($row.'Full Name')"
     }
 }
-Write-Host "ListView items count: $($global:listView.Items.Count)"
+Write-Host "ListView items count: $($script:booksListView.Items.Count)"
 
 Write-Host "Script is running from: "
 Write-Host "DropdownCsvsDirectory: $($config.DropdownCsvsDirectory)"
@@ -191,9 +226,9 @@ function Update-Config($bookName, $volumesToUrlPath, $sectionNamesCsvPath) {
         $config | Add-Member -NotePropertyName "Books" -NotePropertyValue @{} -Force
     } elseif ($config.Books -isnot [System.Collections.IDictionary]) {
         $existingBooks = @{}
-        foreach ($prop in $config.Books.PSObject.Properties) {
-            $existingBooks[$prop.Name] = $prop.Value
-        }
+	foreach ($prop in $config.Books.PSObject.Properties) {
+		$existingBooks[$prop.Name] = $prop.Value
+	}
         $config.Books = $existingBooks
     }
 
@@ -214,7 +249,23 @@ function Update-Config($bookName, $volumesToUrlPath, $sectionNamesCsvPath) {
 
 # Function to update progress
 function Update-Progress($stepName, $percentComplete, $currentBook) {
-    $global:progressBar.Value = $percentComplete
+    # Coerce any input shape (null, Object[], double, string) into an int in [0,100].
+    $pct = 0
+    try {
+        if ($percentComplete -is [array]) {
+            if ($percentComplete.Count -gt 0) {
+                $pct = [int][Math]::Floor([double]$percentComplete[0])
+            }
+        } elseif ($null -ne $percentComplete -and "$percentComplete" -ne '') {
+            $pct = [int][Math]::Floor([double]$percentComplete)
+        }
+    } catch {
+        $pct = 0
+    }
+    if ($pct -lt 0)   { $pct = 0 }
+    if ($pct -gt 100) { $pct = 100 }
+
+    $global:progressBar.Value = $pct
     $global:progressLabel.Text = $stepName
     $global:bookLabel.Text = "Current Book: $currentBook"
     $global:progressForm.Refresh()
@@ -406,7 +457,7 @@ function Process-HTMLContent {
         if ($treeUl) {
             Write-Host "Found phbk_tree, extracting sections and figures..."
             # Loop through each LI (section) in the tree
-            $sectionElements = $treeUl.getElementsByTagName("li") | Where-Object { $_.getAttribute("sno") }
+            $sectionElements = @($treeUl.getElementsByTagName("li") | Where-Object { $_.getAttribute("sno") })
             
             Write-Host "Found $($sectionElements.Count) sections."
             $totalFigures = 0
@@ -426,7 +477,7 @@ function Process-HTMLContent {
                     $figureList = $sectionElement.getElementsByTagName("ul") | Select-Object -First 1
                     
                     if ($figureList) {
-                        $figureElements = $figureList.getElementsByTagName("li") | Where-Object { $_.getAttribute("figno") }
+                        $figureElements = @($figureList.getElementsByTagName("li") | Where-Object { $_.getAttribute("figno") })
                         
                         Write-Host "  Found $($figureElements.Count) figures in section $sectionNo."
                         
@@ -680,7 +731,9 @@ function Download-And-Process-HTML($volumesToUrlData, $directoryPath, $currentBo
         Write-Host "Created directory: $HTMLCSVDirectoryPath"
     }
 
-    $totalFiles = $volumesToUrlData.Count
+    # Force array so .Count works even when Import-Csv returns a single row
+    $volumesToUrlData = @($volumesToUrlData)          
+    $totalFiles = [int]@($volumesToUrlData).Count     
     $filesDownloaded = 0
 
     if ($totalFiles -eq 0) {
@@ -733,8 +786,8 @@ function Combine-CSVFiles($sourceDir, $siteCsvPath, $partsBookName) {
         New-Item -Path $NewPartsBooksDirectory -ItemType Directory | Out-Null
     }
 
-    $csvFiles = Get-ChildItem -Path (Join-Path $sourceDir "HTML and CSV Files") -Filter "Figure *.csv"
-    $groupedFiles = $csvFiles | Group-Object { $_.BaseName -replace 'Figure (\d+)-\d+', '$1' }
+    $csvFiles = @(Get-ChildItem -Path (Join-Path $sourceDir "HTML and CSV Files") -Filter "Figure *.csv")
+    $groupedFiles = @($csvFiles | Group-Object { $_.BaseName -replace 'Figure (\d+)-\d+', '$1' })
 
     $siteData = $null
     if (Test-Path $siteCsvPath) {
@@ -755,7 +808,8 @@ function Combine-CSVFiles($sourceDir, $siteCsvPath, $partsBookName) {
         Write-Host "Site CSV file not found at $siteCsvPath. Proceeding without site data comparison."
     }
 
-    $totalGroups = $groupedFiles.Count
+    $totalGroups = [int]@($groupedFiles).Count
+    if ($totalGroups -lt 1) { $totalGroups = 1 }
     $processedGroups = 0
 
     foreach ($group in $groupedFiles) {
@@ -893,11 +947,13 @@ function Combine-CSVFiles($sourceDir, $siteCsvPath, $partsBookName) {
 function Create-ExcelWorkbook($sourceDir, $combinedCsvDir) {
     $startTime = [DateTime](Get-Date)
     Write-Host "Starting Excel workbook creation for $sourceDir"
-    
+
     $excelWorkbookPath = Join-Path $sourceDir "$((Split-Path $sourceDir -Leaf)).xlsx"
     $excel = New-Object -ComObject Excel.Application
     $excel.Visible = $false
     $workbook = $excel.Workbooks.Add()
+	$excel = $null
+	$workbook = $null
 
     try {
         # Remove default sheets
@@ -911,52 +967,55 @@ function Create-ExcelWorkbook($sourceDir, $combinedCsvDir) {
             throw "Combined CSV directory not found"
         }
 
-        # Get CSV files and sort them
+        # Get CSV files and sort them.
+        # Wrap in @() at every step so a single-file result stays an array.
         Update-Progress "Finding section CSV files..." 50 (Split-Path $sourceDir -Leaf)
-        $sectionCsvFiles = Get-ChildItem -Path $combinedCsvDir -Filter "Section *.csv" -ErrorAction SilentlyContinue
-        
+
+        $sectionCsvFiles = @(Get-ChildItem -Path $combinedCsvDir -Filter "Section *.csv" -ErrorAction SilentlyContinue)
+
         if ($sectionCsvFiles.Count -eq 0) {
             Write-Host "No Section CSV files found in $combinedCsvDir"
             throw "No Section CSV files found"
         }
 
-        $sectionCsvFiles = $sectionCsvFiles | Sort-Object { 
-            if ($_.BaseName -match 'Section (\d+)') {
-                [int]$matches[1]
-            } else {
-                0
-            }
-        } -Descending
+        $sectionCsvFiles = @($sectionCsvFiles | Sort-Object -Property @{ Expression = {
+            if ($_.BaseName -match 'Section (\d+)') { [int]$matches[1] } else { 0 }
+        }; Descending = $true })
+
         Write-Host "Found $($sectionCsvFiles.Count) section CSV files"
-        
+
         # Use New-TimeSpan for date calculations
         $csvLoadTimeEnd = [DateTime](Get-Date)
         $csvLoadTime = New-TimeSpan -Start $startTime -End $csvLoadTimeEnd
         Write-Host "CSV files located in $($csvLoadTime.TotalSeconds) seconds"
 
-        $totalSheets = $sectionCsvFiles.Count
+        # Coerce to plain int so downstream arithmetic is never array math.
+        $totalSheets = @($sectionCsvFiles).Count
+        if ($null -eq $totalSheets) { $totalSheets = 0 }
+        $totalSheets = [int]$totalSheets
+        if ($totalSheets -lt 1) { $totalSheets = 1 }   # never divide by zero
         $processedSheets = 0
-        
+
         # Timing data
         $sheetTimes = @()
 
         foreach ($file in $sectionCsvFiles) {
             $sheetStartTime = [DateTime](Get-Date)
             $processedSheets++
-            $baseProgress = 50  # Starting point for this phase
-            $progressWeight = 25  # Weight of this phase as percentage
+            $baseProgress = 50      # Starting point for this phase
+            $progressWeight = 25    # Weight of this phase as percentage
             $sheetProgress = $processedSheets / $totalSheets
             $percentComplete = $baseProgress + ($sheetProgress * $progressWeight)
-            
+
             $worksheetName = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
             Update-Progress "Loading CSV for sheet: $worksheetName" $percentComplete (Split-Path $sourceDir -Leaf)
 
-            # Load CSV content
+            # Load CSV content. @() keeps a 1-row CSV as an array, so .Count is a real int.
             $csvStart = [DateTime](Get-Date)
-            $csvContent = Import-Csv -Path $file.FullName
+            $csvContent = @(Import-Csv -Path $file.FullName)
             $csvEnd = [DateTime](Get-Date)
             $csvDuration = (New-TimeSpan -Start $csvStart -End $csvEnd).TotalSeconds
-            
+
             # Create worksheet
             Update-Progress "Creating worksheet: $worksheetName" $percentComplete (Split-Path $sourceDir -Leaf)
             $worksheet = $workbook.Sheets.Add()
@@ -971,70 +1030,77 @@ function Create-ExcelWorkbook($sourceDir, $combinedCsvDir) {
             }
 
             # Prepare 2D array for data
-            $rowCount = $csvContent.Count
+            $rowCount = @($csvContent).Count
+            if ($null -eq $rowCount) { $rowCount = 0 }
+            $rowCount = [int]$rowCount
             Update-Progress "Preparing data for $rowCount rows in $worksheetName" $percentComplete (Split-Path $sourceDir -Leaf)
-            
+
             # Optimize for larger data sets - use array approach
             $dataArray = New-Object 'object[,]' $rowCount, $orderedHeaders.Count
-            
+
             # Fill the array with data
-            $totalRows = $csvContent.Count
+            $totalRows = @($csvContent).Count
+            if ($null -eq $totalRows) { $totalRows = 0 }
+            $totalRows = [int]$totalRows
+            if ($totalRows -lt 1) { $totalRows = 1 }
             $rowsProcessed = 0
             $dataStart = [DateTime](Get-Date)
-            
+
             foreach ($rowItem in $csvContent) {
                 $rowsProcessed++
+                $rowIdx = [int]$rowsProcessed - 1     # define once per row, outside the inner column loop
+
                 # Calculate percentage within this sheet
                 $rowProgress = $rowsProcessed / $totalRows
                 # Calculate sheet contribution to overall progress
                 $sheetContribution = $rowProgress / $totalSheets
                 # Calculate final percentage
                 $detailedProgress = $baseProgress + ($sheetProgress * $progressWeight) + ($sheetContribution * $progressWeight)
-                
+
                 if ($rowsProcessed % 50 -eq 0 -or $rowsProcessed -eq $totalRows) {  # Update progress every 50 rows
                     Update-Progress "Processing sheet ${worksheetName}: row $rowsProcessed of $totalRows" [Math]::Min([int]$detailedProgress, 100) (Split-Path $sourceDir -Leaf)
                 }
-                
+
                 # Fill array row
                 for ($i = 0; $i -lt $orderedHeaders.Count; $i++) {
                     $header = $orderedHeaders[$i]
                     $cellValue = $rowItem.$header
-                    
+
                     # Special handling for REF. column with hyperlinks
                     if ($header -eq 'REF.' -and $cellValue -match 'Figure \d+-\d+') {
-                        $dataArray[$rowsProcessed-1, $i] = $cellValue -replace '\.csv$', ''
+                        $dataArray[$rowIdx, $i] = $cellValue -replace '\.csv$', ''
                     } else {
-                        $dataArray[$rowsProcessed-1, $i] = $cellValue
+                        $dataArray[$rowIdx, $i] = $cellValue
                     }
                 }
             }
             $dataEnd = [DateTime](Get-Date)
             $dataDuration = (New-TimeSpan -Start $dataStart -End $dataEnd).TotalSeconds
-            
+
             # Calculate position for data range
-            $startRow = 2  # Start after header row
+            $startRow = 2
             $startCol = 1
-            $endRow = $startRow + $rowCount - 1
-            $endCol = $startCol + $orderedHeaders.Count - 1
-            
+            $endRow   = [int]$startRow + [int]$rowCount - 1
+            $endCol   = [int]$startCol + [int]$orderedHeaders.Count - 1
+
             # Write data to worksheet in one operation
             Update-Progress "Writing data to worksheet $worksheetName" $percentComplete (Split-Path $sourceDir -Leaf)
             $writeStart = [DateTime](Get-Date)
-            
+
             if ($rowCount -gt 0) {
                 $startCell = $worksheet.Cells.Item($startRow, $startCol)
                 $endCell = $worksheet.Cells.Item($endRow, $endCol)
                 $dataRange = $worksheet.Range($startCell, $endCell)
                 $dataRange.Value2 = $dataArray
             }
-            
+
             $writeEnd = [DateTime](Get-Date)
             $writeDuration = (New-TimeSpan -Start $writeStart -End $writeEnd).TotalSeconds
-            
+
             # Add hyperlinks for REF. column
             Update-Progress "Adding hyperlinks to worksheet $worksheetName" $percentComplete (Split-Path $sourceDir -Leaf)
             $linkStart = [DateTime](Get-Date)
-            
+
             # Find REF. column index
             $refColIndex = -1
             for ($i = 0; $i -lt $orderedHeaders.Count; $i++) {
@@ -1043,7 +1109,7 @@ function Create-ExcelWorkbook($sourceDir, $combinedCsvDir) {
                     break
                 }
             }
-            
+
             if ($refColIndex -gt 0) {
                 for ($row = 2; $row -le $rowCount + 1; $row++) {
                     $cellValue = $worksheet.Cells.Item($row, $refColIndex).Value2
@@ -1051,12 +1117,12 @@ function Create-ExcelWorkbook($sourceDir, $combinedCsvDir) {
                         $figureNumber = $cellValue
                         $htmlFileName = "$figureNumber.html"
                         $htmlFilePath = Join-Path -Path $sourceDir -ChildPath "HTML and CSV Files\$htmlFileName"
-                        
+
                         if (Test-Path $htmlFilePath) {
                             $cell = $worksheet.Cells.Item($row, $refColIndex)
                             $worksheet.Hyperlinks.Add($cell, $htmlFilePath, "", "", $figureNumber) | Out-Null
                         }
-                        
+
                         # Update progress occasionally to keep UI responsive
                         if (($row - 2) % 50 -eq 0 -or $row -eq $rowCount + 1) {
                             $linkProgress = ($row - 2) / $rowCount
@@ -1066,26 +1132,26 @@ function Create-ExcelWorkbook($sourceDir, $combinedCsvDir) {
                     }
                 }
             }
-            
+
             $linkEnd = [DateTime](Get-Date)
             $linkDuration = (New-TimeSpan -Start $linkStart -End $linkEnd).TotalSeconds
-            
+
             # Format as table
             Update-Progress "Formatting table for $worksheetName" $percentComplete (Split-Path $sourceDir -Leaf)
             $formatStart = [DateTime](Get-Date)
-            
+
             $range = $worksheet.UsedRange
             $listObject = $worksheet.ListObjects.Add([Microsoft.Office.Interop.Excel.XlListObjectSourceType]::xlSrcRange, $range, $null, [Microsoft.Office.Interop.Excel.XlYesNoGuess]::xlYes)
             $listObject.Name = "$($worksheet.Name)Table"
             $listObject.TableStyle = "TableStyleMedium2"
-            
+
             $formatEnd = [DateTime](Get-Date)
             $formatDuration = (New-TimeSpan -Start $formatStart -End $formatEnd).TotalSeconds
-            
+
             # Format columns
             Update-Progress "Formatting columns for $worksheetName" $percentComplete (Split-Path $sourceDir -Leaf)
             $columnStart = [DateTime](Get-Date)
-            
+
             foreach ($column in $listObject.ListColumns) {
                 $column.Range.EntireColumn.AutoFit()
                 $column.Range.VerticalAlignment = -4108 # xlCenter
@@ -1096,10 +1162,10 @@ function Create-ExcelWorkbook($sourceDir, $combinedCsvDir) {
                     $column.Range.HorizontalAlignment = -4108 # xlCenter
                 }
             }
-            
+
             $columnEnd = [DateTime](Get-Date)
             $columnDuration = (New-TimeSpan -Start $columnStart -End $columnEnd).TotalSeconds
-            
+
             # Record timing data for this sheet
             $sheetEndTime = [DateTime](Get-Date)
             $sheetDuration = (New-TimeSpan -Start $sheetStartTime -End $sheetEndTime).TotalSeconds
@@ -1114,29 +1180,29 @@ function Create-ExcelWorkbook($sourceDir, $combinedCsvDir) {
                 TableFormat = $formatDuration
                 ColumnFormat = $columnDuration
             }
-            
+
             Write-Host "Worksheet $worksheetName created in $sheetDuration seconds ($rowCount rows)"
         }
-        
+
         # Save the workbook
         Update-Progress "Saving Excel workbook..." 95 (Split-Path $sourceDir -Leaf)
         $saveStart = [DateTime](Get-Date)
         $workbook.SaveAs($excelWorkbookPath)
         $saveEnd = [DateTime](Get-Date)
         $saveDuration = (New-TimeSpan -Start $saveStart -End $saveEnd).TotalSeconds
-        
+
         # Log all timing data
         Write-Host "Excel workbook created and saved to $excelWorkbookPath in $saveDuration seconds"
-        
+
         $endTime = [DateTime](Get-Date)
         $totalDuration = (New-TimeSpan -Start $startTime -End $endTime).TotalSeconds
         Write-Host "Total Excel workbook creation time: $totalDuration seconds"
         Write-Host "Sheet timing details:"
-        
+
         # Fix for the Format-Table issue
         $formattedOutput = ($sheetTimes | Format-Table -AutoSize | Out-String)
         Write-Host $formattedOutput
-        
+
         return $true
     }
     catch {
@@ -1145,10 +1211,10 @@ function Create-ExcelWorkbook($sourceDir, $combinedCsvDir) {
     }
     finally {
         Update-Progress "Cleaning up Excel resources..." 100 (Split-Path $sourceDir -Leaf)
-        if ($workbook) {
+        if ($null -ne $workbook) {
             try { $workbook.Close($false) } catch { Write-Host "Error closing workbook: $_" }
         }
-        if ($excel) {
+        if ($null -ne $excel) {
             try { $excel.Quit() } catch { Write-Host "Error quitting Excel: $_" }
             [System.Runtime.Interopservices.Marshal]::ReleaseComObject($excel) | Out-Null
         }
@@ -1161,7 +1227,8 @@ function Create-ExcelWorkbook($sourceDir, $combinedCsvDir) {
 function Rename-Worksheets {
     param (
         [string]$excelFilePath,
-        [hashtable]$sectionNames
+        [hashtable]$sectionNames,
+        [string]$currentBook = ""
     )
     
     Write-Host "Starting worksheet renaming for $excelFilePath..."
@@ -1174,7 +1241,8 @@ function Rename-Worksheets {
     
     # Generate truncated versions of all section names for matching
     foreach ($sectionNum in $sectionNames.Keys) {
-        $fullSectionName = $sectionNames[$sectionNum]
+        $fullSectionName = [string]$sectionNames[$sectionNum]
+		if ([string]::IsNullOrWhiteSpace($fullSectionName)) { continue }
         $truncatedName = $fullSectionName.Substring(0, [Math]::Min(31, $fullSectionName.Length)) -replace '[:\\/?*\[\]]', ''
         $nameMapping[$truncatedName] = $fullSectionName
         # Also create a mapping from the section number format
@@ -1519,7 +1587,7 @@ function Create-ExcelFromCsv {
     }
     finally {
         # Clean up even if there's an error
-        if ($excel) {
+        if ($null -ne $excel) {
             try {
                 [System.Runtime.Interopservices.Marshal]::ReleaseComObject($excel) | Out-Null
             } catch {
@@ -1551,19 +1619,19 @@ $label.Text = 'Please select one or more handbooks:'
 $form.Controls.Add($label)
 
 # Create a ListView instead of a DataGridView
-$global:listView.Location = New-Object System.Drawing.Point(10,40)
-$global:listView.Size = New-Object System.Drawing.Size(760, 450)
-$global:listView.View = [System.Windows.Forms.View]::Details
-$global:listView.FullRowSelect = $true
-$global:listView.CheckBoxes = $true
-$form.Controls.Add($global:listView)
+$script:booksListView.Location = New-Object System.Drawing.Point(10,40)
+$script:booksListView.Size = New-Object System.Drawing.Size(760, 450)
+$script:booksListView.View = [System.Windows.Forms.View]::Details
+$script:booksListView.FullRowSelect = $true
+$script:booksListView.CheckBoxes = $true
+$form.Controls.Add($script:booksListView)
 
 # Add columns to the ListView
-$global:listView.Columns.Add("Full Name", 300)
-$global:listView.Columns.Add("MS Book No", 100)
-$global:listView.Columns.Add("Volume", 100)
+$script:booksListView.Columns.Add("Full Name", 300)
+$script:booksListView.Columns.Add("MS Book No", 100)
+$script:booksListView.Columns.Add("Volume", 100)
 
-Write-Host "ListView items count: $($global:listView.Items.Count)"
+Write-Host "ListView items count: $($script:booksListView.Items.Count)"
 $button = New-Object System.Windows.Forms.Button
 $button.Location = New-Object System.Drawing.Point(10, 500)
 $button.Size = New-Object System.Drawing.Size(100, 30)
@@ -1572,7 +1640,7 @@ $form.Controls.Add($button)
 
 # Button click event
 $button.Add_Click({
-    $selectedItems = $global:listView.CheckedItems
+    $selectedItems = $script:booksListView.CheckedItems
 
     if ($selectedItems.Count -eq 0) {
         [System.Windows.Forms.MessageBox]::Show("Please select at least one handbook.", "No Selection", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
@@ -1629,10 +1697,11 @@ $button.Add_Click({
         $processedContent = Process-HTMLContent -htmlContent $handbook.HtmlContent -selectedRow $handbook.Row -directoryPath $directoryPath
 
         # Update config with new book information
-        $newBooks[$selectedNameSafe] = @{
-            VolumesToUrlCsvPath = $processedContent.VolumesToUrlPath
-            SectionNamesCsvPath = $processedContent.SectionNamesPath
-        }
+		$newBooksKey = Get-BookKey $handbook.Name
+		$newBooks[$newBooksKey] = @{
+			VolumesToUrlCsvPath = $processedContent.VolumesToUrlPath
+			SectionNamesCsvPath = $processedContent.SectionNamesPath
+		}
 
         # Download and process HTML files
         $volumesToUrlData = Import-Csv -Path $processedContent.VolumesToUrlPath
@@ -1664,7 +1733,7 @@ $button.Add_Click({
                 $sectionNames[$matches[1]] = $line
             }
         }
-        Rename-Worksheets -excelFilePath $excelFilePath -sectionNames $sectionNames
+        Rename-Worksheets -excelFilePath $excelFilePath -sectionNames $sectionNames -currentBook $handbook.Name
 
         Write-Host "Completed processing: $($handbook.Name)"
     }
