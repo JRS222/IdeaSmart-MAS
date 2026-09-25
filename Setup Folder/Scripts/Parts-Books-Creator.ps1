@@ -681,36 +681,70 @@ function Process-HTMLContentWithRegex {
 function Process-HTMLToCSV($htmlContent, $htmlFilePath) {
     $csvFilePath = [System.IO.Path]::ChangeExtension($htmlFilePath, '.csv')
 
-    # Load HTML into DOM
-    try {
-        $htmlDoc = New-Object -ComObject "HTMLFile"
-        $htmlDoc.IHTMLDocument2_write($htmlContent)
-    } catch {
-        $htmlDoc.write([System.Text.Encoding]::UTF8.GetBytes($htmlContent))
+    if ([string]::IsNullOrWhiteSpace($htmlContent)) {
+        Write-Host "Empty HTML for $htmlFilePath"
+        return
     }
 
-    # Find the target table with corrected bordercolor check
-    $dataTable = $htmlDoc.getElementsByTagName("TABLE") | 
-        Where-Object { 
-            $_.border -eq "1" -and 
-            $_.cols -eq "5" -and 
-            ($_.getAttribute("bordercolor") -in @("#808080", "808080"))
-        } | Select-Object -First 1
+    # Locate the parts table. It is always <TABLE BORDER="1" COLS="5" BORDERCOLOR="#808080">.
+    # Attribute order isn't guaranteed, so try both plausible orders.
+    $tableMatch = [regex]::Match(
+        $htmlContent,
+        '(?is)<table[^>]*border\s*=\s*"?#?1"?[^>]*cols\s*=\s*"?#?5"?[^>]*bordercolor\s*=\s*"?#?808080"?[^>]*>(.*?)</table>'
+    )
+    if (-not $tableMatch.Success) {
+        $tableMatch = [regex]::Match(
+            $htmlContent,
+            '(?is)<table[^>]*bordercolor\s*=\s*"?#?808080"?[^>]*cols\s*=\s*"?#?5"?[^>]*>(.*?)</table>'
+        )
+    }
+    if (-not $tableMatch.Success) {
+        # Last-ditch: any table with 5 columns and a #808080 border
+        $tableMatch = [regex]::Match(
+            $htmlContent,
+            '(?is)<table[^>]*cols\s*=\s*"?#?5"?[^>]*>(.*?)</table>'
+        )
+    }
 
-    if (-not $dataTable) {
+    if (-not $tableMatch.Success) {
         Write-Host "Data table not found."
         return
     }
 
-    # Process rows
+    $tableHtml = $tableMatch.Groups[1].Value
+
+    $rowMatches = [regex]::Matches($tableHtml, '(?is)<tr[^>]*>(.*?)</tr>')
+    if ($rowMatches.Count -le 2) {
+        Write-Host "Data table has no data rows."
+        return
+    }
+
     $tableRows = @('"NO.","PART DESCRIPTION","REF.","STOCK NO.","PART NO.","CAGE"')
-    for ($i = 2; $i -lt $dataTable.rows.length; $i++) {
-        $row = $dataTable.rows[$i]
-        $cells = @($row.cells)
-        $cleanCells = $cells | ForEach-Object { 
-            '"' + ($_.innerText.Trim() -replace '\s+', ' ' -replace '&nbsp;', '') + '"'
+
+    # Skip rows 0 and 1 (header rows), same as the original DOM version.
+    for ($r = 2; $r -lt $rowMatches.Count; $r++) {
+        $rowHtml = $rowMatches[$r].Groups[1].Value
+        $cellMatches = [regex]::Matches($rowHtml, '(?is)<td[^>]*>(.*?)</td>')
+        if ($cellMatches.Count -eq 0) { continue }
+
+        $cleanCells = @()
+        foreach ($cm in $cellMatches) {
+            $text = $cm.Groups[1].Value
+            # Strip inner tags
+            $text = [regex]::Replace($text, '(?is)<[^>]+>', '')
+            # Decode the common HTML entities the site emits
+            $text = $text -replace '&nbsp;', ' '
+            $text = $text -replace '&amp;', '&'
+            $text = $text -replace '&lt;', '<'
+            $text = $text -replace '&gt;', '>'
+            $text = $text -replace '&quot;', '"'
+            $text = $text -replace '&#39;', "'"
+            # Collapse whitespace
+            $text = ($text -replace '\s+', ' ').Trim()
+            $cleanCells += '"' + $text + '"'
         }
-        if ($cleanCells -join '' -ne '""""""""""') {
+
+        if (($cleanCells -join '') -ne '""""""""""') {
             $tableRows += $cleanCells -join ','
         }
     }
@@ -1330,6 +1364,8 @@ function Rename-Worksheets {
     Write-Host "Worksheet renaming completed."
 }
 
+function Write-Log { param([string]$message) Write-Host $message }
+
 # Function to create and format Excel file from CSV
 function Create-ExcelFromCsv {
     param(
@@ -1338,43 +1374,46 @@ function Create-ExcelFromCsv {
         [string]$excelDirectory,
         [string]$tableName = "My_Parts_Room"
     )
+
+    $excel = $null
+    $workbook = $null
+
     try {
-        Write-Log "Starting to create Excel file from CSV for $siteName..."
-        
+
         # Add timing diagnostics
         $startTime = Get-Date
-        
+
         # Show progress form if not already visible
         $progressForm = New-Object System.Windows.Forms.Form
         $progressForm.Text = "Creating Parts Room Excel"
         $progressForm.Size = New-Object System.Drawing.Size(400, 150)
         $progressForm.StartPosition = 'CenterScreen'
-        
+
         $progressBar = New-Object System.Windows.Forms.ProgressBar
         $progressBar.Size = New-Object System.Drawing.Size(360,20)
         $progressBar.Location = New-Object System.Drawing.Point(10,10)
         $progressForm.Controls.Add($progressBar)
-        
+
         $progressLabel = New-Object System.Windows.Forms.Label
         $progressLabel.Size = New-Object System.Drawing.Size(360,40)
         $progressLabel.Location = New-Object System.Drawing.Point(10,40)
         $progressForm.Controls.Add($progressLabel)
-        
+
         $timeLabel = New-Object System.Windows.Forms.Label
         $timeLabel.Size = New-Object System.Drawing.Size(360,20)
         $timeLabel.Location = New-Object System.Drawing.Point(10,90)
         $progressForm.Controls.Add($timeLabel)
-        
+
         $progressForm.Show()
         $progressForm.Refresh()
-        
+
         $csvFilePath = Join-Path $csvDirectory "$siteName.csv"
         $excelFilePath = Join-Path $excelDirectory "$siteName.xlsx"
-        
+
         $progressLabel.Text = "Loading CSV file..."
         $progressBar.Value = 5
         $progressForm.Refresh()
-        
+
         if (-not (Test-Path $csvFilePath)) {
             throw "CSV file not found at $csvFilePath"
         }
@@ -1387,28 +1426,28 @@ function Create-ExcelFromCsv {
         Write-Log "CSV loading completed in $loadDuration seconds"
         $timeLabel.Text = "CSV loaded in $loadDuration seconds"
         $progressForm.Refresh()
-        
+
         $progressLabel.Text = "Creating Excel application..."
         $progressBar.Value = 10
         $progressForm.Refresh()
-        
+
         # Create Excel
         $excelStart = Get-Date
         $excel = New-Object -ComObject Excel.Application
         $excel.Visible = $false
         $excel.DisplayAlerts = $false
-        
+
         if (Test-Path $excelFilePath) {
             $workbook = $excel.Workbooks.Open($excelFilePath)
         } else {
             $workbook = $excel.Workbooks.Add()
         }
-        
+
         $excelEnd = Get-Date
         $excelDuration = ($excelEnd - $excelStart).TotalSeconds
         Write-Log "Excel application created in $excelDuration seconds"
         $timeLabel.Text = "Excel app created in $excelDuration seconds"
-        
+
         $progressLabel.Text = "Setting up worksheet..."
         $progressBar.Value = 15
         $progressForm.Refresh()
@@ -1418,7 +1457,7 @@ function Create-ExcelFromCsv {
 
         # Clear existing content
         $worksheet.Cells.Clear()
-        
+
         $progressLabel.Text = "Adding headers..."
         $progressBar.Value = 20
         $progressForm.Refresh()
@@ -1428,23 +1467,23 @@ function Create-ExcelFromCsv {
         for ($col = 1; $col -le $headers.Count; $col++) {
             $worksheet.Cells.Item(1, $col).Value2 = $headers[$col-1]
         }
-        
+
         $progressLabel.Text = "Preparing to add data rows..."
         $progressBar.Value = 25
         $progressForm.Refresh()
-        
+
         # Optimize by using array assignment for data
-        $rowCount = if ($null -eq $csvData) { 0 } else { $csvData.Count }
-        $colCount = if ($null -eq $headers) { 0 } else { $headers.Count }
-        
+        $rowCount = if ($null -eq $csvData) { 0 } else { @($csvData).Count }
+        $colCount = if ($null -eq $headers) { 0 } else { @($headers).Count }
+
         if ($rowCount -gt 0 -and $colCount -gt 0) {
             # Create a 2D array to hold all data
             $dataArray = New-Object 'object[,]' $rowCount, $colCount
-            
+
             $progressLabel.Text = "Filling data array..."
             $progressBar.Value = 30
             $progressForm.Refresh()
-            
+
             # Fill the array with data
             $arrayStart = Get-Date
             for ($rowIdx = 0; $rowIdx -lt $rowCount; $rowIdx++) {
@@ -1453,10 +1492,10 @@ function Create-ExcelFromCsv {
                     $header = $headers[$colIdx]
                     $dataArray[$rowIdx, $colIdx] = $dataRow.$header
                 }
-                
+
                 # Update progress every 100 rows
                 if ($rowIdx % 100 -eq 0 -or $rowIdx -eq $rowCount - 1) {
-                    $percent = [double]30 + ([double]$rowIdx / [double]$rowCount * [double]20)  # Scale from 30% to 50%
+                    $percent = [double]30 + ([double]$rowIdx / [double]$rowCount * [double]20)
                     $progressBar.Value = [int]$percent
                     $progressLabel.Text = "Filling data array: row $($rowIdx+1) of $rowCount"
                     $progressForm.Refresh()
@@ -1467,16 +1506,16 @@ function Create-ExcelFromCsv {
             $arrayDuration = ($arrayEnd - $arrayStart).TotalSeconds
             Write-Log "Data array filled in $arrayDuration seconds"
             $timeLabel.Text = "Array filled in $arrayDuration seconds"
-            
+
             $progressLabel.Text = "Writing data to Excel..."
             $progressBar.Value = 50
             $progressForm.Refresh()
-            
+
             # Get the range to fill (offset by 1 for header row)
             $startRange = $worksheet.Cells.Item(2, 1)
             $endRange = $worksheet.Cells.Item($rowCount + 1, $colCount)
             $dataRange = $worksheet.Range($startRange, $endRange)
-            
+
             # Fill the range in one operation
             $rangeStart = Get-Date
             $dataRange.Value2 = $dataArray
@@ -1485,7 +1524,7 @@ function Create-ExcelFromCsv {
             Write-Log "Excel range filled in $rangeDuration seconds"
             $timeLabel.Text = "Excel range filled in $rangeDuration seconds"
         }
-        
+
         $progressLabel.Text = "Formatting table..."
         $progressBar.Value = 70
         $progressForm.Refresh()
@@ -1503,15 +1542,15 @@ function Create-ExcelFromCsv {
         $formatDuration = ($formatEnd - $formatStart).TotalSeconds
         Write-Log "Table formatting completed in $formatDuration seconds"
         $timeLabel.Text = "Table formatted in $formatDuration seconds"
-        
+
         $progressLabel.Text = "Applying cell formatting..."
         $progressBar.Value = 80
         $progressForm.Refresh()
 
         # Apply formatting
         $cellFormatStart = Get-Date
-        $usedRange.Cells.VerticalAlignment = -4108 # xlCenter
-        $usedRange.Cells.HorizontalAlignment = -4108 # xlCenter
+        $usedRange.Cells.VerticalAlignment = -4108
+        $usedRange.Cells.HorizontalAlignment = -4108
         $usedRange.Cells.WrapText = $false
         $usedRange.Cells.Font.Name = "Courier New"
         $usedRange.Cells.Font.Size = 12
@@ -1519,7 +1558,7 @@ function Create-ExcelFromCsv {
         $cellFormatDuration = ($cellFormatEnd - $cellFormatStart).TotalSeconds
         Write-Log "Cell formatting completed in $cellFormatDuration seconds"
         $timeLabel.Text = "Cell formatting in $cellFormatDuration seconds"
-        
+
         $progressLabel.Text = "Auto-fitting columns..."
         $progressBar.Value = 90
         $progressForm.Refresh()
@@ -1537,7 +1576,7 @@ function Create-ExcelFromCsv {
         try {
             $descriptionColumn = $listObject.ListColumns | Where-Object { $_.Name -eq "Description" }
             if ($descriptionColumn) {
-                $descriptionColumn.Range.Offset(1, 0).HorizontalAlignment = -4131 # xlLeft
+                $descriptionColumn.Range.Offset(1, 0).HorizontalAlignment = -4131
             }
         } catch {
             Write-Log "Error while formatting Description column: $_"
@@ -1556,7 +1595,7 @@ function Create-ExcelFromCsv {
         } catch {
             Write-Log "Error while removing columns: $_"
         }
-        
+
         $progressLabel.Text = "Saving Excel file..."
         $progressBar.Value = 95
         $progressForm.Refresh()
@@ -1565,20 +1604,22 @@ function Create-ExcelFromCsv {
         $saveStart = Get-Date
         $workbook.SaveAs($excelFilePath, [Microsoft.Office.Interop.Excel.XlFileFormat]::xlOpenXMLWorkbook)
         $workbook.Close($false)
+        $workbook = $null
         $excel.Quit()
+        $excel = $null
         $saveEnd = Get-Date
         $saveDuration = ($saveEnd - $saveStart).TotalSeconds
         Write-Log "Excel file saved in $saveDuration seconds"
-        
+
         $endTime = Get-Date
         $totalDuration = ($endTime - $startTime).TotalSeconds
         Write-Log "Excel file created successfully at $excelFilePath in total time: $totalDuration seconds"
-        
+
         $progressBar.Value = 100
         $progressLabel.Text = "Excel file created successfully!"
         $timeLabel.Text = "Total time: $totalDuration seconds"
         $progressForm.Refresh()
-        Start-Sleep -Seconds 2  # Show completion for 2 seconds
+        Start-Sleep -Seconds 2
         $progressForm.Close()
     }
     catch {
@@ -1586,18 +1627,17 @@ function Create-ExcelFromCsv {
         if ($progressForm -and $progressForm.Visible) {
             $progressLabel.Text = "Error: $($_.Exception.Message)"
             $progressForm.Refresh()
-            Start-Sleep -Seconds 3  # Show error for 3 seconds
+            Start-Sleep -Seconds 3
             $progressForm.Close()
         }
     }
     finally {
-        # Clean up even if there's an error
+        if ($null -ne $workbook) {
+            try { $workbook.Close($false) } catch { }
+        }
         if ($null -ne $excel) {
-            try {
-                [System.Runtime.Interopservices.Marshal]::ReleaseComObject($excel) | Out-Null
-            } catch {
-                Write-Log "Error releasing Excel COM object: $_"
-            }
+            try { $excel.Quit() } catch { }
+            try { [System.Runtime.Interopservices.Marshal]::ReleaseComObject($excel) | Out-Null } catch { }
         }
         [System.GC]::Collect()
         [System.GC]::WaitForPendingFinalizers()
