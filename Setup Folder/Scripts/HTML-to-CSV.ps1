@@ -1,4 +1,4 @@
-﻿function Process-HTMLToCSV($htmlContent, $htmlFilePath) {
+function Process-HTMLToCSV($htmlContent, $htmlFilePath) {
     $csvFilePath = [System.IO.Path]::ChangeExtension($htmlFilePath, '.csv')
 
     # Load HTML into DOM

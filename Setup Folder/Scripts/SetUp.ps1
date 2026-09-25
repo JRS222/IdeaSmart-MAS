@@ -55,92 +55,148 @@ function Show-FolderBrowserDialog {
 # Function to set up the initial configuration
 function Set-InitialConfiguration {
     Write-Log "Starting Set-InitialConfiguration"
-    
-    # Get the current script's directory
-    $currentDir = $PSScriptRoot
-    if (-not $currentDir) {
-        $currentDir = (Get-Location).Path
-        Write-Log "Warning: Unable to determine script directory. Using current directory: $currentDir"
+
+    # --- Locate script directory robustly ---
+    $currentDir = if ($PSScriptRoot) {
+        $PSScriptRoot
+    } elseif ($MyInvocation.MyCommand.Path) {
+        Split-Path -Parent $MyInvocation.MyCommand.Path
+    } else {
+        (Get-Location).Path
     }
     $setupFolder = Split-Path -Parent $currentDir
 
     Write-Log "Current Directory: $currentDir"
     Write-Log "Setup Folder: $setupFolder"
-    
-    # Select parent directory
-    $parentDir = Show-FolderBrowserDialog -Description "Select parent directory for PartsBookManagerRootDirectory"
-    if (-not $parentDir) { 
+
+    # --- Ask where the installation root should live ---
+    $parentDir = Show-FolderBrowserDialog -Description "Select the parent directory where PartsBookManagerRootDirectory will be created"
+    if (-not $parentDir) {
         Write-Log "Setup cancelled by user."
-        exit 
+        return $null
     }
 
-    # Create root directory
     $rootDir = Join-Path $parentDir "PartsBookManagerRootDirectory"
+
+    if (Test-Path $rootDir) {
+        $answer = [System.Windows.Forms.MessageBox]::Show(
+            "A PartsBookManagerRootDirectory already exists at:`n`n$rootDir`n`n" +
+            "Setup creates fresh installations. To modify an existing install, " +
+            "use the app's Actions tab instead.`n`nAbort setup?",
+            "Existing Installation Detected",
+            [System.Windows.Forms.MessageBoxButtons]::YesNo,
+            [System.Windows.Forms.MessageBoxIcon]::Warning)
+
+        if ($answer -eq [System.Windows.Forms.DialogResult]::Yes) {
+            Write-Log "Setup aborted: root exists at $rootDir"
+            return $null
+        }
+
+        $confirm = [System.Windows.Forms.MessageBox]::Show(
+            "Overwriting will DELETE the existing Config.json, Call Logs, Labor Logs, " +
+            "and Parts Books index. Continue?",
+            "Confirm Overwrite",
+            [System.Windows.Forms.MessageBoxButtons]::YesNo,
+            [System.Windows.Forms.MessageBoxIcon]::Warning)
+
+        if ($confirm -ne [System.Windows.Forms.DialogResult]::Yes) {
+            Write-Log "Setup aborted at overwrite confirmation."
+            return $null
+        }
+
+        Write-Log "User chose to overwrite existing root at $rootDir"
+        Remove-Item -Path $rootDir -Recurse -Force
+    }
+
     New-Item -ItemType Directory -Force -Path $rootDir | Out-Null
     Write-Log "Created Root Directory at $rootDir"
 
-    # Define subdirectories in the config
-   $config = @{
-        RootDirectory        = $rootDir
-        PartsBooksDirectory  = Join-Path $rootDir "Parts Books"
-        ScriptsDirectory     = Join-Path $rootDir "Scripts"
-        DropdownCsvsDirectory = Join-Path $rootDir "Dropdown CSVs"
-        PartsRoomDirectory   = Join-Path $rootDir "Parts Room"
-        LaborDirectory       = Join-Path $rootDir "Labor"
-        CallLogsDirectory    = Join-Path $rootDir "Call Logs"
-        Books                = @{}
-        PrerequisiteFiles    = @{}
-        SupervisorEmail      = "default@example.com"
-        SetupFolder          = $setupFolder
+    # --- Resolve every directory path up front ---
+    $partsBooksDir   = Join-Path $rootDir "Parts Books"
+    $scriptsDir      = Join-Path $rootDir "Scripts"
+    $dropdownCsvsDir = Join-Path $rootDir "Dropdown CSVs"
+    $partsRoomDir    = Join-Path $rootDir "Parts Room"
+    $laborDir        = Join-Path $rootDir "Labor"
+    $callLogsDir     = Join-Path $rootDir "Call Logs"
+
+    foreach ($d in @($partsBooksDir, $scriptsDir, $dropdownCsvsDir, $partsRoomDir, $laborDir, $callLogsDir)) {
+        New-Item -ItemType Directory -Force -Path $d | Out-Null
+        Write-Log "Created directory: $d"
     }
 
-    # Create subdirectories
-    Write-Log "Creating subdirectories..."
-    $subDirs = @("PartsBooksDirectory", "ScriptsDirectory", "DropdownCsvsDirectory", "PartsRoomDirectory", "LaborDirectory", "CallLogsDirectory")
-    foreach ($dir in $subDirs) {
-        New-Item -ItemType Directory -Force -Path$config[$dir] | Out-Null
-        Write-Log "Created directory: $($config[$dir])"
-    }
-
-    # Create Same Day Parts Room directory
-    $sameDayPartsRoomDir = Join-Path$config.PartsRoomDirectory "Same Day Parts Room"
+    $sameDayPartsRoomDir = Join-Path $partsRoomDir "Same Day Parts Room"
     New-Item -ItemType Directory -Force -Path $sameDayPartsRoomDir | Out-Null
     Write-Log "Created Same Day Parts Room directory: $sameDayPartsRoomDir"
 
-    # Create empty prerequisite files with proper headers
-    $prerequisiteFiles = @(
-        @{
-            Name="CallLogs"; 
-            Path=Join-Path $config.CallLogsDirectory "CallLogs.csv";
-            Headers="Date,Machine,Cause,Action,Noun,Time Down,Time Up,Notes"
-        },
-        @{
-            Name="LaborLogs"; 
-            Path=Join-Path $config.LaborDirectory "LaborLogs.csv";
-            Headers="Date,Work Order,Description,Machine,Duration,Notes,Parts"
-        },
-        @{
-            Name="Machines"; 
-            Path=Join-Path $config.DropdownCsvsDirectory "Machines.csv";
-            Headers="Machine Acronym,Machine Number"
-        }
+    # --- Seed prerequisite CSVs with headers so Import-Csv doesn't blow up on empty files ---
+    $callLogsPath  = Join-Path $callLogsDir     "CallLogs.csv"
+    $laborLogsPath = Join-Path $laborDir        "LaborLogs.csv"
+    $machinesPath  = Join-Path $dropdownCsvsDir "Machines.csv"
+
+    $seedFiles = @(
+        @{ Path = $callLogsPath;  Headers = "Date,Machine,Cause,Action,Noun,Time Down,Time Up,Notes" },
+        @{ Path = $laborLogsPath; Headers = "Date,Work Order,Description,Machine,Duration,Notes,Parts" },
+        @{ Path = $machinesPath;  Headers = "Machine Acronym,Machine Number" }
     )
 
-    foreach ($file in $prerequisiteFiles) {
-        if (-not (Test-Path $file.Path)) {
-            # Create the file with headers
-            $file.Headers | Out-File -FilePath $file.Path -Encoding UTF8
-            Write-Log "Created file with headers: $($file.Path)"
+    foreach ($f in $seedFiles) {
+        if (-not (Test-Path $f.Path)) {
+            $f.Headers | Out-File -FilePath $f.Path -Encoding UTF8
+            Write-Log "Created file with headers: $($f.Path)"
         }
-       $config.PrerequisiteFiles[$file.Name] = $file.Path
     }
 
-    # Save configuration in the Scripts directory
-   $configFilePath = Join-Path$config.ScriptsDirectory "Config.json"
-   $config | ConvertTo-Json -Depth 4 | Set-Content -Path$configFilePath
-    Write-Log "Configuration saved at$configFilePath"
+    # --- Build the config object ---
+    #
+    # This schema is the contract with UI-Script.ps1. Every key here is
+    # read by the UI at startup. Do not rename without updating the UI.
+    #
+    # Use [ordered]@{} so ConvertTo-Json preserves the key order (nice
+    # for diffing and for humans reading the file).
+    #
+    # Notes on the two "state" keys:
+    #   Books             -> hashtable, empty by default. Serializes to {}
+    #                        The UI iterates it via .PSObject.Properties.
+    #   SameDayPartsRooms -> ARRAY, empty by default. Serializes to [].
+    #                        The UI uses .Count, +=, and foreach directly,
+    #                        all of which break on a hashtable.
+    #
+    $config = [ordered]@{
+        # Identity / paths
+        RootDirectory         = $rootDir
+        SetupFolder           = $setupFolder
+        ScriptsDirectory      = $scriptsDir
+        DropdownCsvsDirectory = $dropdownCsvsDir
+        LaborDirectory        = $laborDir
+        CallLogsDirectory     = $callLogsDir
+        PartsRoomDirectory    = $partsRoomDir
+        PartsBooksDirectory   = $partsBooksDir
 
-    return $config}
+        # Runtime state, populated during setup and later by the UI
+        Books                 = @{}
+        SameDayPartsRooms     = @()
+
+        # Named prerequisite files. The UI reads these directly:
+        #   $config.PrerequisiteFiles.LaborLogs
+        #   $config.PrerequisiteFiles.CallLogs
+        #   $config.PrerequisiteFiles.Machines
+        PrerequisiteFiles     = [ordered]@{
+            LaborLogs = $laborLogsPath
+            CallLogs  = $callLogsPath
+            Machines  = $machinesPath
+        }
+
+        # User-configurable
+        SupervisorEmail       = "default@example.com"
+    }
+
+    # --- Persist to the Scripts directory, which is where the UI looks ---
+    $configFilePath = Join-Path $scriptsDir "Config.json"
+    $config | ConvertTo-Json -Depth 6 | Set-Content -Path $configFilePath -Encoding UTF8
+    Write-Log "Configuration saved at $configFilePath"
+
+    return $config
+}
 
 ################################################################################
 #                          Setup Operations                                    #
@@ -186,7 +242,7 @@ function Copy-SetupFiles {
 
     # Save configuration in the Scripts directory
     $configFilePath = Join-Path $config.ScriptsDirectory "Config.json"
-    $config | ConvertTo-Json -Depth 4 | Set-Content -Path $configFilePath
+    $config | ConvertTo-Json -Depth 6 | Set-Content -Path $configFilePath -Encoding UTF8
     Write-Log "Configuration saved at $configFilePath"
 
     [System.Windows.Forms.MessageBox]::Show(
@@ -213,9 +269,9 @@ function Set-PartsRoom {
     }
 
     # Determine the correct column names
-    $siteIdColumn = if ($sites[0].PSObject.Properties.Name -contains "Site ID") { "Site ID" } else { $sites[0].PSObject.Properties.Name[0] }
+    $SiteIDColumn = if ($sites[0].PSObject.Properties.Name -contains "Site ID") { "Site ID" } else { $sites[0].PSObject.Properties.Name[0] }
     $fullNameColumn = if ($sites[0].PSObject.Properties.Name -contains "Full Name") { "Full Name" } else { $sites[0].PSObject.Properties.Name[1] }
-    Write-Host "Site ID Column: $siteIdColumn, Full Name Column: $fullNameColumn"
+    Write-Host "Site ID Column: $SiteIDColumn, Full Name Column: $fullNameColumn"
 
     # Create the form for site selection
     Write-Host "Creating form for site selection..."
@@ -259,13 +315,13 @@ function Set-PartsRoom {
     if ($selectedSite) {
         Write-Host "Selected Site: $selectedSite"
         $selectedRow = $sites | Where-Object { $_.$fullNameColumn -eq $selectedSite }
-        $url = "http://emarssu5.eng.usps.gov/pemarsnp/nm_national_stock.stockroom_by_site?p_site_id=$($selectedRow.$siteIdColumn)&p_search_type=DESC&p_search_string=&p_boh_radio=-1"
+        $url = "http://emarssu3.eng.usps.gov/pemarsnp/nm_national_stock.stockroom_by_site?p_site_id=$($selectedRow.$SiteIDColumn)&p_search_type=DESC&p_search_string=&p_boh_radio=-1"
 
         # Download HTML content
         Write-Host "Downloading HTML content for $selectedSite..."
         try {
             $htmlContent = Invoke-WebRequest -Uri $url -UseBasicParsing
-            $htmlFilePath = Join-Path$config.PartsRoomDirectory "$selectedSite.html"
+            $htmlFilePath = Join-Path $config.PartsRoomDirectory "$selectedSite.html"
             Write-Host "Saving HTML content to $htmlFilePath..."
             Set-Content -Path $htmlFilePath -Value $htmlContent.Content -Encoding UTF8
 
@@ -280,7 +336,7 @@ function Set-PartsRoom {
 
         Write-Host "Processing the downloaded HTML file for $selectedSite using DOM..."
 
-        $logPath = Join-Path$config.PartsRoomDirectory "error_log.txt"
+        $logPath = Join-Path $config.PartsRoomDirectory "error_log.txt"
         $htmlDoc = $null
 
         try {
@@ -501,7 +557,7 @@ function Set-PartsRoom {
             
             
             # Export parsed data to CSV
-            $csvFilePath = Join-Path$config.PartsRoomDirectory "$selectedSite.csv"
+            $csvFilePath = Join-Path $config.PartsRoomDirectory "$selectedSite.csv"
             $parsedData | Export-Csv -Path $csvFilePath -NoTypeInformation
             
             if (Test-Path $csvFilePath) {
@@ -548,7 +604,7 @@ function Run-PartsBookCreator {
         Write-Host "Running Parts-Books-Creator.ps1 from $partsBookCreatorPath"
         
         # Check for the required CSV file
-        $requiredCsvPath = Join-Path$config.DropdownCsvsDirectory "Parsed-Parts-Volumes.csv"
+        $requiredCsvPath = Join-Path $config.DropdownCsvsDirectory "Parsed-Parts-Volumes.csv"
         Write-Host "Checking for required CSV file at: $requiredCsvPath"
         
         if (-not (Test-Path $requiredCsvPath)) {
@@ -573,6 +629,142 @@ function Run-PartsBookCreator {
     }
 }
 
+function Select-InitialBooks {
+    param($config)
+
+    $parsedCsvPath = Join-Path $config.DropdownCsvsDirectory "Parsed-Parts-Volumes.csv"
+    if (-not (Test-Path $parsedCsvPath) -or (Get-Item $parsedCsvPath).Length -eq 0) {
+        Write-Log "Parsed-Parts-Volumes.csv missing or empty. Skipping book selection."
+        return @{}
+    }
+
+    $csvData = Import-Csv $parsedCsvPath
+    if ($csvData.Count -eq 0) { return @{} }
+
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = "Select Parts Books to Install"
+    $form.Size = New-Object System.Drawing.Size(720, 520)
+    $form.StartPosition = 'CenterScreen'
+
+    $label = New-Object System.Windows.Forms.Label
+    $label.Location = New-Object System.Drawing.Point(10, 10)
+    $label.Size = New-Object System.Drawing.Size(690, 40)
+    $label.Text = "Select the parts books to install now. You can add or remove books later from the app."
+    $form.Controls.Add($label)
+
+    $checkedList = New-Object System.Windows.Forms.CheckedListBox
+    $checkedList.Location = New-Object System.Drawing.Point(10, 60)
+    $checkedList.Size = New-Object System.Drawing.Size(690, 380)
+    $checkedList.CheckOnClick = $true
+
+    foreach ($row in $csvData) {
+        $display = "$($row.'Full Name')   MS$($row.'MS Book No') Vol $($row.Volume)"
+        $checkedList.Items.Add($display) | Out-Null
+    }
+    $form.Controls.Add($checkedList)
+
+    $okButton = New-Object System.Windows.Forms.Button
+    $okButton.Text = "Install Selected"
+    $okButton.Location = New-Object System.Drawing.Point(520, 450)
+    $okButton.Size = New-Object System.Drawing.Size(180, 30)
+    $okButton.DialogResult = [System.Windows.Forms.DialogResult]::OK
+    $form.Controls.Add($okButton)
+
+    $skipButton = New-Object System.Windows.Forms.Button
+    $skipButton.Text = "Skip configure later"
+    $skipButton.Location = New-Object System.Drawing.Point(320, 450)
+    $skipButton.Size = New-Object System.Drawing.Size(180, 30)
+    $skipButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+    $form.Controls.Add($skipButton)
+
+    $form.AcceptButton = $okButton
+    $form.CancelButton = $skipButton
+
+    $books = @{}
+    if ($form.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+        foreach ($idx in $checkedList.CheckedIndices) {
+            $row = $csvData[$idx]
+            $bookName = ($row.'Full Name' -replace '[^\w\s-]', '' -replace '\s+', ' ').Trim()
+            $bookDir  = Join-Path $config.PartsBooksDirectory $bookName
+            $books[$bookName] = @{
+                VolumesToUrlCsvPath = Join-Path $bookDir "Volumes-to-URL.csv"
+                SectionNamesCsvPath = Join-Path $bookDir "SectionNames.txt"
+            }
+        }
+        Write-Log "Seeded $($books.Count) book(s): $($books.Keys -join ', ')"
+    } else {
+        Write-Log "User skipped initial book selection."
+    }
+    return $books
+}
+
+function Select-InitialSameDaySites {
+    param($config)
+
+    $sitesCsvPath = Join-Path $config.DropdownCsvsDirectory "Sites.csv"
+    if (-not (Test-Path $sitesCsvPath) -or (Get-Item $sitesCsvPath).Length -eq 0) {
+        Write-Log "Sites.csv missing or empty. Skipping Same Day selection."
+        return @()
+    }
+
+    $sites = Import-Csv $sitesCsvPath
+    if ($sites.Count -eq 0) { return @() }
+
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = "Select Same Day Parts Room Sites"
+    $form.Size = New-Object System.Drawing.Size(720, 520)
+    $form.StartPosition = 'CenterScreen'
+
+    $label = New-Object System.Windows.Forms.Label
+    $label.Location = New-Object System.Drawing.Point(10, 10)
+    $label.Size = New-Object System.Drawing.Size(690, 40)
+    $label.Text = "Select sites to mirror into your Same Day Parts Room. You can add or remove sites later from the app."
+    $form.Controls.Add($label)
+
+    $checkedList = New-Object System.Windows.Forms.CheckedListBox
+    $checkedList.Location = New-Object System.Drawing.Point(10, 60)
+    $checkedList.Size = New-Object System.Drawing.Size(690, 380)
+    $checkedList.CheckOnClick = $true
+
+    foreach ($site in $sites) {
+        $checkedList.Items.Add("$($site.'Site ID')   $($site.'Full Name')") | Out-Null
+    }
+    $form.Controls.Add($checkedList)
+
+    $okButton = New-Object System.Windows.Forms.Button
+    $okButton.Text = "Add Selected Sites"
+    $okButton.Location = New-Object System.Drawing.Point(520, 450)
+    $okButton.Size = New-Object System.Drawing.Size(180, 30)
+    $okButton.DialogResult = [System.Windows.Forms.DialogResult]::OK
+    $form.Controls.Add($okButton)
+
+    $skipButton = New-Object System.Windows.Forms.Button
+    $skipButton.Text = "Skip configure later"
+    $skipButton.Location = New-Object System.Drawing.Point(320, 450)
+    $skipButton.Size = New-Object System.Drawing.Size(180, 30)
+    $skipButton.DialogResult = [System.Windows.Forms.DialogResult]::Cancel
+    $form.Controls.Add($skipButton)
+
+    $form.AcceptButton = $okButton
+    $form.CancelButton = $skipButton
+
+    $selected = @()
+    if ($form.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+        foreach ($idx in $checkedList.CheckedIndices) {
+            $site = $sites[$idx]
+            $selected += @{
+                SiteID   = $site.'Site ID'
+                FullName = $site.'Full Name'
+                Email    = ""
+            }
+        }
+        Write-Log "Seeded $($selected.Count) Same Day site(s)."
+    } else {
+        Write-Log "User skipped initial Same Day selection."
+    }
+    return $selected
+}
+
 ################################################################################
 #                           Main Execution                                     #
 ################################################################################
@@ -580,19 +772,34 @@ function Run-PartsBookCreator {
 # Main setup logic
 function Run-Setup {
     Write-Log "Starting Run-Setup"
-    
-    # Set up the initial configuration
-    $config = Set-InitialConfiguration
+    try {
+        $config = Set-InitialConfiguration
+        if ($null -eq $config) {
+            Write-Log "Setup cancelled by user."
+            return
+        }
 
-    # Copy setup files
-    Copy-SetupFiles -config $config
-    # Ask for site to download and process
-    Set-PartsRoom -config $config
-    # Run the Parts Book Creator script
-    Run-PartsBookCreator -config $config
-    Write-Log "Setup completed successfully!"
-    
-    # Add this pause to keep the window open
+        Copy-SetupFiles -config $config
+
+        # --- Seed Same Day sites ---
+        # Book selection happens inside Parts-Books-Creator.ps1, not here.
+        $config.SameDayPartsRooms = Select-InitialSameDaySites -config $config
+
+        # Persist seeded values
+        $configPath = Join-Path $config.ScriptsDirectory "Config.json"
+        $config | ConvertTo-Json -Depth 6 | Set-Content -Path $configPath -Encoding UTF8
+        Write-Log "Seeded SameDayPartsRooms ($($config.SameDayPartsRooms.Count))."
+
+        # Downloads + book downloader
+        Set-PartsRoom        -config $config
+        Run-PartsBookCreator -config $config   # <-- prompts once, for books
+
+        Write-Log "Setup completed successfully!"
+    }
+    catch {
+        Write-Log "FATAL: $($_.Exception.Message)"
+        Write-Log "Stack: $($_.ScriptStackTrace)"
+    }
     Read-Host -Prompt "Setup completed. Press Enter to exit"
 }
 
