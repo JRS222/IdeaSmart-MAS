@@ -562,8 +562,8 @@ window.addEventListener('storage', e => { if (e.key === KEY) loadEvents(); });
    Machine Registry
    ============================================================ */
 const REG_KEY = 'historian_registry_v1';
-function readReg(){ try { return JSON.parse(localStorage.getItem(REG_KEY)||'{}'); }}? catch`(e){ return {}; } }
-function writeReg(r){ try)) { localStorage.setItem(REG_KEY, JSON return.stringify(r)); } catch(e){} }
+function readReg(){ try { return JSON.parse(localStorage.getItem(REG_KEY)||'{}'); } catch(e){ return {}; } }
+function writeReg(r){ try { localStorage.setItem(REG_KEY, JSON.stringify(r)); } catch(e){} }
 
 function renderRegistry(){
   const reg = readReg();
@@ -574,14 +574,19 @@ function renderRegistry(){
   events.forEach(e => { if (e.machineId) counts[e.machineId] = (counts[e.machineId]||0)+1; });
   let h = '<table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="background:#eef2f7;color:#41546b"><th style="text-align:left;padding:6px 10px">MNO</th><th style="text-align:left;padding:6px 10px">Acronym</th><th style="text-align:left;padding:6px 10px">Canonical ID</th><th style="text-align:right;padding:6px 10px">Events</th><th style="text-align:right;padding:6px 10px"></th></tr></thead><tbody>';
   keys.forEach(mno => {
-	const acronym = reg[mno]; const canonical = `${acronym} ${mno}`;
-	h += `<tr style="border-bottom:1px solid #eef2f7"><td style="padding:6px 10px;font-weight:700;color:#0b3d91">${esc(mno)}</td><td style="padding:6px 10px">${esc(acronym)}</td><td style="padding:6px 10px;font-weight:600">${esc(canonical)}</td><td style="padding:6px 10px;text-align:right;color:#5b6b80">${counts[canonical]||0}</td><td style="padding:6px 10px;text-align:right"><button class="btn ghost" data-del="${esc(mno)}" style="padding:3px 10px;font-size:11px">Delete</button></td></tr>`;
+    const acronym = reg[mno];
+    const canonical = `${acronym} ${mno}`;
+    h += `<tr style="border-bottom:1px solid #eef2f7"><td style="padding:6px 10px;font-weight:700;color:#0b3d91">${esc(mno)}</td><td style="padding:6px 10px">${esc(acronym)}</td><td style="padding:6px 10px;font-weight:600">${esc(canonical)}</td><td style="padding:6px 10px;text-align:right;color:#5b6b80">${counts[canonical]||0}</td><td style="padding:6px 10px;text-align:right"><button class="btn ghost" data-del="${esc(mno)}" style="padding:3px 10px;font-size:11px">Delete</button></td></tr>`;
   });
-  h += '</tbody></table>'; el.innerHTML = h;
+  h += '</tbody></table>';
+  el.innerHTML = h;
   el.querySelectorAll('button[data-del]').forEach(b => b.addEventListener('click', () => {
-	const mno = b.dataset.del;
-	if (!confirm(`Remove mapping for MNO ${mno;
-	const reg = readReg(); delete reg[mno]; writeReg(reg); renderRegistry();
+    const mno = b.dataset.del;
+    if (!confirm(`Remove mapping for MNO ${mno}?`)) return;
+    const reg = readReg();
+    delete reg[mno];
+    writeReg(reg);
+    renderRegistry();
   }));
 }
 $('#regAddBtn').addEventListener('click', () => {
@@ -589,13 +594,17 @@ $('#regAddBtn').addEventListener('click', () => {
   const acronym = ($('#regAcronym').value || '').trim().toUpperCase();
   if (!mno || isNaN(parseInt(mno,10))) { alert('Enter a numeric MNO.'); return; }
   if (!acronym) { alert('Enter an acronym.'); return; }
-  const reg = readReg(); reg[mno] = acronym; writeReg(reg);
-  $('#regMno').value = ''; $('#regAcronym').value = '';
+  const reg = readReg();
+  reg[mno] = acronym;
+  writeReg(reg);
+  $('#regMno').value = '';
+  $('#regAcronym').value = '';
   renderRegistry();
 });
 $('#regClearBtn').addEventListener('click', () => {
   if (!confirm('Clear every mapping? This does not delete events.')) return;
-  writeReg({}); renderRegistry();
+  writeReg({});
+  renderRegistry();
 });
 
 /* init */

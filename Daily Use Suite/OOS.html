@@ -905,7 +905,7 @@ document.getElementById('histBtn').addEventListener('click', async () => {
   const reg = historianGetRegistry();
   const unknowns = [...uniqueMnos].filter(m => !reg[m]);
   if (unknowns.length){
-    const assigned = await historianPromptForMnOs(unknowns);
+    const assigned = await historianPromptForMnOs(unknowns, historianMhtsAcronyms);
     Object.entries(assigned).forEach(([mno, acronym]) => historianRegisterMno(mno, acronym));
   }
 
