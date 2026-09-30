@@ -1,0 +1,1035 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MHTS Quick Look</title>
+<style>
+  :root{
+    --blue:#0b3d91; --ink:#1a2433; --line:#d6dde6; --soft:#eef3fa;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:13px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:#eef1f5}
+  header{background:var(--blue);color:#fff;padding:12px 18px;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  header h1{font-size:16px;margin:0;font-weight:600;letter-spacing:.2px}
+  header .sub{font-size:12px;opacity:.85}
+  main{padding:14px 18px 70px;max-width:1900px;margin:0 auto}
+  .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:14px;box-shadow:0 1px 2px rgba(16,30,54,.06)}
+  .card h2{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:#5b6b80;margin:0 0 8px;font-weight:700}
+
+  /* --- input --- */
+  #dropZone{border:2px dashed #a9b8cc;border-radius:10px;padding:20px;text-align:center;color:#5b6b80;background:#f7f9fc;min-height:120px;display:flex;align-items:center;justify-content:center;outline:none;cursor:copy;transition:.15s}
+  #dropZone.hover,#dropZone:focus{border-color:var(--blue);background:#eaf1fb;color:#20344d}
+  #dropZone b{color:var(--blue)}
+  .status{margin-top:8px;font-size:12px;min-height:16px}
+  .status.err{color:#b3261e;font-weight:600}
+  .status.ok{color:#1b5e20}
+  details.srcbox{margin-top:10px}
+  details.srcbox summary{cursor:pointer;font-size:12px;color:#5b6b80}
+  textarea{width:100%;height:110px;margin-top:8px;font:11px/1.4 ui-monospace,Consolas,monospace;border:1px solid var(--line);border-radius:6px;padding:8px;resize:vertical}
+  .btn{background:var(--blue);color:#fff;border:0;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer}
+  .btn:hover{background:#0a3378}
+  .btn.ghost{background:#fff;color:var(--blue);border:1px solid #b9c8dc}
+  .btn.ghost:hover{background:#eef3fa}
+
+  /* --- controls --- */
+  .controls{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:flex-end}
+  .f{display:flex;flex-direction:column;gap:3px;font-size:11px;color:#5b6b80;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+  .f select,.f input{font:13px/1.3 inherit;color:var(--ink);border:1px solid #b9c8dc;border-radius:6px;padding:5px 7px;background:#fff;font-weight:400;text-transform:none;letter-spacing:0}
+  .f select{min-width:150px;max-width:320px}
+  .f input[type=number]{width:90px}
+  .f input[type=search]{width:170px}
+  .f .mini{width:110px;font-size:12px;padding:4px 6px}
+  .frow{display:flex;gap:6px;align-items:center}
+  .chk{display:flex;align-items:center;gap:6px;font-size:12px;color:#33475b;font-weight:600;text-transform:none;letter-spacing:0;cursor:pointer}
+  .spacer{flex:1}
+
+  /* --- tiles --- */
+  #tiles{display:flex;flex-wrap:wrap;gap:10px}
+  .tile{min-width:110px;border:1px solid var(--line);border-radius:8px;padding:8px 12px;background:linear-gradient(#fff,#f7fafd)}
+  .tile .tv{font-size:19px;font-weight:700;color:#12305c;font-variant-numeric:tabular-nums;line-height:1.2}
+  .tile .tk{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:#6b7b90;font-weight:700;margin-top:2px}
+
+  /* --- rollup --- */
+  #rollup{max-height:230px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+  table.roll{border-collapse:separate;border-spacing:0;width:100%;font-size:12px}
+  table.roll th{position:sticky;top:0;background:var(--soft);z-index:2;text-align:left;padding:5px 8px;border-bottom:1px solid #c8d5e6;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:#41546b;cursor:default;white-space:nowrap}
+  table.roll td{padding:4px 8px;border-bottom:1px solid #eef2f7;white-space:nowrap}
+  table.roll td.num,table.roll th.num{text-align:right;font-variant-numeric:tabular-nums}
+  table.roll tbody tr{cursor:pointer}
+  table.roll tbody tr:hover{background:#f2f7ff}
+  table.roll tbody tr.sel{background:#dcebff;font-weight:700}
+
+  /* --- results --- */
+  #tableWrap{overflow:auto;max-height:68vh;border:1px solid var(--line);border-radius:8px;background:#fff}
+  table.ql{border-collapse:separate;border-spacing:0;width:100%;font-size:12px}
+  table.ql th,table.ql td{padding:4px 8px;border-bottom:1px solid #e9eef5;white-space:nowrap;text-align:left}
+  table.ql thead th{position:sticky;top:0;z-index:3;background:#e7eefa;cursor:pointer;border-bottom:2px solid #b9c8dc;font-size:11px;color:#2a4362;font-weight:700;user-select:none}
+  table.ql thead th:hover{background:#dbe7f8}
+  table.ql thead th.active{background:#cfdff7;color:#0b3d91}
+  table.ql td.num,table.ql th.num{text-align:right;font-variant-numeric:tabular-nums}
+  table.ql tbody tr:hover td{background:#f5f9ff}
+  table.ql tbody tr.risk td:first-child{box-shadow:inset 3px 0 0 #e0a800}
+  table.ql tbody tr.risk td{background:#fffdf2}
+  table.ql tbody tr.risk:hover td{background:#fff8e2}
+  table.ql tr.totals td{background:#eaf4ea;font-weight:700;border-top:2px solid #9fc39f;border-bottom:2px solid #9fc39f;position:sticky;top:27px;z-index:2}
+  table.ql tr.section td{background:#fff8dc;color:#7a5c00;font-size:11px;font-weight:700;letter-spacing:.3px}
+  table.ql a{color:#0b57d0;text-decoration:none;font-weight:600}
+  table.ql a:hover{text-decoration:underline}
+  .heat{font-weight:600}
+  .flag{color:#b3261e;font-weight:700}
+  .empty{padding:20px;color:#6b7b90;text-align:center}
+  .legend{font-size:11px;color:#6b7b90;margin-top:8px;line-height:1.6}
+  kbd{background:#eef3fa;border:1px solid #c8d5e6;border-bottom-width:2px;border-radius:4px;padding:0 4px;font-size:11px;font-family:inherit}
+</style>
+</head>
+<body>
+	<!-- ============ Historian client (v2) ============ -->
+	<script>
+		(function(){
+		  const EV_KEY  = 'historian_events_v1';
+		  const REG_KEY = 'historian_registry_v1';
+		  const VALID_ACRONYMS = ['DBCS','DIOSS','CIOSS'];
+
+		  const uid  = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+		  const norm = s => (s || '').replace(/\s+/g,' ').trim();
+
+		  function readAll(){
+			try { const r = localStorage.getItem(EV_KEY); return r ? JSON.parse(r) : []; }
+			catch(e){ return []; }
+		  }
+		  function writeAll(arr){
+			try { localStorage.setItem(EV_KEY, JSON.stringify(arr)); return true; }
+			catch(e){ alert('Historian storage error: ' + e.message); return false; }
+		  }
+		  function readReg(){
+			try { const r = localStorage.getItem(REG_KEY); return r ? JSON.parse(r) : {}; }
+			catch(e){ return {}; }
+		  }
+		  function writeReg(r){
+			try { localStorage.setItem(REG_KEY, JSON.stringify(r)); return true; }
+			catch(e){ return false; }
+		  }
+
+		  function parseMachineId(raw){
+			if (!raw) return null;
+			const m = String(raw).trim().match(/^([A-Za-z]+)[\s\-_]*0*(\d+)$/);
+			if (!m) return null;
+			return { acronym: m[1].toUpperCase(), mno: String(parseInt(m[2],10)) };
+		  }
+		  function canonicalId(acronym, mno){ return `${acronym} ${mno}`; }
+
+		  window.historianGetRegistry     = readReg;
+		  window.historianSaveRegistry    = writeReg;
+		  window.historianParseMachineId  = parseMachineId;
+		  window.historianCanonicalId     = canonicalId;
+
+		  window.historianRegisterMno = function(mno, acronym){
+			const reg = readReg();
+			reg[String(parseInt(mno,10))] = acronym.toUpperCase();
+			writeReg(reg);
+		  };
+
+		  window.historianPromptForMnOs = function(unknownMnos){
+			return new Promise((resolve) => {
+			  const ov = document.createElement('div');
+			  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99998;'+
+				'display:flex;align-items:center;justify-content:center;font:13px/1.5 system-ui,sans-serif;';
+			  const box = document.createElement('div');
+			  box.style.cssText = 'background:#fff;border-radius:12px;padding:20px 24px;max-width:520px;width:92%;'+
+				'box-shadow:0 12px 40px rgba(0,0,0,.3);max-height:85vh;overflow:auto;';
+
+			  let rowsHtml = '';
+			  unknownMnos.forEach(m => {
+				rowsHtml += `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #eef2f6;">
+				  <div style="font-weight:700;min-width:70px;color:#0b3d91;">MNO ${m}</div>
+				  <select data-mno="${m}" style="flex:1;padding:6px 10px;border:1px solid #b9c8dc;border-radius:6px;font:13px inherit;">
+					<option value="">— skip this machine —</option>
+					${VALID_ACRONYMS.map(a=>`<option value="${a}">${a}</option>`).join('')}
+				  </select>
+				</div>`;
+			  });
+
+			  box.innerHTML = `
+				<h3 style="margin:0 0 6px;color:#0b3d91;font-size:16px;">Assign machine types</h3>
+				<p style="margin:0 0 14px;color:#5b6b80;font-size:12.5px;">
+				  These MNOs aren't in the registry yet. Pick the acronym for each.
+				  Anything left as “skip” won't be saved this time.
+				</p>
+				<div>${rowsHtml}</div>
+				<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+				  <button id="__hCancel" style="background:#fff;color:#0b3d91;border:1px solid #b9c8dc;border-radius:6px;padding:7px 16px;font:600 13px inherit;cursor:pointer;">Cancel</button>
+				  <button id="__hOK" style="background:#0b3d91;color:#fff;border:0;border-radius:6px;padding:7px 18px;font:600 13px inherit;cursor:pointer;">Save assignments</button>
+				</div>`;
+			  ov.appendChild(box);
+			  document.body.appendChild(ov);
+
+			  ov.querySelector('#__hCancel').onclick = () => { document.body.removeChild(ov); resolve({}); };
+			  ov.querySelector('#__hOK').onclick = () => {
+				const out = {};
+				box.querySelectorAll('select[data-mno]').forEach(sel => {
+				  if (sel.value) out[sel.dataset.mno] = sel.value;
+				});
+				document.body.removeChild(ov);
+				resolve(out);
+			  };
+			});
+		  };
+
+		  window.historianSave = function(ev){
+			ev.id = ev.id || uid();
+			ev.capturedAt = new Date().toISOString();
+
+			if (ev.payload && ev.payload.rawMno){
+			  const mno = String(parseInt(ev.payload.rawMno, 10));
+			  const reg = readReg();
+			  const acronym = reg[mno] || ev.payload.acronymHint || null;
+			  if (acronym){
+				ev.machineId = canonicalId(acronym, mno);
+				ev.machineResolved = true;
+			  } else {
+				ev.machineId = 'MNO ' + mno;
+				ev.machineResolved = false;
+			  }
+			}
+			else if (ev.machineId){
+			  const p = parseMachineId(ev.machineId);
+			  if (p){
+				ev.machineId = canonicalId(p.acronym, p.mno);
+				const reg = readReg();
+				if (!reg[p.mno]) { reg[p.mno] = p.acronym; writeReg(reg); }
+				ev.machineResolved = true;
+			  }
+			}
+
+			ev.detId = [ev.source||'', ev.machineId||'', ev.eventTime||'', ev.kind||'', norm(ev.summary||'')].join('|');
+
+			const all = readAll();
+			const i = all.findIndex(x => (x.detId||x.id) === ev.detId);
+			if (i >= 0){
+			  all[i] = Object.assign({}, all[i], ev);
+			  writeAll(all);
+			  return { action:'updated', total: all.length, machineId: ev.machineId };
+			}
+			all.push(ev);
+			writeAll(all);
+			return { action:'added', total: all.length, machineId: ev.machineId };
+		  };
+
+		  window.historianOpen = function(){ window.open('historian.html','historian'); };
+
+		  window.historianToast = function(msg, ok){
+			let el = document.getElementById('__histToast');
+			if (!el){
+			  el = document.createElement('div');
+			  el.id = '__histToast';
+			  el.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99999;'+
+				'padding:10px 16px;border-radius:8px;font:600 13px/1.4 system-ui,sans-serif;'+
+				'box-shadow:0 4px 14px rgba(0,0,0,.2);color:#fff;transition:opacity .3s;';
+			  document.body.appendChild(el);
+			}
+			el.style.background = ok === false ? '#b3261e' : '#1b5e20';
+			el.textContent = msg;
+			el.style.opacity = '1';
+			clearTimeout(el._t);
+			el._t = setTimeout(() => { el.style.opacity = '0'; }, 2600);
+		  };
+		})();
+	</script>
+<header>
+  <h1>MHTS Quick Look</h1>
+  <span class="sub">Paste any MHTS query table → filter it down to one machine → read the numbers.</span>
+</header>
+
+<main>
+
+  <!-- ============ INPUT ============ -->
+  <section class="card" id="inputPanel">
+    <h2>1 · Get the table in here</h2>
+    <div id="dropZone" contenteditable="true" spellcheck="false" tabindex="0">
+      <div>
+        <b>Paste</b> the results table here (<kbd>Ctrl</kbd>+<kbd>V</kbd>) —<br>
+        select the table on the MHTS page and copy it, or drop a saved <b>.html</b> file here.
+      </div>
+    </div>
+    <div class="status" id="status"></div>
+
+    <details class="srcbox">
+      <summary>…or paste raw page-source HTML</summary>
+      <textarea id="srcArea" placeholder="Paste the full page source (Ctrl+U in the browser) or just the &lt;table&gt;…&lt;/table&gt; block here."></textarea>
+      <div style="margin-top:8px;display:flex;gap:8px">
+        <button class="btn" id="srcBtn">Load from source</button>
+        <button class="btn ghost" id="sampleBtn">Load sample data</button>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ APP ============ -->
+  <div id="app" hidden>
+
+    <section class="card">
+      <h2>2 · Filters</h2>
+      <div class="controls">
+        <label class="f" id="tableField">Table
+          <select id="tableSel"></select>
+        </label>
+        <label class="f">Group by
+          <select id="groupSel"></select>
+        </label>
+        <div class="f">Show
+          <div class="frow">
+            <input id="valueFilter" class="mini" placeholder="filter…">
+            <select id="valueSel"></select>
+          </div>
+        </div>
+        <label class="f">Find in row
+          <input type="search" id="searchInp" placeholder="text in any cell">
+        </label>
+        <label class="f">OOS % threshold
+          <input type="number" id="threshInp" step="0.01" min="0" value="0.15">
+        </label>
+        <label class="chk"><input type="checkbox" id="atRiskInp"> only ≥ threshold</label>
+        <label class="chk"><input type="checkbox" id="hideEmptyInp" checked> hide empty columns</label>
+        <div class="spacer"></div>
+        <button class="btn ghost" id="csvBtn">Copy CSV</button>
+        <button class="btn btn-success" id="histBtn" style="display:none;">📤 Send to Historian</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>3 · At a glance</h2>
+      <div id="tiles"></div>
+    </section>
+
+    <section class="card">
+      <h2 id="rollupTitle">4 · By group — click a row to drill in</h2>
+      <div id="rollup"></div>
+    </section>
+
+    <section class="card">
+      <h2>5 · Runs <span id="runCount" style="text-transform:none;letter-spacing:0;color:#6b7b90;font-weight:600"></span></h2>
+      <div id="tableWrap"></div>
+      <div class="legend">
+        Click any column heading to sort (click again to reverse). Yellow rows are at or above the threshold.
+        Red numbers mark resets / backtrack letters. Blue links open the original MHTS detail popup.
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<script>
+/* ============================================================
+   Helpers
+   ============================================================ */
+const $  = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const norm = s => (s || '').replace(/\s+/g, ' ').trim();
+const esc  = s => String(s == null ? '' : s)
+  .replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function toNum(s) {
+  if (s == null) return NaN;
+  const t = String(s).replace(/[,\s%$]/g, '');
+  if (t === '' || t === '-' || t === '--') return NaN;
+  if (!/^-?\d*\.?\d+$/.test(t)) return NaN;
+  return parseFloat(t);
+}
+function fmt(n) {
+  if (n == null || isNaN(n)) return '';
+  if (Math.abs(n) >= 1000) return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  return String(Math.round(n * 100) / 100);
+}
+
+/* ============================================================
+   State
+   ============================================================ */
+const state = {
+  tables: [],
+  ti: 0,
+  groupCol: 0,
+  value: '__ALL__',
+  valueFilter: '',
+  search: '',
+  threshold: 0.15,
+  atRisk: false,
+  hideEmpty: true,
+  sortCol: null,
+  sortDir: -1
+};
+
+/* ============================================================
+   Table analysis — works on ANY table
+   ============================================================ */
+function analyzeTable(table, idx) {
+  const trs = $$('tr', table);
+  if (!trs.length) return null;
+
+  // header row = the row with the most <th>
+  let headerRow = null, best = 0;
+  for (const tr of trs) {
+    const n = tr.querySelectorAll('th').length;
+    if (n > best) { best = n; headerRow = tr; }
+  }
+  if (!headerRow || best < 2) headerRow = trs[0];
+
+  const headers = [...headerRow.children].map(c => ({
+    label: norm(c.textContent) || '—',
+    title: c.getAttribute('title') || ''
+  }));
+
+  const rows = [];
+  let section = '';
+  const start = trs.indexOf(headerRow) + 1;
+
+  for (let i = start; i < trs.length; i++) {
+    const tr = trs[i];
+    const cells = [...tr.children];
+    if (!cells.length) continue;
+
+    const firstSpan = parseInt(cells[0].getAttribute('colspan') || '1', 10);
+    const text0 = norm(cells[0].textContent);
+
+    // section / divider row  (single wide cell)
+    if (cells.length === 1 && firstSpan >= 2) {
+      if (text0) section = text0;
+      continue;
+    }
+    // rollup / summary row (wide first cell + more cells) — skip, we compute our own
+    if (firstSpan >= 2) continue;
+
+    const vals = [], ttl = [], hrefs = [];
+    for (const c of cells) {
+      const cs = parseInt(c.getAttribute('colspan') || '1', 10);
+      const a = c.querySelector('a');
+      let h = a ? (a.getAttribute('href') || '') : '';
+      const m = h.match(/['"]([^'"]*https?:[^'"]*)['"]/);   // unwrap javascript:openWinwide('...')
+      if (m) h = m[1];
+      if (/^javascript:/i.test(h)) h = '';
+
+      vals.push(norm(c.textContent));
+      ttl.push(c.getAttribute('title') || '');
+      hrefs.push(h);
+      for (let k = 1; k < cs; k++) { vals.push(''); ttl.push(''); hrefs.push(''); }
+    }
+
+    if (vals.every(v => !v)) continue;
+    rows.push({ cells: vals, titles: ttl, hrefs, section });
+  }
+
+  if (!rows.length) return null;
+
+  // normalise column count
+  const nCols = Math.max(headers.length, ...rows.map(r => r.cells.length));
+  while (headers.length < nCols) headers.push({ label: 'col ' + (headers.length + 1), title: '' });
+  rows.forEach(r => {
+    while (r.cells.length  < nCols) { r.cells.push(''); r.titles.push(''); r.hrefs.push(''); }
+    r.cells.length  = nCols;
+    r.titles.length = nCols;
+    r.hrefs.length  = nCols;
+  });
+
+  // numeric detection
+  const isNum = headers.map((h, i) => {
+    let ne = 0, nn = 0;
+    for (const r of rows) {
+      const v = r.cells[i];
+      if (v === '') continue;
+      ne++;
+      if (!isNaN(toNum(v))) nn++;
+    }
+    return ne > 0 && nn / ne >= 0.6;
+  });
+
+  // identifier detection (don't sum machine numbers / zip codes)
+  const isId = headers.map((h, i) => {
+    if (/^(ofc|office|mno|mach|machine|opn|op\b|sortplan|plan|run|id|zip)/i.test(h.label)) return true;
+    return rows.some(r => /^0\d/.test(r.cells[i]));
+  });
+
+  const H = headers.map(h => h.label);
+  const findH = (res) => { for (const re of res) { const i = H.findIndex(l => re.test(l)); if (i >= 0) return i; } return -1; };
+
+  const T = {
+    name: `Table ${idx + 1} · ${rows.length} rows × ${nCols} cols`,
+    headers, rows, isNum, isId,
+    pctCol:       findH([/pct/i, /percent/i, /%/]),
+    fedCol:       findH([/^fed\b/i, /pieces/i, /qnty/i, /qty/i]),
+    oosCol:       findH([/^oos\b/i, /out of seq/i]),
+    backtrackCol: findH([/back\s*track/i, /^back$/i]),
+    resetsCol:    findH([/^res\b/i, /reset/i]),
+    stopsCol:     findH([/^stops?\b/i]),
+    groupCol:     -1
+  };
+  T.groupCol = findH([/^mno$/i, /machine|mach|equip/i, /^ofc$|office|facility|site/i, /sortplan|plan/i]);
+  if (T.groupCol < 0) T.groupCol = H.findIndex((l, i) => !isNum[i] && !isId[i]);
+  if (T.groupCol < 0) T.groupCol = 0;
+
+  return T;
+}
+
+/* ============================================================
+   Loading
+   ============================================================ */
+function setStatus(msg, kind) {
+  const el = $('#status');
+  el.textContent = msg || '';
+  el.className = 'status' + (kind === 'err' ? ' err' : kind === 'ok' ? ' ok' : '');
+}
+
+function loadTables(html) {
+  let doc;
+  try { doc = new DOMParser().parseFromString(html, 'text/html'); }
+  catch (e) { setStatus('Could not parse that content.', 'err'); return; }
+
+  let tables = $$('table', doc);
+  if (!tables.length) {
+    doc = new DOMParser().parseFromString('<table>' + html + '</table>', 'text/html');
+    tables = $$('table', doc);
+  }
+
+  const parsed = [];
+  tables.forEach((t, i) => { const a = analyzeTable(t, i); if (a && a.rows.length) parsed.push(a); });
+  if (!parsed.length) {
+    setStatus('No HTML table with data rows found. Copy the results table from the MHTS page (drag-select it, Ctrl+C) or paste the page source below.', 'err');
+    return;
+  }
+
+  parsed.sort((a, b) => b.rows.length - a.rows.length);
+  state.tables = parsed;
+  state.ti = 0;
+  initTable();
+  $('#app').hidden = false;
+  $('#histBtn').style.display = 'inline-block';
+  setStatus(`Loaded ${parsed.length} table${parsed.length > 1 ? 's' : ''} — using the largest (${parsed[0].rows.length} rows).`, 'ok');
+  $('#app').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function initTable() {
+  const T = state.tables[state.ti];
+  state.groupCol = T.groupCol;
+  state.value = '__ALL__';
+  state.valueFilter = '';
+  state.sortCol = null;
+  state.sortDir = -1;
+  $('#valueFilter').value = '';
+  $('#searchInp').value = '';
+  buildControls();
+  render();
+}
+
+/* ============================================================
+   Controls
+   ============================================================ */
+function buildControls() {
+  const T = state.tables[state.ti];
+
+  // table selector
+  const ts = $('#tableSel');
+  if (state.tables.length > 1) {
+    $('#tableField').style.display = '';
+    ts.innerHTML = state.tables.map((t, i) =>
+      `<option value="${i}"${i === state.ti ? ' selected' : ''}>${esc(t.name)}</option>`).join('');
+  } else {
+    $('#tableField').style.display = 'none';
+  }
+
+  // group column selector
+  $('#groupSel').innerHTML = T.headers.map((h, i) =>
+    `<option value="${i}"${i === state.groupCol ? ' selected' : ''}>${esc(h.label)}</option>`).join('');
+
+  rebuildValues('__ALL__');
+}
+
+function rebuildValues(keep) {
+  const T = state.tables[state.ti];
+  const counts = new Map();
+  T.rows.forEach(r => {
+    const k = r.cells[state.groupCol] || '(blank)';
+    counts.set(k, (counts.get(k) || 0) + 1);
+  });
+
+  let vals = [...counts.keys()].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const f = state.valueFilter.toLowerCase();
+  if (f) vals = vals.filter(v => v.toLowerCase().includes(f));
+
+  const prev = keep !== undefined ? keep : state.value;
+  const sel = $('#valueSel');
+  sel.innerHTML = `<option value="__ALL__">— all ${T.rows.length} rows —</option>` +
+    vals.map(v => `<option value="${esc(v)}">${esc(v)} · ${counts.get(v)} run${counts.get(v) === 1 ? '' : 's'}</option>`).join('');
+
+  if ([...sel.options].some(o => o.value === prev)) {
+    sel.value = prev;
+  } else {
+    sel.value = '__ALL__';
+    state.value = '__ALL__';
+  }
+}
+
+/* ============================================================
+   Filtering / sorting
+   ============================================================ */
+function currentTable() { return state.tables[state.ti]; }
+
+function filteredRows() {
+  const T = currentTable();
+  let rows = T.rows;
+
+  if (state.value !== '__ALL__') rows = rows.filter(r => r.cells[T.groupCol] === state.value);
+
+  if (state.search) {
+    const q = state.search.toLowerCase();
+    rows = rows.filter(r =>
+      r.cells.some(c => c.toLowerCase().includes(q)) ||
+      (r.section && r.section.toLowerCase().includes(q)));
+  }
+
+  if (state.atRisk && T.pctCol >= 0) {
+    const t = state.threshold;
+    rows = rows.filter(r => {
+      const n = toNum(r.cells[T.pctCol]);
+      return !isNaN(n) && n >= t;
+    });
+  }
+  return rows;
+}
+
+function sortRows(rows) {
+  const T = currentTable();
+  let col = state.sortCol;
+  let dir = state.sortDir;
+  if (col === null) { col = T.pctCol >= 0 ? T.pctCol : null; dir = -1; }
+  if (col === null || !rows.length) return rows;
+
+  const numeric = T.isNum[col];
+  return rows.slice().sort((a, b) => {
+    const av = a.cells[col], bv = b.cells[col];
+    let c;
+    if (numeric) {
+      const x = toNum(av), y = toNum(bv);
+      const xa = isNaN(x), ya = isNaN(y);
+      if (xa && ya) c = 0; else if (xa) c = 1; else if (ya) c = -1; else c = x - y;
+    } else {
+      c = av.localeCompare(bv, undefined, { numeric: true });
+    }
+    return c * dir;
+  });
+}
+
+function visibleCols(T, rows) {
+  const all = T.headers.map((_, i) => i);
+  if (!state.hideEmpty || !rows.length) return all;
+  return all.filter(i => {
+    if (i === T.groupCol) return true;
+    return rows.some(r => {
+      const v = r.cells[i];
+      if (v === '' || v === '-' || v === '--') return false;
+      const n = toNum(v);
+      return isNaN(n) ? true : n !== 0;
+    });
+  });
+}
+
+/* ============================================================
+   Render — tiles
+   ============================================================ */
+function renderTiles(T, rows) {
+  const sumOf = c => {
+    if (c < 0) return NaN;
+    let s = 0, any = false;
+    rows.forEach(r => { const v = toNum(r.cells[c]); if (!isNaN(v)) { s += v; any = true; } });
+    return any ? s : NaN;
+  };
+
+  const tiles = [['Runs shown', rows.length]];
+  const fed = sumOf(T.fedCol), oos = sumOf(T.oosCol);
+  if (!isNaN(fed)) tiles.push(['Pieces fed', fmt(fed)]);
+  if (!isNaN(oos)) tiles.push(['OOS pieces', fmt(oos)]);
+  if (!isNaN(fed) && !isNaN(oos) && fed > 0) tiles.push(['OOS % of fed', (oos / fed * 100).toFixed(3) + '%']);
+
+  const countPos = c => c >= 0 ? rows.filter(r => toNum(r.cells[c]) > 0).length : null;
+  const bt = countPos(T.backtrackCol);
+  const rs = countPos(T.resetsCol);
+  const st = countPos(T.stopsCol);
+  if (bt !== null) tiles.push(['Runs w/ backtrack', bt]);
+  if (rs !== null) tiles.push(['Runs w/ resets', rs]);
+  if (st !== null) tiles.push(['Runs w/ stops', st]);
+
+  $('#tiles').innerHTML = tiles.map(([k, v]) =>
+    `<div class="tile"><div class="tv">${esc(v)}</div><div class="tk">${esc(k)}</div></div>`).join('');
+}
+
+/* ============================================================
+   Render — rollup by group
+   ============================================================ */
+function renderRollup(T) {
+  const map = new Map();
+  T.rows.forEach(r => {
+    const k = r.cells[T.groupCol] || '(blank)';
+    let g = map.get(k);
+    if (!g) { g = { key: k, n: 0, fed: 0, oos: 0, bt: 0, res: 0, stops: 0 }; map.set(k, g); }
+    g.n++;
+    const add = (col, prop) => { if (col >= 0) { const v = toNum(r.cells[col]); if (!isNaN(v)) g[prop] += v; } };
+    add(T.fedCol, 'fed'); add(T.oosCol, 'oos');
+    add(T.backtrackCol, 'bt'); add(T.resetsCol, 'res'); add(T.stopsCol, 'stops');
+  });
+
+  const list = [...map.values()].sort((a, b) => (b.oos - a.oos) || (b.n - a.n));
+  const lbl = T.headers[T.groupCol].label;
+  $('#rollupTitle').textContent = `4 · By ${lbl} — click a row to drill in`;
+
+  let h = '<table class="roll"><thead><tr>' +
+    `<th>${esc(lbl)}</th><th class="num">Runs</th>` +
+    (T.fedCol >= 0 ? '<th class="num">Fed</th>' : '') +
+    (T.oosCol >= 0 ? '<th class="num">OOS</th>' : '') +
+    (T.oosCol >= 0 && T.fedCol >= 0 ? '<th class="num">OOS %</th>' : '') +
+    (T.backtrackCol >= 0 ? '<th class="num">BT</th>' : '') +
+    (T.resetsCol >= 0 ? '<th class="num">RES</th>' : '') +
+    (T.stopsCol >= 0 ? '<th class="num">STOPS</th>' : '') +
+    '</tr></thead><tbody>';
+
+  list.forEach(g => {
+    const pct = g.fed > 0 ? (g.oos / g.fed * 100) : (T.oosCol >= 0 ? g.oos : null);
+    h += `<tr data-key="${esc(g.key)}"${state.value === g.key ? ' class="sel"' : ''}>` +
+      `<td>${esc(g.key)}</td><td class="num">${g.n}</td>` +
+      (T.fedCol >= 0 ? `<td class="num">${fmt(g.fed)}</td>` : '') +
+      (T.oosCol >= 0 ? `<td class="num">${fmt(g.oos)}</td>` : '') +
+      (T.oosCol >= 0 && T.fedCol >= 0 ? `<td class="num">${pct == null ? '' : pct.toFixed(3)}</td>` : '') +
+      (T.backtrackCol >= 0 ? `<td class="num">${fmt(g.bt)}</td>` : '') +
+      (T.resetsCol >= 0 ? `<td class="num">${fmt(g.res)}</td>` : '') +
+      (T.stopsCol >= 0 ? `<td class="num">${fmt(g.stops)}</td>` : '') +
+      '</tr>';
+  });
+
+  h += '</tbody></table>';
+  $('#rollup').innerHTML = h;
+}
+
+/* ============================================================
+   Render — detail table
+   ============================================================ */
+function renderTable(T, rows) {
+  const vis = visibleCols(T, rows);
+  const effCol = state.sortCol === null ? T.pctCol : state.sortCol;
+  const effDir = state.sortCol === null ? -1 : state.sortDir;
+
+  // totals
+  const totals = {};
+  vis.forEach(i => {
+    if (!T.isNum[i] || T.isId[i] || i === T.pctCol) return;
+    let s = 0, any = false;
+    rows.forEach(r => { const n = toNum(r.cells[i]); if (!isNaN(n)) { s += n; any = true; } });
+    if (any) totals[i] = s;
+  });
+  if (T.pctCol >= 0 && T.fedCol >= 0 && T.oosCol >= 0) {
+    let f = 0, o = 0;
+    rows.forEach(r => {
+      const a = toNum(r.cells[T.fedCol]), b = toNum(r.cells[T.oosCol]);
+      if (!isNaN(a)) f += a;
+      if (!isNaN(b)) o += b;
+    });
+    if (f > 0) totals[T.pctCol] = o / f * 100;
+  }
+
+  // heat scale
+  let maxPct = 0;
+  if (T.pctCol >= 0) rows.forEach(r => { const n = toNum(r.cells[T.pctCol]); if (!isNaN(n) && n > maxPct) maxPct = n; });
+
+  $('#runCount').textContent = `— ${rows.length} row${rows.length === 1 ? '' : 's'}` +
+    (state.value !== '__ALL__' ? ` for ${T.headers[T.groupCol].label} ${state.value}` : '');
+
+  if (!rows.length) {
+    $('#tableWrap').innerHTML = '<div class="empty">No rows match the current filters.</div>';
+    return;
+  }
+
+  let h = '<table class="ql"><thead><tr>';
+  vis.forEach(i => {
+    const hd = T.headers[i];
+    const active = effCol === i;
+    h += `<th data-col="${i}" class="${T.isNum[i] ? 'num' : ''}${active ? ' active' : ''}"` +
+         ` title="${esc(hd.title || hd.label)}">${esc(hd.label)}${active ? (effDir < 0 ? ' ▼' : ' ▲') : ''}</th>`;
+  });
+  h += '</tr></thead><tbody>';
+
+  // totals row
+  h += '<tr class="totals">';
+  vis.forEach((i, ix) => {
+    let txt = '';
+    if (ix === 0) txt = `Σ ${rows.length} run${rows.length === 1 ? '' : 's'}`;
+    else if (totals[i] != null) txt = fmt(totals[i]);
+    h += `<td class="${T.isNum[i] ? 'num' : ''}">${esc(txt)}</td>`;
+  });
+  h += '</tr>';
+
+  // section dividers only if more than one section present
+  const sections = [...new Set(rows.map(r => r.section || ''))];
+  const multiSection = sections.length > 1;
+
+  let lastSection = rows[0].section || '';
+  rows.forEach(r => {
+    const sec = r.section || '';
+    if (multiSection && sec !== lastSection) {
+      h += `<tr class="section"><td colspan="${vis.length}">${esc(sec || '—')}</td></tr>`;
+      lastSection = sec;
+    }
+
+    const pctVal = T.pctCol >= 0 ? toNum(r.cells[T.pctCol]) : NaN;
+    const risk = !isNaN(pctVal) && pctVal >= state.threshold;
+    h += `<tr${risk ? ' class="risk"' : ''}>`;
+
+    vis.forEach(i => {
+      const v = r.cells[i];
+      const href = r.hrefs[i];
+      let cls = T.isNum[i] ? 'num' : '';
+      let style = '';
+      let txt = esc(v);
+
+      if (i === T.pctCol && !isNaN(pctVal) && pctVal > 0 && maxPct > 0) {
+        const a = (0.08 + 0.55 * Math.min(1, pctVal / maxPct)).toFixed(2);
+        style = ` style="background-color:rgba(224,88,60,${a})"`;
+        cls += ' heat';
+      }
+      if ((i === T.backtrackCol || i === T.resetsCol) && toNum(v) > 0) cls += ' flag';
+      if (href) txt = `<a href="${esc(href)}" target="_blank" rel="noopener">${txt}</a>`;
+
+      h += `<td class="${cls}"${style} title="${esc(r.titles[i] || '')}">${txt}</td>`;
+    });
+    h += '</tr>';
+  });
+
+  h += '</tbody></table>';
+  $('#tableWrap').innerHTML = h;
+}
+
+/* ============================================================
+   Master render
+   ============================================================ */
+function render() {
+  const T = currentTable();
+  if (!T) return;
+  const rows = sortRows(filteredRows());
+  renderTiles(T, rows);
+  renderRollup(T);
+  renderTable(T, rows);
+}
+
+/* ============================================================
+   Events
+   ============================================================ */
+$('#tableSel').addEventListener('change', e => { state.ti = +e.target.value; initTable(); });
+$('#groupSel').addEventListener('change', e => { state.groupCol = +e.target.value; state.value = '__ALL__'; rebuildValues('__ALL__'); render(); });
+$('#valueSel').addEventListener('change', e => { state.value = e.target.value; render(); });
+$('#valueFilter').addEventListener('input', e => { state.valueFilter = e.target.value; rebuildValues(); render(); });
+$('#searchInp').addEventListener('input', e => { state.search = e.target.value; render(); });
+$('#threshInp').addEventListener('input', e => { const n = parseFloat(e.target.value); state.threshold = isNaN(n) ? 0 : n; render(); });
+$('#atRiskInp').addEventListener('change', e => { state.atRisk = e.target.checked; render(); });
+$('#hideEmptyInp').addEventListener('change', e => { state.hideEmpty = e.target.checked; render(); });
+
+$('#rollup').addEventListener('click', e => {
+  const tr = e.target.closest('tr[data-key]');
+  if (!tr) return;
+  state.value = tr.dataset.key;
+  state.valueFilter = '';
+  $('#valueFilter').value = '';
+  rebuildValues(state.value);
+  render();
+});
+
+$('#tableWrap').addEventListener('click', e => {
+  const th = e.target.closest('th[data-col]');
+  if (!th) return;
+  const T = currentTable();
+  const i = +th.dataset.col;
+  if (state.sortCol === i) state.sortDir *= -1;
+  else { state.sortCol = i; state.sortDir = T.isNum[i] ? -1 : 1; }
+  render();
+});
+
+$('#csvBtn').addEventListener('click', () => {
+  const T = currentTable();
+  const rows = sortRows(filteredRows());
+  const vis = visibleCols(T, rows);
+  const cell = s => '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"';
+  const lines = [vis.map(i => cell(T.headers[i].label)).join(',')];
+  rows.forEach(r => lines.push(vis.map(i => cell(r.cells[i])).join(',')));
+  navigator.clipboard.writeText(lines.join('\n')).then(
+    () => setStatus('CSV of the current view copied to clipboard.', 'ok'),
+    () => setStatus('Clipboard copy failed.', 'err'));
+});
+
+/* ---- input: paste ---- */
+const dz = $('#dropZone');
+dz.addEventListener('paste', ev => {
+  const cd = ev.clipboardData || window.clipboardData;
+  if (!cd) return;
+  const html = cd.getData('text/html');
+  const text = cd.getData('text/plain');
+  ev.preventDefault();
+  if (html && /<table/i.test(html)) loadTables(html);
+  else if (text && /<table/i.test(text)) loadTables(text);
+  else setStatus('That clipboard content had no HTML table. Select the results table on the MHTS page (drag across it), copy, then paste again — or use the page-source box below.', 'err');
+});
+
+/* ---- input: drag & drop ---- */
+['dragenter', 'dragover'].forEach(t => dz.addEventListener(t, e => { e.preventDefault(); dz.classList.add('hover'); }));
+['dragleave', 'drop'].forEach(t => dz.addEventListener(t, e => { e.preventDefault(); dz.classList.remove('hover'); }));
+dz.addEventListener('drop', e => {
+  const f = e.dataTransfer.files && e.dataTransfer.files[0];
+  if (f) {
+    const r = new FileReader();
+    r.onload = () => loadTables(r.result);
+    r.readAsText(f);
+    return;
+  }
+  const html = e.dataTransfer.getData('text/html');
+  const text = e.dataTransfer.getData('text/plain');
+  if (html && /<table/i.test(html)) loadTables(html);
+  else if (text && /<table/i.test(text)) loadTables(text);
+});
+
+/* ---- input: raw source ---- */
+$('#srcBtn').addEventListener('click', () => {
+  const v = $('#srcArea').value.trim();
+  if (v) loadTables(v);
+  else setStatus('The source box is empty.', 'err');
+});
+
+/* ============================================================
+   Sample data (so the tool can be demoed without the live page)
+   ============================================================ */
+const SAMPLE = `
+<table>
+<tr>
+<th title="Office Where this DPS Run was Processed">OFC</th>
+<th title="Machine that Processed this Run">MNO</th>
+<th title="DPS Sortplan Name">SORTPLAN</th>
+<th title="Operation Number">OPN</th>
+<th title="Start Date">START DATE</th>
+<th>START TIME</th>
+<th title="End Date">END DATE</th>
+<th>END TIME</th>
+<th title="Number of Pieces Fed">FED</th>
+<th title="Estimated DPS OOS Rejects">OOS</th>
+<th title="OOS as Percent of Fed">PCT (FED)</th>
+<th title="Estimated DPS Sequence Resets">RES</th>
+<th title="Estimated BackTrack Letters">BACK TRACK</th>
+<th title="DPS Buffering Recovery Count">BUF</th>
+<th title="Estimated DPS Out of Sequence Stops">STOPS</th>
+<th title="Operator Contribution">OPER</th>
+<th title="Maintenance Contribution">MAINT</th>
+<th title="Bad Luck Contribution">LUCK</th>
+<th title="OOS Tagged vs Non-Tagged">TagRate</th>
+<th title="Non-Tracked Pieces">NTRK</th>
+<th title="Non-Tracked at Start">STRT</th>
+<th title="Handful Pieces">HFUL</th>
+<th title="Trayful Pieces">TFUL</th>
+<th title="Viewed?">Viewed</th>
+</tr>
+<tr><td>15290</td><td>030</td><td>LV16401U.EBF</td><td>919</td><td>Thu 09/10</td><td>11:39</td><td>Thu 09/10</td><td>11:45</td><td>17</td><td>15</td><td>88.24</td><td>0</td><td>0</td><td>0</td><td>1</td><td>0</td><td>0</td><td>13</td><td>0.00</td><td>0</td><td>0</td><td>0</td><td>0</td><td>N</td></tr>
+<tr><td>15290</td><td>030</td><td>LV16401U.EBF</td><td>919</td><td>Thu 09/10</td><td>14:11</td><td>Thu 09/10</td><td>14:13</td><td>101</td><td>27</td><td>26.73</td><td>0</td><td>0</td><td>0</td><td>2</td><td>38</td><td>0</td><td>0</td><td>2.62</td><td>0</td><td>0</td><td>27</td><td>0</td><td>N</td></tr>
+<tr><td>15290</td><td>030</td><td>LV16401U.EBF</td><td>919</td><td>Thu 09/10</td><td>14:17</td><td>Thu 09/10</td><td>14:32</td><td>270</td><td>58</td><td>21.48</td><td>0</td><td>0</td><td>0</td><td>4</td><td>286</td><td>0</td><td>0</td><td>1.03</td><td>0</td><td>0</td><td>0</td><td>56</td><td>N</td></tr>
+<tr><td>15290</td><td>067</td><td>LV15120U.EBF</td><td>919</td><td>Fri 09/11</td><td>04:07</td><td>Fri 09/11</td><td>04:09</td><td>142</td><td>14</td><td>9.86</td><td>0</td><td>0</td><td>0</td><td>1</td><td>12</td><td>0</td><td>0</td><td>2.45</td><td>0</td><td>0</td><td>14</td><td>0</td><td>N</td></tr>
+<tr><td>15290</td><td>067</td><td>LV15120U.EBF</td><td>919</td><td>Fri 09/11</td><td>02:36</td><td>Fri 09/11</td><td>02:41</td><td>625</td><td>42</td><td>6.72</td><td>0</td><td>0</td><td>0</td><td>3</td><td>0</td><td>0</td><td>63</td><td>3.39</td><td>0</td><td>0</td><td>0</td><td>0</td><td>N</td></tr>
+<tr><td>15290</td><td>041</td><td>LV15017U.EBF</td><td>919</td><td>Fri 09/11</td><td>01:43</td><td>Fri 09/11</td><td>01:59</td><td>7831</td><td>152</td><td>1.94</td><td>0</td><td>0</td><td>1</td><td>8</td><td>1231</td><td>0</td><td>0</td><td>0.80</td><td>0</td><td>0</td><td>0</td><td>111</td><td>N</td></tr>
+<tr><td>15290</td><td>029</td><td>LV15601U.EBF</td><td>919</td><td>Thu 09/10</td><td>17:23</td><td>Thu 09/10</td><td>17:44</td><td>9629</td><td>60</td><td>0.62</td><td>0</td><td>0</td><td>3</td><td>2</td><td>10</td><td>0</td><td>21</td><td>1.75</td><td>0</td><td>0</td><td>12</td><td>0</td><td>N</td></tr>
+<tr><td>15290</td><td>069</td><td>LV16112U.EBF</td><td>919</td><td>Thu 09/10</td><td>17:53</td><td>Thu 09/10</td><td>18:48</td><td>18153</td><td>75</td><td>0.41</td><td>2</td><td><a href="javascript:openWinwide('https://mhts.usps.gov/mhts/siteaea10/query_oos_backtrack.php?runid=60115157&amp;rec_file=10Q&amp;nologme=');" title="Details of these 198 Potential Backtrack Letters">198</a></td><td>1</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0.64</td><td>7</td><td>0</td><td>0</td><td>0</td><td>N</td></tr>
+<tr><td>15290</td><td>063</td><td>LV15106U.EBF</td><td>919</td><td>Fri 09/11</td><td>03:06</td><td>Fri 09/11</td><td>04:46</td><td>50771</td><td>217</td><td>0.43</td><td>0</td><td>0</td><td>4</td><td>2</td><td>0</td><td>0</td><td>0</td><td>0.04</td><td>15</td><td>0</td><td>0</td><td>0</td><td>Y</td></tr>
+<tr id="hilite_yellowb"><td colspan="24">The Following DPS Runs Met the New, Stricter Standard of 0.15 Percent OOS</td></tr>
+<tr><td>15290</td><td>058</td><td>LV15015U.EBF</td><td>919</td><td>Thu 09/10</td><td>20:43</td><td>Thu 09/10</td><td>21:00</td><td>9991</td><td>15</td><td>0.15</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>1.57</td><td>0</td><td>0</td><td>0</td><td>0</td><td>N</td></tr>
+<tr><td>15290</td><td>063</td><td>LV26519U.EBF</td><td>919</td><td>Thu 09/10</td><td>18:19</td><td>Thu 09/10</td><td>18:55</td><td>21502</td><td>33</td><td>0.15</td><td>0</td><td>0</td><td>0</td><td>1</td><td>7</td><td>1</td><td>0</td><td>1.17</td><td>0</td><td>0</td><td>6</td><td>0</td><td>N</td></tr>
+<tr><td>15290</td><td>067</td><td>LV15401U.EBF</td><td>919</td><td>Thu 09/10</td><td>19:36</td><td>Thu 09/10</td><td>19:38</td><td>455</td><td>0</td><td>0.00</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0.00</td><td>6</td><td>1</td><td>0</td><td>0</td><td>N</td></tr>
+</table>`;
+
+$('#sampleBtn').addEventListener('click', () => loadTables(SAMPLE));
+
+/* focus the paste box on load */
+window.addEventListener('load', () => dz.focus());
+</script>
+<script>
+document.getElementById('histBtn').addEventListener('click', async () => {
+  const T = state.tables[state.ti];
+  if (!T) return;
+  const rows = sortRows(filteredRows());
+  if (!rows.length){ historianToast('No rows to send.', false); return; }
+
+  const mnoCol = T.headers.findIndex(h => /^mno$|^machine/i.test(h.label));
+  if (mnoCol < 0){ historianToast('No MNO column found in this table.', false); return; }
+
+  const uniqueMnos = new Set();
+  rows.forEach(r => {
+    const raw = String(r.cells[mnoCol] || '').trim();
+    const m = raw.match(/^0*(\d+)$/);
+    if (m) uniqueMnos.add(String(parseInt(m[1], 10)));
+  });
+  if (!uniqueMnos.size){ historianToast('No numeric MNOs found.', false); return; }
+
+  const reg = historianGetRegistry();
+  const unknowns = [...uniqueMnos].filter(m => !reg[m]);
+  if (unknowns.length){
+    const assigned = await historianPromptForMnOs(unknowns);
+    Object.entries(assigned).forEach(([mno, acronym]) => historianRegisterMno(mno, acronym));
+  }
+
+  const reg2 = historianGetRegistry();
+  let sent = 0, skipped = 0;
+  rows.forEach(r => {
+    const rawMno = String(r.cells[mnoCol] || '').trim();
+    const m = rawMno.match(/^0*(\d+)$/);
+    if (!m) return;
+    const mno = String(parseInt(m[1], 10));
+    if (!reg2[mno]) { skipped++; return; }
+
+    const get = col => col >= 0 ? r.cells[col] : '';
+    const startDate = get(T.headers.findIndex(h => /start date/i.test(h.label)));
+    const startTime = get(T.headers.findIndex(h => /start time/i.test(h.label)));
+    const endDate   = get(T.headers.findIndex(h => /end date/i.test(h.label)));
+    const endTime   = get(T.headers.findIndex(h => /end time/i.test(h.label)));
+
+    let eventTime = new Date().toISOString();
+    if (startDate && startTime){
+      const iso = new Date(`${startDate} ${startTime}`);
+      if (!isNaN(iso)) eventTime = iso.toISOString();
+    }
+
+    const fed = T.fedCol >= 0 ? r.cells[T.fedCol] : '';
+    const oos = T.oosCol >= 0 ? r.cells[T.oosCol] : '';
+    const pct = T.pctCol >= 0 ? r.cells[T.pctCol] : '';
+    const bt  = T.backtrackCol >= 0 ? r.cells[T.backtrackCol] : '';
+    const res = T.resetsCol >= 0 ? r.cells[T.resetsCol] : '';
+    const stp = T.stopsCol >= 0 ? r.cells[T.stopsCol] : '';
+
+    const pctNum = parseFloat(String(pct).replace(/[^\d.]/g,''));
+    const status = isNaN(pctNum) ? 'info' : (pctNum >= 0.15 ? 'fail' : 'pass');
+
+    const detailLines = [
+      (startDate || endDate) ? `Window: ${startDate} ${startTime} → ${endDate} ${endTime}` : '',
+      bt  ? `Backtrack: ${bt}` : '',
+      res ? `Resets: ${res}` : '',
+      stp ? `Stops: ${stp}` : ''
+    ].filter(Boolean);
+
+    historianSave({
+      source: 'mhts',
+      eventTime,
+      tech: '',
+      category: 'run_metric',
+      kind: 'mhts.run',
+      status,
+      summary: `MHTS run — fed ${fed||'—'}, OOS ${oos||'—'} (${pct||'—'}%)`,
+      detail: detailLines.join('\n'),
+      payload: {
+        rawMno: rawMno,
+        row: r.cells,
+        headers: T.headers.map(h => h.label)
+      }
+    });
+    sent++;
+  });
+
+  const note = skipped ? ` (${skipped} skipped — MNOs left unassigned)` : '';
+  historianToast(`Sent ${sent} MHTS row${sent===1?'':'s'} to historian${note}.`, skipped ? false : true);
+});
+</script>
+</body>
+</html

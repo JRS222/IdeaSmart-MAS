@@ -1,0 +1,3110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes" />
+    <title>DBS Unified – Heat Map + Maintenance + Investigation</title>
+    <style>
+        /* ---------- RESET & BASE ---------- */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #eef2f7;
+            padding: 12px;
+            min-height: 100vh;
+            font-size: 14px;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* ---------- HEADER ---------- */
+        .app-header {
+            background: #fff;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px 20px;
+            margin-bottom: 12px;
+        }
+        .app-header h1 {
+            font-size: 20px;
+            color: #1a3a6b;
+            margin-right: auto;
+        }
+        .app-header h1 span { color: #0078d4; }
+        .app-header .field {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 13px;
+        }
+        .app-header .field label { font-weight: 600; }
+        .app-header .field input, .app-header .field select {
+            border: 1px solid #aaa;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 13px;
+            background: #fff;
+        }
+        .app-header .field input[type="date"] { width: 130px; }
+        .app-header .field input[type="text"] { width: 100px; }
+        .app-header .field select { width: 160px; }
+
+        /* ---------- INPUT SECTION ---------- */
+        .input-section {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 16px 20px;
+            margin-bottom: 12px;
+        }
+        .input-section .input-toggle {
+            cursor: pointer;
+            font-weight: 600;
+            color: #0078d4;
+            font-size: 13px;
+            user-select: none;
+            display: inline-block;
+            margin-bottom: 6px;
+        }
+        .input-section .input-toggle:hover { text-decoration: underline; }
+        .input-section.collapsed .input-row { display: none; }
+        .input-section .input-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: flex-start;
+        }
+        .input-section .input-row .col {
+            flex: 1 1 280px;
+            min-width: 200px;
+        }
+        .input-section .input-row .col label {
+            font-weight: 600;
+            display: block;
+            margin-bottom: 4px;
+            font-size: 13px;
+        }
+        .input-section .input-row .col textarea {
+            width: 100%;
+            min-height: 100px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            resize: vertical;
+        }
+        .input-section .input-row .col .file-upload {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .input-section .input-row .col .file-upload .file-label {
+            background: #f0f0f0;
+            padding: 6px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            font-size: 13px;
+        }
+        .input-section .input-row .col .file-upload .file-label:hover { background: #e0e0e0; }
+        .input-section .input-row .col .file-upload #unplannedFile { display: none; }
+        .input-section .input-row .col .file-upload .file-status {
+            font-size: 13px;
+            color: #155724;
+            background: #d4edda;
+            padding: 3px 12px;
+            border-radius: 4px;
+            display: none;
+        }
+        .input-section .input-row .col .btn-generate {
+            background: #0078d4;
+            color: #fff;
+            border: none;
+            padding: 8px 24px;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            touch-action: manipulation;
+            margin-top: 6px;
+        }
+        .input-section .input-row .col .btn-generate:hover { background: #005a9e; }
+        .input-section .input-row .col .sample-btn {
+            background: #6c757d;
+            color: #fff;
+            border: none;
+            padding: 4px 14px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            margin-left: 6px;
+        }
+        .input-section .input-row .col .sample-btn:hover { background: #5a6268; }
+        .input-section .input-row .col .machine-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 6px;
+        }
+        .input-section .input-row .col .machine-selector select {
+            padding: 4px 10px;
+            border: 1px solid #aaa;
+            border-radius: 4px;
+            font-size: 13px;
+            background: #fff;
+            min-width: 140px;
+        }
+        .input-section .input-row .col .machine-selector .selected-label {
+            font-weight: 600;
+            font-size: 13px;
+            color: #1a3a6b;
+        }
+
+        /* ---------- MAIN AREA ---------- */
+        .main-area {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            min-height: 500px;
+        }
+        @media (max-width: 1000px) {
+            .main-area { grid-template-columns: 1fr; }
+        }
+
+        /* LEFT: Heat Map */
+        .panel-heatmap {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 12px 16px;
+            overflow-y: auto;
+            max-height: 700px;
+        }
+        .panel-heatmap .panel-title {
+            font-size: 17px;
+            font-weight: 700;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .panel-heatmap .panel-title .sub {
+            font-size: 12px;
+            font-weight: 400;
+            color: #666;
+        }
+        .panel-heatmap .legend {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        .panel-heatmap .legend .color-bar {
+            display: flex;
+            height: 14px;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .panel-heatmap .legend .color-bar .seg {
+            width: 28px;
+            height: 100%;
+        }
+        .panel-heatmap .view-toggle {
+            display: flex;
+            gap: 4px;
+            background: #f0f0f0;
+            border-radius: 6px;
+            padding: 2px;
+            margin-left: auto;
+        }
+        .panel-heatmap .view-toggle button {
+            border: none;
+            background: transparent;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        .panel-heatmap .view-toggle button.active {
+            background: #fff;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+        }
+
+        .modules-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 8px;
+        }
+        .module-card {
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 6px;
+            background: #fafafa;
+            cursor: pointer;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .module-card:hover { border-color: #0078d4; box-shadow: 0 2px 8px rgba(0,120,212,0.2); }
+        .module-card.active { border-color: #0078d4; box-shadow: 0 0 0 2px #0078d4; }
+        .module-card .module-label {
+            font-weight: 700;
+            font-size: 10px;
+            text-align: center;
+            margin-bottom: 3px;
+            padding-bottom: 2px;
+            border-bottom: 1px solid #eee;
+        }
+        .module-card .bins-grid-sm {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 2px;
+        }
+        .module-card .bin-cell-sm {
+            aspect-ratio: 1;
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 6px;
+            font-weight: 600;
+            color: #333;
+            min-height: 16px;
+            position: relative;
+            transition: transform 0.1s;
+        }
+        .module-card .bin-cell-sm:hover {
+            transform: scale(1.25);
+            z-index: 5;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+        .module-card .bin-cell-sm.printer-sm {
+            background: #e6e6e6 !important;
+            color: #666;
+            font-size: 5px;
+        }
+        .module-card .bin-cell-sm .tooltip-sm {
+            display: none;
+            position: absolute;
+            bottom: 110%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: #fff;
+            padding: 3px 6px;
+            border-radius: 4px;
+            font-size: 8px;
+            white-space: nowrap;
+            z-index: 10;
+        }
+        .module-card .bin-cell-sm:hover .tooltip-sm { display: block; }
+        .module-card .module-badge {
+            font-size: 9px;
+            color: #999;
+            text-align: center;
+            margin-top: 3px;
+        }
+
+        /* RIGHT: Inspection */
+        .panel-inspection {
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 12px 16px;
+            overflow-y: auto;
+            max-height: 700px;
+            display: flex;
+            flex-direction: column;
+        }
+        .panel-inspection .panel-title {
+            font-size: 17px;
+            font-weight: 700;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+        .panel-inspection .panel-title .sub {
+            font-size: 12px;
+            font-weight: 400;
+            color: #666;
+        }
+        .panel-inspection .inspection-type {
+            font-size: 13px;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 4px;
+            text-align: center;
+            flex-shrink: 0;
+            margin: 4px 0 8px 0;
+        }
+        .panel-inspection .inspection-front { background: #d4edda; color: #155724; }
+        .panel-inspection .inspection-back { background: #fff3cd; color: #856404; }
+
+        .panel-inspection .bins-grid-insp {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 4px;
+            flex-shrink: 0;
+        }
+        .panel-inspection .bin-card-insp {
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            padding: 3px 2px;
+            background: #fafafa;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            cursor: pointer;
+            transition: border-color 0.15s;
+        }
+        .panel-inspection .bin-card-insp:hover { border-color: #0078d4; }
+        .panel-inspection .bin-card-insp.printer-insp { background: #e6e6e6; border-color: #999; cursor: default; }
+        .panel-inspection .bin-card-insp .bin-header-insp {
+            font-weight: 700;
+            font-size: 9px;
+            text-align: center;
+            padding-bottom: 2px;
+            border-bottom: 1px dashed #bbb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .panel-inspection .bin-card-insp .bin-header-insp .investigate-btn {
+            background: #0078d4;
+            color: #fff;
+            border: none;
+            border-radius: 3px;
+            padding: 0 6px;
+            font-size: 8px;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        .panel-inspection .bin-card-insp .bin-header-insp .investigate-btn:hover { background: #005a9e; }
+        .panel-inspection .bin-card-insp .end-stacker-note {
+            font-size: 6px;
+            color: #856404;
+            background: #fff3cd;
+            border-radius: 3px;
+            padding: 1px;
+            text-align: center;
+        }
+        .panel-inspection .comp-grid-insp {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1px;
+            font-size: 7px;
+        }
+        .panel-inspection .comp-item-insp {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            background: #fff;
+            border-radius: 2px;
+            padding: 1px 2px;
+        }
+        .panel-inspection .comp-item-insp input[type="checkbox"] {
+            width: 14px;
+            height: 14px;
+            margin: 0;
+            flex-shrink: 0;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        .panel-inspection .comp-item-insp label {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            cursor: pointer;
+            font-size: 6.5px;
+            line-height: 1.1;
+        }
+        .panel-inspection .comp-item-insp .nsn { color: #666; font-size: 5px; }
+
+        /* Belt sections */
+        .panel-inspection .belt-section {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 6px 8px;
+            margin-top: 6px;
+            flex-shrink: 0;
+        }
+        .panel-inspection .belt-section .belt-title { font-weight: 700; font-size: 12px; }
+        .panel-inspection .belt-section .belt-subtitle { font-size: 10px; color: #666; }
+        .panel-inspection .belt-grid-insp {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 3px;
+            margin-top: 3px;
+        }
+        .panel-inspection .belt-item-insp {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 9px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            padding: 2px 4px;
+            flex-wrap: wrap;
+        }
+        .panel-inspection .belt-item-insp input[type="checkbox"] {
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        .panel-inspection .belt-item-insp label {
+            display: flex;
+            align-items: center;
+            gap: 2px;
+            cursor: pointer;
+            font-size: 8px;
+        }
+        .panel-inspection .belt-item-insp .belt-label { font-weight: 600; }
+
+        /* Inspection nav */
+        .insp-nav {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+            flex-shrink: 0;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .insp-nav .btn {
+            background: #0078d4;
+            color: #fff;
+            border: none;
+            padding: 6px 16px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            touch-action: manipulation;
+            min-height: 36px;
+        }
+        .insp-nav .btn:disabled { opacity: 0.4; pointer-events: none; }
+        .insp-nav .btn:active { background: #005a9e; }
+        .insp-nav .btn-reset-sm { background: #d13438; }
+        .insp-nav .btn-reset-sm:active { background: #a52a2a; }
+        .insp-nav .btn-finish-sm { background: #107c10; }
+        .insp-nav .btn-finish-sm:active { background: #0a5e0a; }
+        .insp-nav .btn-print-sm { background: #8B4513; }
+        .insp-nav .btn-print-sm:active { background: #6B3410; }
+        .insp-nav .progress-text { font-weight: 600; font-size: 13px; }
+
+        /* ---------- REPORT ---------- */
+        .report-container {
+            background: #f9f9f9;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            padding: 16px;
+            margin-top: 12px;
+            overflow-x: auto;
+            display: none;
+        }
+        .report-container.show { display: block; }
+        .report-container table {
+            border-collapse: collapse;
+            font-size: 10px;
+            width: 100%;
+            min-width: 400px;
+            margin-bottom: 12px;
+        }
+        .report-container th, .report-container td {
+            border: 1px solid #999;
+            padding: 2px 5px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        .report-container th {
+            background: #e6e6e6;
+            font-weight: 700;
+            text-align: center;
+            font-size: 9px;
+        }
+        .report-container .section-title {
+            background: #d0d0d0;
+            font-weight: 700;
+            text-align: center;
+            font-size: 12px;
+        }
+        .report-container .sub-header {
+            background: #f0f0f0;
+            font-weight: 600;
+            font-size: 9px;
+        }
+        .report-container .stacker-cell { font-size: 9px; line-height: 1.3; }
+        .report-container .empty-cell { text-align: center; color: #ccc; }
+        .report-container .report-meta { font-size: 13px; margin-bottom: 10px; text-align: center; }
+
+        /* ---------- MODAL ---------- */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            max-width: 700px;
+            width: 95%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .modal .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #0078d4;
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+        }
+        .modal .modal-header h2 { font-size: 18px; color: #1a3a6b; }
+        .modal .modal-header .close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+        }
+        .modal .modal-header .close-btn:hover { color: #333; }
+        .modal .data-summary {
+            background: #f0f7ff;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 14px;
+            border-left: 4px solid #0078d4;
+            font-size: 13px;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 4px;
+        }
+        .modal .data-summary .label { font-weight: 600; color: #555; }
+        .modal .data-summary .value { font-weight: 700; color: #1a3a6b; }
+        .modal .step {
+            display: none;
+            margin-bottom: 16px;
+        }
+        .modal .step.active { display: block; }
+        .modal .step-title {
+            font-weight: 700;
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #0078d4;
+        }
+        .modal .question {
+            margin-bottom: 10px;
+        }
+        .modal .question label {
+            display: block;
+            font-weight: 600;
+            font-size: 13px;
+            margin-bottom: 2px;
+        }
+        .modal .question select, .modal .question input[type="text"], .modal .question input[type="number"] {
+            width: 100%;
+            padding: 4px 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        .modal .question .radio-group {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .modal .question .radio-group label {
+            font-weight: 400;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .modal .nav-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 12px;
+            border-top: 1px solid #eee;
+            padding-top: 12px;
+        }
+        .modal .nav-buttons button {
+            background: #0078d4;
+            color: #fff;
+            border: none;
+            padding: 6px 18px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        .modal .nav-buttons button:disabled { opacity: 0.4; pointer-events: none; }
+        .modal .nav-buttons button.secondary { background: #6c757d; }
+        .modal .result-box {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 12px;
+            margin-top: 10px;
+        }
+        .modal .result-box .rec-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .modal .result-box .rec-item:last-child { border-bottom: none; }
+        .modal .result-box .rec-item .badge {
+            background: #d13438;
+            color: #fff;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+        .modal .result-box .rec-item .badge.ok { background: #107c10; }
+        .modal .result-box .rec-item .badge.warn { background: #d48c00; }
+        .modal .result-box .rec-item .rec-text { font-size: 13px; }
+
+        .no-data { text-align: center; color: #999; padding: 30px 10px; font-size: 14px; }
+
+        @media (max-width: 700px) {
+            .app-header { flex-direction: column; align-items: stretch; text-align: center; }
+            .app-header h1 { margin-right: 0; font-size: 17px; }
+            .app-header .field { justify-content: center; }
+            .main-area { grid-template-columns: 1fr; }
+            .panel-heatmap, .panel-inspection { max-height: 500px; }
+            .modules-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+            .panel-inspection .bins-grid-insp { grid-template-columns: repeat(2, 1fr); }
+            .panel-inspection .belt-grid-insp { grid-template-columns: repeat(2, 1fr); }
+            .modal { max-width: 100%; padding: 12px; }
+            .modal .data-summary { grid-template-columns: 1fr 1fr; }
+        }
+        @media (max-width: 450px) {
+            .modules-grid { grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); }
+            .panel-inspection .comp-grid-insp { grid-template-columns: 1fr; }
+            .modal .data-summary { grid-template-columns: 1fr; }
+        }
+		@media print {
+			@page { margin: 12mm; }
+
+			html, body {
+				background: #fff !important;
+				padding: 0 !important;
+				margin: 0 !important;
+				width: 100%;
+				height: auto;
+				overflow: visible !important;
+			}
+
+			/* Hide everything, then reveal only the report tree */
+			body * { visibility: hidden !important; }
+
+			.report-container,
+			.report-container * { visibility: visible !important; }
+
+			.report-container {
+				position: absolute;
+				left: 0;
+				top: 0;
+				width: 100%;
+				display: block !important;
+				border: none !important;
+				padding: 0 !important;
+				margin: 0 !important;
+				background: #fff !important;
+				box-shadow: none !important;
+				overflow: visible !important;   /* kills the scroll‑container page break */
+				max-height: none !important;
+			}
+
+			.report-container table {
+				font-size: 9px;
+				min-width: 0 !important;
+				width: 100% !important;
+				margin-bottom: 10px;
+				page-break-inside: auto;
+			}
+
+			/* Keep individual rows intact across page breaks */
+			.report-container tr { page-break-inside: avoid; }
+
+			.report-container th,
+			.report-container td { padding: 3px 4px; }
+
+			.report-container .section-title { font-size: 11px; }
+
+			.report-container .report-meta {
+				font-size: 11px;
+				margin-bottom: 8px;
+				text-align: center;
+				page-break-after: avoid;
+			}
+		}
+    </style>
+</head>
+
+<body>
+
+    <!-- ===== HEADER ===== -->
+    <header class="app-header">
+        <h1>📊 DBS <span>Unified</span> <span style="font-size:14px;color:#666;font-weight:400;">Heat Map + Maintenance + Investigation</span></h1>
+        <button class="btn btn-success" id="sendHistBtn" style="margin-left:auto;">📤 Send to Historian</button>
+        <div class="field"><label>Machine ID:</label><input type="text" id="machineId" placeholder="e.g. DBS-07" /></div>
+        <div class="field"><label>Date:</label><input type="date" id="checkDate" /></div>
+        <div class="field"><label>Tech:</label><input type="text" id="techName" placeholder="Name" /></div>
+        <div class="field">
+            <label>Phase:</label>
+            <select id="machinePhase">
+                <option value="2-5">DBCS Phase 2-5 / DIOSS-B,E / CIOSS-C</option>
+                <option value="6">DBCS Phase 6 / DIOSS-C,D</option>
+            </select>
+        </div>
+    </header>
+
+    <!-- ===== INPUT SECTION ===== -->
+    <section class="input-section" id="inputSection">
+        <div class="input-toggle" id="inputToggle">▼ Input Data</div>
+        <div class="input-row">
+            <div class="col">
+                <label>Paste Jam Report Table (<code>&lt;table&gt;</code>)</label>
+                <textarea id="tableInput" placeholder="Paste the table HTML from the overall or detailed jam report..."></textarea>
+                <div style="margin-top:4px;">
+                    <button class="sample-btn" id="sampleBtn">Load Overall Sample</button>
+                </div>
+            </div>
+            <div class="col">
+                <label>Unplanned CSV</label>
+                <div class="file-upload">
+                    <label class="file-label" for="unplannedFile">📊 Choose CSV</label>
+                    <input type="file" id="unplannedFile" accept=".csv,.txt">
+                    <span class="file-status" id="unplannedStatus">✓ Loaded</span>
+                </div>
+                <div class="machine-selector">
+                    <label for="machineSelect" style="font-weight:600;">Machine:</label>
+                    <select id="machineSelect"><option value="">— Select —</option></select>
+                    <span class="selected-label" id="selectedMachineLabel"></span>
+                </div>
+                <button class="btn-generate" id="generateBtn">🔍 Generate Heat Map</button>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===== MAIN AREA ===== -->
+    <div class="main-area" id="mainArea" style="display:none;">
+
+        <!-- LEFT: Heat Map -->
+        <div class="panel-heatmap" id="panelHeatmap">
+            <div class="panel-title">
+                <span>🔥 Heat Map</span>
+                <span class="sub" id="heatmapMachineLabel">—</span>
+                <div class="view-toggle">
+                    <button class="active" data-view="combined">Combined</button>
+                    <button data-view="jam">Jams</button>
+                    <button data-view="unplanned">Unplanned</button>
+                </div>
+            </div>
+            <div class="legend">
+                <span>Low</span>
+                <div class="color-bar">
+                    <div class="seg" style="background:#d4edda;"></div>
+                    <div class="seg" style="background:#fff3cd;"></div>
+                    <div class="seg" style="background:#f8d7da;"></div>
+                    <div class="seg" style="background:#d13438;"></div>
+                </div>
+                <span>High</span>
+                <span style="margin-left:12px;font-size:11px;color:#666;">Click a module → inspect</span>
+            </div>
+            <div id="stackerModulesContainer" class="modules-grid">
+                <div class="no-data">No data loaded. Generate heat map first.</div>
+            </div>
+            <div style="margin-top:8px;font-size:11px;color:#999;text-align:center;" id="readerFeederSummary"></div>
+        </div>
+
+        <!-- RIGHT: Inspection -->
+        <div class="panel-inspection" id="panelInspection">
+            <div class="panel-title">
+                <span>🔧 Inspection</span>
+                <span class="sub" id="inspModuleLabel">Module 1</span>
+            </div>
+            <div id="inspectionContent">
+                <div class="no-data">Select a module from the heat map to inspect.</div>
+            </div>
+            <div class="insp-nav" id="inspNav">
+                <button class="btn" id="inspPrev" disabled>◀ Prev</button>
+                <span class="progress-text" id="inspProgress">1 / 19</span>
+                <button class="btn" id="inspNext">Next ▶</button>
+                <button class="btn btn-reset-sm" id="inspReset">🔄 Reset Module</button>
+                <button class="btn btn-finish-sm" id="inspFinish">📄 Report</button>
+                <button class="btn btn-print-sm" id="inspPrint" style="display:none;">🖨️ Print</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== REPORT ===== -->
+    <div class="report-container" id="reportContainer"></div>
+
+    <!-- ===== INVESTIGATION MODAL ===== -->
+    <div class="modal-overlay" id="investigationModal">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="modalTitle">🔍 Investigation: Bin <span id="modalBinNumber">—</span></h2>
+                <button class="close-btn" id="modalClose">&times;</button>
+            </div>
+            <div class="data-summary" id="modalDataSummary">
+                <div><span class="label">Module:</span> <span class="value" id="modalModule">—</span></div>
+                <div><span class="label">Tier:</span> <span class="value" id="modalTier">—</span></div>
+                <div><span class="label">Jams:</span> <span class="value" id="modalJams">—</span></div>
+                <div><span class="label">Unplanned:</span> <span class="value" id="modalUnplanned">—</span></div>
+                <div><span class="label">Missort %:</span> <span class="value" id="modalMissort">—</span></div>
+                <div><span class="label">Combined:</span> <span class="value" id="modalCombined">—</span></div>
+            </div>
+
+            <!-- Step 1: Analysis -->
+            <div class="step active" id="step1">
+                <div class="step-title">📊 Step 1: Data Analysis &amp; Auto-Detection</div>
+                <div id="autoFindings" style="margin-bottom:12px;background:#f8f9fa;padding:10px;border-radius:4px;border-left:4px solid #0078d4;">
+                    <p style="font-weight:600;font-size:14px;">System Findings:</p>
+                    <ul id="autoFindingsList" style="margin-left:16px;font-size:13px;line-height:1.6;"></ul>
+                </div>
+                <div class="question">
+                    <label>Based on the above, what type of event are we investigating?</label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="eventType" value="single" checked> Single-pocket event</label>
+                        <label><input type="radio" name="eventType" value="multiple"> Multiple-pocket / Tier event</label>
+                        <label><input type="radio" name="eventType" value="jam_clear"> Jam clearance (phantom)</label>
+                        <label><input type="radio" name="eventType" value="past_gate"> Past Gate (failed) event</label>
+                    </div>
+                </div>
+                <div class="nav-buttons">
+                    <button class="secondary" id="step1Cancel">Cancel</button>
+                    <button id="step1Next">Next →</button>
+                </div>
+            </div>
+
+            <!-- Step 2: Checklist -->
+            <div class="step" id="step2">
+                <div class="step-title">🔧 Step 2: Physical Inspection Checklist</div>
+                <p style="font-size:13px;color:#555;margin-bottom:10px;">Check the items below. Items pre-checked are <strong>strongly recommended</strong> based on the data.</p>
+                <div id="checklistContainer"></div>
+                <div class="nav-buttons">
+                    <button class="secondary" id="step2Back">← Back</button>
+                    <button id="step2Next">Next →</button>
+                </div>
+            </div>
+
+            <!-- Step 3: Results & Recommendations -->
+            <div class="step" id="step3">
+                <div class="step-title">📋 Step 3: Recommended Actions</div>
+                <div id="resultsContainer" class="result-box"></div>
+                <div class="nav-buttons">
+                    <button class="secondary" id="step3Back">← Back</button>
+                    <button id="step3Done">✅ Done – Apply to Report</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- ===== JAVASCRIPT ===== -->
+    <!-- ============================================================ -->
+    <script>
+        // --------------------------------------------------------------
+        // 1. HARD‑CODED BIN LAYOUT (row‑major display order)
+        // --------------------------------------------------------------
+        const ALL_MODULE_LAYOUT = [
+            ['1', '4', '8', '12', '2', '5', '9', '13', '3', '6', '10', '14', 'PRINTER', '7', '11', '15'],
+            ['16', '20', '24', '28', '17', '21', '25', '29', '18', '22', '26', '30', '19', '23', '27', '31'],
+            ['32', '36', '40', '44', '33', '37', '41', '45', '34', '38', '42', '46', '35', '39', '43', '47'],
+            ['48', '52', '56', '60', '49', '53', '57', '61', '50', '54', '58', '62', '51', '55', '59', '63'],
+            ['64', '68', '72', '76', '65', '69', '73', '77', '66', '70', '74', '78', '67', '71', '75', '79'],
+            ['80', '84', '88', '92', '81', '85', '89', '93', '82', '86', '90', '94', '83', '87', '91', '95'],
+            ['96', '100', '104', '108', '97', '101', '105', '109', '98', '102', '106', '110', '99', '103', '107',
+            '111'],
+            ['112', '116', '120', '124', '113', '117', '121', '125', '114', '118', '122', '126', 'PRINTER', '115',
+                '119', '123'
+            ],
+            ['127', '131', '135', '139', '128', '132', '136', '140', '129', '133', '137', '141', '130', '134', '138',
+                '142'
+            ],
+            ['143', '147', '151', '155', '144', '148', '152', '156', '145', '149', '153', '157', '146', '150', '154',
+                '158'
+            ],
+            ['159', '163', '167', '171', '160', '164', '168', '172', '161', '165', '169', '173', '162', '166', '170',
+                '174'
+            ],
+            ['175', '179', '183', '187', '176', '180', '184', '188', '177', '181', '185', '189', '178', '182', '186',
+                '190'
+            ],
+            ['191', '195', '199', '203', '192', '196', '200', '204', '193', '197', '201', '205', '194', '198', '202',
+                '206'
+            ],
+            ['207', '211', '215', '219', '208', '212', '216', '220', '209', '213', '217', '221', '210', '214', '218',
+                '222'
+            ],
+            ['223', '227', '231', '235', '224', '228', '232', '236', '225', '229', '233', '237', '226', '230', '234',
+                '238'
+            ],
+            ['239', '243', '247', '251', '240', '244', '248', '252', '241', '245', '249', '253', '242', '246', '250',
+                '254'
+            ],
+            ['255', '259', '263', '267', '256', '260', '264', '268', '257', '261', '265', '269', '258', '262', '266',
+                '270'
+            ],
+            ['271', '275', '279', '283', '272', '276', '280', '284', '273', '277', '281', '285', '274', '278', '282',
+                '286'
+            ],
+            ['287', '291', '295', '299', '288', '292', '296', '300', '289', '293', '297', '301', '290', '294', '298',
+                '302'
+            ]
+        ];
+
+        // --------------------------------------------------------------
+        // 2. COMPONENT DEFINITIONS
+        // --------------------------------------------------------------
+        const COMPONENTS = [
+            { id: '705', label: '705 Belt', nsn: '3030-01-000-6953' },
+            { id: '706', label: '706 Belt', nsn: '3030-01-000-6954' },
+            { id: 'auger', label: 'Auger Belt', nsn: '3030-01-000-6949' },
+            { id: 'rubber', label: 'Rubber Top Roller', nsn: '3020-17-000-0850' },
+            { id: 'flange', label: 'Flange', nsn: '3020-02-000-3183' },
+            { id: 'idler', label: 'Idler Roller Front', nsn: '3020-02-000-3174' },
+            { id: 'flange_bearing', label: 'Bearing for flange', nsn: '3130-03-000-0016' },
+            { id: 'gate_stop', label: 'Gate Stop', nsn: '3915-02-000-5598' },
+            { id: 'deflector', label: 'Deflector', nsn: '3915-10-000-0113' },
+            { id: 'stop_cushion', label: 'Stop Cushion', nsn: '5340-01-000-4122' },
+            { id: 'gate_assembly', label: 'Right Hand Gate Assembly', nsn: '3915-16-000-8991' },
+            { id: 'gate_flag', label: 'Gate Flag', nsn: '3915-13-000-5442' },
+            { id: 'gate_spring', label: 'Gate Spring', nsn: '5360-13-000-5444' },
+            { id: 'auger_bearing', label: 'Tier 1 Auger bearing Assembly', nsn: '3915-03-000-0018' },
+            { id: 'photoeye_roller', label: 'Roller Closest to photoeyes', nsn: '3915-02-000-0625' },
+            { id: 'rear_gate_roller', label: 'Roller on Rear side of gate', nsn: '3915-02-000-0625' },
+            { id: 'front_gate_roller', label: 'Roller on Front side of gate', nsn: '3915-02-000-0625' },
+            { id: 'fence_roller', label: 'Roller behind Gate Near fence', nsn: '3020-02-000-3180' },
+            { id: 'fence_bearing', label: 'Bearing for above roller', nsn: '3130-03-000-0016' },
+            { id: 'end_stacker', label: 'End Stacker Belt', nsn: '3030-03-000-0047' }
+        ];
+        const COMP_MAP = {};
+        COMPONENTS.forEach(c => COMP_MAP[c.id] = c);
+        const SHORT_LABELS = {
+            '705': '705',
+            '706': '706',
+            'auger': 'Auger',
+            'rubber': 'Rubber Roller',
+            'flange': 'Flange',
+            'idler': 'Idler Roller',
+            'flange_bearing': 'Flange Bearing',
+            'gate_stop': 'Gate Stop',
+            'deflector': 'Deflector',
+            'stop_cushion': 'Stop Cushion',
+            'gate_assembly': 'Gate Assembly',
+            'gate_flag': 'Gate Flag',
+            'gate_spring': 'Gate Spring',
+            'auger_bearing': 'Auger Bearing',
+            'photoeye_roller': 'Photoeye Roller',
+            'rear_gate_roller': 'Rear Gate Roller',
+            'front_gate_roller': 'Front Gate Roller',
+            'fence_roller': 'Fence Roller',
+            'fence_bearing': 'Fence Bearing',
+            'end_stacker': 'End Stacker'
+        };
+
+        // --------------------------------------------------------------
+        // 3. STATE
+        // --------------------------------------------------------------
+        const state = {
+            jamData: null,
+            unplannedData: null,
+            machineName: '',
+            stackerData: null,
+            totalModules: 19,
+            currentModule: 1,
+            selectedModule: 1,
+            viewMode: 'combined',
+            isDataLoaded: false,
+            selectedMachine: '',
+            binChecks: {},
+            beltData: { transport: {}, drive: {}, reader: {} },
+            investigationTarget: null,
+        };
+
+        // --------------------------------------------------------------
+        // 4. DOM REFS
+        // --------------------------------------------------------------
+        const $ = id => document.getElementById(id);
+        const tableInput = $('tableInput');
+        const generateBtn = $('generateBtn');
+        const sampleBtn = $('sampleBtn');
+        const unplannedFileInput = $('unplannedFile');
+        const unplannedStatus = $('unplannedStatus');
+        const machineSelect = $('machineSelect');
+        const selectedMachineLabel = $('selectedMachineLabel');
+        const heatmapMachineLabel = $('heatmapMachineLabel');
+        const stackerContainer = $('stackerModulesContainer');
+        const readerFeederSummary = $('readerFeederSummary');
+        const inspectionContent = $('inspectionContent');
+        const inspModuleLabel = $('inspModuleLabel');
+        const inspPrev = $('inspPrev');
+        const inspNext = $('inspNext');
+        const inspReset = $('inspReset');
+        const inspFinish = $('inspFinish');
+        const inspPrint = $('inspPrint');
+        const inspProgress = $('inspProgress');
+        const reportContainer = $('reportContainer');
+        const mainArea = $('mainArea');
+        const inputToggle = $('inputToggle');
+        const inputSection = $('inputSection');
+        const machineId = $('machineId');
+        const checkDate = $('checkDate');
+        const techName = $('techName');
+        const machinePhase = $('machinePhase');
+
+        // Modal
+        const modal = $('investigationModal');
+        const modalClose = $('modalClose');
+        const modalBinNumber = $('modalBinNumber');
+        const modalModule = $('modalModule');
+        const modalTier = $('modalTier');
+        const modalJams = $('modalJams');
+        const modalUnplanned = $('modalUnplanned');
+        const modalMissort = $('modalMissort');
+        const modalCombined = $('modalCombined');
+        const autoFindingsList = $('autoFindingsList');
+        const checklistContainer = $('checklistContainer');
+        const resultsContainer = $('resultsContainer');
+        const step1 = $('step1');
+        const step2 = $('step2');
+        const step3 = $('step3');
+        const step1Next = $('step1Next');
+        const step1Cancel = $('step1Cancel');
+        const step2Back = $('step2Back');
+        const step2Next = $('step2Next');
+        const step3Back = $('step3Back');
+        const step3Done = $('step3Done');
+        const modalTitle = $('modalTitle');
+
+        // --------------------------------------------------------------
+        // 5. INITIALIZE INSPECTION STATE
+        // --------------------------------------------------------------
+        function initInspectionState(numModules) {
+            state.totalModules = numModules;
+            state.binChecks = {};
+            for (let m = 0; m < numModules; m++) {
+                state.binChecks[m] = {};
+                const layout = ALL_MODULE_LAYOUT[m] || [];
+                layout.forEach(binKey => {
+                    state.binChecks[m][binKey] = new Set();
+                });
+            }
+            state.beltData = { transport: {}, drive: {}, reader: {} };
+            for (let m = 1; m <= numModules; m++) {
+                for (let tier = 1; tier <= 4; tier++) {
+                    const key = m + '-' + tier;
+                    state.beltData.transport[key] = { replace: false, tension: false };
+                    state.beltData.drive[key] = { replace: false, tension: false };
+                }
+            }
+            for (let tier = 1; tier <= 4; tier++) {
+                state.beltData.reader[tier + '-Front'] = { replace: false, tension: false };
+                state.beltData.reader[tier + '-Back'] = { replace: false, tension: false };
+            }
+            state.currentModule = Math.min(state.currentModule, numModules);
+        }
+
+        // --------------------------------------------------------------
+        // 6. UNPLANNED CSV PARSER
+        // --------------------------------------------------------------
+        function parseUnplannedCSV(csv) {
+            const lines = csv.split('\n').filter(line => line.trim());
+            const data = {};
+            let headerFound = false,
+                header = [];
+            for (const line of lines) {
+                const cols = line.split(',').map(s => s.trim());
+                if (!headerFound) {
+                    if (cols.some(c => c.toLowerCase() === 'mpe')) {
+                        header = cols;
+                        headerFound = true;
+                    }
+                    continue;
+                }
+                if (cols.length < 6) continue;
+                const machine = cols[header.indexOf('MPE')] || '';
+                if (!machine) continue;
+                const module = parseInt(cols[header.indexOf('Module')]) || 0;
+                const bin = parseInt(cols[header.indexOf('bin')]) || 0;
+                const unplanned = parseInt(cols[header.indexOf('unplanned')]) || 0;
+                const missortPct = parseFloat(cols[header.indexOf('missort %')]) || 0;
+                if (!data[machine]) data[machine] = {};
+                const key = `${module}-${bin}`;
+                data[machine][key] = { module, bin, unplanned, missortPct };
+            }
+            return data;
+        }
+
+        unplannedFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                state.unplannedData = parseUnplannedCSV(ev.target.result);
+                const machineCount = Object.keys(state.unplannedData).length;
+                unplannedStatus.style.display = 'inline-block';
+                unplannedStatus.textContent = `✓ Loaded (${machineCount} machines)`;
+                const machines = Object.keys(state.unplannedData).sort();
+                machineSelect.innerHTML = '<option value="">— Select —</option>';
+                machines.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m;
+                    opt.textContent = m;
+                    machineSelect.appendChild(opt);
+                });
+                if (state.machineName && machines.includes(state.machineName)) {
+                    machineSelect.value = state.machineName;
+                    selectedMachineLabel.textContent = `✅ ${state.machineName}`;
+                } else if (machines.length > 0) {
+                    machineSelect.value = machines[0];
+                    selectedMachineLabel.textContent = `✅ ${machines[0]}`;
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        machineSelect.addEventListener('change', () => {
+            const val = machineSelect.value;
+            selectedMachineLabel.textContent = val ? `✅ ${val}` : '';
+            state.selectedMachine = val;
+        });
+
+        // --------------------------------------------------------------
+        // 7. PARSE JAM TABLE (supports both detailed and overall formats)
+        // --------------------------------------------------------------
+        function parseJamTable(html) {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const table = doc.querySelector('table');
+            if (!table) { alert('No table found in pasted HTML.'); return null; }
+
+            // Try to extract machine name from the page
+            let machineName = 'Unknown';
+            const h2Text = doc.querySelector('h2')?.textContent || '';
+            const machineMatch = h2Text.match(/Machine:\s*(\S+)/);
+            if (machineMatch) machineName = machineMatch[1];
+
+            const rows = table.querySelectorAll('tr');
+            let currentSection = null,
+                currentModule = null;
+            const data = { feeder: {}, reader: {}, stackers: {} };
+
+            // Detect format: if any header cell contains "Soft" and "Hard" -> overall mode
+            let isOverall = false;
+            for (const row of rows) {
+                const cells = row.querySelectorAll('td, th');
+                let text = '';
+                for (const cell of cells) {
+                    text += cell.textContent.trim() + ' ';
+                }
+                if (text.includes('Soft') && text.includes('Hard')) {
+                    isOverall = true;
+                    break;
+                }
+            }
+
+            if (isOverall) {
+                // Overall format: columns: Soft, Hard, Unspecified
+                // Iterate rows, detect sections
+                for (let i = 0; i < rows.length; i++) {
+                    const row = rows[i];
+                    const cells = row.querySelectorAll('td');
+                    if (cells.length < 2) continue;
+                    const firstText = cells[0].textContent.trim();
+
+                    // FEEDER section
+                    if (firstText === 'FEEDER') {
+                        currentSection = 'feeder';
+                        // Next row(s) might have "Jam" and a number
+                        continue;
+                    }
+
+                    if (currentSection === 'feeder' && firstText.includes('Jam')) {
+                        // The feeder row has one numeric cell (total jam)
+                        let totalJam = 0;
+                        for (let j = 1; j < cells.length; j++) {
+                            const val = parseInt(cells[j]?.textContent?.trim() || '0');
+                            if (!isNaN(val)) totalJam += val;
+                        }
+                        data.feeder['Jams'] = [totalJam]; // store as array for consistency
+                        currentSection = null;
+                        continue;
+                    }
+
+                    // READER section
+                    if (firstText === 'READER') {
+                        currentSection = 'reader';
+                        continue;
+                    }
+
+                    if (currentSection === 'reader' && firstText.includes('Li')) {
+                        const label = firstText.replace(/\s+/g, ' ').trim();
+                        let sum = 0;
+                        // Cells: label, Soft, Hard, Unspecified (or more)
+                        for (let j = 1; j < cells.length; j++) {
+                            const val = parseInt(cells[j]?.textContent?.trim() || '0');
+                            if (!isNaN(val)) sum += val;
+                        }
+                        data.reader[label] = [sum]; // store total per Li
+                        continue;
+                    }
+
+                    // STACKER MODULE X
+                    if (firstText.includes('STACKER MODULE')) {
+                        const modMatch = firstText.match(/STACKER MODULE (\d+)/);
+                        if (modMatch) {
+                            currentSection = 'stackers';
+                            currentModule = parseInt(modMatch[1]);
+                            if (!data.stackers[currentModule]) data.stackers[currentModule] = {};
+                        }
+                        continue;
+                    }
+
+                    // If we are in stackers and the first cell is a number (bin)
+                    if (currentSection === 'stackers' && currentModule !== null) {
+                        const binMatch = firstText.match(/^\s*(\d+)\s*$/);
+                        if (binMatch) {
+                            const bin = parseInt(binMatch[1]);
+                            // Sum all numeric cells after the first (Soft, Hard, Unspecified)
+                            let total = 0;
+                            for (let j = 1; j < cells.length; j++) {
+                                const val = parseInt(cells[j]?.textContent?.trim() || '0');
+                                if (!isNaN(val)) total += val;
+                            }
+                            // Store as array with one element (total)
+                            if (!data.stackers[currentModule]) data.stackers[currentModule] = {};
+                            data.stackers[currentModule][bin] = [total];
+                        }
+                    }
+                }
+                // Return with no dates
+                data.dates = [];
+                return { machineName, data };
+            } else {
+                // Detailed format (original with dates)
+                // Use existing parsing logic
+                let dateHeaders = [];
+                currentSection = null;
+                currentModule = null;
+                // Re-initialize data
+                data.feeder = {};
+                data.reader = {};
+                data.stackers = {};
+
+                for (let i = 0; i < rows.length; i++) {
+                    const row = rows[i];
+                    const cells = row.querySelectorAll('td');
+                    if (cells.length < 2) continue;
+                    const firstText = cells[0].textContent.trim();
+
+                    if (firstText === 'FEEDER') {
+                        currentSection = 'feeder';
+                        if (i + 1 < rows.length) {
+                            const dateRow = rows[i + 1];
+                            const dateCells = dateRow.querySelectorAll('td');
+                            dateHeaders = [];
+                            for (let j = 1; j < dateCells.length; j++) {
+                                const txt = dateCells[j].textContent.trim();
+                                if (txt) dateHeaders.push(txt);
+                            }
+                        }
+                        continue;
+                    } else if (firstText === 'READER') {
+                        currentSection = 'reader';
+                        continue;
+                    } else if (firstText.includes('STACKER MODULE')) {
+                        const modMatch = firstText.match(/STACKER MODULE (\d+)/);
+                        if (modMatch) {
+                            currentSection = 'stackers';
+                            currentModule = parseInt(modMatch[1]);
+                            if (!data.stackers[currentModule]) data.stackers[currentModule] = {};
+                        }
+                        continue;
+                    }
+
+                    if (currentSection === 'feeder' && firstText.includes('Jams')) {
+                        const values = [];
+                        for (let j = 1; j < cells.length && j <= dateHeaders.length; j++) {
+                            values.push(parseInt(cells[j]?.textContent?.trim() || '0'));
+                        }
+                        data.feeder['Jams'] = values;
+                        continue;
+                    }
+
+                    if (currentSection === 'reader' && firstText.includes('Li')) {
+                        const label = firstText.replace(/\s+/g, ' ').trim();
+                        const values = [];
+                        for (let j = 1; j < cells.length && j <= dateHeaders.length; j++) {
+                            values.push(parseInt(cells[j]?.textContent?.trim() || '0'));
+                        }
+                        data.reader[label] = values;
+                        continue;
+                    }
+
+                    if (currentSection === 'stackers' && currentModule !== null) {
+                        const binMatch = firstText.match(/^\s*(\d+)\s*$/);
+                        if (binMatch) {
+                            const bin = parseInt(binMatch[1]);
+                            const values = [];
+                            for (let j = 1; j < cells.length && j <= dateHeaders.length; j++) {
+                                values.push(parseInt(cells[j]?.textContent?.trim() || '0'));
+                            }
+                            if (!data.stackers[currentModule]) data.stackers[currentModule] = {};
+                            data.stackers[currentModule][bin] = values;
+                        }
+                    }
+                }
+                data.dates = dateHeaders;
+                return { machineName, data };
+            }
+        }
+
+        // --------------------------------------------------------------
+        // 8. BUILD STACKER DATA
+        // --------------------------------------------------------------
+        function buildStackerData(jamDataObj, unplannedMachineData) {
+            const result = {};
+            const numModules = jamDataObj && jamDataObj.stackers ? Math.max(...Object.keys(jamDataObj.stackers).map(Number)) :
+                19;
+
+            for (let m = 1; m <= numModules; m++) {
+                result[m] = {};
+                const layout = ALL_MODULE_LAYOUT[m - 1] || [];
+                if (!layout.length) continue;
+
+                layout.forEach(binKey => {
+                    const isPrinter = binKey === 'PRINTER';
+                    let jamTotal = 0,
+                        unplannedCount = 0,
+                        missortPct = 0;
+
+                    if (!isPrinter) {
+                        const binNum = parseInt(binKey);
+                        if (jamDataObj && jamDataObj.stackers && jamDataObj.stackers[m] && jamDataObj.stackers[m][
+                            binNum
+                        ]) {
+                            const vals = jamDataObj.stackers[m][binNum];
+                            if (Array.isArray(vals)) {
+                                jamTotal = vals.reduce((a, b) => a + b, 0);
+                            }
+                        }
+                        if (unplannedMachineData) {
+                            const key = `${m}-${binNum}`;
+                            const up = unplannedMachineData[key];
+                            if (up) {
+                                unplannedCount = up.unplanned || 0;
+                                missortPct = up.missortPct || 0;
+                            }
+                        }
+                    }
+
+                    const idx = layout.indexOf(binKey);
+                    let tier = 0;
+                    if (idx >= 0 && !isPrinter) {
+                        // Grid is row-major: first row of the module = Tier 1 (top),
+                        // last row = Tier 4 (bottom).
+                        const row = Math.floor(idx / 4);
+                        tier = row + 1;
+                    }
+
+                    result[m][binKey] = {
+                        bin: isPrinter ? 'PRINTER' : parseInt(binKey),
+                        isPrinter,
+                        jamTotal,
+                        unplannedCount,
+                        missortPct,
+                        combined: jamTotal + unplannedCount,
+                        tier
+                    };
+                });
+            }
+            return result;
+        }
+
+        // --------------------------------------------------------------
+        // 9. RENDER HEAT MAP
+        // --------------------------------------------------------------
+        let currentView = 'combined';
+
+        document.querySelectorAll('.view-toggle button').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.view-toggle button').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                currentView = this.dataset.view;
+                if (state.stackerData) renderHeatMap();
+            });
+        });
+
+        function renderHeatMap() {
+            const stackerData = state.stackerData;
+            if (!stackerData) {
+                stackerContainer.innerHTML = '<div class="no-data">No heat map data.</div>';
+                return;
+            }
+
+            const view = currentView;
+            let html = '';
+            const modules = Object.keys(stackerData).sort((a, b) => parseInt(a) - parseInt(b));
+
+            for (const m of modules) {
+                const moduleData = stackerData[m];
+                const layout = ALL_MODULE_LAYOUT[parseInt(m) - 1] || [];
+                let maxVal = 1;
+                for (const bin of layout) {
+                    const b = moduleData[bin];
+                    if (!b || b.isPrinter) continue;
+                    let val = view === 'jam' ? b.jamTotal : view === 'unplanned' ? b.unplannedCount : b.combined;
+                    if (val > maxVal) maxVal = val;
+                }
+
+                const isActive = parseInt(m) === state.selectedModule;
+                html +=
+                `<div class="module-card ${isActive ? 'active' : ''}" data-module="${m}"><div class="module-label">SM ${m}</div><div class="bins-grid-sm">`;
+                layout.forEach(binKey => {
+                    const b = moduleData[binKey];
+                    if (!b) {
+                        html += `<div class="bin-cell-sm" style="background:#eee;"></div>`;
+                        return;
+                    }
+                    if (b.isPrinter) {
+                        html += `<div class="bin-cell-sm printer-sm">P</div>`;
+                        return;
+                    }
+                    let val = view === 'jam' ? b.jamTotal : view === 'unplanned' ? b.unplannedCount : b.combined;
+                    const color = getHeatColor(val, maxVal);
+                    const tierLabel = b.tier ? `T${b.tier}` : '';
+                    const tooltip =
+                        `Bin ${b.bin} (${tierLabel})<br>Jams: ${b.jamTotal}<br>Unplanned: ${b.unplannedCount}<br>Missort: ${b.missortPct.toFixed(1)}%`;
+                    html +=
+                        `<div class="bin-cell-sm" style="background:${color};"><span>${b.bin}</span><span class="tooltip-sm">${tooltip}</span></div>`;
+                });
+                html += `</div><div class="module-badge">${getModuleBadge(moduleData)}</div></div>`;
+            }
+            stackerContainer.innerHTML = html;
+
+            // Click to select module
+            document.querySelectorAll('.module-card').forEach(el => {
+                el.addEventListener('click', function() {
+                    const mod = parseInt(this.dataset.module);
+                    selectModule(mod);
+                });
+            });
+
+            renderReaderFeederSummary();
+            heatmapMachineLabel.textContent = state.machineName || '';
+        }
+
+        function getModuleBadge(moduleData) {
+            let total = 0;
+            for (const k in moduleData) {
+                const b = moduleData[k];
+                if (!b.isPrinter) total += b.combined;
+            }
+            return total > 0 ? `⚠️ ${total} events` : '✅ OK';
+        }
+
+        function getHeatColor(val, maxVal) {
+            if (val === 0) return '#e6e6e6';
+            const ratio = maxVal > 0 ? val / maxVal : 0;
+            if (ratio < 0.25) return '#d4edda';
+            if (ratio < 0.5) return '#fff3cd';
+            if (ratio < 0.75) return '#f8d7da';
+            return '#d13438';
+        }
+
+        function renderReaderFeederSummary() {
+            const jd = state.jamData;
+            if (!jd) { readerFeederSummary.textContent = ''; return; }
+            let parts = [];
+            if (jd.feeder && jd.feeder.Jams) {
+                const sum = jd.feeder.Jams.reduce((a, b) => a + b, 0);
+                parts.push(`Feeder: ${sum} jams`);
+            }
+            if (jd.reader) {
+                let total = 0;
+                for (const label in jd.reader) {
+                    const vals = jd.reader[label];
+                    total += Array.isArray(vals) ? vals.reduce((a, b) => a + b, 0) : 0;
+                }
+                parts.push(`Reader: ${total} jams`);
+            }
+            readerFeederSummary.textContent = parts.join('  |  ');
+        }
+
+        // --------------------------------------------------------------
+        // 10. SELECT MODULE → UPDATE INSPECTION
+        // --------------------------------------------------------------
+        function selectModule(moduleNum) {
+            state.selectedModule = moduleNum;
+            state.currentModule = moduleNum;
+            renderHeatMap();
+            renderInspection(moduleNum);
+            inspPrev.disabled = (moduleNum === 1);
+            inspNext.textContent = (moduleNum === state.totalModules) ? 'Finish ▶' : 'Next ▶';
+            inspProgress.textContent = `${moduleNum} / ${state.totalModules}`;
+            inspModuleLabel.textContent = `Module ${moduleNum}`;
+        }
+
+        // --------------------------------------------------------------
+        // 11. RENDER INSPECTION
+        // --------------------------------------------------------------
+        function getEndStackerBins() {
+            if (state.totalModules === 0) return [];
+            const lastLayout = ALL_MODULE_LAYOUT[state.totalModules - 1] || [];
+            const lastColumnIndices = [3, 7, 11, 15];
+            return lastColumnIndices.map(idx => lastLayout[idx]).filter(b => b !== 'PRINTER');
+        }
+
+        function renderInspection(moduleNum) {
+            const idx = moduleNum - 1;
+            const layout = ALL_MODULE_LAYOUT[idx] || [];
+            const moduleChecks = state.binChecks[idx] || {};
+            const endStackerBins = getEndStackerBins();
+
+            let html = '';
+
+            html += `<div class="inspection-type inspection-front">🔵 FRONT — Components per bin</div>`;
+            html += `<div class="bins-grid-insp">`;
+
+            layout.forEach(binKey => {
+                const isPrinter = binKey === 'PRINTER';
+                const label = isPrinter ? 'PRINTER' : 'Bin ' + binKey;
+                const checkedSet = moduleChecks[binKey] || new Set();
+                const isEndStacker = endStackerBins.includes(binKey);
+
+                html += `<div class="bin-card-insp ${isPrinter ? 'printer-insp' : ''}" data-module="${moduleNum}" data-bin="${binKey}">`;
+                html += `<div class="bin-header-insp">${label}`;
+                if (!isPrinter) {
+                    html += `<button class="investigate-btn" data-module="${moduleNum}" data-bin="${binKey}">🔍 Investigate</button>`;
+                }
+                html += `</div>`;
+                html += `<div class="comp-grid-insp">`;
+
+                COMPONENTS.forEach(comp => {
+                    if (isEndStacker && comp.id === '705') return;
+                    if (!isEndStacker && comp.id === 'end_stacker') return;
+                    const checked = checkedSet.has(comp.id) ? 'checked' : '';
+                    html += `
+                        <div class="comp-item-insp">
+                            <label>
+                                <input type="checkbox" data-module="${idx}" data-bin="${binKey}" data-component="${comp.id}" ${checked} />
+                                ${comp.label}
+                            </label>
+                        </div>
+                    `;
+                });
+
+                html += `</div>`;
+                if (isEndStacker) {
+                    html += `<div class="end-stacker-note">End Stacker Belt</div>`;
+                }
+                html += `</div>`;
+            });
+
+            html += `</div>`;
+
+            // Belt sections
+            html += `<div class="inspection-type inspection-back" style="margin-top:8px;">🟡 BACK — Belts</div>`;
+
+            // Transport Belt
+            html += `<div class="belt-section">`;
+            html += `<div class="belt-title">Transport Belt</div>`;
+            html += `<div class="belt-grid-insp">`;
+            for (let tier = 1; tier <= 4; tier++) {
+                const key = moduleNum + '-' + tier;
+                const data = state.beltData.transport[key] || { replace: false, tension: false };
+                html += `
+                    <div class="belt-item-insp">
+                        <span class="belt-label">T${tier}</span>
+                        <label><input type="checkbox" class="belt-transport" data-module="${moduleNum}" data-tier="${tier}" data-action="replace" ${data.replace ? 'checked' : ''} /> Replace</label>
+                        <label><input type="checkbox" class="belt-transport" data-module="${moduleNum}" data-tier="${tier}" data-action="tension" ${data.tension ? 'checked' : ''} /> Tension</label>
+                    </div>
+                `;
+            }
+            html += `</div></div>`;
+
+            // Drive Belt
+            html += `<div class="belt-section">`;
+            html += `<div class="belt-title">Drive Belt</div>`;
+            html += `<div class="belt-grid-insp">`;
+            for (let tier = 1; tier <= 4; tier++) {
+                const key = moduleNum + '-' + tier;
+                const data = state.beltData.drive[key] || { replace: false, tension: false };
+                html += `
+                    <div class="belt-item-insp">
+                        <span class="belt-label">T${tier}</span>
+                        <label><input type="checkbox" class="belt-drive" data-module="${moduleNum}" data-tier="${tier}" data-action="replace" ${data.replace ? 'checked' : ''} /> Replace</label>
+                        <label><input type="checkbox" class="belt-drive" data-module="${moduleNum}" data-tier="${tier}" data-action="tension" ${data.tension ? 'checked' : ''} /> Tension</label>
+                    </div>
+                `;
+            }
+            html += `</div></div>`;
+
+            // Reader belts (only module 1)
+            if (moduleNum === 1) {
+                html += `<div class="belt-section">`;
+                html += `<div class="belt-title">Reader Module Transition Belts</div>`;
+                html += `<div class="belt-grid-insp">`;
+                for (let tier = 1; tier <= 4; tier++) {
+                    ['Front', 'Back'].forEach(side => {
+                        const key = tier + '-' + side;
+                        const data = state.beltData.reader[key] || { replace: false, tension: false };
+                        html += `
+                            <div class="belt-item-insp">
+                                <span class="belt-label">T${tier} ${side}</span>
+                                <label><input type="checkbox" class="belt-reader" data-tier="${tier}" data-side="${side}" data-action="replace" ${data.replace ? 'checked' : ''} /> Replace</label>
+                                <label><input type="checkbox" class="belt-reader" data-tier="${tier}" data-side="${side}" data-action="tension" ${data.tension ? 'checked' : ''} /> Tension</label>
+                            </div>
+                        `;
+                    });
+                }
+                html += `</div></div>`;
+            }
+
+            inspectionContent.innerHTML = html;
+
+            // Attach events for component checkboxes
+            document.querySelectorAll('#inspectionContent .comp-item-insp input[type="checkbox"]').forEach(cb => {
+                cb.addEventListener('change', function() {
+                    const modIdx = parseInt(this.dataset.module);
+                    const bin = this.dataset.bin;
+                    const comp = this.dataset.component;
+                    if (!state.binChecks[modIdx]) state.binChecks[modIdx] = {};
+                    if (!state.binChecks[modIdx][bin]) state.binChecks[modIdx][bin] = new Set();
+                    if (this.checked) {
+                        state.binChecks[modIdx][bin].add(comp);
+                    } else {
+                        state.binChecks[modIdx][bin].delete(comp);
+                    }
+                });
+            });
+
+            // Belt events
+            document.querySelectorAll('.belt-transport').forEach(cb => {
+                cb.addEventListener('change', function() {
+                    const module = parseInt(this.dataset.module);
+                    const tier = parseInt(this.dataset.tier);
+                    const action = this.dataset.action;
+                    const key = module + '-' + tier;
+                    if (!state.beltData.transport[key]) state.beltData.transport[key] = { replace: false,
+                        tension: false };
+                    state.beltData.transport[key][action] = this.checked;
+                });
+            });
+            document.querySelectorAll('.belt-drive').forEach(cb => {
+                cb.addEventListener('change', function() {
+                    const module = parseInt(this.dataset.module);
+                    const tier = parseInt(this.dataset.tier);
+                    const action = this.dataset.action;
+                    const key = module + '-' + tier;
+                    if (!state.beltData.drive[key]) state.beltData.drive[key] = { replace: false,
+                        tension: false };
+                    state.beltData.drive[key][action] = this.checked;
+                });
+            });
+            document.querySelectorAll('.belt-reader').forEach(cb => {
+                cb.addEventListener('change', function() {
+                    const tier = parseInt(this.dataset.tier);
+                    const side = this.dataset.side;
+                    const action = this.dataset.action;
+                    const key = tier + '-' + side;
+                    if (!state.beltData.reader[key]) state.beltData.reader[key] = { replace: false,
+                        tension: false };
+                    state.beltData.reader[key][action] = this.checked;
+                });
+            });
+
+            // Investigate buttons
+            document.querySelectorAll('#inspectionContent .investigate-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const moduleNum = parseInt(this.dataset.module);
+                    const binKey = this.dataset.bin;
+                    openInvestigation(moduleNum, binKey);
+                });
+            });
+        }
+
+        // --------------------------------------------------------------
+        // 12. INVESTIGATION MODAL
+        // --------------------------------------------------------------
+        function openInvestigation(moduleNum, binKey) {
+            const stackerData = state.stackerData;
+            if (!stackerData) return;
+            const moduleData = stackerData[moduleNum];
+            if (!moduleData) return;
+            const binData = moduleData[binKey];
+            if (!binData || binData.isPrinter) return;
+
+            state.investigationTarget = { module: moduleNum, bin: binKey, data: binData };
+
+            // Fill summary
+            modalBinNumber.textContent = binKey;
+            modalModule.textContent = moduleNum;
+            modalTier.textContent = binData.tier || '?';
+            modalJams.textContent = binData.jamTotal;
+            modalUnplanned.textContent = binData.unplannedCount;
+            modalMissort.textContent = binData.missortPct.toFixed(1) + '%';
+            modalCombined.textContent = binData.combined;
+            modalTitle.textContent = `🔍 Investigation: Bin ${binKey}`;
+
+            // Auto-findings
+            const findings = generateFindings(moduleNum, binKey, binData);
+            autoFindingsList.innerHTML = findings.map(f => `<li>${f}</li>`).join('');
+
+            // Reset steps
+            document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+            step1.classList.add('active');
+
+            // Reset radio to default
+            document.querySelector('input[name="eventType"][value="single"]').checked = true;
+
+            modal.classList.add('active');
+        }
+
+        function generateFindings(moduleNum, binKey, binData) {
+            const findings = [];
+            const combined = binData.combined;
+            const tier = binData.tier;
+
+            const endStackerBins = getEndStackerBins();
+            const isEndStacker = endStackerBins.includes(binKey);
+
+            if (combined > 10) {
+                findings.push(`⚠️ High combined events (${combined}) – urgent investigation needed.`);
+            } else if (combined > 5) {
+                findings.push(`🔶 Moderate combined events (${combined}) – recommend detailed inspection.`);
+            } else {
+                findings.push(`✅ Low combined events (${combined}) – but still follow checklist to confirm.`);
+            }
+
+            if (binData.missortPct > 5) {
+                findings.push(`🔴 Missort % is ${binData.missortPct.toFixed(1)}% – indicates possible mechanical gate issue (vane held open).`);
+            }
+
+            if (tier === 1) {
+                findings.push(`📌 Top tier (T1) – check stacker paddle return springs (heavier spring used).`);
+            }
+
+            if (isEndStacker) {
+                findings.push(`📌 End stacker bin – high risk for "Past Gate" events. Check solenoid resistance per MMO-106-10.`);
+            }
+
+            const layout = ALL_MODULE_LAYOUT[moduleNum - 1] || [];
+            const idx = layout.indexOf(binKey);
+            if (idx !== -1) {
+                const row = Math.floor(idx / 4);
+                const rowStart = row * 4;
+                const rowBins = layout.slice(rowStart, rowStart + 4).filter(b => b !== 'PRINTER');
+                let sameTierCount = 0;
+                rowBins.forEach(b => {
+                    if (b === binKey) return;
+                    const d = state.stackerData[moduleNum]?.[b];
+                    if (d && d.combined > 3) sameTierCount++;
+                });
+                if (sameTierCount >= 2) {
+                    findings.push(`🔗 Multiple bins on this tier (T${tier}) have events – likely a tier-level issue. Check drive belts, tachometer, and transport belts.`);
+                } else {
+                    findings.push(`📌 Single-pocket event on this tier – focus on 705/706/Auger belts, gate flag, and upstream light barrier.`);
+                }
+            }
+
+            if (moduleNum <= 4) {
+                findings.push(`📖 Module ${moduleNum} is close to reader – check Reader Module Transition Belts and histogram data (mail counts 05-09).`);
+            }
+
+            return findings;
+        }
+
+        // --------------------------------------------------------------
+        // 13. MODAL NAVIGATION
+        // --------------------------------------------------------------
+        modalClose.addEventListener('click', () => modal.classList.remove('active'));
+        modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('active'); });
+
+        step1Next.addEventListener('click', () => {
+            const eventType = document.querySelector('input[name="eventType"]:checked');
+            if (!eventType) return;
+            const type = eventType.value;
+            const checklist = generateChecklist(type, state.investigationTarget);
+            renderChecklist(checklist);
+            document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+            step2.classList.add('active');
+        });
+
+        step1Cancel.addEventListener('click', () => modal.classList.remove('active'));
+
+        step2Back.addEventListener('click', () => {
+            document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+            step1.classList.add('active');
+        });
+
+        step2Next.addEventListener('click', () => {
+            // Gather checked items
+            const checkedItems = [];
+            document.querySelectorAll('#checklistContainer input[type="checkbox"]:checked').forEach(cb => {
+                checkedItems.push(cb.dataset.item);
+            });
+            const results = generateResults(checkedItems, state.investigationTarget);
+            renderResults(results);
+            document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+            step3.classList.add('active');
+        });
+
+        step3Back.addEventListener('click', () => {
+            document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+            step2.classList.add('active');
+        });
+
+        step3Done.addEventListener('click', () => {
+            const target = state.investigationTarget;
+            if (target) {
+                const modIdx = target.module - 1;
+                const binKey = target.bin;
+                if (!state.binChecks[modIdx]) state.binChecks[modIdx] = {};
+                if (!state.binChecks[modIdx][binKey]) state.binChecks[modIdx][binKey] = new Set();
+                document.querySelectorAll('#checklistContainer input[type="checkbox"]:checked').forEach(cb => {
+                    const compId = cb.dataset.item;
+                    if (COMP_MAP[compId]) {
+                        state.binChecks[modIdx][binKey].add(compId);
+                    }
+                });
+                renderInspection(state.currentModule);
+            }
+            modal.classList.remove('active');
+        });
+
+        // --------------------------------------------------------------
+        // 14. CHECKLIST GENERATION
+        // --------------------------------------------------------------
+        function generateChecklist(eventType, target) {
+            if (!target) return [];
+            const binData = target.data;
+            const phase = machinePhase.value;
+            const threshold = phase === '6' ? 10 : 11;
+            const isEndStacker = getEndStackerBins().includes(target.bin);
+
+            const items = [];
+
+            items.push({ id: 'solenoid_resistance', label: `Measure solenoid resistance (must be >${threshold}Ω). If ≤${threshold}Ω, replace gate AND P-PWM driver.`, defaultChecked: binData.combined > 5 });
+            items.push({ id: 'visual_debris', label: 'Check for mail debris in gate area (remove if found).', defaultChecked: true });
+            items.push({ id: 'gate_binding', label: 'Feel gate for binding, spring tension, clearance from transport belts.', defaultChecked: binData.combined > 3 });
+            items.push({ id: 'gate_stop_cushion', label: 'Examine gate stop brackets and cushions for wear.', defaultChecked: binData.combined > 3 });
+
+            if (eventType === 'single' || eventType === 'multiple') {
+                items.push({ id: '705', label: 'Inspect 705 Belt', defaultChecked: true });
+                items.push({ id: '706', label: 'Inspect 706 Belt', defaultChecked: true });
+                items.push({ id: 'auger', label: 'Inspect Auger Belt', defaultChecked: true });
+                items.push({ id: 'gate_flag', label: 'Check Gate Flag (NSN 3915-13-000-5442)', defaultChecked: true });
+                items.push({ id: 'gate_spring', label: 'Check Gate Spring (NSN 5360-13-000-5444)', defaultChecked: true });
+                items.push({ id: 'photoeye_roller', label: 'Check Roller Closest to photoeyes (NSN 3915-02-000-0625)', defaultChecked: binData.combined > 3 });
+                if (binData.missortPct > 5) {
+                    items.push({ id: 'deflector', label: 'Inspect Deflector (NSN 3915-10-000-0113) – likely mis-sorting', defaultChecked: true });
+                }
+            }
+
+            if (eventType === 'multiple') {
+                items.push({ id: 'tach_coupling', label: 'Check tachometer shaft coupling and spring clamps (PSN 4730-01-336-5495). DO NOT use cable ties!', defaultChecked: true });
+                items.push({ id: 'transport_belt_tension', label: 'Check transport belt tension on this tier – use correct tension (all belts should match).', defaultChecked: true });
+                items.push({ id: 'drive_belt_tension', label: 'Check drive belt tension on this tier.', defaultChecked: true });
+                items.push({ id: 'bearing_blocks', label: 'Check bearing blocks in this module – ensure correct diameter and no failure mode.', defaultChecked: true });
+            }
+
+            if (eventType === 'past_gate' || isEndStacker) {
+                items.push({ id: 'solenoid_resistance', label: `⚠️ CRITICAL: Measure solenoid resistance. Must be >${threshold}Ω. If ≤${threshold}Ω, replace gate AND P-PWM driver module (per MMO-106-10).`, defaultChecked: true });
+                items.push({ id: 'gate_assembly', label: 'Inspect Right Hand Gate Assembly (NSN 3915-16-000-8991) for wear.', defaultChecked: true });
+                items.push({ id: 'gate_stop', label: 'Check Gate Stop (NSN 3915-02-000-5598) – may be worn.', defaultChecked: true });
+                items.push({ id: 'end_stacker', label: 'Check End Stacker Belt (NSN 3030-03-000-0047)', defaultChecked: true });
+            }
+
+            if (eventType === 'jam_clear') {
+                items.push({ id: 'jam_clear', label: 'These events likely caused by jam clearing – verify if any jams were cleared recently. No component replacement needed unless recurring.', defaultChecked: false });
+                items.push({ id: 'light_barrier', label: 'Check light barrier downstream of reported bin for intermittent triggers.', defaultChecked: true });
+            }
+
+            if (target.module <= 4) {
+                items.push({ id: 'reader_transition', label: 'Check Reader Module Transition Belts (Front/Back) for slippage.', defaultChecked: true });
+            }
+
+            const seen = new Set();
+            const unique = [];
+            items.forEach(item => {
+                if (!seen.has(item.id)) {
+                    seen.add(item.id);
+                    unique.push(item);
+                }
+            });
+
+            return unique;
+        }
+
+        function renderChecklist(checklist) {
+            let html = '';
+            checklist.forEach(item => {
+                const checked = item.defaultChecked ? 'checked' : '';
+                html += `
+                    <div style="margin-bottom:4px;display:flex;align-items:center;gap:6px;background:#f8f9fa;padding:4px 8px;border-radius:4px;">
+                        <input type="checkbox" data-item="${item.id}" ${checked} style="width:18px;height:18px;cursor:pointer;">
+                        <label style="font-size:13px;cursor:pointer;">${item.label}</label>
+                    </div>
+                `;
+            });
+            checklistContainer.innerHTML = html;
+        }
+
+        // --------------------------------------------------------------
+        // 15. RESULTS GENERATION
+        // --------------------------------------------------------------
+        function generateResults(checkedItems, target) {
+            const results = [];
+            const phase = machinePhase.value;
+            const threshold = phase === '6' ? 10 : 11;
+
+            const compMap = {};
+            COMPONENTS.forEach(c => compMap[c.id] = c);
+
+            const solenoidChecked = checkedItems.includes('solenoid_resistance');
+            if (solenoidChecked) {
+                if (target.data.combined > 5) {
+                    results.push({
+                        badge: 'warn',
+                        text: `⚠️ Solenoid resistance check was performed. If measured ≤${threshold}Ω, replace gate AND P-PWM driver module. If >${threshold}Ω, gate is OK.`
+                    });
+                } else {
+                    results.push({
+                        badge: 'ok',
+                        text: `✅ Solenoid resistance check OK (if measured >${threshold}Ω).`
+                    });
+                }
+            }
+
+            if (checkedItems.includes('gate_binding') && target.data.combined > 3) {
+                results.push({
+                    badge: 'warn',
+                    text: '🔧 Gate binding detected – inspect gate vane, stop cushions, and spring tension.'
+                });
+            }
+
+            if (checkedItems.includes('705') || checkedItems.includes('706') || checkedItems.includes('auger')) {
+                const parts = [];
+                if (checkedItems.includes('705')) parts.push('705 Belt (NSN 3030-01-000-6953)');
+                if (checkedItems.includes('706')) parts.push('706 Belt (NSN 3030-01-000-6954)');
+                if (checkedItems.includes('auger')) parts.push('Auger Belt (NSN 3030-01-000-6949)');
+                results.push({
+                    badge: 'warn',
+                    text: `🔧 Inspect/Replace: ${parts.join(', ')}. Check for wear, tension, and debris.`
+                });
+            }
+
+            if (checkedItems.includes('gate_flag') || checkedItems.includes('gate_spring')) {
+                const parts = [];
+                if (checkedItems.includes('gate_flag')) parts.push('Gate Flag (NSN 3915-13-000-5442)');
+                if (checkedItems.includes('gate_spring')) parts.push('Gate Spring (NSN 5360-13-000-5444)');
+                results.push({
+                    badge: 'warn',
+                    text: `🔧 Inspect/Replace: ${parts.join(', ')}. Ensure proper operation and no binding.`
+                });
+            }
+
+            if (checkedItems.includes('deflector')) {
+                results.push({
+                    badge: 'warn',
+                    text: '🔧 Inspect Deflector (NSN 3915-10-000-0113) – may be causing mis-sorts.'
+                });
+            }
+
+            if (checkedItems.includes('tach_coupling')) {
+                results.push({
+                    badge: 'warn',
+                    text: '🔧 Check tachometer coupling and spring clamps (PSN 4730-01-336-5495). Replace if worn. DO NOT use cable ties or plastic tubing.'
+                });
+            }
+
+            if (checkedItems.includes('transport_belt_tension') || checkedItems.includes('drive_belt_tension')) {
+                const parts = [];
+                if (checkedItems.includes('transport_belt_tension')) parts.push('Transport Belt tension');
+                if (checkedItems.includes('drive_belt_tension')) parts.push('Drive Belt tension');
+                results.push({
+                    badge: 'warn',
+                    text: `🔧 Adjust ${parts.join(' and ')} to correct tension. All belts in the stacker should have consistent tension.`
+                });
+            }
+
+            if (checkedItems.includes('bearing_blocks')) {
+                results.push({
+                    badge: 'warn',
+                    text: '🔧 Inspect bearing blocks in this module – ensure correct diameter and no bearing failure.'
+                });
+            }
+
+            if (checkedItems.includes('gate_assembly')) {
+                results.push({
+                    badge: 'warn',
+                    text: '🔧 Inspect Right Hand Gate Assembly (NSN 3915-16-000-8991) for wear and proper operation.'
+                });
+            }
+            if (checkedItems.includes('gate_stop')) {
+                results.push({
+                    badge: 'warn',
+                    text: '🔧 Inspect Gate Stop (NSN 3915-02-000-5598) – replace if worn.'
+                });
+            }
+            if (checkedItems.includes('end_stacker')) {
+                results.push({
+                    badge: 'warn',
+                    text: '🔧 Inspect End Stacker Belt (NSN 3030-03-000-0047) – check tension and wear.'
+                });
+            }
+
+            if (checkedItems.includes('jam_clear')) {
+                results.push({
+                    badge: 'ok',
+                    text: '✅ Events likely caused by jam clearing. No component replacement needed unless recurring.'
+                });
+            }
+
+            if (checkedItems.includes('light_barrier')) {
+                results.push({
+                    badge: 'warn',
+                    text: '🔧 Check light barrier downstream of reported bin. Run LB test and inspect STK11/03 board. Look for intermittent triggers.'
+                });
+            }
+
+            if (checkedItems.includes('reader_transition')) {
+                results.push({
+                    badge: 'warn',
+                    text: '🔧 Inspect Reader Module Transition Belts (Front/Back) for slippage or wear.'
+                });
+            }
+
+            if (results.length === 0) {
+                results.push({
+                    badge: 'ok',
+                    text: '✅ No critical issues detected. Continue monitoring.'
+                });
+            }
+
+            return results;
+        }
+
+        function renderResults(results) {
+            let html = '';
+            results.forEach(r => {
+                const badgeClass = r.badge === 'ok' ? 'ok' : (r.badge === 'warn' ? 'warn' : '');
+                html += `
+                    <div class="rec-item">
+                        <span class="badge ${badgeClass}">${r.badge.toUpperCase()}</span>
+                        <span class="rec-text">${r.text}</span>
+                    </div>
+                `;
+            });
+            resultsContainer.innerHTML = html;
+        }
+
+        // --------------------------------------------------------------
+        // 16. INSPECTION NAVIGATION
+        // --------------------------------------------------------------
+        function goToModule(num) {
+            if (num < 1 || num > state.totalModules) return;
+            selectModule(num);
+        }
+
+        inspPrev.addEventListener('click', () => {
+            if (state.currentModule > 1) goToModule(state.currentModule - 1);
+        });
+
+        inspNext.addEventListener('click', () => {
+            if (state.currentModule === state.totalModules) {
+                generateReport();
+            } else {
+                goToModule(state.currentModule + 1);
+            }
+        });
+
+        inspReset.addEventListener('click', () => {
+            if (!confirm('Reset all inspection data for this machine?')) return;
+            initInspectionState(state.totalModules);
+            if (state.isDataLoaded) {
+                selectModule(1);
+            } else {
+                inspectionContent.innerHTML = '<div class="no-data">Select a module from the heat map to inspect.</div>';
+            }
+            reportContainer.classList.remove('show');
+            reportContainer.innerHTML = '';
+            inspPrint.style.display = 'none';
+        });
+
+        inspFinish.addEventListener('click', generateReport);
+        inspPrint.addEventListener('click', () => window.print());
+
+        // --------------------------------------------------------------
+        // 17. GENERATE REPORT
+        // --------------------------------------------------------------
+        function generateReport() {
+            const machine = machineId.value || '(not set)';
+            const date = checkDate.value || '(not set)';
+            const tech = techName.value || '(not set)';
+            const phase = machinePhase.value;
+
+            const compStackers = {};
+            COMPONENTS.forEach(c => compStackers[c.id] = []);
+
+            for (let m = 0; m < state.totalModules; m++) {
+                const moduleData = state.binChecks[m] || {};
+                const keys = Object.keys(moduleData);
+                keys.forEach(binKey => {
+                    if (binKey === 'PRINTER') return;
+                    const compSet = moduleData[binKey];
+                    if (compSet.size === 0) return;
+                    const stackerNum = parseInt(binKey, 10);
+                    compSet.forEach(compId => {
+                        if (compStackers[compId]) compStackers[compId].push(stackerNum);
+                    });
+                });
+            }
+
+            COMPONENTS.forEach(c => {
+                compStackers[c.id] = [...new Set(compStackers[c.id])].sort((a, b) => a - b);
+            });
+
+            const activeComponents = COMPONENTS.filter(c => compStackers[c.id].length > 0);
+            const allStackers = new Set();
+            activeComponents.forEach(c => {
+                compStackers[c.id].forEach(num => allStackers.add(num));
+            });
+            const sortedStackers = [...allStackers].sort((a, b) => a - b);
+
+            let html = '';
+            html += `<div class="report-meta">`;
+            html += `<strong>Machine ID:</strong> ${machine} &nbsp;|&nbsp; `;
+            html += `<strong>Date:</strong> ${date} &nbsp;|&nbsp; `;
+            html += `<strong>Technician:</strong> ${tech} &nbsp;|&nbsp; `;
+            html += `<strong>Phase:</strong> ${phase}`;
+            html += `</div>`;
+
+            if (sortedStackers.length === 0 && !hasBeltWork()) {
+                html += `<p style="color:#999;">No work checked.</p>`;
+            } else {
+                if (sortedStackers.length > 0) {
+                    html += `<table>`;
+                    html += `<tr><th colspan="${activeComponents.length}" class="section-title">STACKERS</th></tr>`;
+                    html += `<tr>`;
+                    activeComponents.forEach(c => {
+                        html += `<th class="sub-header" style="font-size:8px;">${SHORT_LABELS[c.id] || c.label}</th>`;
+                    });
+                    html += `</tr>`;
+
+                    // Single row: each component column lists the stacker numbers it applies to
+                    html += `<tr>`;
+                    activeComponents.forEach(c => {
+                        const list = compStackers[c.id].join(', ');
+                        html += `<td class="${list ? 'stacker-cell' : 'empty-cell'}">${list}</td>`;
+                    });
+                    html += `</tr>`;
+                    html += `</table>`;
+                }
+
+                // Transport Belt
+                html += `<table style="margin-top:14px;">`;
+                html += `<tr><th colspan="4" class="section-title">TRANSPORT BELT</th></tr>`;
+                html += `<tr><th class="sub-header">Module</th><th class="sub-header">Tier</th><th class="sub-header">Replace</th><th class="sub-header">Tension</th></tr>`;
+                let hasT = false;
+                for (let m = 1; m <= state.totalModules; m++) {
+                    for (let tier = 1; tier <= 4; tier++) {
+                        const key = m + '-' + tier;
+                        const data = state.beltData.transport[key] || { replace: false, tension: false };
+                        if (data.replace || data.tension) {
+                            hasT = true;
+                            html += `<tr><td>${m}</td><td>T${tier}</td>`;
+                            html +=
+                            `<td class="${data.replace ? 'stacker-cell' : 'empty-cell'}">${data.replace ? '✓' : ''}</td>`;
+                            html +=
+                            `<td class="${data.tension ? 'stacker-cell' : 'empty-cell'}">${data.tension ? '✓' : ''}</td>`;
+                            html += `</tr>`;
+                        }
+                    }
+                }
+                if (!hasT) html +=
+                    `<tr><td colspan="4" style="text-align:center;color:#999;padding:6px;">No transport belt work</td></tr>`;
+                html += `</table>`;
+
+                // Drive Belt
+                html += `<table style="margin-top:14px;">`;
+                html += `<tr><th colspan="4" class="section-title">DRIVE BELT</th></tr>`;
+                html += `<tr><th class="sub-header">Module</th><th class="sub-header">Tier</th><th class="sub-header">Replace</th><th class="sub-header">Tension</th></tr>`;
+                let hasD = false;
+                for (let m = 1; m <= state.totalModules; m++) {
+                    for (let tier = 1; tier <= 4; tier++) {
+                        const key = m + '-' + tier;
+                        const data = state.beltData.drive[key] || { replace: false, tension: false };
+                        if (data.replace || data.tension) {
+                            hasD = true;
+                            html += `<tr><td>${m}</td><td>T${tier}</td>`;
+                            html +=
+                            `<td class="${data.replace ? 'stacker-cell' : 'empty-cell'}">${data.replace ? '✓' : ''}</td>`;
+                            html +=
+                            `<td class="${data.tension ? 'stacker-cell' : 'empty-cell'}">${data.tension ? '✓' : ''}</td>`;
+                            html += `</tr>`;
+                        }
+                    }
+                }
+                if (!hasD) html +=
+                    `<tr><td colspan="4" style="text-align:center;color:#999;padding:6px;">No drive belt work</td></tr>`;
+                html += `</table>`;
+
+                // Reader belts
+                html += `<table style="margin-top:14px;">`;
+                html += `<tr><th colspan="4" class="section-title">READER MODULE TRANSITION BELTS</th></tr>`;
+                html += `<tr><th class="sub-header">Tier</th><th class="sub-header">Side</th><th class="sub-header">Replace</th><th class="sub-header">Tension</th></tr>`;
+                let hasR = false;
+                for (let tier = 1; tier <= 4; tier++) {
+                    ['Front', 'Back'].forEach(side => {
+                        const key = tier + '-' + side;
+                        const data = state.beltData.reader[key] || { replace: false, tension: false };
+                        if (data.replace || data.tension) {
+                            hasR = true;
+                            html += `<tr><td>T${tier}</td><td>${side}</td>`;
+                            html +=
+                            `<td class="${data.replace ? 'stacker-cell' : 'empty-cell'}">${data.replace ? '✓' : ''}</td>`;
+                            html +=
+                            `<td class="${data.tension ? 'stacker-cell' : 'empty-cell'}">${data.tension ? '✓' : ''}</td>`;
+                            html += `</tr>`;
+                        }
+                    });
+                }
+                if (!hasR) html +=
+                    `<tr><td colspan="4" style="text-align:center;color:#999;padding:6px;">No reader belt work</td></tr>`;
+                html += `</table>`;
+            }
+
+            reportContainer.innerHTML = html;
+            reportContainer.classList.add('show');
+            inspPrint.style.display = 'inline-block';
+            reportContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function hasBeltWork() {
+            for (const m in state.beltData.transport) {
+                if (state.beltData.transport[m].replace || state.beltData.transport[m].tension) return true;
+            }
+            for (const m in state.beltData.drive) {
+                if (state.beltData.drive[m].replace || state.beltData.drive[m].tension) return true;
+            }
+            for (const m in state.beltData.reader) {
+                if (state.beltData.reader[m].replace || state.beltData.reader[m].tension) return true;
+            }
+            return false;
+        }
+
+        // --------------------------------------------------------------
+        // 18. GENERATE HEAT MAP (main action)
+        // --------------------------------------------------------------
+        generateBtn.addEventListener('click', () => {
+            const html = tableInput.value.trim();
+            if (!html) { alert('Please paste the jam report table HTML.'); return; }
+
+            const result = parseJamTable(html);
+            if (!result) return;
+
+            state.jamData = result.data;
+            state.machineName = result.machineName;
+
+            const selectedMachine = machineSelect.value;
+            if (!selectedMachine) {
+                alert('Please select a machine from the dropdown.');
+                return;
+            }
+            state.selectedMachine = selectedMachine;
+
+            let unplannedMachineData = null;
+            if (state.unplannedData && state.unplannedData[selectedMachine]) {
+                unplannedMachineData = state.unplannedData[selectedMachine];
+            } else if (state.unplannedData) {
+                const machines = Object.keys(state.unplannedData);
+                if (machines.includes(selectedMachine)) {
+                    unplannedMachineData = state.unplannedData[selectedMachine];
+                } else {
+                    alert(`No unplanned data found for machine: ${selectedMachine}`);
+                    return;
+                }
+            }
+
+            state.stackerData = buildStackerData(state.jamData, unplannedMachineData);
+
+            const numModules = state.stackerData ? Object.keys(state.stackerData).length : 19;
+            initInspectionState(numModules);
+
+            mainArea.style.display = 'grid';
+            state.isDataLoaded = true;
+
+            renderHeatMap();
+            selectModule(1);
+
+            inputSection.classList.add('collapsed');
+            inputToggle.textContent = '▼ Input Data (shown)';
+        });
+
+        // --------------------------------------------------------------
+        // 19. INPUT TOGGLE
+        // --------------------------------------------------------------
+        let inputExpanded = true;
+        inputToggle.addEventListener('click', () => {
+            inputExpanded = !inputExpanded;
+            inputSection.classList.toggle('collapsed', !inputExpanded);
+            inputToggle.textContent = inputExpanded ? '▼ Input Data' : '▶ Input Data (hidden)';
+        });
+
+        // --------------------------------------------------------------
+        // 20. SAMPLE LOADER – now loads the overall format
+        // --------------------------------------------------------------
+        sampleBtn.addEventListener('click', () => {
+            // The overall sample is provided in the file "table border=1 cellspacing=0 cellpadding=0.txt"
+            // We'll embed a simplified version that matches the overall format.
+            // Since the sample is long, we'll use the exact same HTML from the file (we'll include it as a string).
+            // I'll copy the whole table from the provided file.
+            const sample = `<table border="1" cellspacing="0" cellpadding="0" width="95%">
+        <tbody><tr id="header">
+        </tr><tr><td><b>FEEDER</b></td><td align="right"><b>Soft</b></td><td align="right"><b>Hard</b></td><td align="right"><b>Unspecified</b></td></tr>
+        
+        <tr id="data"><td width="30%">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>Jam</b>
+        </td><td align="right">81</td>
+        </tr>
+        <tr><td><b>READER</b></td><td align="right"><b>Soft</b></td><td align="right"><b>Hard</b></td><td align="right"><b>Unspecified</b></td></tr>
+        
+        <tr id="data"><td width="30%">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>Li1 [ D/Q 101, near feeder assy ]</b>
+        </td><td align="right">1</td><td align="right">2</td><td align="right">0</td>
+        </tr>
+        <tr id="data"><td width="30%">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>Li2 [ D/Q 102, near feeder assy ]</b>
+        </td><td align="right">9</td><td align="right">5</td><td align="right">0</td>
+        </tr>
+        <tr id="data"><td width="30%">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>Li3 [ D/Q 401, before Id-tag reader ]</b>
+        </td><td align="right">15</td><td align="right">2</td><td align="right">0</td>
+        </tr>
+        <tr id="data"><td width="30%">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>Li5 [ D/Q 403, before WABCR ]</b>
+        </td><td align="right">4</td><td align="right">0</td><td align="right">0</td>
+        </tr>
+        <tr id="data"><td width="30%">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<b>Li6</b>
+        </td><td align="right">4</td><td align="right">1</td><td align="right">0</td>
+        </tr>
+        <tr><td><b>STACKER MODULE 1</b></td><td align="right"><b>Soft</b></td><td align="right"><b>Hard</b></td><td align="right"><b>Unspecified</b></td></tr>
+        
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;1</b>
+        </td><td align="right">0</td>
+        <td align="right">1</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;2</b>
+        </td><td align="right">1</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;3</b>
+        </td><td align="right">1</td>
+        <td align="right">4</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;5</b>
+        </td><td align="right">1</td>
+        <td align="right">1</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;6</b>
+        </td><td align="right">8</td>
+        <td align="right">11</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;7</b>
+        </td><td align="right">0</td>
+        <td align="right">4</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;9</b>
+        </td><td align="right">1</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;10</b>
+        </td><td align="right">1</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;11</b>
+        </td><td align="right">2</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;12</b>
+        </td><td align="right">2</td>
+        <td align="right">2</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;14</b>
+        </td><td align="right">1</td>
+        <td align="right">2</td>
+        <td align="right">0</td>
+        </tr>
+        <tr><td><b>STACKER MODULE 2</b></td><td align="right"><b>Soft</b></td><td align="right"><b>Hard</b></td><td align="right"><b>Unspecified</b></td></tr>
+        
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;16</b>
+        </td><td align="right">0</td>
+        <td align="right">3</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;17</b>
+        </td><td align="right">3</td>
+        <td align="right">3</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;18</b>
+        </td><td align="right">3</td>
+        <td align="right">3</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;19</b>
+        </td><td align="right">1</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;21</b>
+        </td><td align="right">1</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;22</b>
+        </td><td align="right">2</td>
+        <td align="right">1</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;23</b>
+        </td><td align="right">4</td>
+        <td align="right">1</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;25</b>
+        </td><td align="right">1</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;26</b>
+        </td><td align="right">1</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;27</b>
+        </td><td align="right">3</td>
+        <td align="right">1</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;29</b>
+        </td><td align="right">0</td>
+        <td align="right">1</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;30</b>
+        </td><td align="right">0</td>
+        <td align="right">4</td>
+        <td align="right">0</td>
+        </tr>
+        <tr><td><b>STACKER MODULE 3</b></td><td align="right"><b>Soft</b></td><td align="right"><b>Hard</b></td><td align="right"><b>Unspecified</b></td></tr>
+        
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;33</b>
+        </td><td align="right">0</td>
+        <td align="right">2</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;34</b>
+        </td><td align="right">1</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;35</b>
+        </td><td align="right">1</td>
+        <td align="right">1</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;36</b>
+        </td><td align="right">1</td>
+        <td align="right">7</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;38</b>
+        </td><td align="right">1</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;39</b>
+        </td><td align="right">1</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;42</b>
+        </td><td align="right">0</td>
+        <td align="right">7</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;43</b>
+        </td><td align="right">6</td>
+        <td align="right">1</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;45</b>
+        </td><td align="right">1</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;46</b>
+        </td><td align="right">2</td>
+        <td align="right">1</td>
+        <td align="right">0</td>
+        </tr>
+        <tr><td><b>STACKER MODULE 4</b></td><td align="right"><b>Soft</b></td><td align="right"><b>Hard</b></td><td align="right"><b>Unspecified</b></td></tr>
+        
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;49</b>
+        </td><td align="right">0</td>
+        <td align="right">3</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;50</b>
+        </td><td align="right">0</td>
+        <td align="right">3</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;51</b>
+        </td><td align="right">1</td>
+        <td align="right">1</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;53</b>
+        </td><td align="right">0</td>
+        <td align="right">1</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;54</b>
+        </td><td align="right">3</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;55</b>
+        </td><td align="right">0</td>
+        <td align="right">1</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;57</b>
+        </td><td align="right">1</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;58</b>
+        </td><td align="right">0</td>
+        <td align="right">1</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;59</b>
+        </td><td align="right">4</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr><td><b>STACKER MODULE 5</b></td><td align="right"><b>Soft</b></td><td align="right"><b>Hard</b></td><td align="right"><b>Unspecified</b></td></tr>
+        
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;65</b>
+        </td><td align="right">0</td>
+        <td align="right">2</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;66</b>
+        </td><td align="right">3</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;67</b>
+        </td><td align="right">3</td>
+        <td align="right">8</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;70</b>
+        </td><td align="right">0</td>
+        <td align="right">1</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;75</b>
+        </td><td align="right">3</td>
+        <td align="right">1</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;78</b>
+        </td><td align="right">2</td>
+        <td align="right">6</td>
+        <td align="right">0</td>
+        </tr>
+        <tr><td><b>STACKER MODULE 6</b></td><td align="right"><b>Soft</b></td><td align="right"><b>Hard</b></td><td align="right"><b>Unspecified</b></td></tr>
+        
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;82</b>
+        </td><td align="right">1</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;83</b>
+        </td><td align="right">1</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;85</b>
+        </td><td align="right">0</td>
+        <td align="right">1</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;87</b>
+        </td><td align="right">1</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;90</b>
+        </td><td align="right">1</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;93</b>
+        </td><td align="right">2</td>
+        <td align="right">1</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;94</b>
+        </td><td align="right">2</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;95</b>
+        </td><td align="right">5</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr><td><b>STACKER MODULE 7</b></td><td align="right"><b>Soft</b></td><td align="right"><b>Hard</b></td><td align="right"><b>Unspecified</b></td></tr>
+        
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;97</b>
+        </td><td align="right">1</td>
+        <td align="right">2</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;98</b>
+        </td><td align="right">1</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;99</b>
+        </td><td align="right">1</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;101</b>
+        </td><td align="right">1</td>
+        <td align="right">3</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;103</b>
+        </td><td align="right">1</td>
+        <td align="right">1</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;106</b>
+        </td><td align="right">0</td>
+        <td align="right">3</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;110</b>
+        </td><td align="right">0</td>
+        <td align="right">2</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;111</b>
+        </td><td align="right">3</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr><td><b>STACKER MODULE 8</b></td><td align="right"><b>Soft</b></td><td align="right"><b>Hard</b></td><td align="right"><b>Unspecified</b></td></tr>
+        
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;114</b>
+        </td><td align="right">0</td>
+        <td align="right">1</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;116</b>
+        </td><td align="right">1</td>
+        <td align="right">2</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;117</b>
+        </td><td align="right">1</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;118</b>
+        </td><td align="right">3</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;120</b>
+        </td><td align="right">1</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;122</b>
+        </td><td align="right">1</td>
+        <td align="right">2</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;126</b>
+        </td><td align="right">1</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr><td><b>STACKER MODULE 9</b></td><td align="right"><b>Soft</b></td><td align="right"><b>Hard</b></td><td align="right"><b>Unspecified</b></td></tr>
+        
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;127</b>
+        </td><td align="right">0</td>
+        <td align="right">2</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;128</b>
+        </td><td align="right">0</td>
+        <td align="right">4</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;129</b>
+        </td><td align="right">1</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;130</b>
+        </td><td align="right">5</td>
+        <td align="right">1</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;132</b>
+        </td><td align="right">0</td>
+        <td align="right">1</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;134</b>
+        </td><td align="right">1</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;136</b>
+        </td><td align="right">0</td>
+        <td align="right">1</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;138</b>
+        </td><td align="right">0</td>
+        <td align="right">2</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;142</b>
+        </td><td align="right">2</td>
+        <td align="right">1</td>
+        <td align="right">0</td>
+        </tr>
+        <tr><td><b>STACKER MODULE 10</b></td><td align="right"><b>Soft</b></td><td align="right"><b>Hard</b></td><td align="right"><b>Unspecified</b></td></tr>
+        
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;146</b>
+        </td><td align="right">1</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;148</b>
+        </td><td align="right">0</td>
+        <td align="right">2</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;152</b>
+        </td><td align="right">0</td>
+        <td align="right">1</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;153</b>
+        </td><td align="right">0</td>
+        <td align="right">1</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;154</b>
+        </td><td align="right">2</td>
+        <td align="right">1</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;155</b>
+        </td><td align="right">0</td>
+        <td align="right">1</td>
+        <td align="right">0</td>
+        </tr>
+        <tr id="data"></tr><tr id="data"><td width="30%"><b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;158</b>
+        </td><td align="right">1</td>
+        <td align="right">0</td>
+        <td align="right">0</td>
+        </tr>
+        </tbody></table>`;
+            tableInput.value = sample;
+        });
+
+        // --------------------------------------------------------------
+        // 21. INIT
+        // --------------------------------------------------------------
+        document.addEventListener('DOMContentLoaded', () => {
+            const today = new Date().toISOString().split('T')[0];
+            checkDate.value = today;
+            initInspectionState(19);
+        });
+
+        console.log('DBS Unified with Investigation ready. Supports both detailed and overall table formats.');
+    </script>
+	<!-- ============ Historian client (v2) ============ -->
+	<script>
+		(function(){
+		  const EV_KEY  = 'historian_events_v1';
+		  const REG_KEY = 'historian_registry_v1';
+		  const VALID_ACRONYMS = ['DBCS','DIOSS','CIOSS'];
+
+		  const uid  = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+		  const norm = s => (s || '').replace(/\s+/g,' ').trim();
+
+		  function readAll(){
+			try { const r = localStorage.getItem(EV_KEY); return r ? JSON.parse(r) : []; }
+			catch(e){ return []; }
+		  }
+		  function writeAll(arr){
+			try { localStorage.setItem(EV_KEY, JSON.stringify(arr)); return true; }
+			catch(e){ alert('Historian storage error: ' + e.message); return false; }
+		  }
+		  function readReg(){
+			try { const r = localStorage.getItem(REG_KEY); return r ? JSON.parse(r) : {}; }
+			catch(e){ return {}; }
+		  }
+		  function writeReg(r){
+			try { localStorage.setItem(REG_KEY, JSON.stringify(r)); return true; }
+			catch(e){ return false; }
+		  }
+
+		  function parseMachineId(raw){
+			if (!raw) return null;
+			const m = String(raw).trim().match(/^([A-Za-z]+)[\s\-_]*0*(\d+)$/);
+			if (!m) return null;
+			return { acronym: m[1].toUpperCase(), mno: String(parseInt(m[2],10)) };
+		  }
+		  function canonicalId(acronym, mno){ return `${acronym} ${mno}`; }
+
+		  window.historianGetRegistry     = readReg;
+		  window.historianSaveRegistry    = writeReg;
+		  window.historianParseMachineId  = parseMachineId;
+		  window.historianCanonicalId     = canonicalId;
+
+		  window.historianRegisterMno = function(mno, acronym){
+			const reg = readReg();
+			reg[String(parseInt(mno,10))] = acronym.toUpperCase();
+			writeReg(reg);
+		  };
+
+		  window.historianPromptForMnOs = function(unknownMnos){
+			return new Promise((resolve) => {
+			  const ov = document.createElement('div');
+			  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99998;'+
+				'display:flex;align-items:center;justify-content:center;font:13px/1.5 system-ui,sans-serif;';
+			  const box = document.createElement('div');
+			  box.style.cssText = 'background:#fff;border-radius:12px;padding:20px 24px;max-width:520px;width:92%;'+
+				'box-shadow:0 12px 40px rgba(0,0,0,.3);max-height:85vh;overflow:auto;';
+
+			  let rowsHtml = '';
+			  unknownMnos.forEach(m => {
+				rowsHtml += `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #eef2f6;">
+				  <div style="font-weight:700;min-width:70px;color:#0b3d91;">MNO ${m}</div>
+				  <select data-mno="${m}" style="flex:1;padding:6px 10px;border:1px solid #b9c8dc;border-radius:6px;font:13px inherit;">
+					<option value="">— skip this machine —</option>
+					${VALID_ACRONYMS.map(a=>`<option value="${a}">${a}</option>`).join('')}
+				  </select>
+				</div>`;
+			  });
+
+			  box.innerHTML = `
+				<h3 style="margin:0 0 6px;color:#0b3d91;font-size:16px;">Assign machine types</h3>
+				<p style="margin:0 0 14px;color:#5b6b80;font-size:12.5px;">
+				  These MNOs aren't in the registry yet. Pick the acronym for each.
+				  Anything left as “skip” won't be saved this time.
+				</p>
+				<div>${rowsHtml}</div>
+				<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+				  <button id="__hCancel" style="background:#fff;color:#0b3d91;border:1px solid #b9c8dc;border-radius:6px;padding:7px 16px;font:600 13px inherit;cursor:pointer;">Cancel</button>
+				  <button id="__hOK" style="background:#0b3d91;color:#fff;border:0;border-radius:6px;padding:7px 18px;font:600 13px inherit;cursor:pointer;">Save assignments</button>
+				</div>`;
+			  ov.appendChild(box);
+			  document.body.appendChild(ov);
+
+			  ov.querySelector('#__hCancel').onclick = () => { document.body.removeChild(ov); resolve({}); };
+			  ov.querySelector('#__hOK').onclick = () => {
+				const out = {};
+				box.querySelectorAll('select[data-mno]').forEach(sel => {
+				  if (sel.value) out[sel.dataset.mno] = sel.value;
+				});
+				document.body.removeChild(ov);
+				resolve(out);
+			  };
+			});
+		  };
+
+		  window.historianSave = function(ev){
+			ev.id = ev.id || uid();
+			ev.capturedAt = new Date().toISOString();
+
+			if (ev.payload && ev.payload.rawMno){
+			  const mno = String(parseInt(ev.payload.rawMno, 10));
+			  const reg = readReg();
+			  const acronym = reg[mno] || ev.payload.acronymHint || null;
+			  if (acronym){
+				ev.machineId = canonicalId(acronym, mno);
+				ev.machineResolved = true;
+			  } else {
+				ev.machineId = 'MNO ' + mno;
+				ev.machineResolved = false;
+			  }
+			}
+			else if (ev.machineId){
+			  const p = parseMachineId(ev.machineId);
+			  if (p){
+				ev.machineId = canonicalId(p.acronym, p.mno);
+				const reg = readReg();
+				if (!reg[p.mno]) { reg[p.mno] = p.acronym; writeReg(reg); }
+				ev.machineResolved = true;
+			  }
+			}
+
+			ev.detId = [ev.source||'', ev.machineId||'', ev.eventTime||'', ev.kind||'', norm(ev.summary||'')].join('|');
+
+			const all = readAll();
+			const i = all.findIndex(x => (x.detId||x.id) === ev.detId);
+			if (i >= 0){
+			  all[i] = Object.assign({}, all[i], ev);
+			  writeAll(all);
+			  return { action:'updated', total: all.length, machineId: ev.machineId };
+			}
+			all.push(ev);
+			writeAll(all);
+			return { action:'added', total: all.length, machineId: ev.machineId };
+		  };
+
+		  window.historianOpen = function(){ window.open('historian.html','historian'); };
+
+		  window.historianToast = function(msg, ok){
+			let el = document.getElementById('__histToast');
+			if (!el){
+			  el = document.createElement('div');
+			  el.id = '__histToast';
+			  el.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99999;'+
+				'padding:10px 16px;border-radius:8px;font:600 13px/1.4 system-ui,sans-serif;'+
+				'box-shadow:0 4px 14px rgba(0,0,0,.2);color:#fff;transition:opacity .3s;';
+			  document.body.appendChild(el);
+			}
+			el.style.background = ok === false ? '#b3261e' : '#1b5e20';
+			el.textContent = msg;
+			el.style.opacity = '1';
+			clearTimeout(el._t);
+			el._t = setTimeout(() => { el.style.opacity = '0'; }, 2600);
+		  };
+		})();
+	</script>
+    <script>
+        document.getElementById('sendHistBtn').addEventListener('click', () => {
+        const machineId = (document.getElementById('machineId').value || '').trim() || 'UNKNOWN';
+        const tech      = (document.getElementById('techName').value  || '').trim();
+        const dateVal   = document.getElementById('checkDate').value;
+        const eventTime = dateVal ? new Date(dateVal + 'T12:00').toISOString() : new Date().toISOString();
+
+        // Component checks: summarize by component + bins
+        const compByBin = {};   // module:bin -> [components]
+        let totalCompChecks = 0;
+        for (let m = 0; m < state.totalModules; m++) {
+            const mod = state.binChecks[m] || {};
+            Object.keys(mod).forEach(bin => {
+            const set = mod[bin];
+            if (set && set.size) {
+                const key = `SM${m+1}/Bin${bin}`;
+                compByBin[key] = [...set];
+                totalCompChecks += set.size;
+            }
+            });
+        }
+
+        // Belt work
+        const beltLines = [];
+        for (const k in state.beltData.transport) {
+            const b = state.beltData.transport[k];
+            if (b.replace || b.tension) beltLines.push(`  • Transport M${k}: ${b.replace?'REPLACE ':''}${b.tension?'TENSION':''}`.trim());
+        }
+        for (const k in state.beltData.drive) {
+            const b = state.beltData.drive[k];
+            if (b.replace || b.tension) beltLines.push(`  • Drive M${k}: ${b.replace?'REPLACE ':''}${b.tension?'TENSION':''}`.trim());
+        }
+        for (const k in state.beltData.reader) {
+            const b = state.beltData.reader[k];
+            if (b.replace || b.tension) beltLines.push(`  • Reader T${k}: ${b.replace?'REPLACE ':''}${b.tension?'TENSION':''}`.trim());
+        }
+
+        const detailLines = [];
+        Object.keys(compByBin).sort().forEach(k => {
+            detailLines.push(`  • ${k}: ${compByBin[k].join(', ')}`);
+        });
+        if (beltLines.length) detailLines.push(...beltLines);
+
+        if (!totalCompChecks && !beltLines.length) {
+            historianToast('Nothing checked to send.', false);
+            return;
+        }
+
+        const summary = `Belts & rollers inspection — ${totalCompChecks} component checks, ${beltLines.length} belt actions`;
+        const detail  = detailLines.join('\n');
+
+        const res = historianSave({
+            source: 'belts_rollers',
+            eventTime,
+            machineId,
+            tech,
+            category: 'inspection',
+            kind: 'belts_rollers.save',
+            status: 'info',
+            summary,
+            detail,
+            payload: { compByBin, beltLines, totalModules: state.totalModules }
+        });
+
+        historianToast(`Historian ${res.action} (${res.total} total).`, true);
+        });
+</script>
+</body>
+</html>

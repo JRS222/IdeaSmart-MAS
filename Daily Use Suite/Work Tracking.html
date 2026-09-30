@@ -1,0 +1,2835 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NMARS Daily Task Parser with Multi-Person Timeline</title>
+<style>
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+    background-color: #f5f5f5;
+}
+.container {
+    max-width: 1600px;
+    margin: 0 auto;
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+h1 {
+    color: #003366;
+    text-align: center;
+}
+.parser-section {
+    margin-bottom: 30px;
+    padding: 20px;
+    border: 2px solid #003366;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+}
+.parser-section h2 {
+    color: #003366;
+    margin-top: 0;
+    border-bottom: 2px solid #003366;
+    padding-bottom: 10px;
+}
+.controls {
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: #f0f0f0;
+    border-radius: 4px;
+}
+textarea {
+    width: 100%;
+    min-height: 200px;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 12px;
+    margin-bottom: 10px;
+}
+button {
+    padding: 10px 20px;
+    background-color: #003366;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    margin: 5px;
+}
+button:hover {
+    background-color: #005599;
+}
+button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+.status {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 4px;
+}
+.status.loading {
+    background-color: #fff3cd;
+    color: #856404;
+}
+.status.success {
+    background-color: #d4edda;
+    color: #155724;
+}
+.status.error {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+.status.warning {
+    background-color: #fff3cd;
+    color: #856404;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+th {
+    background-color: #003366;
+    color: white;
+    padding: 12px;
+    text-align: left;
+    font-weight: bold;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+td {
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+    font-size: 13px;
+}
+tr:hover {
+    background-color: #f5f5f5;
+}
+.table-container {
+    max-height: 600px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+.export-buttons {
+    margin-top: 15px;
+    text-align: right;
+}
+.info-box {
+    background-color: #e7f3ff;
+    padding: 15px;
+    border-radius: 4px;
+    margin-bottom: 15px;
+    border-left: 4px solid #003366;
+}
+.info-box h3 {
+    margin-top: 0;
+    color: #003366;
+}
+.info-box.critical {
+    background-color: #fff3cd;
+    border-left: 4px solid #ffc107;
+}
+.info-box.critical h3 {
+    color: #856404;
+}
+.workflow-step {
+    background-color: #f8f9fa;
+    padding: 10px 15px;
+    margin: 10px 0;
+    border-left: 4px solid #28a745;
+    border-radius: 4px;
+}
+.workflow-step strong {
+    color: #28a745;
+}
+.totals-box {
+    background-color: #fff3cd;
+    padding: 15px;
+    border-radius: 4px;
+    margin: 15px 0;
+    border: 2px solid #ffc107;
+}
+.totals-box h3 {
+    margin-top: 0;
+    color: #856404;
+}
+input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+input[type="time"], input[type="number"] {
+    padding: 5px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+}
+.power-off {
+    background-color: #ffebee !important;
+}
+.power-on {
+    background-color: #e8f5e9 !important;
+}
+.working-ahead {
+    background-color: #fff9c4 !important;
+}
+.person-1-assigned {
+    border-left: 4px solid #2196F3;
+}
+.person-2-assigned {
+    border-left: 4px solid #4CAF50;
+}
+.person-3-assigned {
+    border-left: 4px solid #FF9800;
+}
+.select-all-btn {
+    background-color: #28a745;
+    margin-right: 10px;
+}
+.deselect-all-btn {
+    background-color: #dc3545;
+}
+.current-date {
+    font-size: 18px;
+    font-weight: bold;
+    color: #003366;
+    margin: 10px 0;
+}
+#recordCount {
+    font-weight: bold;
+    color: #003366;
+    margin: 10px 0;
+}
+.timeline-section {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    border: 2px solid #28a745;
+    margin: 20px 0;
+}
+.timeline-section h3 {
+    color: #28a745;
+    margin-top: 0;
+}
+.time-input-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+    margin: 15px 0;
+}
+.time-input-item {
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+}
+.time-input-item label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #495057;
+}
+.interruption-list {
+    margin: 15px 0;
+}
+.interruption-item {
+    background-color: #f8f9fa;
+    padding: 10px;
+    border-radius: 4px;
+    margin: 10px 0;
+    border-left: 4px solid #6c757d;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.interruption-item.break {
+    border-left-color: #6c757d;
+}
+.interruption-item.reactive {
+    border-left-color: #dc3545;
+}
+.interruption-item button {
+    padding: 5px 10px;
+    font-size: 12px;
+    background-color: #dc3545;
+}
+.add-interruption-btn {
+    background-color: #28a745;
+    margin: 5px;
+}
+.timeline-visual {
+    background-color: white;
+    padding: 20px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    margin: 20px 0;
+    min-height: 200px;
+}
+.timeline-bar {
+    position: relative;
+    height: 60px;
+    background: linear-gradient(to right, #e9ecef 0%, #e9ecef 100%);
+    border-radius: 4px;
+    margin: 10px 0;
+    overflow: visible;
+}
+.timeline-segment {
+    position: absolute;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 11px;
+    border-right: 1px solid white;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 0 5px;
+}
+.timeline-segment.loto {
+    background-color: #9C27B0;
+}
+.timeline-segment.power-off-p1 {
+    background-color: #2196F3;
+}
+.timeline-segment.power-off-p2 {
+    background-color: #4CAF50;
+}
+.timeline-segment.power-off-p3 {
+    background-color: #FF9800;
+}
+.timeline-segment.power-on {
+    background-color: #F44336;
+}
+.timeline-segment.break {
+    background-color: #6c757d;
+}
+.timeline-segment.reactive {
+    background-color: #dc3545;
+}
+.timeline-marker {
+    position: absolute;
+    width: 2px;
+    height: 80px;
+    background-color: #003366;
+    top: -10px;
+}
+.timeline-marker-label {
+    position: absolute;
+    top: -30px;
+    left: -30px;
+    font-weight: bold;
+    color: #003366;
+    white-space: nowrap;
+    font-size: 14px;
+}
+.finish-time-display {
+    background-color: #28a745;
+    color: white;
+    padding: 15px;
+    border-radius: 4px;
+    margin: 15px 0;
+    text-align: center;
+    font-size: 24px;
+    font-weight: bold;
+}
+.machine-timing-inputs {
+    background-color: #e3f2fd;
+    padding: 15px;
+    border-radius: 4px;
+    margin: 15px 0;
+    border-left: 4px solid #2196F3;
+}
+.machine-timing-item {
+    background-color: white;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 4px;
+    border: 1px solid #90caf9;
+}
+.legend {
+    display: flex;
+    gap: 20px;
+    margin: 15px 0;
+    flex-wrap: wrap;
+}
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.legend-color {
+    width: 30px;
+    height: 20px;
+    border-radius: 3px;
+    border: 1px solid #dee2e6;
+}
+.editable-time {
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background-color: #f0f0f0;
+}
+.editable-time:hover {
+    background-color: #e0e0e0;
+}
+.time-edit-input {
+    width: 60px;
+    padding: 2px 4px;
+}
+.machine-summary {
+    background-color: #fff3cd;
+    padding: 10px;
+    margin: 10px 0;
+    border-radius: 4px;
+    border-left: 4px solid #ffc107;
+}
+.person-totals {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 10px 0;
+}
+.person-total-box {
+    padding: 10px;
+    border-radius: 4px;
+    text-align: center;
+    font-weight: bold;
+}
+.person-1-box {
+    background-color: #e3f2fd;
+    border: 2px solid #2196F3;
+    color: #1565C0;
+}
+.person-2-box {
+    background-color: #e8f5e9;
+    border: 2px solid #4CAF50;
+    color: #2E7D32;
+}
+.person-3-box {
+    background-color: #fff3e0;
+    border: 2px solid #FF9800;
+    color: #E65100;
+}
+
+/* ===== Fixes for weekly worksheet rendering & actual-time input ===== */
+#weeklyDataTable {
+    table-layout: fixed;
+}
+#weeklyDataTable th.col-num,   #weeklyDataTable td.col-num   { width: 70px; }
+#weeklyDataTable th.col-acr,   #weeklyDataTable td.col-acr   { width: 70px; }
+#weeklyDataTable th.col-cls,   #weeklyDataTable td.col-cls   { width: 70px; }
+#weeklyDataTable th.col-eq,    #weeklyDataTable td.col-eq    { width: 70px; }
+#weeklyDataTable th.col-due,   #weeklyDataTable td.col-due   { width: 90px; }
+#weeklyDataTable th.col-est,   #weeklyDataTable td.col-est   { width: 70px; text-align: center; }
+#weeklyDataTable th.col-act,   #weeklyDataTable td.col-act   { width: 100px; text-align: center; }
+
+#weeklyDataTable td.pm-desc,
+#weeklyDataTable td.wo-desc {
+    white-space: normal;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    word-break: break-word;
+    vertical-align: top;
+    font-size: 0.9em;
+}
+#weeklyDataTable td.pm-desc { color: #555; }
+#weeklyDataTable td.wo-desc { color: #000; }
+
+.actual-time-input {
+    width: 75px;
+    padding: 4px 6px;
+    border: 1px solid #ccc;
+    border-radius: 3px;
+    font-size: 13px;
+    text-align: center;
+}
+.actual-time-input:focus {
+    outline: 2px solid #003366;
+    border-color: #003366;
+    background-color: #fffbe6;
+}
+.actual-time-input.filled {
+    background-color: #e8f5e9;
+    border-color: #4CAF50;
+    font-weight: bold;
+    color: #2E7D32;
+}
+
+.actual-time-input.auto-filled {
+    background-color: #e3f2fd !important;
+    border-color: #4f46e5 !important;
+    color: #0b3d91 !important;
+}
+.actual-time-wrap {
+    position: relative;
+    display: block;
+    width: 100%;
+}
+.actual-time-wrap .actual-time-input {
+    padding-right: 22px;
+    width: 100%;
+}
+.actual-time-wrap .auto-badge {
+    position: absolute;
+    top: 50%;
+    right: 6px;
+    transform: translateY(-50%);
+    font-size: 12px;
+    color: #4f46e5;
+    pointer-events: none;
+    line-height: 1;
+}
+.weekly-totals {
+    background-color: #e7f3ff;
+    padding: 15px;
+    border-radius: 4px;
+    margin-top: 15px;
+    border-left: 4px solid #003366;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 25px;
+    align-items: center;
+    font-weight: bold;
+    color: #003366;
+}
+.weekly-totals .total-item { font-size: 14px; }
+.weekly-totals .total-item .total-value { font-size: 18px; margin-left: 6px; }
+.weekly-totals .total-value.good { color: #28a745; }
+.weekly-totals .total-value.warn { color: #dc3545; }
+.weekly-totals .total-value.neutral { color: #003366; }
+
+/* ===== Job Log ===== */
+.joblog-section{
+  background:#fff;padding:18px 20px;border-radius:8px;border:2px solid #4f46e5;
+  margin:20px 0;
+}
+.joblog-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.joblog-toolbar .spacer{flex:1}
+.tech-label{font-size:11px;font-weight:700;color:#5b6b80;text-transform:uppercase;letter-spacing:.4px;display:flex;flex-direction:column;gap:3px}
+.tech-label input{font:13px inherit;border:1px solid #b9c8dc;border-radius:6px;padding:5px 8px;font-weight:400;text-transform:none}
+.btn-reactive{background:#dc3545;color:#fff;border:0;border-radius:6px;padding:8px 16px;font-weight:600;cursor:pointer;font-size:13px}
+.btn-reactive:hover{background:#b02a37}
+.btn-wo{background:#0b3d91;color:#fff;border:0;border-radius:6px;padding:8px 16px;font-weight:600;cursor:pointer;font-size:13px}
+.btn-wo:hover{background:#0a3378}
+.btn-secondary{background:#fff;color:#0b3d91;border:1px solid #b9c8dc;border-radius:6px;padding:8px 16px;font-weight:600;cursor:pointer;font-size:13px}
+.btn-secondary:hover{background:#eef3fa}
+
+.reg-banner{background:#fff8dc;border-left:4px solid #eab308;padding:10px 14px;border-radius:6px;
+  margin-bottom:12px;font-size:12.5px;color:#7a5c00;display:flex;gap:12px;align-items:center}
+.reg-banner button{background:#7a5c00;color:#fff;border:0;border-radius:5px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer}
+
+.joblog-list{display:flex;flex-direction:column;gap:12px}
+
+.job-card{background:#fafcff;border:1px solid #d6dde6;border-left:5px solid #4f46e5;
+  border-radius:8px;padding:12px 14px;transition:border-color .15s}
+.job-card.reactive{border-left-color:#dc3545}
+.job-card.workorder{border-left-color:#0b3d91}
+
+.job-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.job-header .spacer{flex:1}
+.job-kind{font-size:10.5px;font-weight:700;padding:2px 10px;border-radius:20px;letter-spacing:.5px}
+.job-kind.reactive{background:#fdecea;color:#b3261e}
+.job-kind.workorder{background:#e8f0fc;color:#0b3d91}
+.job-status{font-size:10.5px;font-weight:700;padding:2px 10px;border-radius:20px;letter-spacing:.4px}
+.job-status.draft{background:#eef2f6;color:#5b6b80}
+.job-status.sent{background:#e7f4ea;color:#1b5e20}
+.btn-x{background:transparent;border:0;color:#94a3b8;font-size:20px;line-height:1;cursor:pointer;padding:0 6px}
+.btn-x:hover{color:#b3261e}
+
+.job-field{display:flex;flex-direction:column;gap:3px;margin-bottom:9px}
+.job-field label{font-size:11px;font-weight:700;color:#5b6b80;text-transform:uppercase;letter-spacing:.4px}
+.job-field .cond-hint{font-weight:400;text-transform:none;letter-spacing:0;color:#94a3b8;font-size:10.5px}
+.job-field input[type=text],.job-field input[type=time],.job-field input[type=number],.job-field textarea{
+  font:13px inherit;border:1px solid #b9c8dc;border-radius:6px;padding:6px 9px;background:#fff;
+  font-weight:400;color:#1a2433;letter-spacing:0;text-transform:none;
+}
+.job-field textarea{resize:vertical;min-height:44px;font-family:inherit}
+.job-field input:focus,.job-field textarea:focus{outline:2px solid #4f46e5;outline-offset:-1px}
+
+.job-time-row{display:flex;gap:12px;flex-wrap:wrap}
+.job-time-row .job-field.compact{min-width:120px}
+.time-with-btn{display:flex;gap:4px;align-items:stretch}
+.time-with-btn input{flex:1}
+.btn-now{background:#4f46e5;color:#fff;border:0;border-radius:5px;padding:0 12px;font-size:11px;font-weight:700;
+  cursor:pointer;letter-spacing:.4px}
+.btn-now:hover{background:#3f37c9}
+.job-hours{background:#eef2f6 !important;font-weight:600;text-align:center}
+
+.machine-canonical{font-size:11px;color:#4f46e5;font-weight:600;margin-top:2px}
+.reg-warn{font-size:11px;color:#b3261e;font-weight:600;margin-top:2px}
+
+.parts-list{display:flex;flex-direction:column;gap:6px;margin-bottom:6px}
+.part-row{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:6px;align-items:center}
+.part-row input{font:12.5px inherit;border:1px solid #d6dde6;border-radius:5px;padding:5px 8px}
+.btn-add-part{background:#fff;border:1px dashed #94a3b8;color:#5b6b80;border-radius:5px;padding:4px 12px;
+  font-size:12px;font-weight:600;cursor:pointer}
+.btn-add-part:hover{background:#eef3fa;border-color:#4f46e5;color:#4f46e5}
+
+.job-footer{display:flex;align-items:center;gap:10px;border-top:1px solid #eef2f6;padding-top:10px;margin-top:6px}
+.job-footer .spacer{flex:1}
+.validation-msg{font-size:11.5px;font-weight:600}
+.validation-msg.warn{color:#b3261e}
+.validation-msg.ok{color:#1b5e20}
+.btn-save{background:#fff;color:#1a2433;border:1px solid #b9c8dc;border-radius:6px;padding:7px 14px;
+  font-size:12.5px;font-weight:600;cursor:pointer}
+.btn-save:hover{background:#f1f5f9}
+.btn-send{background:#1b5e20;color:#fff;border:0;border-radius:6px;padding:7px 14px;
+  font-size:12.5px;font-weight:600;cursor:pointer}
+.btn-send:hover{background:#144a19}
+.btn-send:disabled{opacity:.45;cursor:not-allowed}
+
+</style>
+</head>
+
+<body>
+<div class="container">
+<h1>NMARS Daily Task Parser with Multi-Person Timeline</h1>
+
+<!-- Weekly Worksheet Parser -->
+<div class="parser-section">
+<h2>📅 Step 1: Parse Weekly Worksheet (eDAC Sheet)</h2>
+
+<div class="info-box critical">
+<h3>⚠️ IMPORTANT: This is the eDAC Sheet - NOT individual machine checklists!</h3>
+<p><strong>This section is for the Weekly Assignment Worksheet only.</strong> This shows your overview of all assigned work for the week.</p>
+</div>
+
+<div class="info-box">
+<h3>📝 How to use:</h3>
+<ol>
+<li><strong>Open the Weekly Assignment Worksheet URL</strong></li>
+<li><strong>View Page Source</strong> (Ctrl+U / Cmd+U)</li>
+<li><strong>Copy all HTML</strong> and paste below</li>
+<li><strong>Click "Parse Weekly Worksheet"</strong></li>
+<li><strong>Enter actual time taken</strong> in the "Actual Time (hrs)" column for each task</li>
+</ol>
+</div>
+
+<div class="controls">
+<label for="weeklyHtmlInput"><strong>Paste Weekly Assignment Worksheet HTML:</strong></label>
+<textarea id="weeklyHtmlInput" placeholder="Paste the eDAC (Weekly Assignment Worksheet) HTML here..."></textarea>
+<button onclick="parseWeeklyWorksheet()">Parse Weekly Worksheet</button>
+<button onclick="clearWeeklyData()">Clear</button>
+<div id="weeklyStatus"></div>
+<div id="weeklyRecordCount"></div>
+</div>
+
+<div class="export-buttons">
+<button onclick="syncWorksheetActualTimes(true)" id="syncActualBtn" disabled style="background:#4f46e5;">↻ Sync Actual Times</button>
+<button onclick="exportWeeklyToCSV()" id="weeklyCsvBtn" disabled>Export to CSV</button>
+<button onclick="exportWeeklyToExcel()" id="weeklyExcelBtn" disabled>Copy for Excel</button>
+</div>
+
+<div class="table-container">
+<table id="weeklyDataTable">
+<thead>
+<tr>
+<th class="col-num">Number</th>
+<th class="col-acr">Acronym</th>
+<th class="col-cls">Class Code</th>
+<th class="col-eq">Equip No</th>
+<th class="col-due">Due Date</th>
+<th>PM Description</th>
+<th>Description</th>
+<th class="col-est">Est. Time (hrs)</th>
+<th class="col-act">Actual Time (hrs)</th>
+</tr>
+</thead>
+<tbody id="weeklyTableBody">
+</tbody>
+</table>
+</div>
+
+<div class="weekly-totals" id="weeklyTotals" style="display: none;">
+    <div class="total-item">Total Estimated:<span class="total-value neutral" id="weeklyTotalEst">0.00</span></div>
+    <div class="total-item">Total Actual:<span class="total-value good" id="weeklyTotalAct">0.00</span></div>
+    <div class="total-item">Difference (Act - Est):<span class="total-value neutral" id="weeklyTotalDiff">0.00</span></div>
+    <div class="total-item">Tasks:<span class="total-value neutral" id="weeklyTotalTasks">0</span></div>
+</div>
+</div>
+
+<!-- Daily Task Parser -->
+<div class="parser-section">
+<h2>🔧 Step 2: Build Your Daily Task List</h2>
+
+<div class="info-box critical">
+<h3>⚠️ Each Machine = Separate HTML Paste!</h3>
+<p>Paste each machine's PM Checklist separately. All machines accumulate in the table below.</p>
+</div>
+
+<div class="controls">
+<div class="current-date" id="currentDate"></div>
+<label for="dailyHtmlInput"><strong>Paste ONE PM Checklist HTML at a time:</strong></label>
+<textarea id="dailyHtmlInput" placeholder="Paste PM Checklist HTML for one machine..."></textarea>
+<button onclick="addMachineTasks()">Add Machine Tasks</button>
+<button onclick="clearDailyData()">Clear All Tasks</button>
+<div id="dailyStatus"></div>
+<div id="machineCount" style="font-weight: bold; color: #28a745; margin-top: 10px;"></div>
+</div>
+
+<!-- Timeline Section -->
+<div class="timeline-section" id="timelineSection" style="display: none;">
+<h3>⏱️ Work Timeline & Finish Time Calculator</h3>
+
+<div class="info-box">
+<h3>👥 Multi-Person Workflow:</h3>
+<ul>
+<li><strong>LOTO Time:</strong> Set when lockout is complete for each machine</li>
+<li><strong>Power-Off Tasks:</strong> Can be done concurrently by multiple people</li>
+<li><strong>Power-On Tasks:</strong> Must be done sequentially (one at a time)</li>
+<li><strong>Assign Tasks:</strong> Check person boxes for each task in the table below</li>
+</ul>
+</div>
+
+<div class="time-input-grid">
+<div class="time-input-item">
+<label for="workStartTime">Work Start Time:</label>
+<input type="time" id="workStartTime" onchange="calculateTimeline()">
+</div>
+</div>
+
+<div class="machine-timing-inputs" id="machineTimingInputs">
+<h4>Machine LOTO Complete Times:</h4>
+<div id="machineTimingContent"></div>
+</div>
+
+<div>
+<h4>Breaks:</h4>
+<button class="add-interruption-btn" onclick="addBreak()">+ Add Break</button>
+<div id="breaksList" class="interruption-list"></div>
+</div>
+
+<div>
+<h4>Reactive Calls:</h4>
+<button class="add-interruption-btn" onclick="addReactiveCall()">+ Add Reactive Call</button>
+<div id="reactiveCallsList" class="interruption-list"></div>
+</div>
+
+<div id="machinesSummary"></div>
+
+<div class="finish-time-display" id="finishTimeDisplay">
+Overall Finish Time: --:--
+</div>
+
+<div class="legend">
+<div class="legend-item">
+<div class="legend-color" style="background-color: #9C27B0;"></div>
+<span>LOTO</span>
+</div>
+<div class="legend-item">
+<div class="legend-color" style="background-color: #2196F3;"></div>
+<span>Person 1 Power-Off</span>
+</div>
+<div class="legend-item">
+<div class="legend-color" style="background-color: #4CAF50;"></div>
+<span>Person 2 Power-Off</span>
+</div>
+<div class="legend-item">
+<div class="legend-color" style="background-color: #FF9800;"></div>
+<span>Person 3 Power-Off</span>
+</div>
+<div class="legend-item">
+<div class="legend-color" style="background-color: #F44336;"></div>
+<span>Power-On (Sequential)</span>
+</div>
+<div class="legend-item">
+<div class="legend-color" style="background-color: #6c757d;"></div>
+<span>Breaks</span>
+</div>
+<div class="legend-item">
+<div class="legend-color" style="background-color: #dc3545;"></div>
+<span>Reactive Calls</span>
+</div>
+</div>
+
+<div class="timeline-visual" id="timelineVisual"></div>
+</div>
+<!-- ===== Job Log: Reactive Calls + Work Orders ===== -->
+<div class="joblog-section" id="jobLogSection">
+
+  <h3 style="margin:0 0 12px;color:#0b3d91;">📝 Job Log — Reactive Calls &amp; Work Orders</h3>
+
+  <div class="joblog-toolbar">
+    <button class="btn btn-reactive" onclick="addJob('reactive')">+ New Reactive Call</button>
+    <button class="btn btn-wo" onclick="addJob('workorder')">+ New Work Order</button>
+    <div class="spacer"></div>
+    <label class="tech-label">Tech
+      <input type="text" id="jobTech" placeholder="Initials / name" style="width:130px">
+    </label>
+    <button class="btn btn-secondary" onclick="sendAllJobsToHistorian()">📤 Send all ready</button>
+  </div>
+
+  <div id="regBanner" class="reg-banner" style="display:none;"></div>
+
+  <div id="jobLogList" class="joblog-list"></div>
+</div>
+<div class="totals-box" id="totalsBox" style="display: none;">
+<h3>⏱️ Time Estimates & Person Assignments</h3>
+<div id="totalsContent"></div>
+</div>
+
+<div class="export-buttons">
+<button class="select-all-btn" onclick="selectAllTasks()" id="selectAllBtn" disabled>Select All</button>
+<button class="deselect-all-btn" onclick="deselectAllTasks()" id="deselectAllBtn" disabled>Deselect All</button>
+<button onclick="exportDailyToCSV()" id="dailyCsvBtn" disabled>Export to CSV</button>
+<button onclick="exportDailyToExcel()" id="dailyExcelBtn" disabled>Copy for Excel</button>
+<button onclick="generateReport()" id="reportBtn" disabled>Generate Report</button>
+<button onclick="sendToHistorian()" id="histBtn" class="select-all-btn" disabled>📤 Send to Historian</button>
+</div>
+
+<div class="table-container">
+<table id="dailyDataTable">
+<thead>
+<tr>
+<th style="width: 50px;">Select</th>
+<th>Machine</th>
+<th>Item No</th>
+<th>Task Description</th>
+<th>Power State</th>
+<th>Due Date</th>
+<th style="width: 80px;">Est. Time (min)</th>
+<th style="width: 60px;">P1</th>
+<th style="width: 60px;">P2</th>
+<th style="width: 60px;">P3</th>
+</tr>
+</thead>
+<tbody id="dailyTableBody">
+<tr>
+<td colspan="10" style="text-align:center; padding:40px; color:#666;">
+<strong>No machines added yet.</strong>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+
+<script>
+let weeklyParsedData = [];
+let dailyMachines = [];
+let currentDateString = '';
+let breaks = [];
+let reactiveCalls = [];
+let machineLotoTimes = {};
+
+// Initialize current date
+function initializeCurrentDate() {
+const now = new Date();
+const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+const day = String(now.getDate()).padStart(2, '0');
+const month = months[now.getMonth()];
+const year = String(now.getFullYear()).slice(-2);
+currentDateString = `${day}-${month}-${year}`;
+document.getElementById('currentDate').textContent = `Current Date: ${currentDateString}`;
+}
+
+initializeCurrentDate();
+
+// ==================== WEEKLY WORKSHEET PARSER ====================
+
+function parseWeeklyWorksheet() {
+const htmlInput = document.getElementById('weeklyHtmlInput').value.trim();
+
+if (!htmlInput) {
+showStatus('weeklyStatus', 'Please paste HTML content', 'error');
+return;
+}
+
+showStatus('weeklyStatus', 'Parsing weekly worksheet...', 'loading');
+
+try {
+const parser = new DOMParser();
+const doc = parser.parseFromString(htmlInput, 'text/html');
+
+const allRows = doc.querySelectorAll('tr');
+let foundCurrentDate = false;
+
+allRows.forEach(row => {
+const rowText = row.textContent;
+if (rowText.includes('Scheduled Date:') && rowText.includes(currentDateString)) {
+foundCurrentDate = true;
+}
+});
+
+if (!foundCurrentDate) {
+showStatus('weeklyStatus',
+`Warning: Could not find tasks for ${currentDateString}. Showing all tasks.`,
+'warning');
+}
+
+const rows = doc.querySelectorAll('tr');
+const data = [];
+let inCorrectDateSection = !foundCurrentDate;
+// Tracks whether the most recently pushed data row belongs to the
+// current Scheduled-Date section. Prevents a stray PM Description row
+// (from a different section) from being attached to the wrong WO row.
+let lastRowWasDataRow = false;
+
+rows.forEach((row) => {
+const cells = row.querySelectorAll('td');
+const rowText = row.textContent;
+
+// --- Section boundary detection ---
+if (rowText.includes('Scheduled Date:')) {
+    if (foundCurrentDate) {
+        inCorrectDateSection = rowText.includes(currentDateString);
+    }
+    // Reset the "last row was a data row" flag on every section change.
+    lastRowWasDataRow = false;
+    return;
+}
+
+// --- Skip rows outside the target date section ---
+if (foundCurrentDate && !inCorrectDateSection) {
+    return;
+}
+
+if (cells.length === 0) return;
+
+// --- PM Description row: attach to the PREVIOUS data row ---
+// In the source HTML, the PM Description row appears AFTER the
+// work-order row it belongs to. The original parser attached it to
+// the NEXT row, which is why long descriptions ended up on the wrong
+// WO. We now attach it backwards, and only if the last pushed row
+// came from the current section.
+if (rowText.includes('PM Description')) {
+    const match = rowText.match(/PM Description\s*:\s*([\s\S]+)/);
+    if (match && lastRowWasDataRow && data.length > 0) {
+        data[data.length - 1].pmDescription = match[1].trim().replace(/\s+/g, ' ');
+    }
+    lastRowWasDataRow = false;
+    return;
+}
+
+// --- Data row (W / A / B) ---
+const type = cells[0]?.textContent.trim();
+if (!type || !['W', 'A', 'B'].includes(type)) {
+    lastRowWasDataRow = false;
+    return;
+}
+
+const number = cells[1]?.textContent.trim();
+const wc = cells[2]?.textContent.trim();
+const acronymCL = cells[3]?.textContent.trim();
+const equipNo = cells[4]?.textContent.trim();
+const dueDate = cells[8]?.textContent.trim();
+const description = cells[9]?.textContent.trim();
+const estimatedTime = cells[10]?.textContent.trim();
+
+if (!number) {
+    lastRowWasDataRow = false;
+    return;
+}
+
+let acronym = '';
+let classCode = '';
+if (acronymCL && acronymCL.includes('-')) {
+    [acronym, classCode] = acronymCL.split('-').map(s => s.trim());
+} else {
+    acronym = acronymCL;
+}
+
+data.push({
+    number: number,
+    acronym: acronym,
+    classCode: classCode,
+    equipNo: equipNo,
+    dueDate: dueDate,
+    pmDescription: '',   // filled in by the following PM Description row, if any
+    description: description,
+    estimatedTime: estimatedTime,
+    actualTime: null     // user-editable; null = not entered yet
+});
+
+lastRowWasDataRow = true;
+});
+
+weeklyParsedData = data;
+syncWorksheetActualTimes();     // <-- populate auto values into the row objects first
+displayWeeklyData(data);
+
+if (data.length > 0) {
+showStatus('weeklyStatus', `Successfully parsed ${data.length} tasks!`, 'success');
+document.getElementById('weeklyRecordCount').textContent =
+foundCurrentDate
+? `Tasks found for ${currentDateString}: ${data.length}`
+: `All tasks shown: ${data.length}`;
+} else {
+showStatus('weeklyStatus', 'No tasks found.', 'warning');
+}
+
+document.getElementById('weeklyCsvBtn').disabled = data.length === 0;
+document.getElementById('weeklyExcelBtn').disabled = data.length === 0;
+document.getElementById('syncActualBtn').disabled = data.length === 0;
+
+} catch (error) {
+console.error('Error:', error);
+showStatus('weeklyStatus', `Error: ${error.message}`, 'error');
+}
+}
+
+function displayWeeklyData(data) {
+  const tbody = document.getElementById('weeklyTableBody');
+  tbody.innerHTML = '';
+
+  if (data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:20px;">No data found.</td></tr>';
+    document.getElementById('weeklyTotals').style.display = 'none';
+    return;
+  }
+
+  data.forEach((row, index) => {
+    const tr = document.createElement('tr');
+
+    const actualVal = (row.actualTime === null || row.actualTime === undefined || row.actualTime === '')
+      ? ''
+      : row.actualTime;
+
+    const isAuto = row.autoValue != null && !row.manualOverride && actualVal !== '';
+
+    const cls = 'actual-time-input'
+      + (actualVal !== '' ? ' filled' : '')
+      + (isAuto ? ' auto-filled' : '');
+
+    const badge = isAuto
+      ? '<span class="auto-badge" title="Auto-filled from daily PM tasks (Person 1)">⚡</span>'
+      : '';
+
+    tr.innerHTML = `
+<td class="col-num">${escapeHtml(row.number)}</td>
+<td class="col-acr">${escapeHtml(row.acronym)}</td>
+<td class="col-cls">${escapeHtml(row.classCode)}</td>
+<td class="col-eq">${escapeHtml(row.equipNo)}</td>
+<td class="col-due">${escapeHtml(row.dueDate)}</td>
+<td class="pm-desc">${escapeHtml(row.pmDescription)}</td>
+<td class="wo-desc">${escapeHtml(row.description)}</td>
+<td class="col-est">${escapeHtml(row.estimatedTime)}</td>
+<td class="col-act">
+  <div class="actual-time-wrap">
+    <input type="number"
+      class="${cls}"
+      min="0"
+      step="0.01"
+      value="${actualVal}"
+      placeholder="0.00"
+      data-index="${index}"
+      oninput="updateWeeklyActualTime(${index}, this.value)"
+      onchange="updateWeeklyActualTime(${index}, this.value)">
+    ${badge}
+  </div>
+</td>`;
+
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('weeklyTotals').style.display = 'flex';
+  updateWeeklyTotals();
+}
+
+function updateWeeklyActualTime(index, value) {
+  if (!weeklyParsedData[index]) return;
+  if (value === '' || value === null) {
+    weeklyParsedData[index].actualTime = null;
+  } else {
+    const num = parseFloat(value);
+    weeklyParsedData[index].actualTime = isNaN(num) ? null : num;
+  }
+  weeklyParsedData[index].manualOverride = true;
+
+  // update classes/badge in place
+  const inputs = document.querySelectorAll('#weeklyTableBody .actual-time-input');
+  if (inputs[index]) {
+    const v = weeklyParsedData[index].actualTime;
+    inputs[index].classList.toggle('filled', v !== null);
+    inputs[index].classList.remove('auto-filled');
+    const wrap = inputs[index].closest('.actual-time-wrap');
+    const badge = wrap && wrap.querySelector('.auto-badge');
+    if (badge) badge.remove();
+  }
+  updateWeeklyTotals();
+}
+
+function updateWeeklyTotals() {
+const totalEst = weeklyParsedData.reduce((sum, r) => sum + (parseFloat(r.estimatedTime) || 0), 0);
+const totalAct = weeklyParsedData.reduce((sum, r) => sum + (r.actualTime || 0), 0);
+const diff = totalAct - totalEst;
+
+document.getElementById('weeklyTotalEst').textContent = totalEst.toFixed(2) + ' hrs';
+document.getElementById('weeklyTotalAct').textContent = totalAct.toFixed(2) + ' hrs';
+
+const diffEl = document.getElementById('weeklyTotalDiff');
+diffEl.textContent = (diff >= 0 ? '+' : '') + diff.toFixed(2) + ' hrs';
+diffEl.classList.remove('good', 'warn', 'neutral');
+if (diff > 0) {
+diffEl.classList.add('warn');
+} else if (diff < 0) {
+diffEl.classList.add('good');
+} else {
+diffEl.classList.add('neutral');
+}
+
+document.getElementById('weeklyTotalTasks').textContent = weeklyParsedData.length;
+}
+
+/* ============================================================
+   Worksheet Actual-Time auto-fill from daily PM tasks
+   ============================================================ */
+function computeAutoValueForRow(row) {
+  if (!row) return null;
+  if (!row.description || !/checklist no\.:\s*000/i.test(row.description)) return null;
+  if (!row.acronym || !row.equipNo) return null;
+
+  const acronym = String(row.acronym).trim().toUpperCase();
+  const mnoMatch = String(row.equipNo).trim().match(/^0*(\d+)$/);
+  if (!mnoMatch) return null;
+  const targetId = `${acronym} ${parseInt(mnoMatch[1], 10)}`;
+
+  const normalize = s => String(s || '').replace(/[\-_]+/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase();
+  const machine = dailyMachines.find(m => normalize(m.machine) === targetId || normalize(m.machineId) === targetId);
+  if (!machine) return null;
+
+  let totalMin = 0;
+  machine.tasks.forEach(t => {
+    if (!t.selected) return;
+    if (!t.person1) return;
+    const time = t.customTime != null ? t.customTime : t.estTime;
+    totalMin += time;
+  });
+  return Math.round(totalMin / 60 * 100) / 100;
+}
+
+function syncWorksheetActualTimes(force) {
+  if (!Array.isArray(weeklyParsedData) || !weeklyParsedData.length) return;
+  let changed = false;
+
+  weeklyParsedData.forEach(row => {
+    const newAuto = computeAutoValueForRow(row);
+    const prevAuto = row.autoValue;
+
+    if (!force && newAuto === prevAuto) return;
+
+    row.autoValue = newAuto;
+
+    if (newAuto != null) {
+      row.actualTime = newAuto;
+      row.manualOverride = false;
+    } else if (!row.manualOverride) {
+      // auto went from a value to nothing; clear unless the user typed over it
+      row.actualTime = null;
+    } else {
+      // auto went away but user has a manual value — keep it
+      row.manualOverride = false;
+    }
+    changed = true;
+  });
+
+  if (changed) {
+    renderWorksheetInputs();
+    updateWeeklyTotals();
+  }
+}
+
+function renderWorksheetInputs() {
+  const inputs = document.querySelectorAll('#weeklyTableBody .actual-time-input');
+  if (!inputs.length) return;
+
+  inputs.forEach((input, i) => {
+    const row = weeklyParsedData[i];
+    if (!row) return;
+
+    const val = (row.actualTime === null || row.actualTime === undefined || row.actualTime === '') ? '' : row.actualTime;
+    input.value = val;
+
+    const isAuto = row.autoValue != null && !row.manualOverride && val !== '';
+    input.classList.toggle('filled', val !== '');
+    input.classList.toggle('auto-filled', isAuto);
+
+    const wrap = input.closest('.actual-time-wrap');
+    if (!wrap) return;
+    let badge = wrap.querySelector('.auto-badge');
+    if (isAuto) {
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'auto-badge';
+        badge.title = 'Auto-filled from daily PM tasks (Person 1)';
+        badge.textContent = '⚡';
+        wrap.appendChild(badge);
+      }
+    } else if (badge) {
+      badge.remove();
+    }
+  });
+}
+
+function clearWeeklyData() {
+document.getElementById('weeklyHtmlInput').value = '';
+weeklyParsedData = [];
+document.getElementById('weeklyTableBody').innerHTML = '';
+document.getElementById('weeklyStatus').textContent = '';
+document.getElementById('weeklyRecordCount').textContent = '';
+document.getElementById('weeklyCsvBtn').disabled = true;
+document.getElementById('weeklyExcelBtn').disabled = true;
+document.getElementById('syncActualBtn').disabled = true; 
+document.getElementById('weeklyTotals').style.display = 'none';
+}
+
+// ==================== DAILY TASK PARSER ====================
+
+function addMachineTasks() {
+const htmlInput = document.getElementById('dailyHtmlInput').value.trim();
+
+if (!htmlInput) {
+showStatus('dailyStatus', 'Please paste PM Checklist HTML', 'error');
+return;
+}
+
+showStatus('dailyStatus', 'Parsing PM Checklist...', 'loading');
+
+try {
+const parser = new DOMParser();
+const doc = parser.parseFromString(htmlInput, 'text/html');
+
+const allTables = doc.querySelectorAll('table');
+
+if (allTables.length < 12) {
+throw new Error('Invalid PM Checklist format - expected at least 12 tables');
+}
+
+// Extract acronym from table 3
+let acronym = 'Unknown';
+const table3 = allTables[2];
+const table3Rows = table3.querySelectorAll(':scope > tbody > tr, :scope > tr');
+if (table3Rows.length >= 1) {
+const row0 = table3Rows[0];
+const cells = row0.querySelectorAll(':scope > td, :scope > th');
+if (cells.length >= 2) {
+const nestedTable = cells[1].querySelector('table');
+if (nestedTable) {
+const nestedRows = nestedTable.querySelectorAll('tr');
+if (nestedRows.length >= 3) {
+const dataRow = nestedRows[2];
+const dataCells = dataRow.querySelectorAll('td, th');
+if (dataCells.length >= 2) {
+acronym = dataCells[1].textContent.trim();
+}
+}
+}
+}
+}
+
+// Extract equipment number from table 3
+let equipNo = 'Unknown';
+if (table3Rows.length >= 2) {
+const row1 = table3Rows[1];
+const cells = row1.querySelectorAll(':scope > td, :scope > th');
+if (cells.length >= 2) {
+const nestedTable = cells[1].querySelector('table');
+if (nestedTable) {
+const nestedRows = nestedTable.querySelectorAll('tr');
+if (nestedRows.length >= 2) {
+const dataRow = nestedRows[1];
+const dataCells = dataRow.querySelectorAll('td, th');
+if (dataCells.length >= 1) {
+equipNo = dataCells[0].textContent.trim();
+}
+}
+}
+}
+}
+
+const machineId = `${acronym}-${equipNo}`;
+const machineDisplay = `${acronym} ${equipNo}`;
+
+// Parse task tables
+const powerOffTable = allTables[10];
+const powerOnTable = allTables[11];
+
+const tasks = [];
+
+// Parse power off tasks
+if (powerOffTable) {
+const rows = powerOffTable.querySelectorAll('tr');
+for (let i = 1; i < rows.length; i++) {
+const row = rows[i];
+const cells = row.querySelectorAll('td, th');
+if (cells.length >= 7) {
+const itemNo = cells[0]?.textContent.trim();
+if (itemNo && !itemNo.startsWith('C')) {
+const task = parseTaskRow(row, machineId, machineDisplay, 'Power Off');
+if (task) tasks.push(task);
+}
+}
+}
+}
+
+// Parse power on tasks
+if (powerOnTable) {
+const rows = powerOnTable.querySelectorAll('tr');
+for (let i = 1; i < rows.length; i++) {
+const row = rows[i];
+const cells = row.querySelectorAll('td, th');
+if (cells.length >= 7) {
+const itemNo = cells[0]?.textContent.trim();
+if (itemNo) {
+const task = parseTaskRow(row, machineId, machineDisplay, 'Power On');
+if (task) tasks.push(task);
+}
+}
+}
+}
+
+if (tasks.length === 0) {
+throw new Error('No tasks found in the checklist');
+}
+
+// Add or update machine
+const existingIndex = dailyMachines.findIndex(m => m.machineId === machineId);
+if (existingIndex >= 0) {
+dailyMachines[existingIndex].tasks = tasks;
+showStatus('dailyStatus', `Updated ${tasks.length} tasks for ${machineDisplay}`, 'success');
+} else {
+dailyMachines.push({
+machineId: machineId,
+machine: machineDisplay,
+tasks: tasks
+});
+showStatus('dailyStatus', `Added ${tasks.length} tasks for ${machineDisplay}`, 'success');
+}
+
+displayDailyTasks();
+updateTotals();
+updateMachineCount();
+renderMachineTimingInputs();
+calculateTimeline();
+
+document.getElementById('timelineSection').style.display = 'block';
+
+document.getElementById('selectAllBtn').disabled = false;
+document.getElementById('deselectAllBtn').disabled = false;
+document.getElementById('dailyCsvBtn').disabled = false;
+document.getElementById('dailyExcelBtn').disabled = false;
+document.getElementById('reportBtn').disabled = false;
+document.getElementById('histBtn').disabled = false;
+
+document.getElementById('dailyHtmlInput').value = '';
+
+} catch (error) {
+console.error('Error:', error);
+showStatus('dailyStatus', `Error: ${error.message}`, 'error');
+}
+}
+
+function parseTaskRow(row, machineId, machine, powerState) {
+const cells = row.querySelectorAll('td');
+if (cells.length < 7) return null;
+
+const itemNo = cells[0]?.textContent.trim();
+const component = cells[1]?.textContent.trim();
+const estTime = cells[2]?.textContent.trim();
+const dueDateCell = cells[5]?.textContent.trim();
+
+if (!itemNo || !component) return null;
+
+let dueDate = dueDateCell;
+let normalizedDueDate = '';
+
+if (dueDate) {
+try {
+if (dueDate.includes('/')) {
+const parts = dueDate.split('/');
+if (parts.length === 3) {
+const month = parseInt(parts[0], 10);
+const day = parts[1].padStart(2, '0');
+const year = parts[2].slice(-2);
+
+const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+const monthName = monthNames[month - 1];
+
+normalizedDueDate = `${day}-${monthName}-${year}`;
+}
+}
+else if (dueDate.includes('-')) {
+const parts = dueDate.split('-');
+if (parts.length === 3) {
+const day = parts[0].padStart(2, '0');
+const month = parts[1].toUpperCase().substring(0, 3);
+const year = parts[2].length === 4 ? parts[2].slice(-2) : parts[2];
+normalizedDueDate = `${day}-${month}-${year}`;
+}
+}
+} catch (e) {
+console.warn('Could not normalize date:', dueDate, e);
+normalizedDueDate = dueDate;
+}
+}
+
+return {
+machineId: machineId,
+machine: machine,
+itemNo: itemNo,
+description: component,
+powerState: powerState,
+dueDate: dueDate,
+normalizedDueDate: normalizedDueDate || dueDate,
+estTime: parseFloat(estTime) || 0,
+customTime: null,
+selected: true,
+person1: false,
+person2: false,
+person3: false
+};
+}
+
+function updateMachineCount() {
+const countDiv = document.getElementById('machineCount');
+if (dailyMachines.length > 0) {
+const machineList = dailyMachines.map(m => m.machine).join(', ');
+countDiv.textContent = `Machines (${dailyMachines.length}): ${machineList}`;
+} else {
+countDiv.textContent = '';
+}
+}
+
+function displayDailyTasks() {
+const tbody = document.getElementById('dailyTableBody');
+tbody.innerHTML = '';
+
+if (dailyMachines.length === 0) {
+tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:40px;">No machines added yet.</td></tr>';
+document.getElementById('totalsBox').style.display = 'none';
+return;
+}
+
+dailyMachines.forEach((machine, machineIndex) => {
+machine.tasks.forEach((task, taskIndex) => {
+const tr = document.createElement('tr');
+let rowClass = task.powerState === 'Power Off' ? 'power-off' :
+task.powerState === 'Power On' ? 'power-on' : '';
+
+if (task.normalizedDueDate && task.normalizedDueDate !== currentDateString) {
+rowClass += ' working-ahead';
+}
+
+if (task.person1) rowClass += ' person-1-assigned';
+else if (task.person2) rowClass += ' person-2-assigned';
+else if (task.person3) rowClass += ' person-3-assigned';
+
+if (rowClass) tr.className = rowClass.trim();
+
+const displayTime = task.customTime !== null ? task.customTime : task.estTime;
+
+tr.innerHTML = `
+<td style="text-align: center;">
+<input type="checkbox"
+${task.selected ? 'checked' : ''}
+onchange="toggleTask(${machineIndex}, ${taskIndex})">
+</td>
+<td><strong>${escapeHtml(task.machine)}</strong></td>
+<td>${escapeHtml(task.itemNo)}</td>
+<td>${escapeHtml(task.description)}</td>
+<td><strong>${escapeHtml(task.powerState)}</strong></td>
+<td>${escapeHtml(task.dueDate)}</td>
+<td>
+<span class="editable-time" onclick="editTime(${machineIndex}, ${taskIndex}, this)">
+${displayTime}
+</span>
+</td>
+<td style="text-align: center;">
+<input type="checkbox"
+${task.person1 ? 'checked' : ''}
+onchange="togglePerson(${machineIndex}, ${taskIndex}, 1)">
+</td>
+<td style="text-align: center;">
+<input type="checkbox"
+${task.person2 ? 'checked' : ''}
+onchange="togglePerson(${machineIndex}, ${taskIndex}, 2)">
+</td>
+<td style="text-align: center;">
+<input type="checkbox"
+${task.person3 ? 'checked' : ''}
+onchange="togglePerson(${machineIndex}, ${taskIndex}, 3)">
+</td>
+`;
+tbody.appendChild(tr);
+});
+});
+
+document.getElementById('totalsBox').style.display = 'block';
+}
+
+function editTime(machineIndex, taskIndex, element) {
+const task = dailyMachines[machineIndex].tasks[taskIndex];
+const currentTime = task.customTime !== null ? task.customTime : task.estTime;
+
+const input = document.createElement('input');
+input.type = 'number';
+input.className = 'time-edit-input';
+input.value = currentTime;
+input.min = '0';
+input.step = '0.5';
+
+input.onblur = function() {
+const newValue = parseFloat(this.value) || task.estTime;
+task.customTime = newValue !== task.estTime ? newValue : null;
+displayDailyTasks();
+updateTotals();
+calculateTimeline();
+};
+
+input.onkeydown = function(e) {
+if (e.key === 'Enter') {
+this.blur();
+}
+};
+
+element.textContent = '';
+element.appendChild(input);
+input.focus();
+input.select();
+}
+
+function toggleTask(machineIndex, taskIndex) {
+dailyMachines[machineIndex].tasks[taskIndex].selected =
+!dailyMachines[machineIndex].tasks[taskIndex].selected;
+displayDailyTasks();
+updateTotals();
+calculateTimeline();
+}
+
+function togglePerson(machineIndex, taskIndex, personNum) {
+const task = dailyMachines[machineIndex].tasks[taskIndex];
+task[`person${personNum}`] = !task[`person${personNum}`];
+displayDailyTasks();
+updateTotals();
+calculateTimeline();
+}
+
+function selectAllTasks() {
+dailyMachines.forEach(machine => {
+machine.tasks.forEach(task => task.selected = true);
+});
+displayDailyTasks();
+updateTotals();
+calculateTimeline();
+}
+
+function deselectAllTasks() {
+dailyMachines.forEach(machine => {
+machine.tasks.forEach(task => task.selected = false);
+});
+displayDailyTasks();
+updateTotals();
+calculateTimeline();
+}
+
+function updateTotals() {
+const totalsContent = document.getElementById('totalsContent');
+
+let person1Total = 0, person2Total = 0, person3Total = 0;
+
+dailyMachines.forEach(machine => {
+machine.tasks.filter(t => t.selected).forEach(task => {
+const time = task.customTime !== null ? task.customTime : task.estTime;
+if (task.person1) person1Total += time;
+if (task.person2) person2Total += time;
+if (task.person3) person3Total += time;
+});
+});
+
+let html = '<div class="person-totals">';
+html += `<div class="person-total-box person-1-box">Person 1<br>${person1Total} min (${(person1Total/60).toFixed(2)} hrs)</div>`;
+html += `<div class="person-total-box person-2-box">Person 2<br>${person2Total} min (${(person2Total/60).toFixed(2)} hrs)</div>`;
+html += `<div class="person-total-box person-3-box">Person 3<br>${person3Total} min (${(person3Total/60).toFixed(2)} hrs)</div>`;
+html += '</div>';
+
+html += '<table style="width: 100%; border: none; margin-top: 20px;">';
+html += '<tr><th style="background: transparent; color: #856404;">Machine</th>';
+html += '<th style="background: transparent; color: #856404; text-align: right;">Total</th>';
+html += '<th style="background: transparent; color: #856404; text-align: right;">Selected</th>';
+html += '<th style="background: transparent; color: #856404; text-align: right;">Due Today</th>';
+html += '<th style="background: transparent; color: #856404; text-align: right;">Working Ahead</th></tr>';
+
+let grandTotal = 0;
+let selectedTotal = 0;
+let todayTotal = 0;
+let aheadTotal = 0;
+
+dailyMachines.forEach(machine => {
+const machineTotal = machine.tasks.reduce((sum, task) => {
+const time = task.customTime !== null ? task.customTime : task.estTime;
+return sum + time;
+}, 0);
+
+const machineSelected = machine.tasks.filter(t => t.selected).reduce((sum, task) => {
+const time = task.customTime !== null ? task.customTime : task.estTime;
+return sum + time;
+}, 0);
+
+const machineToday = machine.tasks.filter(t => t.selected && t.normalizedDueDate === currentDateString)
+.reduce((sum, task) => {
+const time = task.customTime !== null ? task.customTime : task.estTime;
+return sum + time;
+}, 0);
+
+const machineAhead = machine.tasks.filter(t => t.selected && t.normalizedDueDate && t.normalizedDueDate !== currentDateString)
+.reduce((sum, task) => {
+const time = task.customTime !== null ? task.customTime : task.estTime;
+return sum + time;
+}, 0);
+
+grandTotal += machineTotal;
+selectedTotal += machineSelected;
+todayTotal += machineToday;
+aheadTotal += machineAhead;
+
+html += `<tr style="border: none;">
+<td style="border: none; padding: 5px;"><strong>${machine.machine}</strong></td>
+<td style="border: none; padding: 5px; text-align: right;">${machineTotal.toFixed(1)} min</td>
+<td style="border: none; padding: 5px; text-align: right; font-weight: bold;">${machineSelected.toFixed(1)} min</td>
+<td style="border: none; padding: 5px; text-align: right; color: #28a745;">${machineToday.toFixed(1)} min</td>
+<td style="border: none; padding: 5px; text-align: right; color: #ffc107;">${machineAhead.toFixed(1)} min</td>
+</tr>`;
+});
+
+html += `<tr style="border-top: 2px solid #ffc107;">
+<td style="padding: 10px;"><strong>TOTAL</strong></td>
+<td style="padding: 10px; text-align: right;"><strong>${grandTotal.toFixed(1)} min</strong></td>
+<td style="padding: 10px; text-align: right; font-weight: bold;">${selectedTotal.toFixed(1)} min (${(selectedTotal/60).toFixed(2)} hrs)</td>
+<td style="padding: 10px; text-align: right; font-weight: bold; color: #28a745;">${todayTotal.toFixed(1)} min (${(todayTotal/60).toFixed(2)} hrs)</td>
+<td style="padding: 10px; text-align: right; font-weight: bold; color: #ffc107;">${aheadTotal.toFixed(1)} min (${(aheadTotal/60).toFixed(2)} hrs)</td>
+</tr></table>`;
+
+totalsContent.innerHTML = html;
+  // real-time mirror into the weekly worksheet Actual Time column
+syncWorksheetActualTimes(false);
+}
+
+function clearDailyData() {
+if (dailyMachines.length > 0 && !confirm('Clear all machines?')) return;
+
+dailyMachines = [];
+breaks = [];
+reactiveCalls = [];
+machineLotoTimes = {};
+displayDailyTasks();
+document.getElementById('dailyStatus').textContent = '';
+document.getElementById('machineCount').textContent = '';
+document.getElementById('dailyHtmlInput').value = '';
+document.getElementById('selectAllBtn').disabled = true;
+document.getElementById('deselectAllBtn').disabled = true;
+document.getElementById('dailyCsvBtn').disabled = true;
+document.getElementById('dailyExcelBtn').disabled = true;
+document.getElementById('reportBtn').disabled = true;
+document.getElementById('histBtn').disabled = true;
+document.getElementById('timelineSection').style.display = 'none';
+  // clear worksheet auto-fill since there are no daily machines left 
+syncWorksheetActualTimes(false);
+}
+
+// ==================== MACHINE TIMING FUNCTIONS ====================
+
+function renderMachineTimingInputs() {
+const container = document.getElementById('machineTimingContent');
+container.innerHTML = '';
+
+dailyMachines.forEach(machine => {
+const div = document.createElement('div');
+div.className = 'machine-timing-item';
+div.innerHTML = `
+<label><strong>${machine.machine}</strong> LOTO Complete Time:</label>
+<input type="time" id="loto_${machine.machineId}"
+value="${machineLotoTimes[machine.machineId] || ''}"
+onchange="updateMachineLotoTime('${machine.machineId}', this.value)">
+`;
+container.appendChild(div);
+});
+}
+
+function updateMachineLotoTime(machineId, time) {
+machineLotoTimes[machineId] = time;
+calculateTimeline();
+}
+
+// ==================== TIMELINE FUNCTIONS ====================
+
+function addBreak() {
+const id = Date.now();
+breaks.push({ id, startTime: '', duration: 0 });
+renderInterruptions();
+}
+
+function addReactiveCall() {
+const id = Date.now();
+reactiveCalls.push({ id, startTime: '', duration: 0, description: '' });
+renderInterruptions();
+}
+
+function removeBreak(id) {
+breaks = breaks.filter(b => b.id !== id);
+renderInterruptions();
+calculateTimeline();
+}
+
+function removeReactiveCall(id) {
+reactiveCalls = reactiveCalls.filter(r => r.id !== id);
+renderInterruptions();
+calculateTimeline();
+}
+
+function renderInterruptions() {
+const breaksList = document.getElementById('breaksList');
+breaksList.innerHTML = '';
+breaks.forEach(b => {
+const div = document.createElement('div');
+div.className = 'interruption-item break';
+div.innerHTML = `
+<div>
+<label>Start: <input type="time" value="${b.startTime}"
+onchange="breaks.find(x=>x.id===${b.id}).startTime=this.value; calculateTimeline();"></label>
+<label>Duration (min): <input type="number" value="${b.duration}" min="0"
+onchange="breaks.find(x=>x.id===${b.id}).duration=parseInt(this.value)||0; calculateTimeline();" style="width: 80px;"></label>
+</div>
+<button onclick="removeBreak(${b.id})">Remove</button>
+`;
+breaksList.appendChild(div);
+});
+
+const reactiveList = document.getElementById('reactiveCallsList');
+reactiveList.innerHTML = '';
+reactiveCalls.forEach(r => {
+const div = document.createElement('div');
+div.className = 'interruption-item reactive';
+div.innerHTML = `
+<div>
+<label>Start: <input type="time" value="${r.startTime}"
+onchange="reactiveCalls.find(x=>x.id===${r.id}).startTime=this.value; calculateTimeline();"></label>
+<label>Duration (min): <input type="number" value="${r.duration}" min="0"
+onchange="reactiveCalls.find(x=>x.id===${r.id}).duration=parseInt(this.value)||0; calculateTimeline();" style="width: 80px;"></label>
+<label>Note: <input type="text" value="${r.description}"
+onchange="reactiveCalls.find(x=>x.id===${r.id}).description=this.value;"
+placeholder="Optional" style="width: 150px;"></label>
+</div>
+<button onclick="removeReactiveCall(${r.id})">Remove</button>
+`;
+reactiveList.appendChild(div);
+});
+}
+
+function calculateTimeline() {
+if (dailyMachines.length === 0) return;
+
+const workStartTime = document.getElementById('workStartTime').value;
+if (!workStartTime) {
+document.getElementById('finishTimeDisplay').textContent = 'Overall Finish Time: Set work start time';
+return;
+}
+
+const machineResults = [];
+
+dailyMachines.forEach(machine => {
+const lotoCompleteTime = machineLotoTimes[machine.machineId];
+if (!lotoCompleteTime) return;
+
+const selectedTasks = machine.tasks.filter(t => t.selected);
+
+const powerOffTasks = selectedTasks.filter(t => t.powerState === 'Power Off');
+const powerOnTasks = selectedTasks.filter(t => t.powerState === 'Power On');
+
+let person1PowerOffTime = 0, person2PowerOffTime = 0, person3PowerOffTime = 0;
+
+powerOffTasks.forEach(task => {
+const time = task.customTime !== null ? task.customTime : task.estTime;
+if (task.person1) person1PowerOffTime += time;
+if (task.person2) person2PowerOffTime += time;
+if (task.person3) person3PowerOffTime += time;
+});
+
+const maxPowerOffTime = Math.max(person1PowerOffTime, person2PowerOffTime, person3PowerOffTime);
+const powerOffCompleteTime = addMinutesToTime(lotoCompleteTime, maxPowerOffTime);
+
+let powerOnTotalTime = 0;
+powerOnTasks.forEach(task => {
+const time = task.customTime !== null ? task.customTime : task.estTime;
+powerOnTotalTime += time;
+});
+
+const powerOnCompleteTime = addMinutesToTime(powerOffCompleteTime, powerOnTotalTime);
+
+machineResults.push({
+machine: machine.machine,
+machineId: machine.machineId,
+lotoComplete: lotoCompleteTime,
+powerOffComplete: powerOffCompleteTime,
+powerOnComplete: powerOnCompleteTime,
+person1PowerOff: person1PowerOffTime,
+person2PowerOff: person2PowerOffTime,
+person3PowerOff: person3PowerOffTime,
+powerOnTotal: powerOnTotalTime
+});
+});
+
+let overallFinish = workStartTime;
+machineResults.forEach(result => {
+if (timeToMinutes(result.powerOnComplete) > timeToMinutes(overallFinish)) {
+overallFinish = result.powerOnComplete;
+}
+});
+
+const summaryDiv = document.getElementById('machinesSummary');
+summaryDiv.innerHTML = '<h4>Machine Timelines:</h4>';
+machineResults.forEach(result => {
+summaryDiv.innerHTML += `
+<div class="machine-summary">
+<strong>${result.machine}</strong><br>
+LOTO Complete: ${result.lotoComplete} |
+Power-Off Complete: ${result.powerOffComplete} |
+Power-On Complete: ${result.powerOnComplete}<br>
+<small>
+P1: ${result.person1PowerOff}min |
+P2: ${result.person2PowerOff}min |
+P3: ${result.person3PowerOff}min |
+Power-On: ${result.powerOnTotal}min
+</small>
+</div>
+`;
+});
+
+document.getElementById('finishTimeDisplay').innerHTML =
+`Overall Finish Time: <span style="font-size: 32px;">${overallFinish}</span>`;
+
+renderTimelineVisual(workStartTime, overallFinish, machineResults);
+}
+
+function renderTimelineVisual(startTime, finishTime, machineResults) {
+const visual = document.getElementById('timelineVisual');
+visual.innerHTML = '<h4>Visual Timeline:</h4>';
+
+machineResults.forEach(result => {
+const bar = document.createElement('div');
+bar.innerHTML = `<strong style="margin-bottom: 5px; display: block;">${result.machine}</strong>`;
+
+const timelineBar = document.createElement('div');
+timelineBar.className = 'timeline-bar';
+
+const totalMinutes = timeToMinutes(result.powerOnComplete) - timeToMinutes(startTime);
+let currentOffset = 0;
+
+const lotoMinutes = timeToMinutes(result.lotoComplete) - timeToMinutes(startTime);
+if (lotoMinutes > 0) {
+const width = (lotoMinutes / totalMinutes) * 100;
+const segment = document.createElement('div');
+segment.className = 'timeline-segment loto';
+segment.style.left = currentOffset + '%';
+segment.style.width = width + '%';
+segment.textContent = `LOTO (${lotoMinutes}m)`;
+timelineBar.appendChild(segment);
+currentOffset += width;
+}
+
+const powerOffStart = timeToMinutes(result.lotoComplete) - timeToMinutes(startTime);
+const powerOffEnd = timeToMinutes(result.powerOffComplete) - timeToMinutes(startTime);
+const powerOffDuration = powerOffEnd - powerOffStart;
+
+if (powerOffDuration > 0) {
+const width = (powerOffDuration / totalMinutes) * 100;
+const baseOffset = currentOffset;
+
+if (result.person1PowerOff > 0) {
+const segment = document.createElement('div');
+segment.className = 'timeline-segment power-off-p1';
+segment.style.left = baseOffset + '%';
+segment.style.width = width + '%';
+segment.style.opacity = '0.7';
+segment.textContent = `P1 (${result.person1PowerOff}m)`;
+timelineBar.appendChild(segment);
+}
+if (result.person2PowerOff > 0) {
+const segment = document.createElement('div');
+segment.className = 'timeline-segment power-off-p2';
+segment.style.left = baseOffset + '%';
+segment.style.width = width + '%';
+segment.style.opacity = '0.7';
+segment.style.top = '20px';
+segment.textContent = `P2 (${result.person2PowerOff}m)`;
+timelineBar.appendChild(segment);
+}
+if (result.person3PowerOff > 0) {
+const segment = document.createElement('div');
+segment.className = 'timeline-segment power-off-p3';
+segment.style.left = baseOffset + '%';
+segment.style.width = width + '%';
+segment.style.opacity = '0.7';
+segment.style.top = '40px';
+segment.textContent = `P3 (${result.person3PowerOff}m)`;
+timelineBar.appendChild(segment);
+}
+
+currentOffset += width;
+}
+
+if (result.powerOnTotal > 0) {
+const width = (result.powerOnTotal / totalMinutes) * 100;
+const segment = document.createElement('div');
+segment.className = 'timeline-segment power-on';
+segment.style.left = currentOffset + '%';
+segment.style.width = width + '%';
+segment.textContent = `Power-On (${result.powerOnTotal}m)`;
+timelineBar.appendChild(segment);
+}
+
+bar.appendChild(timelineBar);
+visual.appendChild(bar);
+});
+}
+
+function timeToMinutes(time) {
+const [hours, minutes] = time.split(':').map(Number);
+return hours * 60 + minutes;
+}
+
+function addMinutesToTime(time, minutes) {
+let totalMinutes = timeToMinutes(time) + minutes;
+const hours = Math.floor(totalMinutes / 60) % 24;
+const mins = totalMinutes % 60;
+return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+}
+
+// ==================== EXPORT FUNCTIONS ====================
+
+function exportWeeklyToCSV() {
+const headers = ['Number', 'Acronym', 'Class Code', 'Equip No', 'Due Date', 'PM Description', 'Description', 'Estimated Time (hrs)', 'Actual Time (hrs)'];
+const csvContent = [
+headers.join(','),
+...weeklyParsedData.map(row => [
+`"${row.number}"`, `"${row.acronym}"`, `"${row.classCode}"`,
+`"${row.equipNo}"`, `"${row.dueDate}"`, `"${(row.pmDescription || '').replace(/"/g, '""')}"`,
+`"${(row.description || '').replace(/"/g, '""')}"`,
+`"${row.estimatedTime}"`,
+`"${row.actualTime !== null && row.actualTime !== undefined ? row.actualTime : ''}"`
+].join(','))
+].join('\n');
+
+// Append totals as a final row
+const totalEst = weeklyParsedData.reduce((s, r) => s + (parseFloat(r.estimatedTime) || 0), 0);
+const totalAct = weeklyParsedData.reduce((s, r) => s + (r.actualTime || 0), 0);
+const totalsRow = `"TOTAL","","","","","","","${totalEst.toFixed(2)}","${totalAct.toFixed(2)}"`;
+const finalCsv = csvContent + '\n' + totalsRow;
+
+downloadFile(finalCsv, `weekly_${currentDateString}.csv`, 'text/csv');
+}
+
+async function exportWeeklyToExcel() {
+const headers = ['Number', 'Acronym', 'Class Code', 'Equip No', 'Due Date', 'PM Description', 'Description', 'Estimated Time (hrs)', 'Actual Time (hrs)'];
+let tsvContent = [
+headers.join('\t'),
+...weeklyParsedData.map(row => [
+row.number, row.acronym, row.classCode, row.equipNo,
+row.dueDate,
+(row.pmDescription || '').replace(/\t/g, ' '),
+(row.description || '').replace(/\t/g, ' '),
+row.estimatedTime,
+(row.actualTime !== null && row.actualTime !== undefined ? row.actualTime : '')
+].join('\t'))
+].join('\n');
+
+const totalEst = weeklyParsedData.reduce((s, r) => s + (parseFloat(r.estimatedTime) || 0), 0);
+const totalAct = weeklyParsedData.reduce((s, r) => s + (r.actualTime || 0), 0);
+tsvContent += '\n' + ['TOTAL', '', '', '', '', '', '', totalEst.toFixed(2), totalAct.toFixed(2)].join('\t');
+
+try {
+await navigator.clipboard.writeText(tsvContent);
+showStatus('weeklyStatus', 'Copied to clipboard!', 'success');
+} catch (err) {
+showStatus('weeklyStatus', 'Copy failed: ' + err.message, 'error');
+}
+}
+
+function exportDailyToCSV() {
+const selectedTasks = [];
+dailyMachines.forEach(machine => {
+machine.tasks.filter(t => t.selected).forEach(task => selectedTasks.push(task));
+});
+
+const headers = ['Machine', 'Item No', 'Task', 'Power State', 'Due Date', 'Time (min)', 'Person 1', 'Person 2', 'Person 3'];
+const csvContent = [
+headers.join(','),
+...selectedTasks.map(t => {
+const time = t.customTime !== null ? t.customTime : t.estTime;
+return [
+`"${t.machine}"`, `"${t.itemNo}"`, `"${t.description}"`,
+`"${t.powerState}"`, `"${t.dueDate}"`, time,
+t.person1 ? 'Yes' : 'No',
+t.person2 ? 'Yes' : 'No',
+t.person3 ? 'Yes' : 'No'
+].join(',');
+})
+].join('\n');
+
+downloadFile(csvContent, `daily_tasks_${currentDateString}.csv`, 'text/csv');
+}
+
+async function exportDailyToExcel() {
+let content = '';
+
+content += 'MACHINE SUMMARIES\n';
+content += 'Machine\tLOTO Start\tLOTO Complete\tPower-Off Complete\tPower-On Complete\tP1 Total (min)\tP2 Total (min)\tP3 Total (min)\n';
+
+const workStartTime = document.getElementById('workStartTime').value || 'Not Set';
+
+dailyMachines.forEach(machine => {
+const lotoComplete = machineLotoTimes[machine.machineId] || 'Not Set';
+const selectedTasks = machine.tasks.filter(t => t.selected);
+
+const powerOffTasks = selectedTasks.filter(t => t.powerState === 'Power Off');
+const powerOnTasks = selectedTasks.filter(t => t.powerState === 'Power On');
+
+let p1PowerOff = 0, p2PowerOff = 0, p3PowerOff = 0;
+powerOffTasks.forEach(task => {
+const time = task.customTime !== null ? task.customTime : task.estTime;
+if (task.person1) p1PowerOff += time;
+if (task.person2) p2PowerOff += time;
+if (task.person3) p3PowerOff += time;
+});
+
+const maxPowerOff = Math.max(p1PowerOff, p2PowerOff, p3PowerOff);
+const powerOffComplete = lotoComplete !== 'Not Set' ? addMinutesToTime(lotoComplete, maxPowerOff) : 'Not Set';
+
+let powerOnTotal = 0;
+powerOnTasks.forEach(task => {
+const time = task.customTime !== null ? task.customTime : task.estTime;
+powerOnTotal += time;
+});
+
+const powerOnComplete = powerOffComplete !== 'Not Set' ? addMinutesToTime(powerOffComplete, powerOnTotal) : 'Not Set';
+
+let p1Total = p1PowerOff, p2Total = p2PowerOff, p3Total = p3PowerOff;
+powerOnTasks.forEach(task => {
+const time = task.customTime !== null ? task.customTime : task.estTime;
+if (task.person1) p1Total += time;
+if (task.person2) p2Total += time;
+if (task.person3) p3Total += time;
+});
+
+content += `${machine.machine}\t${workStartTime}\t${lotoComplete}\t${powerOffComplete}\t${powerOnComplete}\t${p1Total}\t${p2Total}\t${p3Total}\n`;
+});
+
+content += '\n\nTASK DETAILS\n';
+content += 'Machine\tItem No\tTask\tPower State\tDue Date\tTime (min)\tPerson 1\tPerson 2\tPerson 3\n';
+
+dailyMachines.forEach(machine => {
+machine.tasks.filter(t => t.selected).forEach(task => {
+const time = task.customTime !== null ? task.customTime : task.estTime;
+content += `${task.machine}\t${task.itemNo}\t${task.description}\t${task.powerState}\t${task.dueDate}\t${time}\t`;
+content += `${task.person1 ? 'Yes' : 'No'}\t${task.person2 ? 'Yes' : 'No'}\t${task.person3 ? 'Yes' : 'No'}\n`;
+});
+});
+
+try {
+await navigator.clipboard.writeText(content);
+showStatus('dailyStatus', 'Copied to clipboard! Paste into Excel.', 'success');
+} catch (err) {
+showStatus('dailyStatus', 'Copy failed: ' + err.message, 'error');
+}
+}
+
+// ==================== REPORT GENERATION ====================
+
+function generateReport() {
+if (dailyMachines.length === 0) {
+alert('No machine tasks to report.');
+return;
+}
+
+const workStart = document.getElementById('workStartTime').value || 'Not set';
+const finishDisplay = document.getElementById('finishTimeDisplay');
+let finishTime = 'Not calculated';
+if (finishDisplay && !finishDisplay.textContent.includes('--:--')) {
+const span = finishDisplay.querySelector('span');
+if (span) finishTime = span.textContent;
+else finishTime = finishDisplay.textContent.replace('Overall Finish Time:', '').trim();
+}
+
+let html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Daily Work Report</title>
+<style>
+body { font-family: Arial, sans-serif; margin: 30px; color: #333; }
+h1 { color: #003366; text-align: center; }
+h2 { color: #003366; border-bottom: 2px solid #003366; padding-bottom: 5px; margin-top: 30px; }
+h3 { color: #28a745; }
+table { width: 100%; border-collapse: collapse; margin: 15px 0; table-layout: fixed; }
+th { background-color: #003366; color: white; padding: 8px; text-align: left; }
+td, th { padding: 6px 10px; border: 1px solid #ddd; word-wrap: break-word; overflow-wrap: break-word; vertical-align: top; }
+tr:nth-child(even) { background-color: #f9f9f9; }
+.summary-box { background-color: #e7f3ff; padding: 15px; border-left: 4px solid #003366; margin: 15px 0; }
+.footer { text-align: center; margin-top: 30px; font-size: 12px; color: #666; }
+.print-btn { background-color: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin: 10px; }
+.close-btn { background-color: #dc3545; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-size: 16px; margin: 10px; }
+@media print { .no-print { display: none; } }
+</style>
+</head>
+<body>
+<div class="no-print" style="text-align:right; margin-bottom:20px;">
+<button class="print-btn" onclick="window.print()">🖨️ Print</button>
+<button class="close-btn" onclick="window.close()">✖ Close</button>
+</div>
+<h1>Daily Work Report</h1>
+<p><strong>Date:</strong> ${currentDateString}</p>
+<p><strong>Work Start:</strong> ${workStart} &nbsp;|&nbsp; <strong>Overall Finish:</strong> ${finishTime}</p>
+`;
+
+// ---- Section 1: Weekly Assignment Worksheet ----
+html += `<h2>📅 Weekly Assignment Worksheet (${currentDateString})</h2>`;
+if (weeklyParsedData.length === 0) {
+html += `<p><em>No weekly worksheet data parsed.</em></p>`;
+} else {
+html += `<table>
+<colgroup>
+<col style="width: 6%"><col style="width: 6%"><col style="width: 6%"><col style="width: 6%">
+<col style="width: 8%"><col style="width: 24%"><col style="width: 24%">
+<col style="width: 8%"><col style="width: 12%">
+</colgroup>
+<thead><tr>
+<th>Number</th><th>Acronym</th><th>Class Code</th><th>Equip No</th><th>Due Date</th><th>PM Description</th><th>Description</th><th>Est. (hrs)</th><th>Actual (hrs)</th>
+</tr></thead><tbody>`;
+let totalEst = 0, totalAct = 0;
+weeklyParsedData.forEach(row => {
+const est = parseFloat(row.estimatedTime) || 0;
+const act = row.actualTime || 0;
+totalEst += est;
+totalAct += act;
+html += `<tr>
+<td>${escapeHtml(row.number)}</td>
+<td>${escapeHtml(row.acronym)}</td>
+<td>${escapeHtml(row.classCode)}</td>
+<td>${escapeHtml(row.equipNo)}</td>
+<td>${escapeHtml(row.dueDate)}</td>
+<td>${escapeHtml(row.pmDescription)}</td>
+<td>${escapeHtml(row.description)}</td>
+<td style="text-align:center;">${escapeHtml(row.estimatedTime)}</td>
+<td style="text-align:center;">${row.actualTime !== null && row.actualTime !== undefined ? row.actualTime : ''}</td>
+</tr>`;
+});
+html += `<tr style="background-color: #003366; color: white; font-weight: bold;">
+<td colspan="7" style="text-align:right;">TOTALS</td>
+<td style="text-align:center;">${totalEst.toFixed(2)}</td>
+<td style="text-align:center;">${totalAct.toFixed(2)}</td>
+</tr>`;
+html += `</tbody></table>`;
+}
+
+// ---- Section 2: Person 1 Assigned Tasks ----
+html += `<h2>👤 Person 1 Assigned Tasks</h2>`;
+
+let allSelected = [];
+dailyMachines.forEach(machine => {
+machine.tasks.filter(t => t.selected).forEach(task => allSelected.push(task));
+});
+
+let person1Tasks = allSelected.filter(t => t.person1);
+
+if (person1Tasks.length === 0) {
+html += `<p><em>No tasks assigned to Person 1.</em></p>`;
+} else {
+const grouped = {};
+person1Tasks.forEach(task => {
+if (!grouped[task.machine]) grouped[task.machine] = [];
+grouped[task.machine].push(task);
+});
+
+html += `<table>
+<thead><tr>
+<th>Machine</th><th>Item No</th><th>Task Description</th><th>Power State</th><th>Due Date</th><th>Time (min)</th>
+</tr></thead><tbody>`;
+
+let grandTotalMin = 0;
+for (const [machine, tasks] of Object.entries(grouped)) {
+let machineTotal = 0;
+tasks.forEach(task => {
+const time = task.customTime !== null ? task.customTime : task.estTime;
+machineTotal += time;
+html += `<tr>
+<td>${escapeHtml(task.machine)}</td>
+<td>${escapeHtml(task.itemNo)}</td>
+<td>${escapeHtml(task.description)}</td>
+<td>${escapeHtml(task.powerState)}</td>
+<td>${escapeHtml(task.dueDate)}</td>
+<td style="text-align:center;">${time}</td>
+</tr>`;
+});
+grandTotalMin += machineTotal;
+html += `<tr style="background-color: #e3f2fd; font-weight: bold;">
+<td colspan="5" style="text-align:right;">Subtotal for ${escapeHtml(machine)}</td>
+<td style="text-align:center;">${machineTotal} min (${(machineTotal/60).toFixed(2)} hrs)</td>
+</tr>`;
+}
+
+html += `<tr style="background-color: #003366; color: white; font-weight: bold;">
+<td colspan="5" style="text-align:right;">TOTAL Person 1 Time</td>
+<td style="text-align:center;">${grandTotalMin} min (${(grandTotalMin/60).toFixed(2)} hrs)</td>
+</tr>`;
+html += `</tbody></table>`;
+}
+
+// ---- Section 3: Breaks ----
+html += `<h2>☕ Breaks</h2>`;
+if (breaks.length === 0) {
+html += `<p><em>No breaks recorded.</em></p>`;
+} else {
+html += `<table><thead><tr><th>Start Time</th><th>Duration (min)</th></tr></thead><tbody>`;
+breaks.forEach(b => {
+html += `<tr><td>${b.startTime || 'Not set'}</td><td>${b.duration}</td></tr>`;
+});
+html += `</tbody></table>`;
+}
+
+// ---- Section 4: Reactive Calls ----
+html += `<h2>📞 Reactive Calls</h2>`;
+if (reactiveCalls.length === 0) {
+html += `<p><em>No reactive calls recorded.</em></p>`;
+} else {
+html += `<table><thead><tr><th>Start Time</th><th>Duration (min)</th><th>Description</th></tr></thead><tbody>`;
+reactiveCalls.forEach(r => {
+html += `<tr><td>${r.startTime || 'Not set'}</td><td>${r.duration}</td><td>${escapeHtml(r.description) || '-'}</td></tr>`;
+});
+html += `</tbody></table>`;
+}
+
+html += `
+<div class="footer">Report generated on ${new Date().toLocaleString()}</div>
+</body>
+</html>`;
+
+const reportWindow = window.open('', '_blank', 'width=1000,height=800,scrollbars=yes');
+if (!reportWindow) {
+alert('Please allow popups for this site to view the report.');
+return;
+}
+reportWindow.document.write(html);
+reportWindow.document.close();
+}
+
+// ==================== UTILITY FUNCTIONS ====================
+
+function showStatus(elementId, message, type) {
+const statusDiv = document.getElementById(elementId);
+statusDiv.textContent = message;
+statusDiv.className = `status ${type}`;
+}
+
+function escapeHtml(text) {
+if (!text) return '';
+const div = document.createElement('div');
+div.textContent = text;
+return div.innerHTML;
+}
+
+function downloadFile(content, filename, mimeType) {
+const blob = new Blob([content], { type: mimeType });
+const url = URL.createObjectURL(blob);
+const a = document.createElement('a');
+a.href = url;
+a.download = filename;
+document.body.appendChild(a);
+a.click();
+document.body.removeChild(a);
+URL.revokeObjectURL(url);
+}
+</script>
+	<!-- ============ Historian client (v2) ============ -->
+	<script>
+		(function(){
+		  const EV_KEY  = 'historian_events_v1';
+		  const REG_KEY = 'historian_registry_v1';
+		  const VALID_ACRONYMS = ['DBCS','DIOSS','CIOSS'];
+
+		  const uid  = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+		  const norm = s => (s || '').replace(/\s+/g,' ').trim();
+
+		  function readAll(){
+			try { const r = localStorage.getItem(EV_KEY); return r ? JSON.parse(r) : []; }
+			catch(e){ return []; }
+		  }
+		  function writeAll(arr){
+			try { localStorage.setItem(EV_KEY, JSON.stringify(arr)); return true; }
+			catch(e){ alert('Historian storage error: ' + e.message); return false; }
+		  }
+		  function readReg(){
+			try { const r = localStorage.getItem(REG_KEY); return r ? JSON.parse(r) : {}; }
+			catch(e){ return {}; }
+		  }
+		  function writeReg(r){
+			try { localStorage.setItem(REG_KEY, JSON.stringify(r)); return true; }
+			catch(e){ return false; }
+		  }
+
+		  function parseMachineId(raw){
+			if (!raw) return null;
+			const m = String(raw).trim().match(/^([A-Za-z]+)[\s\-_]*0*(\d+)$/);
+			if (!m) return null;
+			return { acronym: m[1].toUpperCase(), mno: String(parseInt(m[2],10)) };
+		  }
+		  function canonicalId(acronym, mno){ return `${acronym} ${mno}`; }
+
+		  window.historianGetRegistry     = readReg;
+		  window.historianSaveRegistry    = writeReg;
+		  window.historianParseMachineId  = parseMachineId;
+		  window.historianCanonicalId     = canonicalId;
+
+		  window.historianRegisterMno = function(mno, acronym){
+			const reg = readReg();
+			reg[String(parseInt(mno,10))] = acronym.toUpperCase();
+			writeReg(reg);
+		  };
+
+		  window.historianPromptForMnOs = function(unknownMnos){
+			return new Promise((resolve) => {
+			  const ov = document.createElement('div');
+			  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99998;'+
+				'display:flex;align-items:center;justify-content:center;font:13px/1.5 system-ui,sans-serif;';
+			  const box = document.createElement('div');
+			  box.style.cssText = 'background:#fff;border-radius:12px;padding:20px 24px;max-width:520px;width:92%;'+
+				'box-shadow:0 12px 40px rgba(0,0,0,.3);max-height:85vh;overflow:auto;';
+
+			  let rowsHtml = '';
+			  unknownMnos.forEach(m => {
+				rowsHtml += `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #eef2f6;">
+				  <div style="font-weight:700;min-width:70px;color:#0b3d91;">MNO ${m}</div>
+				  <select data-mno="${m}" style="flex:1;padding:6px 10px;border:1px solid #b9c8dc;border-radius:6px;font:13px inherit;">
+					<option value="">— skip this machine —</option>
+					${VALID_ACRONYMS.map(a=>`<option value="${a}">${a}</option>`).join('')}
+				  </select>
+				</div>`;
+			  });
+
+			  box.innerHTML = `
+				<h3 style="margin:0 0 6px;color:#0b3d91;font-size:16px;">Assign machine types</h3>
+				<p style="margin:0 0 14px;color:#5b6b80;font-size:12.5px;">
+				  These MNOs aren't in the registry yet. Pick the acronym for each.
+				  Anything left as “skip” won't be saved this time.
+				</p>
+				<div>${rowsHtml}</div>
+				<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+				  <button id="__hCancel" style="background:#fff;color:#0b3d91;border:1px solid #b9c8dc;border-radius:6px;padding:7px 16px;font:600 13px inherit;cursor:pointer;">Cancel</button>
+				  <button id="__hOK" style="background:#0b3d91;color:#fff;border:0;border-radius:6px;padding:7px 18px;font:600 13px inherit;cursor:pointer;">Save assignments</button>
+				</div>`;
+			  ov.appendChild(box);
+			  document.body.appendChild(ov);
+
+			  ov.querySelector('#__hCancel').onclick = () => { document.body.removeChild(ov); resolve({}); };
+			  ov.querySelector('#__hOK').onclick = () => {
+				const out = {};
+				box.querySelectorAll('select[data-mno]').forEach(sel => {
+				  if (sel.value) out[sel.dataset.mno] = sel.value;
+				});
+				document.body.removeChild(ov);
+				resolve(out);
+			  };
+			});
+		  };
+
+		  window.historianSave = function(ev){
+			ev.id = ev.id || uid();
+			ev.capturedAt = new Date().toISOString();
+
+			if (ev.payload && ev.payload.rawMno){
+			  const mno = String(parseInt(ev.payload.rawMno, 10));
+			  const reg = readReg();
+			  const acronym = reg[mno] || ev.payload.acronymHint || null;
+			  if (acronym){
+				ev.machineId = canonicalId(acronym, mno);
+				ev.machineResolved = true;
+			  } else {
+				ev.machineId = 'MNO ' + mno;
+				ev.machineResolved = false;
+			  }
+			}
+			else if (ev.machineId){
+			  const p = parseMachineId(ev.machineId);
+			  if (p){
+				ev.machineId = canonicalId(p.acronym, p.mno);
+				const reg = readReg();
+				if (!reg[p.mno]) { reg[p.mno] = p.acronym; writeReg(reg); }
+				ev.machineResolved = true;
+			  }
+			}
+
+			ev.detId = [ev.source||'', ev.machineId||'', ev.eventTime||'', ev.kind||'', norm(ev.summary||'')].join('|');
+
+			const all = readAll();
+			const i = all.findIndex(x => (x.detId||x.id) === ev.detId);
+			if (i >= 0){
+			  all[i] = Object.assign({}, all[i], ev);
+			  writeAll(all);
+			  return { action:'updated', total: all.length, machineId: ev.machineId };
+			}
+			all.push(ev);
+			writeAll(all);
+			return { action:'added', total: all.length, machineId: ev.machineId };
+		  };
+
+		  window.historianOpen = function(){ window.open('historian.html','historian'); };
+
+		  window.historianToast = function(msg, ok){
+			let el = document.getElementById('__histToast');
+			if (!el){
+			  el = document.createElement('div');
+			  el.id = '__histToast';
+			  el.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99999;'+
+				'padding:10px 16px;border-radius:8px;font:600 13px/1.4 system-ui,sans-serif;'+
+				'padding:10px 16px;border-radius:8px;font:600 13px/1.4 system-ui,sans-serif;'+
+				'box-shadow:0 4px 14px rgba(0,0,0,.2);color:#fff;transition:opacity .3s;';
+			  document.body.appendChild(el);
+			}
+			el.style.background = ok === false ? '#b3261e' : '#1b5e20';
+			el.textContent = msg;
+			el.style.opacity = '1';
+			clearTimeout(el._t);
+			el._t = setTimeout(() => { el.style.opacity = '0'; }, 2600);
+		  };
+		})();
+		/* ============================================================
+		   Job Log — Reactive Calls + Work Orders
+		   ============================================================ */
+			const JOBS_KEY = 'work_tracking_jobs_v1';
+			let jobs = [];
+
+			const jobUid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+			const jobEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+			function loadJobs(){
+			  try { jobs = JSON.parse(localStorage.getItem(JOBS_KEY) || '[]'); } catch(e){ jobs = []; }
+			  if (!Array.isArray(jobs)) jobs = [];
+			}
+			function saveJobs(){ try { localStorage.setItem(JOBS_KEY, JSON.stringify(jobs)); } catch(e){} }
+			function getJob(id){ return jobs.find(x => x.id === id); }
+
+			function addJob(kind){
+			  const j = {
+				id: jobUid(),
+				kind,
+				machineId: '',
+				startTime: '',
+				endTime: '',
+				hoursOverride: null,
+				description: '',
+				workOrderNo: '',
+				parts: [],
+				createdAt: new Date().toISOString(),
+				sentToHistorian: false,
+				sentAt: null
+			  };
+			  jobs.push(j);
+			  saveJobs();
+			  renderJobs();
+			  refreshRegistryBanner();
+			  const el = document.querySelector(`[data-job-id="${j.id}"] .job-machine`);
+			  if (el) el.focus();
+			}
+			function deleteJob(id){
+			  const j = getJob(id); if (!j) return;
+			  if (!confirm(`Delete this ${j.kind === 'reactive' ? 'reactive call' : 'work order'}?`)) return;
+			  jobs = jobs.filter(x => x.id !== id);
+			  saveJobs(); renderJobs(); refreshRegistryBanner();
+			}
+
+			function setNow(btn){
+			  const id = btn.closest('[data-job-id]').dataset.jobId;
+			  const field = btn.dataset.field;
+			  const j = getJob(id); if (!j) return;
+			  const now = new Date();
+			  const hh = String(now.getHours()).padStart(2,'0');
+			  const mm = String(now.getMinutes()).padStart(2,'0');
+			  j[field === 'start' ? 'startTime' : 'endTime'] = `${hh}:${mm}`;
+			  if (field === 'end' && j.hoursOverride != null) j.hoursOverride = null;
+			  saveJobs(); renderJobs();
+			}
+			function calcHours(start, end){
+			  if (!start || !end) return null;
+			  const [sh,sm] = start.split(':').map(Number);
+			  const [eh,em] = end.split(':').map(Number);
+			  let mins = (eh*60 + em) - (sh*60 + sm);
+			  if (mins < 0) mins += 24*60;
+			  return Math.round(mins / 60 * 100) / 100;
+			}
+			function jobHours(j){
+			  if (j.hoursOverride != null) return j.hoursOverride;
+			  return calcHours(j.startTime, j.endTime);
+			}
+
+			function updateJob(id, field, value){
+			  const j = getJob(id); if (!j) return;
+			  j[field] = value;
+			  saveJobs();
+			  if (field === 'startTime' || field === 'endTime'){
+				const hoursEl = document.querySelector(`[data-job-id="${id}"] .job-hours`);
+				const h = jobHours(j);
+				if (hoursEl && h != null) hoursEl.value = h.toFixed(2);
+			  }
+			  if (field === 'machineId') refreshRegistryBanner();
+			  updateJobValidation(id);
+			}
+			function updatePart(id, idx, field, value){
+			  const j = getJob(id); if (!j || !j.parts[idx]) return;
+			  j.parts[idx][field] = value;
+			  saveJobs(); updateJobValidation(id);
+			}
+			function addPart(id){
+			  const j = getJob(id); if (!j) return;
+			  j.parts.push({ name:'', nsn:'', oem:'' });
+			  saveJobs(); renderJobs();
+			}
+			function removePart(id, idx){
+			  const j = getJob(id); if (!j) return;
+			  j.parts.splice(idx, 1);
+			  saveJobs(); renderJobs();
+			}
+
+			function normalizeMachineInput(input, id){
+			  const j = getJob(id); if (!j) return;
+			  const p = historianParseMachineId(input.value);
+			  if (p){
+				const canonical = historianCanonicalId(p.acronym, p.mno);
+				input.value = canonical;
+				j.machineId = canonical;
+				saveJobs(); renderJobs();
+			  }
+			}
+
+			function validateJob(j){
+			  const issues = [];
+			  const p = historianParseMachineId(j.machineId);
+			  if (!p) issues.push('Machine ID must look like "DBCS 49"');
+			  if (!j.startTime) issues.push('Start time required');
+			  if (!j.endTime)   issues.push('End time required');
+			  const h = jobHours(j);
+			  if (h != null && h <= 0) issues.push('End time must be after start time');
+
+			  const needsDetail = (h != null && h > 0.5) || (j.parts && j.parts.length > 0);
+			  if (needsDetail){
+				if (!j.description || !j.description.trim())
+				  issues.push('Description required (>30 min or parts used)');
+				if (!j.workOrderNo || !j.workOrderNo.trim())
+				  issues.push('Work order number required (>30 min or parts used)');
+				if (j.parts && j.parts.length){
+				  j.parts.forEach((pt, i) => {
+					if (!pt.name && !pt.nsn && !pt.oem)
+					  issues.push(`Part ${i+1}: needs at least one of name / NSN / OEM`);
+				  });
+				}
+			  }
+			  return issues;
+			}
+			function updateJobValidation(id){
+			  const j = getJob(id); if (!j) return;
+			  const card = document.querySelector(`[data-job-id="${id}"]`); if (!card) return;
+			  const msg = card.querySelector('.validation-msg');
+			  const sendBtn = card.querySelector('.job-send');
+			  const issues = validateJob(j);
+			  if (issues.length){
+				msg.textContent = '⚠ ' + issues[0];
+				msg.className = 'validation-msg warn';
+				if (sendBtn) sendBtn.disabled = true;
+			  } else {
+				msg.textContent = '✓ Ready to send';
+				msg.className = 'validation-msg ok';
+				if (sendBtn) sendBtn.disabled = false;
+			  }
+			}
+
+			function renderJobs(){
+			  const list = document.getElementById('jobLogList');
+			  if (!jobs.length){
+				list.innerHTML = '<div style="padding:24px;text-align:center;color:#94a3b8;font-style:italic;">No reactive calls or work orders logged yet.</div>';
+				return;
+			  }
+			  list.innerHTML = jobs.map(renderJobCard).join('');
+			  jobs.forEach(j => updateJobValidation(j.id));
+			}
+
+			function renderJobCard(j){
+			  const p = historianParseMachineId(j.machineId);
+			  const canonical = p ? historianCanonicalId(p.acronym, p.mno) : '';
+			  const reg = historianGetRegistry();
+			  let regWarning = '';
+			  if (p && reg[p.mno] && reg[p.mno] !== p.acronym){
+				regWarning = `<div class="reg-warn">⚠ Registry says MNO ${jobEsc(p.mno)} is ${jobEsc(reg[p.mno])}. Fix the ID or resolve on send.</div>`;
+			  }
+			  const hours = jobHours(j);
+			  const hoursDisplay = hours != null ? hours.toFixed(2) : '';
+
+			  const partsHtml = (j.parts || []).map((pt, idx) => `
+				<div class="part-row">
+				  <input type="text" placeholder="Part name"  value="${jobEsc(pt.name)}" oninput="updatePart('${j.id}', ${idx}, 'name', this.value)">
+				  <input type="text" placeholder="NSN"         value="${jobEsc(pt.nsn)}"  oninput="updatePart('${j.id}', ${idx}, 'nsn', this.value)">
+				  <input type="text" placeholder="OEM"         value="${jobEsc(pt.oem)}"  oninput="updatePart('${j.id}', ${idx}, 'oem', this.value)">
+				  <button class="btn-x" onclick="removePart('${j.id}', ${idx})" title="Remove part">×</button>
+				</div>`).join('');
+
+			  return `
+			  <div class="job-card ${j.kind}" data-job-id="${j.id}">
+				<div class="job-header">
+				  <span class="job-kind ${j.kind}">${j.kind === 'reactive' ? 'REACTIVE CALL' : 'WORK ORDER'}</span>
+				  ${j.sentToHistorian ? '<span class="job-status sent">✓ Sent</span>' : '<span class="job-status draft">DRAFT</span>'}
+				  <div class="spacer"></div>
+				  <button class="btn-x" onclick="deleteJob('${j.id}')" title="Delete">×</button>
+				</div>
+
+				<div class="job-field">
+				  <label>Machine ID</label>
+				  <input type="text" class="job-machine" placeholder="e.g. DBCS 49" value="${jobEsc(j.machineId)}"
+						 oninput="updateJob('${j.id}', 'machineId', this.value)"
+						 onblur="normalizeMachineInput(this, '${j.id}')">
+				  ${canonical ? `<span class="machine-canonical">→ ${jobEsc(canonical)}</span>` : ''}
+				  ${regWarning}
+				</div>
+
+				<div class="job-time-row">
+				  <div class="job-field compact">
+					<label>Start</label>
+					<div class="time-with-btn">
+					  <input type="time" value="${jobEsc(j.startTime)}" oninput="updateJob('${j.id}', 'startTime', this.value)">
+					  <button class="btn-now" data-field="start" onclick="setNow(this)">Now</button>
+					</div>
+				  </div>
+				  <div class="job-field compact">
+					<label>End</label>
+					<div class="time-with-btn">
+					  <input type="time" value="${jobEsc(j.endTime)}" oninput="updateJob('${j.id}', 'endTime', this.value)">
+					  <button class="btn-now" data-field="end" onclick="setNow(this)">Now</button>
+					</div>
+				  </div>
+				  <div class="job-field compact">
+					<label>Hours</label>
+					<input type="number" step="0.01" class="job-hours" value="${hoursDisplay}" placeholder="—"
+						   oninput="updateJob('${j.id}', 'hoursOverride', this.value === '' ? null : parseFloat(this.value))">
+				  </div>
+				</div>
+
+				<div class="job-field">
+				  <label>Description <span class="cond-hint">required if &gt;30 min or parts used</span></label>
+				  <textarea rows="2" oninput="updateJob('${j.id}', 'description', this.value)">${jobEsc(j.description)}</textarea>
+				</div>
+
+				<div class="job-field">
+				  <label>Work Order # <span class="cond-hint">required if &gt;30 min or parts used — can be added after the fact</span></label>
+				  <input type="text" value="${jobEsc(j.workOrderNo)}" placeholder="e.g. 613-27"
+						 oninput="updateJob('${j.id}', 'workOrderNo', this.value)">
+				</div>
+
+				<div class="job-field">
+				  <label>Parts Used</label>
+				  <div class="parts-list">${partsHtml}</div>
+				  <button class="btn-add-part" onclick="addPart('${j.id}')">+ Add Part</button>
+				</div>
+
+				<div class="job-footer">
+				  <span class="validation-msg"></span>
+				  <div class="spacer"></div>
+				  <button class="btn-save" onclick="saveJobs(); historianToast('Saved.', true)">💾 Save</button>
+				  <button class="btn-send job-send" onclick="sendJobToHistorian('${j.id}')">📤 Send to Historian</button>
+				</div>
+			  </div>`;
+			}
+
+			function refreshRegistryBanner(){
+			  const banner = document.getElementById('regBanner');
+			  const reg = historianGetRegistry();
+			  const unknowns = new Set();
+			  jobs.forEach(j => {
+				const p = historianParseMachineId(j.machineId);
+				if (p && !reg[p.mno]) unknowns.add(p.mno);
+			  });
+			  if (!unknowns.size){ banner.style.display = 'none'; return; }
+			  banner.style.display = 'flex';
+			  banner.innerHTML = `
+				<span>⚠ ${unknowns.size} unregistered machine${unknowns.size===1?'':'s'}: MNO ${[...unknowns].join(', ')}</span>
+				<button onclick="registerAllNow()">Register now</button>`;
+			}
+			async function registerAllNow(){
+			  const reg = historianGetRegistry();
+			  const unknowns = new Set();
+			  jobs.forEach(j => {
+				const p = historianParseMachineId(j.machineId);
+				if (p && !reg[p.mno]) unknowns.add(p.mno);
+			  });
+			  if (!unknowns.size) return;
+			  const assigned = await historianPromptForMnOs([...unknowns]);
+			  Object.entries(assigned).forEach(([m,a]) => historianRegisterMno(m, a));
+			  renderJobs();
+			  refreshRegistryBanner();
+			}
+
+			async function sendJobToHistorian(id){
+			  const j = getJob(id); if (!j) return;
+			  const issues = validateJob(j);
+			  if (issues.length){ alert('Cannot send yet:\n- ' + issues.join('\n- ')); return; }
+
+			  const p = historianParseMachineId(j.machineId);
+			  if (!p){ alert('Machine ID must look like "DBCS 49".'); return; }
+
+			  const reg = historianGetRegistry();
+			  let finalAcronym = p.acronym;
+
+			  if (!reg[p.mno]){
+				const assigned = await historianPromptForMnOs([p.mno]);
+				if (!assigned[p.mno]){ historianToast('Skipped — machine not registered.', false); return; }
+				historianRegisterMno(p.mno, assigned[p.mno]);
+				finalAcronym = assigned[p.mno];
+			  } else if (reg[p.mno] !== p.acronym){
+				const ok = confirm(
+				  `Registry says MNO ${p.mno} is "${reg[p.mno]}", but this job says "${p.acronym}".\n\n` +
+				  `OK = trust the registry and use "${reg[p.mno]}"\n` +
+				  `Cancel = update the registry to "${p.acronym}"`
+				);
+				if (ok){ finalAcronym = reg[p.mno]; }
+				else { historianRegisterMno(p.mno, p.acronym); finalAcronym = p.acronym; }
+			  }
+
+			  doSendJob(j, { acronym: finalAcronym, mno: p.mno });
+			  refreshRegistryBanner();
+			}
+
+			function doSendJob(j, p){
+			  const canonical = historianCanonicalId(p.acronym, p.mno);
+			  const h = jobHours(j);
+			  const woLabel = j.workOrderNo ? ` · WO ${j.workOrderNo}` : '';
+			  const label = j.kind === 'reactive' ? 'Reactive call' : 'Work order';
+
+			  const partsLines = (j.parts || []).map((pt, i) => {
+				const bits = [];
+				if (pt.name) bits.push(`name: ${pt.name}`);
+				if (pt.nsn)  bits.push(`NSN: ${pt.nsn}`);
+				if (pt.oem)  bits.push(`OEM: ${pt.oem}`);
+				return `  • Part ${i+1}: ${bits.join(' | ')}`;
+			  }).join('\n');
+
+			  const detailParts = [];
+			  detailParts.push(`Window: ${j.startTime} → ${j.endTime} (${h.toFixed(2)}h)`);
+			  if (j.description) detailParts.push(j.description);
+			  if (j.workOrderNo) detailParts.push(`WO#: ${j.workOrderNo}`);
+			  if (j.parts && j.parts.length) detailParts.push(`Parts used:\n${partsLines}`);
+
+			  const now = new Date();
+			  const [sh, sm] = j.startTime.split(':').map(Number);
+			  const evt = new Date(now.getFullYear(), now.getMonth(), now.getDate(), sh, sm);
+
+			  const res = historianSave({
+				source: 'work_tracking',
+				eventTime: evt.toISOString(),
+				machineId: canonical,
+				tech: (document.getElementById('jobTech')?.value || '').trim(),
+				category: j.kind === 'reactive' ? 'reactive' : 'workorder',
+				kind: j.kind === 'reactive' ? 'reactive.call' : 'workorder.standalone',
+				status: 'info',
+				summary: `${label} — ${canonical} · ${h.toFixed(2)}h${woLabel}`,
+				detail: detailParts.join('\n'),
+				payload: {
+				  job: JSON.parse(JSON.stringify(j)),
+				  acronym: p.acronym,
+				  mno: p.mno,
+				  hours: h,
+				  workOrderNo: j.workOrderNo || null,
+				  parts: j.parts || []
+				}
+			  });
+
+			  j.sentToHistorian = true;
+			  j.sentAt = new Date().toISOString();
+			  saveJobs(); renderJobs();
+			  historianToast(`Historian ${res.action} — ${canonical} (${res.total} total).`, true);
+			}
+
+			function sendAllJobsToHistorian(){
+			  const ready = jobs.filter(j => !j.sentToHistorian && validateJob(j).length === 0);
+			  if (!ready.length){ historianToast('No ready-to-send jobs.', false); return; }
+			  if (!confirm(`Send ${ready.length} job${ready.length===1?'':'s'} to historian?`)) return;
+			  ready.forEach(j => sendJobToHistorian(j.id));
+			}
+
+			loadJobs();
+			renderJobs();
+			refreshRegistryBanner();
+	</script>
+<script>
+function sendToHistorian() {
+  const tech = (document.getElementById('techName')?.value || '').trim();
+  const eventTime = new Date().toISOString();
+  let sent = 0;
+
+  // Weekly worksheet tasks that have an actual time entered
+  if (Array.isArray(weeklyParsedData) && weeklyParsedData.length) {
+    const rows = weeklyParsedData.filter(r => r.actualTime !== null && r.actualTime !== undefined && r.actualTime !== '');
+    if (rows.length) {
+      const detail = rows.map(r => {
+        const est = parseFloat(r.estimatedTime) || 0;
+        const act = parseFloat(r.actualTime) || 0;
+        const d = act - est;
+        return `  • ${r.number} ${r.acronym}-${r.classCode} eq ${r.equipNo} | est ${est}h → actual ${act}h (${d>=0?'+':''}${d.toFixed(2)}h)`;
+      }).join('\n');
+      const totalEst = rows.reduce((s,r)=>s+(parseFloat(r.estimatedTime)||0),0);
+      const totalAct = rows.reduce((s,r)=>s+(parseFloat(r.actualTime)||0),0);
+      const res = historianSave({
+        source: 'work_tracking',
+        eventTime,
+        machineId: 'WORKSHEET',
+        tech,
+        category: 'task',
+        kind: 'weekly.worksheet',
+        status: 'info',
+        summary: `Weekly worksheet — ${rows.length} tasks, est ${totalEst.toFixed(2)}h vs actual ${totalAct.toFixed(2)}h`,
+        detail,
+        payload: { rows }
+      });
+      sent++;
+    }
+  }
+
+  // Daily tasks (per machine)
+  if (Array.isArray(dailyMachines) && dailyMachines.length) {
+    dailyMachines.forEach(m => {
+      const selected = m.tasks.filter(t => t.selected);
+      if (!selected.length) return;
+      const totalMin = selected.reduce((s,t)=> s + (t.customTime != null ? t.customTime : t.estTime), 0);
+      const assigned = selected.filter(t => t.person1 || t.person2 || t.person3).length;
+      const detail = selected.map(t => {
+        const time = t.customTime != null ? t.customTime : t.estTime;
+        const who = [t.person1?'P1':'', t.person2?'P2':'', t.person3?'P3':''].filter(Boolean).join(',');
+        return `  • ${t.itemNo} ${t.powerState} ${time}min ${who ? '('+who+')' : ''} — ${t.description}`;
+      }).join('\n');
+
+      const res = historianSave({
+        source: 'work_tracking',
+        eventTime,
+        machineId: m.machine,
+        tech,
+        category: 'task',
+        kind: 'daily.tasks',
+        status: 'info',
+        summary: `Daily tasks — ${selected.length} selected, ${totalMin} min (${(totalMin/60).toFixed(2)}h), ${assigned} assigned`,
+        detail,
+        payload: { tasks: selected }
+      });
+      sent++;
+    });
+  }
+
+  if (!sent) { historianToast('Nothing to send yet.', false); return; }
+  historianToast(`Sent ${sent} historian event${sent===1?'':'s'}.`, true);
+}
+</script>
+</body>
+</html>

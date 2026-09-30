@@ -1,0 +1,1340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Belt Tension Log – MS-229 Vol B Sec 6.2</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+            background: #f1f5f9;
+            margin: 1.5rem;
+            color: #0f172a;
+        }
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.6rem 1rem;
+            align-items: center;
+            margin-bottom: 1.2rem;
+            background: white;
+            padding: 0.8rem 1.2rem;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .toolbar h1 {
+            font-size: 1.3rem;
+            margin: 0;
+            margin-right: 0.4rem;
+            color: #0f172a;
+        }
+        .toolbar .sub {
+            color: #475569;
+            font-size: 0.85rem;
+            margin-right: 0.5rem;
+        }
+        .dbcs-group {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            background: #f1f5f9;
+            padding: 0.2rem 0.6rem;
+            border-radius: 6px;
+        }
+        .dbcs-group label {
+            font-weight: 500;
+            font-size: 0.8rem;
+        }
+        .dbcs-group input {
+            width: 60px;
+            padding: 0.2rem 0.3rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            text-align: center;
+        }
+        .btn {
+            background: #e2e8f0;
+            border: none;
+            padding: 0.4rem 1rem;
+            border-radius: 6px;
+            font-weight: 500;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: background 0.15s, transform 0.05s;
+            color: #1e293b;
+            border: 1px solid #cbd5e1;
+        }
+        .btn:hover { background: #cbd5e1; }
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+            border-color: #2563eb;
+        }
+        .btn-primary:hover { background: #1d4ed8; }
+        .btn-success {
+            background: #16a34a;
+            color: white;
+            border-color: #16a34a;
+        }
+        .btn-success:hover { background: #15803d; }
+        .btn-warning {
+            background: #f59e0b;
+            color: #1e293b;
+            border-color: #f59e0b;
+        }
+        .btn-warning:hover { background: #d97706; color: white; }
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+            border-color: #ef4444;
+        }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-ghost {
+            background: transparent;
+            border: 1px dashed #94a3b8;
+            color: #475569;
+        }
+        .btn-ghost:hover { background: #f1f5f9; }
+        .file-input-hidden { display: none; }
+        .stacker-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+            background: #f8fafc;
+            padding: 0.6rem 1rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            border: 1px solid #e2e8f0;
+        }
+        .stacker-controls label {
+            font-weight: 500;
+            font-size: 0.85rem;
+        }
+        .stacker-controls select,
+        .stacker-controls input {
+            padding: 0.3rem 0.6rem;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            font-size: 0.85rem;
+        }
+
+        /* ---------- Figure reference callout ---------- */
+        .fig-callout {
+            background: #eef2ff;
+            border: 1px solid #c7d2fe;
+            border-left: 4px solid #4f46e5;
+            padding: 0.7rem 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-size: 0.82rem;
+            color: #1e1b4b;
+        }
+        .fig-callout strong { color: #312e81; }
+        .fig-callout .fig-item {
+            display: inline-block;
+            background: white;
+            border: 1px solid #c7d2fe;
+            border-radius: 4px;
+            padding: 0.05rem 0.4rem;
+            margin: 0.1rem 0.15rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+            color: #4338ca;
+        }
+
+        /* ---------- Module header (hidden by default, auto-fades) ---------- */
+        .module-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            background: #eef2f6;
+            padding: 0.4rem 1rem;
+            border-radius: 8px;
+            margin-top: 0.5rem;
+            font-weight: 600;
+            font-size: 0.9rem;
+            overflow: hidden;
+            max-height: 60px;
+            opacity: 1;
+            transition: opacity 0.8s ease, max-height 0.8s ease,
+                        padding 0.8s ease, margin 0.8s ease;
+        }
+        .module-header.module-hidden {
+            opacity: 0;
+            max-height: 0;
+            padding-top: 0;
+            padding-bottom: 0;
+            margin-top: 0;
+            margin-bottom: 0;
+            pointer-events: none;
+        }
+        .module-header .remove-module {
+            margin-left: auto;
+            padding: 0.1rem 0.5rem;
+            font-size: 0.7rem;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            background: white;
+            border-radius: 14px;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+            padding: 0.5px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.72rem;
+            min-width: 1500px;
+            background: white;
+        }
+        th {
+            background: #1e293b;
+            color: #f8fafc;
+            font-weight: 600;
+            padding: 0.45rem 0.35rem;
+            text-align: left;
+            white-space: nowrap;
+            position: sticky;
+            top: 0;
+            z-index: 5;
+        }
+        td {
+            padding: 0.3rem 0.35rem;
+            border-bottom: 1px solid #e9edf2;
+            vertical-align: middle;
+        }
+        tr:hover td { background: #f8fafc; }
+        .location {
+            font-weight: 500;
+            color: #0f172a;
+            white-space: nowrap;
+        }
+        .part {
+            font-family: 'Courier New', monospace;
+            font-size: 0.68rem;
+            color: #1e293b;
+            white-space: nowrap;
+        }
+        .ref {
+            font-size: 0.68rem;
+            color: #2563eb;
+            white-space: nowrap;
+        }
+        .figref {
+            font-size: 0.68rem;
+            color: #7c3aed;
+            white-space: normal;
+            min-width: 180px;
+            line-height: 1.25;
+        }
+        .spec {
+            font-weight: 600;
+            color: #b45309;
+            white-space: nowrap;
+        }
+        .nsn-cell {
+            background: #f9fafb;
+            border: 1px dashed #d1d5db;
+            border-radius: 4px;
+            padding: 0.1rem 0.3rem;
+            min-width: 80px;
+            display: inline-block;
+            width: 100%;
+        }
+        .nsn-cell:focus {
+            outline: 2px solid #2563eb;
+            background: white;
+            border-color: transparent;
+        }
+        .input-tension {
+            width: 50px;
+            padding: 0.12rem 0.18rem;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 0.68rem;
+            background: white;
+            text-align: center;
+        }
+        .input-tension:focus {
+            outline: 2px solid #2563eb;
+            border-color: transparent;
+        }
+        .input-date {
+            width: 82px;
+            padding: 0.12rem 0.18rem;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 0.68rem;
+            background: white;
+        }
+        .input-date:focus {
+            outline: 2px solid #2563eb;
+            border-color: transparent;
+        }
+        .note {
+            margin-top: 1rem;
+            background: #fef9c3;
+            padding: 0.6rem 1rem;
+            border-radius: 8px;
+            border-left: 4px solid #eab308;
+            font-size: 0.8rem;
+            color: #1e293b;
+        }
+        .note strong { color: #0f172a; }
+
+        @media print {
+            body {
+                background: white;
+                margin: 0.3in 0.2in;
+                padding: 0;
+            }
+            .toolbar, .stacker-controls, .module-header, .fig-callout { display: none !important; }
+            .note { display: none !important; }
+            .table-wrapper { box-shadow: none; border-radius: 0; padding: 0; }
+            table {
+                font-size: 0.5rem;
+                min-width: auto;
+                width: 100%;
+                border: 1px solid #aaa;
+            }
+            th {
+                background: #333 !important;
+                color: white !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+                padding: 0.12rem 0.12rem;
+            }
+            td {
+                padding: 0.08rem 0.12rem;
+                border-bottom: 1px solid #ccc;
+                word-break: break-word;
+            }
+            .input-tension, .input-date {
+                border: 1px solid #888;
+                background: #f9f9f9 !important;
+                width: 38px;
+                font-size: 0.5rem;
+                padding: 0.03rem 0.06rem;
+            }
+            .input-date { width: 58px; }
+            .nsn-cell {
+                border: 1px solid #888;
+                background: #f9f9f9 !important;
+                padding: 0.03rem 0.12rem;
+                min-width: 50px;
+            }
+            .part, .ref, .figref, .spec, .location { font-size: 0.5rem; }
+            .figref { min-width: 120px; }
+            tr:hover td { background: transparent !important; }
+            @page { size: letter landscape; margin: 0.2in 0.15in; }
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="toolbar">
+    <h1>📋 Belt Log</h1>
+    <span class="sub">MS-229 Vol B §6.2</span>
+    <div class="dbcs-group">
+        <label for="dbcsInput">DBCS</label>
+        <input type="text" id="dbcsInput" value="49" placeholder="e.g. 49">
+    </div>
+    <button class="btn btn-primary" onclick="saveToLocalStorage()">💾 Save Changes</button>
+    <button class="btn btn-success" onclick="exportCSV()">⬇ Export CSV</button>
+    <button class="btn btn-warning" onclick="document.getElementById('fileInput').click()">⬆ Import CSV</button>
+    <input type="file" id="fileInput" class="file-input-hidden" accept=".csv" onchange="importCSV(event)">
+    <button class="btn btn-ghost" onclick="showModuleHeaders()" title="Show stacker module headers for 10 seconds">⚙ Modules</button>
+    <button class="btn btn-success" onclick="sendToHistorian()">📤 Send to Historian</button>
+    <button class="btn" onclick="window.print()">🖨 Print</button>
+    <button class="btn" onclick="if(confirm('Reset all data to defaults for this DBCS?')){resetData();}" style="background:#fee2e2;border-color:#fca5a5;">↺ Reset</button>
+</div>
+
+<!-- General reference figures that apply to every belt -->
+<div class="fig-callout">
+    <strong>📐 General reference figures (apply to all belts):</strong><br>
+    <span class="fig-item">Fig. 6-57</span> Belt/Diverter Gate Clearance
+    <span class="fig-item">Fig. 6-58</span> Belt Tensioning Devices
+    <span class="fig-item">Fig. 6-63</span> Belt Tracking Devices
+    <span class="fig-item">Fig. 6-64</span> Idler Roller w/ 1° Sloped Spacer
+    <span class="fig-item">Fig. 6-65</span> Sloped Spacer Adjustment
+    <span class="fig-item">Fig. 6-66</span> Pivot Roller Adjustment
+    <span class="fig-item">Fig. 6-67</span> Roller Guide Adjustment
+</div>
+
+<div class="stacker-controls">
+    <label>Add Stacker Module:</label>
+    <select id="stackerPositionSelect">
+        <option value="First">First</option>
+        <option value="Mid">Mid</option>
+        <option value="End">End</option>
+    </select>
+    <button class="btn btn-primary" onclick="addStackerModule()">➕ Add Module</button>
+    <span style="margin-left:auto;font-size:0.8rem;color:#475569;">Max 19 modules</span>
+</div>
+
+<div id="moduleContainer"></div>
+
+<div class="table-wrapper">
+    <table id="beltTable">
+        <thead>
+            <tr>
+                <th>Location</th>
+                <th>Belt Description</th>
+                <th>Part Number</th>
+                <th>NSN <span style="font-weight:400;font-size:0.6rem;">(editable)</span></th>
+                <th>Ref §</th>
+                <th>Figure(s)</th>
+                <th>Spec (lbs)</th>
+                <th>Date Checked</th>
+                <th>Found (lbs)</th>
+                <th>Adjusted To (lbs)</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+    </table>
+</div>
+
+<div class="note">
+    <strong>💡 Reference:</strong> MS-229 Volume B, Section 6.2, Belt Tension and Tracking.<br>
+    <strong>Notes:</strong> (1) DBCS Phase 2/3 stacker drive belts use different part numbers than Phase 4/5.
+    (2) Pickoff belts are a set of six; tension is measured in grams (700–900 g with 5 mm deflection).
+    (3) Auger belt, timing belt, and pocket belts have no tension specification listed in Section 6.2.
+    (4) Click <strong>⚙ Modules</strong> in the toolbar to briefly reveal the stacker module headers if you need to remove a module.
+</div>
+
+<script>
+    // ============================================================
+    //  MASTER BELT LIST — every unique belt in MS-229 Vol B §6.2
+    //  with the specific figures cited in the procedures.
+    // ============================================================
+
+    const defaultNonStacker = [
+
+        // ---------- Feeder Module ----------
+        {
+            loc: 'Feeder Module',
+            desc: 'Feeder Flat Belt (2BL1)',
+            part: '34.1532.152-54',
+            nsn: 'Not listed',
+            ref: '6.2.3.1',
+            figs: 'Fig. 6-68 (Feeder and Transport Module Flat Belt Adjustment Locations)',
+            spec: '15-25',
+            date: '2026-09-07', found: '', adj: ''
+        },
+        {
+            loc: 'Feeder Module',
+            desc: 'Feeder Flat Belt (BL2)',
+            part: '320.853331',
+            nsn: 'Not listed',
+            ref: '6.2.3.2',
+            figs: 'Fig. 6-69 (Feeder Flat Belt BL2 Tension Adjustment); Fig. 6-68 (Adjustment Locations)',
+            spec: '15-25',
+            date: '2026-09-07', found: '', adj: ''
+        },
+        {
+            loc: 'Feeder Module',
+            desc: 'Bottom Transport Belt',
+            part: 'Not listed',
+            nsn: 'Not listed',
+            ref: '6.6.2',
+            figs: 'Fig. 6-103 (Bottom Transport Belt); Fig. 6-102 (Bottom Transport Chain Tension); Fig. 7-68 (Flat Belt Removal); Fig. 5-68 (Transport Blade)',
+            spec: 'Check tension',
+            date: '2026-09-07', found: '', adj: ''
+        },
+        {
+            loc: 'Feeder Module',
+            desc: 'Pickoff Belts (set of 6)',
+            part: 'Not listed',
+            nsn: 'Not listed',
+            ref: '6.6.4',
+            figs: 'Fig. 6-106 (Pickoff Belt Tensioner Types); Fig. 6-107 (Extended Shaft Tensioner Adj.); Fig. 6-109 (Measuring Tension); Fig. 6-110 (Belt Gauge on Pickoff Belt); Fig. 6-111 (Auto Tensioner Adj.); Fig. 7-80 (Lever Assembly and Pickoff Belt); Fig. 5-70 (Gauge Against Pickoff Belt)',
+            spec: '700-900 g',
+            date: '2026-09-07', found: '', adj: ''
+        },
+
+        // ---------- Transport Module ----------
+        {
+            loc: 'Transport Module',
+            desc: 'Transport Flat Belt (BL2)',
+            part: '34.1532.152-77',
+            nsn: 'Not listed',
+            ref: '6.2.4.1',
+            figs: 'Fig. 6-70 (Feeder and Transport Module Flat Belt Adjustment Locations); Fig. 6-73 (Transport Flat Belt BL2 Tracking Adjustment)',
+            spec: '15-25',
+            date: '2026-09-07', found: '', adj: ''
+        },
+        {
+            loc: 'Transport Module',
+            desc: 'Transport Flat Belt (BL3)',
+            part: '34.1532.190-50',
+            nsn: 'Not listed',
+            ref: '6.2.4.2',
+            figs: 'Fig. 6-71 (Transport Flat Belt BL3 Tension Adjustment)',
+            spec: '15-25',
+            date: '2026-09-07', found: '', adj: ''
+        },
+        {
+            loc: 'Transport Module',
+            desc: 'Transport Flat Belt (BL3)',
+            part: '320.856766',
+            nsn: 'Not listed',
+            ref: '6.2.4.3',
+            figs: 'Fig. 6-72 (Transport Flat Belt BL3 Tension Adjustment)',
+            spec: '15-25',
+            date: '2026-09-07', found: '', adj: ''
+        },
+
+        // ---------- Reader Module ----------
+        {
+            loc: 'Reader Module',
+            desc: 'Reader Drive Belt (BL13)',
+            part: '32.1555.119-54',
+            nsn: 'Not listed',
+            ref: '6.2.5.1',
+            figs: 'Fig. 6-74 (Reader Drive Belt BL13 Tension Adjustment)',
+            spec: '26-30',
+            date: '2026-09-07', found: '', adj: ''
+        },
+        {
+            loc: 'Reader Module',
+            desc: 'Reader Entry Flat Belt (4A9BL1)',
+            part: '32.1555.119-53',
+            nsn: 'Not listed',
+            ref: '6.2.5.2',
+            figs: 'Fig. 6-75 (Reader Entry Flat Belts 4A9BL1, 4A9BL2 Tension Adjustment); Fig. 6-77 (Roller Guide Adjustment); Fig. 6-78 (Fine Adjustment)',
+            spec: '15-25',
+            date: '2026-09-07', found: '', adj: ''
+        },
+        {
+            loc: 'Reader Module',
+            desc: 'Reader Entry Flat Belt (4A9BL2)',
+            part: '32.1555.119-54',
+            nsn: 'Not listed',
+            ref: '6.2.5.2',
+            figs: 'Fig. 6-75 (Reader Entry Flat Belts 4A9BL1, 4A9BL2 Tension Adjustment); Fig. 6-77 (Roller Guide Adjustment); Fig. 6-78 (Fine Adjustment)',
+            spec: '15-25',
+            date: '2026-09-07', found: '', adj: ''
+        },
+        {
+            loc: 'Reader Module',
+            desc: 'Lower Elevator Flat Belt (BL1)',
+            part: '32.1555.120-50',
+            nsn: 'Not listed',
+            ref: '6.2.5.3',
+            figs: 'Fig. 6-76 (Reader Lower BL1, BL2 & Upper Elevator BL3 Tension Adjustment); Fig. 6-77 (Roller Guide Adjustment); Fig. 6-78 (Fine Adjustment)',
+            spec: '15-25',
+            date: '2026-09-07', found: '', adj: ''
+        },
+        {
+            loc: 'Reader Module',
+            desc: 'Lower Elevator Flat Belt (BL2)',
+            part: '32.1555.120-51',
+            nsn: 'Not listed',
+            ref: '6.2.5.3',
+            figs: 'Fig. 6-76 (Reader Lower BL1, BL2 & Upper Elevator BL3 Tension Adjustment); Fig. 6-77 (Roller Guide Adjustment); Fig. 6-78 (Fine Adjustment)',
+            spec: '15-25',
+            date: '2026-09-07', found: '', adj: ''
+        },
+        {
+            loc: 'Reader Module',
+            desc: 'Upper Elevator Flat Belt (BL3)',
+            part: '32.1555.920-05',
+            nsn: 'Not listed',
+            ref: '6.2.5.3',
+            figs: 'Fig. 6-76 (Reader Lower BL1, BL2 & Upper Elevator BL3 Tension Adjustment); Fig. 6-79 (Reader Module Upper Elevator Belts BL3 & BL12 Tracking)',
+            spec: '15-25',
+            date: '2026-09-07', found: '', adj: ''
+        },
+        {
+            loc: 'Reader Module',
+            desc: 'Upper Elevator Flat Belt (BL3)',
+            part: '32.1555.958-50',
+            nsn: 'Not listed',
+            ref: '6.2.5.5',
+            figs: 'Fig. 6-79 (Reader Module Upper Elevator Belts BL3 & BL12 Tracking)',
+            spec: '15-25',
+            date: '2026-09-07', found: '', adj: ''
+        },
+        {
+            loc: 'Reader Module',
+            desc: 'Upper Elevator Flat Belt (BL12)',
+            part: '32.1555.920-05',
+            nsn: 'Not listed',
+            ref: '6.2.5.5',
+            figs: 'Fig. 6-79 (Reader Module Upper Elevator Belts BL3 & BL12 Tracking)',
+            spec: '15-25',
+            date: '2026-09-07', found: '', adj: ''
+        },
+        {
+            loc: 'Reader Module – Tier 1',
+            desc: 'Flat Belt (BL4)',
+            part: '32.1555.958-51',
+            nsn: 'Not listed',
+            ref: '6.2.5.6',
+            figs: 'Fig. 6-80 (Reader Module Tier 1 Flat Belt BL4 and BL5 Tension); Fig. 6-84 (Reader Module Tier 1 Flat Belt 4BL4 and 4BL5 Tracking)',
+            spec: '15-25',
+            date: '2026-09-07', found: '', adj: ''
+        },
+        {
+            loc: 'Reader Module – Tier 1',
+            desc: 'Flat Belt (BL5)',
+            part: '32.1555.958-52',
+            nsn: 'Not listed',
+            ref: '6.2.5.6',
+            figs: 'Fig. 6-80 (Reader Module Tier 1 Flat Belt BL4 and BL5 Tension); Fig. 6-84 (Reader Module Tier 1 Flat Belt 4BL4 and 4BL5 Tracking)',
+            spec: '15-25',
+            date: '2026-09-07', found: '', adj: ''
+        },
+        {
+            loc: 'Reader Module – Tier 2',
+            desc: 'Flat Belt (BL6)',
+            part: '32.1555.958-53',
+            nsn: 'Not listed',
+            ref: '6.2.5.7',
+            figs: 'Fig. 6-81 (Reader Module Tier 2 Flat Belt Tension); Fig. 6-85 (Reader Module Tier 2 Flat Belt BL6 and BL7 Tracking)',
+            spec: '15-25',
+            date: '2026-09-07', found: '', adj: ''
+        },
+        {
+            loc: 'Reader Module – Tier 2',
+            desc: 'Flat Belt (BL7)',
+            part: '32.1555.958-54',
+            nsn: 'Not listed',
+            ref: '6.2.5.7',
+            figs: 'Fig. 6-81 (Reader Module Tier 2 Flat Belt Tension); Fig. 6-85 (Reader Module Tier 2 Flat Belt BL6 and BL7 Tracking)',
+            spec: '15-25',
+            date: '2026-09-07', found: '', adj: ''
+        },
+        {
+            loc: 'Reader Module – Tier 3',
+            desc: 'Flat Belt (BL8)',
+            part: '32.1555.958-55',
+            nsn: 'Not listed',
+            ref: '6.2.5.8',
+            figs: 'Fig. 6-82 (Reader Module Tier 3 Flat Belt Tension); Fig. 6-86 (Reader Module Tier 3 Flat Belt BL8 and BL9 Tracking)',
+            spec: '15-25',
+            date: '2026-09-07', found: '', adj: ''
+        },
+        {
+            loc: 'Reader Module – Tier 3',
+            desc: 'Flat Belt (BL9)',
+            part: '32.1555.958-56',
+            nsn: 'Not listed',
+            ref: '6.2.5.8',
+            figs: 'Fig. 6-82 (Reader Module Tier 3 Flat Belt Tension); Fig. 6-86 (Reader Module Tier 3 Flat Belt BL8 and BL9 Tracking)',
+            spec: '15-25',
+            date: '2026-09-07', found: '', adj: ''
+        },
+        {
+            loc: 'Reader Module – Tier 4',
+            desc: 'Flat Belt (BL10)',
+            part: '32.1555.958-57',
+            nsn: 'Not listed',
+            ref: '6.2.5.9',
+            figs: 'Fig. 6-83 (Reader Module Tier 4 Flat Belt Tension); Fig. 6-87 (Reader Module Tier 4 Flat Belt BL10 and BL11 Tracking)',
+            spec: '15-25',
+            date: '2026-09-07', found: '', adj: ''
+        },
+        {
+            loc: 'Reader Module – Tier 4',
+            desc: 'Flat Belt (BL11)',
+            part: '32.1555.958-58',
+            nsn: 'Not listed',
+            ref: '6.2.5.9',
+            figs: 'Fig. 6-83 (Reader Module Tier 4 Flat Belt Tension); Fig. 6-87 (Reader Module Tier 4 Flat Belt BL10 and BL11 Tracking)',
+            spec: '15-25',
+            date: '2026-09-07', found: '', adj: ''
+        },
+
+        // ---------- Stacker transport belt (non-module specific) ----------
+        {
+            loc: 'Stacker Transport',
+            desc: 'Transport Belt (Phases 4-5)',
+            part: '32.1554.020-05',
+            nsn: 'Not listed',
+            ref: '6.2.6.3',
+            figs: 'Fig. 6-90 (Offset Roller Adjustment); Fig. 6-91 (Stacker Transport Belt Tension Adjustment); Fig. 6-92 (Stacker Transport Belt Tracking Adjustment); Fig. 6-93 (Belt/Diverter Gate Clearance); Fig. A-6 / Fig. A-8 (Transport Belts for adding stackers)',
+            spec: '15-25',
+            date: '2026-09-07', found: '', adj: ''
+        },
+        {
+            loc: 'Stacker Module',
+            desc: 'Auger Belt',
+            part: 'Not listed',
+            nsn: 'Not listed',
+            ref: '7.9.4',
+            figs: 'Fig. 7-153 (Auger Belt)',
+            spec: 'N/A',
+            date: '2026-09-07', found: '', adj: ''
+        },
+        {
+            loc: 'Stacker Module',
+            desc: 'Flat Gear Belt (Timing Belt)',
+            part: 'Not listed',
+            nsn: 'Not listed',
+            ref: '7.9.14',
+            figs: 'Fig. 7-166 (Flat Gear Belt / Timing Belt)',
+            spec: 'N/A',
+            date: '2026-09-07', found: '', adj: ''
+        },
+        {
+            loc: 'Stacker Module',
+            desc: 'Pocket Belt',
+            part: '320.854705',
+            nsn: 'Not listed',
+            ref: 'A.6',
+            figs: 'Fig. A-19 (Mid Tiers Stacker Belting); Fig. A-16 to A-20 (Stacker Belting)',
+            spec: 'N/A',
+            date: '2026-09-07', found: '', adj: ''
+        },
+        {
+            loc: 'Stacker Module',
+            desc: 'Pocket Belt',
+            part: '320.854706',
+            nsn: 'Not listed',
+            ref: 'A.6',
+            figs: 'Fig. A-19 (Mid Tiers Stacker Belting); Fig. A-16 to A-20 (Stacker Belting)',
+            spec: 'N/A',
+            date: '2026-09-07', found: '', adj: ''
+        }
+    ];
+
+    // Stacker drive belt part numbers, Phase 4/5 values used by default.
+    const stackerPartMap = {
+        'First': {
+            'Tier 1':    { p23: '32.1555.968-06', p45: '32.1554.968-06' },
+            'Tier 2&3':  { p23: '32.1555.968-05', p45: '32.1554.968-05' },
+            'Tier 4':    { p23: '32.1555.968-04', p45: '32.1554.968-04' }
+        },
+        'Mid': {
+            'Tier 1':    { p23: '32.1555.968-06', p45: '32.1554.968-06' },
+            'Tier 2&3':  { p23: '32.1555.968-05', p45: '32.1554.968-05' },
+            'Tier 4':    { p23: '32.1555.968-04', p45: '32.1554.968-04' }
+        },
+        'End': {
+            'Tier 1':    { p23: '32.1555.967-08', p45: '32.1555.967-08' },
+            'Tier 2&3':  { p23: '32.1555.968-04', p45: '32.1555.968-04' },
+            'Tier 4':    { p23: '32.1555.968-04', p45: '32.1555.968-04' }
+        }
+    };
+
+    // Figures that apply to every stacker drive belt
+    const stackerDriveFigs =
+        'Fig. 6-88 (Stacker Module Drive Belt Tension Adjustment); ' +
+        'Fig. 6-89 (Stacker Drive Belt Tension & Tracking Details); ' +
+        'Fig. A-7 / Fig. A-9 (Drive Belts for adding stackers); ' +
+        'Fig. A-16 to A-20 (Stacker Belting)';
+
+    // ============================================================
+    //  STATE
+    // ============================================================
+    let beltData = [];
+    let stackerModules = [];
+    let nextModuleId = 1;
+    let currentDBCS = '49';
+    let headerTimer = null;
+    let showHeadersNext = false;
+
+    function storageKey(dbcs) {
+        return `beltLog_MS229_6.2_DBCS${dbcs}`;
+    }
+
+    function buildDefaultState() {
+        const non = JSON.parse(JSON.stringify(defaultNonStacker));
+        const modules = [
+            { id: 1, position: 'First', tiers: ['Tier 1', 'Tier 2&3', 'Tier 4'] }
+        ];
+        const stackerRows = [];
+        modules.forEach(mod => {
+            mod.tiers.forEach(tier => {
+                const pn = stackerPartMap[mod.position]?.[tier]?.p45 || 'Unknown';
+                stackerRows.push({
+                    loc: `Stacker Module ${mod.id} (${mod.position})`,
+                    desc: `${tier} Drive Belt`,
+                    part: pn,
+                    nsn: 'Not listed',
+                    ref: '6.2.6.1',
+                    figs: stackerDriveFigs,
+                    spec: '26-30',
+                    date: '2026-09-07',
+                    found: '',
+                    adj: '',
+                    _moduleId: mod.id,
+                    _tier: tier
+                });
+            });
+        });
+        return { nonStacker: non, stackerRows: stackerRows, modules: modules };
+    }
+
+    function loadFromStorage() {
+        const input = document.getElementById('dbcsInput');
+        currentDBCS = (input.value || '').trim() || '49';
+        const key = storageKey(currentDBCS);
+        const stored = localStorage.getItem(key);
+        if (stored) {
+            try {
+                const parsed = JSON.parse(stored);
+                if (parsed && parsed.beltData && parsed.stackerModules) {
+                    beltData = parsed.beltData;
+                    stackerModules = parsed.stackerModules;
+                    nextModuleId = parsed.nextModuleId || 1;
+                    return;
+                }
+            } catch (e) { /* fall through to defaults */ }
+        }
+        const def = buildDefaultState();
+        beltData = def.nonStacker.concat(def.stackerRows);
+        stackerModules = def.modules;
+        nextModuleId = 2;
+    }
+
+    function saveToLocalStorage() {
+        syncTableToData();
+        const obj = {
+            beltData: beltData,
+            stackerModules: stackerModules,
+            nextModuleId: nextModuleId
+        };
+        localStorage.setItem(storageKey(currentDBCS), JSON.stringify(obj));
+
+        const btn = document.querySelector('.btn-primary');
+        const orig = btn.textContent;
+        btn.textContent = '✅ Saved!';
+        setTimeout(() => { btn.textContent = orig; }, 1200);
+    }
+
+    function syncTableToData() {
+        const rows = document.querySelectorAll('#tableBody tr');
+        rows.forEach((row, idx) => {
+            if (idx >= beltData.length) return;
+            const cells = row.querySelectorAll('td');
+            const nsnCell = cells[3]?.querySelector('.nsn-cell');
+            if (nsnCell) beltData[idx].nsn = nsnCell.innerText.trim() || 'Not listed';
+            const dateInput = cells[7]?.querySelector('.input-date');
+            if (dateInput) beltData[idx].date = dateInput.value;
+            const foundInput = cells[8]?.querySelector('.input-tension');
+            if (foundInput) beltData[idx].found = foundInput.value;
+            const adjInput = cells[9]?.querySelector('.input-tension');
+            if (adjInput) beltData[idx].adj = adjInput.value;
+        });
+    }
+
+    // ============================================================
+    //  RENDER
+    // ============================================================
+    function renderTable() {
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = '';
+
+        const nonRows = beltData.filter(item => !item._moduleId);
+
+        const stackerRows = [];
+        stackerModules.forEach(mod => {
+            mod.tiers.forEach(tier => {
+                let existing = beltData.find(b => b._moduleId === mod.id && b._tier === tier);
+                if (!existing) {
+                    const pn = stackerPartMap[mod.position]?.[tier]?.p45 || 'Unknown';
+                    existing = {
+                        loc: `Stacker Module ${mod.id} (${mod.position})`,
+                        desc: `${tier} Drive Belt`,
+                        part: pn,
+                        nsn: 'Not listed',
+                        ref: '6.2.6.1',
+                        figs: stackerDriveFigs,
+                        spec: '26-30',
+                        date: '2026-09-07',
+                        found: '',
+                        adj: '',
+                        _moduleId: mod.id,
+                        _tier: tier
+                    };
+                } else if (!existing.figs) {
+                    existing.figs = stackerDriveFigs;
+                }
+                stackerRows.push(existing);
+            });
+        });
+
+        const finalRows = nonRows.concat(stackerRows);
+        beltData = finalRows;
+
+        finalRows.forEach((item, index) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="location">${item.loc}</td>
+                <td>${item.desc}</td>
+                <td class="part">${item.part}</td>
+                <td><span class="nsn-cell" contenteditable="true" data-row="${index}">${item.nsn}</span></td>
+                <td class="ref">${item.ref}</td>
+                <td class="figref">${item.figs || ''}</td>
+                <td class="spec">${item.spec}</td>
+                <td><input class="input-date" type="date" value="${item.date}" data-row="${index}" data-field="date"></td>
+                <td><input class="input-tension" type="number" step="0.5" placeholder="—" value="${item.found}" data-row="${index}" data-field="found"></td>
+                <td><input class="input-tension" type="number" step="0.5" placeholder="—" value="${item.adj}" data-row="${index}" data-field="adj"></td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        tbody.querySelectorAll('.nsn-cell').forEach(el => {
+            el.addEventListener('blur', function () {
+                const idx = parseInt(this.dataset.row);
+                if (!isNaN(idx) && beltData[idx]) {
+                    beltData[idx].nsn = this.innerText.trim() || 'Not listed';
+                    const obj = { beltData, stackerModules, nextModuleId };
+                    localStorage.setItem(storageKey(currentDBCS), JSON.stringify(obj));
+                }
+            });
+        });
+
+        tbody.querySelectorAll('.input-date, .input-tension').forEach(el => {
+            el.addEventListener('change', function () {
+                const idx = parseInt(this.dataset.row);
+                const field = this.dataset.field;
+                if (!isNaN(idx) && beltData[idx] && field) {
+                    beltData[idx][field] = this.value;
+                    const obj = { beltData, stackerModules, nextModuleId };
+                    localStorage.setItem(storageKey(currentDBCS), JSON.stringify(obj));
+                }
+            });
+        });
+
+        renderModuleHeaders();
+
+        if (showHeadersNext) {
+            showHeadersNext = false;
+            showModuleHeaders();
+        }
+    }
+
+    function renderModuleHeaders() {
+        const container = document.getElementById('moduleContainer');
+        container.innerHTML = '';
+        stackerModules.forEach(mod => {
+            const div = document.createElement('div');
+            div.className = 'module-header module-hidden';
+            div.innerHTML = `
+                <span>Stacker Module ${mod.id} (${mod.position})</span>
+                <span style="font-weight:normal;font-size:0.8rem;color:#475569;">Tiers: ${mod.tiers.join(', ')}</span>
+                <button class="btn btn-danger remove-module" data-id="${mod.id}">✕ Remove</button>
+            `;
+            container.appendChild(div);
+        });
+        container.querySelectorAll('.remove-module').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const id = parseInt(this.dataset.id);
+                if (confirm(`Remove Stacker Module ${id} and its belts?`)) {
+                    removeStackerModule(id);
+                }
+            });
+        });
+    }
+
+    function showModuleHeaders() {
+        document.querySelectorAll('.module-header').forEach(el => {
+            el.classList.remove('module-hidden');
+        });
+        if (headerTimer) clearTimeout(headerTimer);
+        headerTimer = setTimeout(() => {
+            document.querySelectorAll('.module-header').forEach(el => {
+                el.classList.add('module-hidden');
+            });
+        }, 10000);
+    }
+
+    // ============================================================
+    //  STACKER MODULE MGMT
+    // ============================================================
+    function addStackerModule() {
+        if (stackerModules.length >= 19) {
+            alert('Maximum 19 stacker modules allowed.');
+            return;
+        }
+        const pos = document.getElementById('stackerPositionSelect').value;
+        const newMod = {
+            id: nextModuleId++,
+            position: pos,
+            tiers: ['Tier 1', 'Tier 2&3', 'Tier 4']
+        };
+        stackerModules.push(newMod);
+        newMod.tiers.forEach(tier => {
+            const pn = stackerPartMap[pos]?.[tier]?.p45 || 'Unknown';
+            beltData.push({
+                loc: `Stacker Module ${newMod.id} (${pos})`,
+                desc: `${tier} Drive Belt`,
+                part: pn,
+                nsn: 'Not listed',
+                ref: '6.2.6.1',
+                figs: stackerDriveFigs,
+                spec: '26-30',
+                date: '2026-09-07',
+                found: '',
+                adj: '',
+                _moduleId: newMod.id,
+                _tier: tier
+            });
+        });
+        showHeadersNext = true;
+        renderTable();
+        saveToLocalStorage();
+    }
+
+    function removeStackerModule(id) {
+        const idx = stackerModules.findIndex(m => m.id === id);
+        if (idx !== -1) {
+            stackerModules.splice(idx, 1);
+            beltData = beltData.filter(item => item._moduleId !== id);
+            showHeadersNext = true;
+            renderTable();
+            saveToLocalStorage();
+        }
+    }
+
+    // ============================================================
+    //  CSV EXPORT / IMPORT
+    // ============================================================
+    function exportCSV() {
+        syncTableToData();
+        const headers = ['Location', 'Description', 'PartNumber', 'NSN', 'Reference', 'Figures', 'Spec(lbs)', 'DateChecked', 'Found(lbs)', 'AdjustedTo(lbs)'];
+        const rows = beltData.map(item => [
+            item.loc, item.desc, item.part, item.nsn, item.ref, item.figs || '', item.spec, item.date, item.found, item.adj
+        ]);
+        const csvContent = [headers.join(','), ...rows.map(r =>
+            r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')
+        )].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `belt_tension_log_DBCS${currentDBCS}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(link.href);
+    }
+
+    function importCSV(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            const text = e.target.result;
+            const lines = text.split('\n').filter(l => l.trim() !== '');
+            if (lines.length < 2) { alert('CSV must contain header + data rows.'); return; }
+            const parseRow = (line) => {
+                const values = [];
+                let current = '';
+                let inQuotes = false;
+                for (let i = 0; i < line.length; i++) {
+                    const ch = line[i];
+                    if (inQuotes) {
+                        if (ch === '"' && line[i + 1] === '"') { current += '"'; i++; }
+                        else if (ch === '"') { inQuotes = false; }
+                        else { current += ch; }
+                    } else {
+                        if (ch === '"') { inQuotes = true; }
+                        else if (ch === ',') { values.push(current.trim()); current = ''; }
+                        else { current += ch; }
+                    }
+                }
+                values.push(current.trim());
+                return values;
+            };
+
+            const newData = [];
+            for (let i = 1; i < lines.length; i++) {
+                const cols = parseRow(lines[i]);
+                if (cols.length < 10) continue;
+                const loc = cols[0] || '';
+                let _moduleId, _tier;
+                const match = loc.match(/Stacker Module (\d+)/);
+                if (match) {
+                    _moduleId = parseInt(match[1]);
+                    const desc = cols[1] || '';
+                    if (desc.includes('Tier 1')) _tier = 'Tier 1';
+                    else if (desc.includes('Tier 2&3')) _tier = 'Tier 2&3';
+                    else if (desc.includes('Tier 4')) _tier = 'Tier 4';
+                }
+                newData.push({
+                    loc: loc,
+                    desc: cols[1] || '',
+                    part: cols[2] || '',
+                    nsn: cols[3] || 'Not listed',
+                    ref: cols[4] || '',
+                    figs: cols[5] || '',
+                    spec: cols[6] || '15-25',
+                    date: cols[7] || '2026-09-07',
+                    found: cols[8] || '',
+                    adj: cols[9] || '',
+                    _moduleId: _moduleId,
+                    _tier: _tier
+                });
+            }
+
+            if (newData.length === 0) { alert('No valid data rows found.'); event.target.value = ''; return; }
+
+            const moduleIds = new Set();
+            newData.forEach(d => { if (d._moduleId !== undefined) moduleIds.add(d._moduleId); });
+            const newModules = [];
+            moduleIds.forEach(id => {
+                const first = newData.find(d => d._moduleId === id);
+                if (first) {
+                    const pos = first.loc.match(/\(([^)]+)\)/)?.[1] || 'First';
+                    const tiers = [];
+                    newData.forEach(d => { if (d._moduleId === id && d._tier) tiers.push(d._tier); });
+                    newModules.push({ id: id, position: pos, tiers: tiers });
+                }
+            });
+
+            stackerModules = newModules;
+            let maxId = 0;
+            stackerModules.forEach(m => { if (m.id > maxId) maxId = m.id; });
+            nextModuleId = maxId + 1;
+            beltData = newData;
+
+            showHeadersNext = false;
+            renderTable();
+            saveToLocalStorage();
+            alert(`Imported ${newData.length} rows into DBCS ${currentDBCS}.`);
+            event.target.value = '';
+        };
+        reader.readAsText(file);
+    }
+
+    // ============================================================
+    //  RESET
+    // ============================================================
+    function resetData() {
+        const def = buildDefaultState();
+        beltData = def.nonStacker.concat(def.stackerRows);
+        stackerModules = def.modules;
+        nextModuleId = 2;
+        showHeadersNext = false;
+        renderTable();
+        saveToLocalStorage();
+    }
+
+    // ============================================================
+    //  DBCS SWITCH
+    // ============================================================
+    document.getElementById('dbcsInput').addEventListener('change', function () {
+        const newDBCS = (this.value || '').trim() || '49';
+        if (newDBCS === currentDBCS) return;
+        saveToLocalStorage();
+        currentDBCS = newDBCS;
+        this.value = newDBCS;
+        loadFromStorage();
+        showHeadersNext = false;
+        renderTable();
+        if (!localStorage.getItem(storageKey(currentDBCS))) {
+            saveToLocalStorage();
+        }
+    });
+
+    // ============================================================
+    //  INIT
+    // ============================================================
+    loadFromStorage();
+    showHeadersNext = false;
+    renderTable();
+    if (!localStorage.getItem(storageKey(currentDBCS))) {
+        saveToLocalStorage();
+    }
+</script>
+<!-- ============ Historian client (v2) ============ -->
+<script>
+	(function(){
+	  const EV_KEY  = 'historian_events_v1';
+	  const REG_KEY = 'historian_registry_v1';
+	  const VALID_ACRONYMS = ['DBCS','DIOSS','CIOSS'];
+
+	  const uid  = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+	  const norm = s => (s || '').replace(/\s+/g,' ').trim();
+
+	  function readAll(){
+		try { const r = localStorage.getItem(EV_KEY); return r ? JSON.parse(r) : []; }
+		catch(e){ return []; }
+	  }
+	  function writeAll(arr){
+		try { localStorage.setItem(EV_KEY, JSON.stringify(arr)); return true; }
+		catch(e){ alert('Historian storage error: ' + e.message); return false; }
+	  }
+	  function readReg(){
+		try { const r = localStorage.getItem(REG_KEY); return r ? JSON.parse(r) : {}; }
+		catch(e){ return {}; }
+	  }
+	  function writeReg(r){
+		try { localStorage.setItem(REG_KEY, JSON.stringify(r)); return true; }
+		catch(e){ return false; }
+	  }
+
+	  function parseMachineId(raw){
+		if (!raw) return null;
+		const m = String(raw).trim().match(/^([A-Za-z]+)[\s\-_]*0*(\d+)$/);
+		if (!m) return null;
+		return { acronym: m[1].toUpperCase(), mno: String(parseInt(m[2],10)) };
+	  }
+	  function canonicalId(acronym, mno){ return `${acronym} ${mno}`; }
+
+	  window.historianGetRegistry     = readReg;
+	  window.historianSaveRegistry    = writeReg;
+	  window.historianParseMachineId  = parseMachineId;
+	  window.historianCanonicalId     = canonicalId;
+
+	  window.historianRegisterMno = function(mno, acronym){
+		const reg = readReg();
+		reg[String(parseInt(mno,10))] = acronym.toUpperCase();
+		writeReg(reg);
+	  };
+
+	  window.historianPromptForMnOs = function(unknownMnos){
+		return new Promise((resolve) => {
+		  const ov = document.createElement('div');
+		  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99998;'+
+			'display:flex;align-items:center;justify-content:center;font:13px/1.5 system-ui,sans-serif;';
+		  const box = document.createElement('div');
+		  box.style.cssText = 'background:#fff;border-radius:12px;padding:20px 24px;max-width:520px;width:92%;'+
+			'box-shadow:0 12px 40px rgba(0,0,0,.3);max-height:85vh;overflow:auto;';
+
+		  let rowsHtml = '';
+		  unknownMnos.forEach(m => {
+			rowsHtml += `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #eef2f6;">
+			  <div style="font-weight:700;min-width:70px;color:#0b3d91;">MNO ${m}</div>
+			  <select data-mno="${m}" style="flex:1;padding:6px 10px;border:1px solid #b9c8dc;border-radius:6px;font:13px inherit;">
+				<option value="">— skip this machine —</option>
+				${VALID_ACRONYMS.map(a=>`<option value="${a}">${a}</option>`).join('')}
+			  </select>
+			</div>`;
+		  });
+
+		  box.innerHTML = `
+			<h3 style="margin:0 0 6px;color:#0b3d91;font-size:16px;">Assign machine types</h3>
+			<p style="margin:0 0 14px;color:#5b6b80;font-size:12.5px;">
+			  These MNOs aren't in the registry yet. Pick the acronym for each.
+			  Anything left as “skip” won't be saved this time.
+			</p>
+			<div>${rowsHtml}</div>
+			<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
+			  <button id="__hCancel" style="background:#fff;color:#0b3d91;border:1px solid #b9c8dc;border-radius:6px;padding:7px 16px;font:600 13px inherit;cursor:pointer;">Cancel</button>
+			  <button id="__hOK" style="background:#0b3d91;color:#fff;border:0;border-radius:6px;padding:7px 18px;font:600 13px inherit;cursor:pointer;">Save assignments</button>
+			</div>`;
+		  ov.appendChild(box);
+		  document.body.appendChild(ov);
+
+		  ov.querySelector('#__hCancel').onclick = () => { document.body.removeChild(ov); resolve({}); };
+		  ov.querySelector('#__hOK').onclick = () => {
+			const out = {};
+			box.querySelectorAll('select[data-mno]').forEach(sel => {
+			  if (sel.value) out[sel.dataset.mno] = sel.value;
+			});
+			document.body.removeChild(ov);
+			resolve(out);
+		  };
+		});
+	  };
+
+	  window.historianSave = function(ev){
+		ev.id = ev.id || uid();
+		ev.capturedAt = new Date().toISOString();
+
+		if (ev.payload && ev.payload.rawMno){
+		  const mno = String(parseInt(ev.payload.rawMno, 10));
+		  const reg = readReg();
+		  const acronym = reg[mno] || ev.payload.acronymHint || null;
+		  if (acronym){
+			ev.machineId = canonicalId(acronym, mno);
+			ev.machineResolved = true;
+		  } else {
+			ev.machineId = 'MNO ' + mno;
+			ev.machineResolved = false;
+		  }
+		}
+		else if (ev.machineId){
+		  const p = parseMachineId(ev.machineId);
+		  if (p){
+			ev.machineId = canonicalId(p.acronym, p.mno);
+			const reg = readReg();
+			if (!reg[p.mno]) { reg[p.mno] = p.acronym; writeReg(reg); }
+			ev.machineResolved = true;
+		  }
+		}
+
+		ev.detId = [ev.source||'', ev.machineId||'', ev.eventTime||'', ev.kind||'', norm(ev.summary||'')].join('|');
+
+		const all = readAll();
+		const i = all.findIndex(x => (x.detId||x.id) === ev.detId);
+		if (i >= 0){
+		  all[i] = Object.assign({}, all[i], ev);
+		  writeAll(all);
+		  return { action:'updated', total: all.length, machineId: ev.machineId };
+		}
+		all.push(ev);
+		writeAll(all);
+		return { action:'added', total: all.length, machineId: ev.machineId };
+	  };
+
+	  window.historianOpen = function(){ window.open('historian.html','historian'); };
+
+	  window.historianToast = function(msg, ok){
+		let el = document.getElementById('__histToast');
+		if (!el){
+		  el = document.createElement('div');
+		  el.id = '__histToast';
+		  el.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99999;'+
+			'padding:10px 16px;border-radius:8px;font:600 13px/1.4 system-ui,sans-serif;'+
+			'box-shadow:0 4px 14px rgba(0,0,0,.2);color:#fff;transition:opacity .3s;';
+		  document.body.appendChild(el);
+		}
+		el.style.background = ok === false ? '#b3261e' : '#1b5e20';
+		el.textContent = msg;
+		el.style.opacity = '1';
+		clearTimeout(el._t);
+		el._t = setTimeout(() => { el.style.opacity = '0'; }, 2600);
+	  };
+	})();
+</script>
+<script>
+    function sendToHistorian() {
+    syncTableToData();
+    const rows = beltData.filter(r => (r.found !== '' && r.found != null) || (r.adj !== '' && r.adj != null));
+    if (!rows.length) { historianToast('No belt readings to send.', false); return; }
+
+    const machineId = 'DBCS-' + currentDBCS;
+    const eventTime = new Date().toISOString();
+
+    const outOfSpec = rows.filter(r => {
+        const m = String(r.spec || '').match(/^\s*(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)\s*$/);
+        if (!m) return false;
+        const lo = parseFloat(m[1]), hi = parseFloat(m[2]);
+        const v = r.adj !== '' && r.adj != null ? parseFloat(r.adj) : parseFloat(r.found);
+        return !isNaN(v) && (v < lo || v > hi);
+    });
+
+    const detailLines = rows.map(r => {
+        const val = (r.adj !== '' && r.adj != null) ? `${r.found ?? '—'} → ${r.adj}` : `${r.found ?? '—'}`;
+        return `  • ${r.loc} | ${r.desc} | spec ${r.spec} | ${val} lbs`;
+    });
+
+    const res = historianSave({
+        source: 'belt_log',
+        eventTime,
+        machineId,
+        tech: '',
+        category: 'belt_tension',
+        kind: 'belt.log_save',
+        status: outOfSpec.length ? 'partial' : 'pass',
+        summary: `Belt log — ${rows.length} readings (${outOfSpec.length} out of spec) on DBCS ${currentDBCS}`,
+        detail: detailLines.join('\n'),
+        payload: { readings: rows, outOfSpec }
+    });
+
+    historianToast(`Historian ${res.action} (${res.total} total).`, true);
+    }
+</script>
+</body>
+</html>

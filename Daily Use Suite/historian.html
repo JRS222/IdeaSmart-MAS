@@ -1,0 +1,641 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Machine Historian</title>
+<style>
+  :root{--blue:#0b3d91;--ink:#1a2433;--line:#d6dde6;--soft:#eef3fa;
+        --ok:#1b5e20;--okbg:#e7f4ea;--warn:#7a5c00;--warnbg:#fff8dc;
+        --bad:#b3261e;--badbg:#fdecea;--info:#0b3d91;--infobg:#e8f0fc;
+        --grey:#5b6b80;--bg:#eef1f5}
+  *{box-sizing:border-box}
+  body{margin:0;font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);background:var(--bg)}
+  header{background:var(--blue);color:#fff;padding:10px 18px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  header h1{font-size:16px;margin:0;font-weight:600;letter-spacing:.3px}
+  header .sub{font-size:11.5px;opacity:.85;margin-right:auto}
+  header .hbtn{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:6px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer}
+  header .hbtn:hover{background:rgba(255,255,255,.25)}
+  nav.tabs{background:#fff;border-bottom:1px solid var(--line);padding:0 18px;display:flex;gap:2px;flex-wrap:wrap}
+  nav.tabs button{background:none;border:0;padding:11px 18px;font:600 13px inherit;color:var(--grey);cursor:pointer;border-bottom:3px solid transparent}
+  nav.tabs button.active{color:var(--blue);border-bottom-color:var(--blue)}
+  main{padding:14px 18px 80px;max-width:1500px;margin:0 auto}
+  .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:14px;box-shadow:0 1px 2px rgba(16,30,54,.05)}
+  .card h2{font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--grey);margin:0 0 10px;font-weight:700}
+  .tab{display:none}.tab.active{display:block}
+  .row{display:flex;gap:10px 14px;flex-wrap:wrap;align-items:flex-end}
+  .f{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--grey);font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+  .f input,.f select{font:13px/1.3 inherit;color:var(--ink);border:1px solid #b9c8dc;border-radius:6px;padding:5px 7px;background:#fff;font-weight:400;text-transform:none;letter-spacing:0;min-width:130px}
+  .f select{min-width:170px}.f input[type=datetime-local]{min-width:210px}.f input[type=search]{min-width:180px}
+  .spacer{flex:1}
+  button.btn{background:var(--blue);color:#fff;border:0;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer}
+  button.btn:hover{background:#0a3378}
+  button.btn.ghost{background:#fff;color:var(--blue);border:1px solid #b9c8dc}
+  button.btn.ghost:hover{background:#eef3fa}
+  button.btn.danger{background:#b3261e}button.btn.danger:hover{background:#8f1e17}
+  button.btn:disabled{opacity:.5;cursor:not-allowed}
+  .ev-list{display:flex;flex-direction:column;gap:8px}
+  .ev{border:1px solid var(--line);border-radius:8px;padding:9px 12px;background:#fff;display:grid;grid-template-columns:130px 110px 1fr auto;gap:10px;align-items:start}
+  .ev .when{font-size:11.5px;color:var(--grey);font-weight:600;line-height:1.35}
+  .ev .mach{font-size:11.5px;color:var(--ink);font-weight:700;line-height:1.35}
+  .ev .body .summary{font-weight:600;font-size:13px}
+  .ev .body .detail{margin-top:4px;font-size:11.5px;color:var(--grey);white-space:pre-wrap;word-break:break-word;line-height:1.45}
+  .ev .badges{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+  .badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10.5px;font-weight:700;letter-spacing:.3px;white-space:nowrap}
+  .badge.pass{background:var(--okbg);color:var(--ok)}.badge.fail{background:var(--badbg);color:var(--bad)}
+  .badge.partial{background:var(--warnbg);color:var(--warn)}.badge.info{background:var(--infobg);color:var(--info)}
+  .badge.src{background:#eef2f6;color:#33475b}.badge.cat{background:#f3e9ff;color:#5b2ea8}
+  .empty{color:var(--grey);padding:20px;text-align:center;font-style:italic}
+  .mini{font-size:11px;color:var(--grey)}
+  .mach-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+  .mach-card{border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:#fff}
+  .mach-card h3{margin:0 0 4px;font-size:14px;color:var(--blue);font-weight:700}
+  .mach-card .meta{font-size:11.5px;color:var(--grey);margin-bottom:8px}
+  .mach-card .stat-row{display:flex;gap:8px;flex-wrap:wrap;font-size:12px}
+  .mach-card .stat{background:#f7fafd;border:1px solid var(--line);border-radius:6px;padding:5px 10px;min-width:120px}
+  .mach-card .stat .v{font-weight:700;color:#12305c;font-size:12px}
+  .mach-card .stat .k{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--grey);font-weight:700}
+
+  /* report */
+  .report-shell{background:#fff;border:1px solid var(--line);border-radius:10px;padding:20px 26px;font-size:12.5px}
+  .report-shell h1{font-size:20px;text-align:center;margin:0 0 4px;color:var(--blue)}
+  .report-shell .subtitle{text-align:center;color:var(--grey);font-size:12px;margin-bottom:18px}
+  .report-shell h2{font-size:14px;color:var(--blue);border-bottom:1px solid var(--line);padding-bottom:4px;margin:18px 0 8px;font-weight:700}
+  .report-shell table{width:100%;border-collapse:collapse;font-size:11.5px;margin-bottom:12px}
+  .report-shell th,.report-shell td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+  .report-shell th{background:#eef2f7;font-weight:700;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;color:#41546b}
+  .report-shell .summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:14px}
+  .report-shell .stat{background:#f7fafd;border:1px solid var(--line);border-radius:6px;padding:8px 12px;text-align:center}
+  .report-shell .stat .v{font-size:20px;font-weight:700;color:#12305c;line-height:1.1}
+  .report-shell .stat .k{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--grey);font-weight:700;margin-top:2px}
+  .report-shell .day{font-size:12.5px;font-weight:700;color:var(--blue);margin:14px 0 6px;border-bottom:1px dashed var(--line);padding-bottom:2px}
+  .report-shell .ev-block{border-left:3px solid var(--blue);padding:6px 0 6px 12px;margin-bottom:6px}
+  .report-shell .ev-block .m{font-size:11px;color:var(--grey);font-weight:700}
+  .report-shell .ev-block .h{font-size:12.5px;font-weight:700;margin-top:1px}
+  .report-shell .ev-block .d{font-size:11.5px;color:#33475b;margin-top:2px;white-space:pre-wrap}
+  .report-shell .foot{margin-top:20px;text-align:center;font-size:10.5px;color:var(--grey)}
+
+  @media print{
+    @page{size:letter portrait;margin:.5in}
+    body{background:#fff}
+    header,nav.tabs,.no-print{display:none!important}
+    main{padding:0;max-width:none}
+    .card{border:none;box-shadow:none;padding:0;margin:0}
+    .report-shell{border:none;padding:0;font-size:11px}
+    .report-shell h2{page-break-after:avoid}
+    .report-shell .ev-block{page-break-inside:avoid}
+    .report-shell tr{page-break-inside:avoid}
+    .tab{display:none}
+    #tab-query.active{display:block}
+    #reportOut{display:block!important}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🗂️ Machine Historian</h1>
+  <span class="sub" id="headerCount">0 events</span>
+  <button class="hbtn" id="backupBtn">⬇ Backup .json</button>
+  <button class="hbtn" id="restoreBtn">⬆ Restore</button>
+  <input type="file" id="restoreFile" accept=".json" hidden>
+  <button class="hbtn" id="wipeBtn">🗑 Wipe</button>
+  <button class="hbtn" id="refreshBtn">↻ Refresh</button>
+</header>
+
+<nav class="tabs">
+  <button data-tab="timeline" class="active">Timeline</button>
+  <button data-tab="query">Query &amp; Report</button>
+  <button data-tab="machines">Machines</button>
+</nav>
+
+<main>
+
+<!-- ============ TIMELINE ============ -->
+<section id="tab-timeline" class="tab active">
+  <div class="card">
+    <h2>Filters</h2>
+    <div class="row">
+      <label class="f">Machine<select id="tlMachine"><option value="">— all —</option></select></label>
+      <label class="f">Source<select id="tlSource">
+        <option value="">— all —</option>
+        <option value="feeder">Feeder Alignment</option>
+        <option value="belt_log">Belt Log</option>
+        <option value="belts_rollers">Belts &amp; Rollers</option>
+        <option value="work_tracking">Work Tracking</option>
+        <option value="mhts">MHTS</option>
+        <option value="manual">Manual</option>
+      </select></label>
+      <label class="f">Category<select id="tlCategory"><option value="">— all —</option></select></label>
+      <label class="f">Status<select id="tlStatus">
+        <option value="">— all —</option>
+        <option value="pass">Pass</option><option value="fail">Fail</option>
+        <option value="partial">Partial</option><option value="info">Info</option>
+      </select></label>
+      <label class="f">Text<input type="search" id="tlText" placeholder="search summary / details"></label>
+      <div class="spacer"></div>
+      <button class="btn ghost" id="tlClear">Clear filters</button>
+    </div>
+    <div class="mini" style="margin-top:8px" id="tlCount"></div>
+  </div>
+  <div class="card">
+    <h2>Events</h2>
+    <div id="tlList" class="ev-list"><div class="empty">No events yet. Click “Save to Historian” in any tool.</div></div>
+  </div>
+</section>
+
+<!-- ============ QUERY & REPORT ============ -->
+<section id="tab-query" class="tab">
+  <div class="card no-print">
+    <h2>Date range query</h2>
+    <div class="row">
+      <label class="f">From<input type="datetime-local" id="qFrom"></label>
+      <label class="f">To<input type="datetime-local" id="qTo"></label>
+      <label class="f">Machine<select id="qMachine"><option value="">— all —</option></select></label>
+      <label class="f">Source<select id="qSource">
+        <option value="">— all —</option>
+        <option value="feeder">Feeder Alignment</option>
+        <option value="belt_log">Belt Log</option>
+        <option value="belts_rollers">Belts &amp; Rollers</option>
+        <option value="work_tracking">Work Tracking</option>
+        <option value="mhts">MHTS</option>
+        <option value="manual">Manual</option>
+      </select></label>
+      <label class="f">Status<select id="qStatus">
+        <option value="">— all —</option>
+        <option value="pass">Pass</option><option value="fail">Fail</option>
+        <option value="partial">Partial</option><option value="info">Info</option>
+      </select></label>
+      <div class="spacer"></div>
+      <button class="btn ghost" id="qTodayBtn">Today</button>
+      <button class="btn ghost" id="qWeekBtn">Last 7 days</button>
+      <button class="btn" id="qRunBtn">Run query</button>
+    </div>
+  </div>
+  <div class="card no-print">
+    <h2>Report options</h2>
+    <div class="row">
+      <label class="f">Title<input type="text" id="qTitle" value="Machine Historian Report" style="min-width:260px"></label>
+      <label class="f">Group by<select id="qGroupBy">
+        <option value="day">Day</option>
+        <option value="machine">Machine</option>
+        <option value="source">Source</option>
+        <option value="none">Flat list</option>
+      </select></label>
+      <label class="f">Show details<select id="qShowDetail">
+        <option value="1">Yes</option><option value="0">Summary only</option>
+      </select></label>
+      <div class="spacer"></div>
+      <button class="btn" id="qPrintBtn" disabled>🖨️ Print report</button>
+      <button class="btn ghost" id="qCsvBtn" disabled>Copy CSV</button>
+    </div>
+  </div>
+  <div class="card">
+    <h2>Report preview</h2>
+    <div id="reportOut" class="report-shell">
+      <div class="empty">Set a range and click <b>Run query</b>.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ MACHINES ============ -->
+<section id="tab-machines" class="tab">
+  <div class="card">
+    <h2>Current known state per machine</h2>
+    <div class="mini" style="margin-bottom:10px">
+      Most recent event of each category per machine — a quick “what do I know right now?” view.
+    </div>
+    <div id="machGrid" class="mach-grid"><div class="empty">No machines yet.</div></div>
+  </div>
+</section>
+
+<section id="tab-registry" class="tab">
+  <div class="card">
+    <h2>Machine Registry — MNO → acronym</h2>
+    <div class="mini" style="margin-bottom:12px">
+      Every MNO this facility has ever reported. Taught automatically the first time a tool saves an event,
+      or add them by hand here. This is what lets MHTS rows find their acronym.
+    </div>
+    <div class="row" style="margin-bottom:12px">
+      <label class="f">MNO
+        <input type="text" id="regMno" placeholder="e.g. 49" style="min-width:110px">
+      </label>
+      <label class="f">Acronym
+        <select id="regAcronym">
+          <option value="DBCS">DBCS</option>
+          <option value="DIOSS">DIOSS</option>
+          <option value="CIOSS">CIOSS</option>
+        </select>
+      </label>
+      <button class="btn" id="regAddBtn">Add / update</button>
+      <div class="spacer"></div>
+      <button class="btn ghost" id="regClearBtn">Clear all mappings</button>
+    </div>
+    <div id="regTable"></div>
+  </div>
+</section>
+
+</main>
+
+<script>
+/* ============================================================
+   Storage key must match what the tool pages write to.
+   ============================================================ */
+const KEY = 'historian_events_v1';
+
+const $  = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+const esc = s => String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => String(n).padStart(2,'0');
+const fmtDT = iso => { if(!iso) return ''; const d=new Date(iso); if(isNaN(d)) return iso;
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const dayKey = iso => { const d=new Date(iso); if(isNaN(d)) return '—';
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; };
+const toISOInput = iso => { if(!iso) return ''; const d=new Date(iso); if(isNaN(d)) return '';
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const fromISOInput = v => { if(!v) return null; const d=new Date(v); return isNaN(d)?null:d.toISOString(); };
+
+let events = [];
+function loadEvents(){
+  try { const raw = localStorage.getItem(KEY); events = raw ? JSON.parse(raw) : []; }
+  catch(e){ events = []; }
+  if (!Array.isArray(events)) events = [];
+  events.sort((a,b) => (b.eventTime||'').localeCompare(a.eventTime||''));
+  updateHeader();
+  populateSelects();
+  renderTimeline();
+  renderMachines();
+}
+function updateHeader(){
+  $('#headerCount').textContent = `${events.length} event${events.length===1?'':'s'}`;
+}
+
+/* ============================================================
+   Filters
+   ============================================================ */
+const tl = { machine:'', source:'', category:'', status:'', text:'' };
+
+function uniqueValues(field){
+  const s = new Set();
+  for (const e of events){ const v = e[field]; if (v) s.add(v); }
+  return [...s].sort();
+}
+function populateSelects(){
+  const machines = uniqueValues('machineId');
+  const categories = uniqueValues('category');
+  const opts = (arr, sel) => `<option value="">— all —</option>` + arr.map(v=>`<option${v===sel?' selected':''} value="${esc(v)}">${esc(v)}</option>`).join('');
+  $('#tlMachine').innerHTML  = opts(machines,   tl.machine);
+  $('#tlCategory').innerHTML = opts(categories, tl.category);
+  $('#qMachine').innerHTML   = opts(machines,   $('#qMachine').value);
+}
+function eventMatches(e, f){
+  if (f.machine  && e.machineId !== f.machine) return false;
+  if (f.source   && e.source    !== f.source)  return false;
+  if (f.category && e.category  !== f.category) return false;
+  if (f.status   && e.status    !== f.status)   return false;
+  if (f.text){
+    const q = f.text.toLowerCase();
+    const hay = ((e.summary||'')+' '+(e.detail||'')+' '+(e.machineId||'')+' '+(e.kind||'')).toLowerCase();
+    if (!hay.includes(q)) return false;
+  }
+  return true;
+}
+
+/* ============================================================
+   Render timeline
+   ============================================================ */
+function renderTimeline(){
+  const list = events.filter(e => eventMatches(e, tl));
+  $('#tlCount').textContent = `${list.length} event${list.length===1?'':'s'} shown (of ${events.length} total)`;
+  if (!list.length){ $('#tlList').innerHTML = '<div class="empty">No events match the current filters.</div>'; return; }
+  $('#tlList').innerHTML = list.map(e => {
+    const statusBadge = e.status ? `<span class="badge ${esc(e.status)}">${esc(e.status.toUpperCase())}</span>` : '';
+    return `<div class="ev">
+      <div class="when">${esc(fmtDT(e.eventTime))}</div>
+      <div class="mach">${esc(e.machineId||'—')}<div class="mini" style="font-weight:400">${esc(e.tech||'')}</div></div>
+      <div class="body">
+        <div class="summary">${esc(e.summary||e.kind||'')}</div>
+        ${e.detail ? `<div class="detail">${esc(e.detail)}</div>` : ''}
+      </div>
+      <div class="badges">
+        ${statusBadge}
+        <span class="badge src">${esc(e.source||'')}</span>
+        ${e.category ? `<span class="badge cat">${esc(e.category)}</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ============================================================
+   Machines
+   ============================================================ */
+function renderMachines(){
+  const byMachine = {};
+  events.forEach(e => { if (!e.machineId) return; (byMachine[e.machineId] = byMachine[e.machineId]||[]).push(e); });
+  const ids = Object.keys(byMachine).sort();
+  if (!ids.length){ $('#machGrid').innerHTML = '<div class="empty">No machines yet.</div>'; return; }
+  $('#machGrid').innerHTML = ids.map(id => {
+    const evs = byMachine[id].slice().sort((a,b)=>(b.eventTime||'').localeCompare(a.eventTime||''));
+    const latest = evs[0];
+    const counts = { pass:0, fail:0, partial:0, info:0 };
+    evs.forEach(e => { if (counts[e.status] != null) counts[e.status]++; });
+    const latestByCat = {};
+    evs.forEach(e => { if (!latestByCat[e.category]) latestByCat[e.category] = e; });
+    const catRows = Object.keys(latestByCat).sort().map(c => {
+      const e = latestByCat[c];
+      const badge = e.status ? `<span class="badge ${esc(e.status)}">${esc(e.status.toUpperCase())}</span>` : '';
+      return `<div class="stat"><div class="k">${esc(c)}</div><div class="v">${esc(fmtDT(e.eventTime).split(' ')[0])} ${badge}</div></div>`;
+    }).join('');
+    return `<div class="mach-card">
+      <h3>${esc(id)}</h3>
+      <div class="meta">${evs.length} event${evs.length===1?'':'s'} · last ${esc(fmtDT(latest.eventTime))}</div>
+      <div class="stat-row">
+        <div class="stat"><div class="k">Pass</div><div class="v">${counts.pass}</div></div>
+        <div class="stat"><div class="k">Fail</div><div class="v">${counts.fail}</div></div>
+        <div class="stat"><div class="k">Partial</div><div class="v">${counts.partial}</div></div>
+        <div class="stat"><div class="k">Info</div><div class="v">${counts.info}</div></div>
+      </div>
+      <div class="stat-row" style="margin-top:8px">${catRows || '<div class="mini">No categorized events.</div>'}</div>
+    </div>`;
+  }).join('');
+}
+
+/* ============================================================
+   Query & Report
+   ============================================================ */
+let lastQuery = null;
+
+function buildReportTitle(evs){
+  const from = $('#qFrom').value, to = $('#qTo').value;
+  return { from, to, count: evs.length };
+}
+
+function runQuery(){
+  const from = $('#qFrom').value, to = $('#qTo').value;
+  const machine = $('#qMachine').value;
+  const source = $('#qSource').value;
+  const status = $('#qStatus').value;
+  const fromIso = from ? new Date(from).toISOString() : null;
+  const toIso   = to   ? new Date(to).toISOString()   : null;
+
+  const evs = events.filter(e => {
+    if (fromIso && (e.eventTime||'') < fromIso) return false;
+    if (toIso   && (e.eventTime||'') > toIso)   return false;
+    if (machine && e.machineId !== machine) return false;
+    if (source  && e.source    !== source)  return false;
+    if (status  && e.status    !== status)  return false;
+    return true;
+  });
+
+  lastQuery = { evs, from, to };
+  const showDetail = $('#qShowDetail').value === '1';
+  const title = $('#qTitle').value || 'Machine Historian Report';
+  const groupBy = $('#qGroupBy').value;
+
+  const html = renderReport(evs, { title, from, to, showDetail, groupBy });
+  $('#reportOut').innerHTML = html;
+  $('#qPrintBtn').disabled = evs.length === 0;
+  $('#qCsvBtn').disabled   = evs.length === 0;
+}
+
+function renderReport(evs, opts){
+  const { title, from, to, showDetail, groupBy } = opts;
+
+  // summary tile counts
+  const counts = { pass:0, fail:0, partial:0, info:0 };
+  const machines = new Set(), sources = new Set();
+  evs.forEach(e => { if (counts[e.status] != null) counts[e.status]++; if (e.machineId) machines.add(e.machineId); if (e.source) sources.add(e.source); });
+
+  let h = '';
+  h += `<h1>${esc(title)}</h1>`;
+  h += `<div class="subtitle">Range: ${esc(from?from.replace('T',' '):'(no start)')} → ${esc(to?to.replace('T',' '):'(no end)')} · generated ${esc(fmtDT(new Date().toISOString()))}</div>`;
+  h += `<div class="summary-grid">
+    <div class="stat"><div class="v">${evs.length}</div><div class="k">Events</div></div>
+    <div class="stat"><div class="v">${machines.size}</div><div class="k">Machines</div></div>
+    <div class="stat"><div class="v">${sources.size}</div><div class="k">Sources</div></div>
+    <div class="stat"><div class="v" style="color:var(--ok)">${counts.pass}</div><div class="k">Pass</div></div>
+    <div class="stat"><div class="v" style="color:var(--bad)">${counts.fail}</div><div class="k">Fail</div></div>
+    <div class="stat"><div class="v" style="color:var(--warn)">${counts.partial}</div><div class="k">Partial</div></div>
+  </div>`;
+
+  if (!evs.length){ return h + '<div class="empty">No events in that range.</div>'; }
+
+  if (groupBy === 'none'){
+    h += `<h2>Events</h2>`;
+    h += renderEventTable(evs, showDetail);
+  } else {
+    const groups = new Map();
+    evs.forEach(e => {
+      let key;
+      if (groupBy === 'day') key = dayKey(e.eventTime);
+      else if (groupBy === 'machine') key = e.machineId || '—';
+      else key = e.source || '—';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(e);
+    });
+    const sortedKeys = [...groups.keys()].sort();
+    sortedKeys.forEach(k => {
+      const g = groups.get(k);
+      h += `<h2>${esc(groupBy==='day' ? k : (groupBy==='machine'? 'Machine '+k : k))}</h2>`;
+      h += renderEventTable(g, showDetail);
+    });
+  }
+
+  h += `<div class="foot">Machine Historian · ${evs.length} event${evs.length===1?'':'s'}</div>`;
+  return h;
+}
+
+function renderEventTable(evs, showDetail){
+  let h = `<table><thead><tr>
+    <th style="width:130px">Time</th><th style="width:100px">Machine</th>
+    <th style="width:110px">Source</th><th style="width:90px">Status</th>
+    <th>Summary${showDetail?' / Details':''}</th></tr></thead><tbody>`;
+  evs.forEach(e => {
+    h += `<tr>
+      <td>${esc(fmtDT(e.eventTime))}</td>
+      <td>${esc(e.machineId||'—')}</td>
+      <td>${esc(e.source||'')}</td>
+      <td>${e.status?`<span class="badge ${esc(e.status)}">${esc(e.status.toUpperCase())}</span>`:''}</td>
+      <td><strong>${esc(e.summary||e.kind||'')}</strong>${showDetail && e.detail ? `<div style="font-size:11px;color:#4a5b72;white-space:pre-wrap;margin-top:3px">${esc(e.detail)}</div>`:''}</td>
+    </tr>`;
+  });
+  h += `</tbody></table>`;
+  return h;
+}
+
+/* ============================================================
+   Events
+   ============================================================ */
+$('#tlMachine').addEventListener('change', e => { tl.machine=e.target.value; renderTimeline(); });
+$('#tlSource').addEventListener('change',  e => { tl.source =e.target.value; renderTimeline(); });
+$('#tlCategory').addEventListener('change',e => { tl.category=e.target.value; renderTimeline(); });
+$('#tlStatus').addEventListener('change',  e => { tl.status =e.target.value; renderTimeline(); });
+$('#tlText').addEventListener('input',     e => { tl.text   =e.target.value; renderTimeline(); });
+$('#tlClear').addEventListener('click', () => {
+  tl.machine=tl.source=tl.category=tl.status=tl.text='';
+  $('#tlMachine').value=''; $('#tlSource').value=''; $('#tlCategory').value=''; $('#tlStatus').value=''; $('#tlText').value='';
+  renderTimeline();
+});
+
+$('#qRunBtn').addEventListener('click', runQuery);
+$('#qPrintBtn').addEventListener('click', () => window.print());
+$('#qCsvBtn').addEventListener('click', () => {
+  if (!lastQuery) return;
+  const rows = [['Time','Machine','Tech','Source','Category','Status','Summary','Details']];
+  lastQuery.evs.forEach(e => rows.push([fmtDT(e.eventTime), e.machineId||'', e.tech||'', e.source||'', e.category||'', e.status||'', e.summary||'', e.detail||'']));
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  navigator.clipboard.writeText(csv).then(()=>alert('CSV copied.'),()=>alert('Copy failed.'));
+});
+$('#qTodayBtn').addEventListener('click', () => {
+  const d = new Date(); d.setHours(0,0,0,0);
+  const e = new Date(); e.setHours(23,59,0,0);
+  $('#qFrom').value = toISOInput(d.toISOString()); $('#qTo').value = toISOInput(e.toISOString());
+  runQuery();
+});
+$('#qWeekBtn').addEventListener('click', () => {
+  const e = new Date();
+  const s = new Date(); s.setDate(s.getDate()-6); s.setHours(0,0,0,0);
+  $('#qFrom').value = toISOInput(s.toISOString()); $('#qTo').value = toISOInput(e.toISOString());
+  runQuery();
+});
+
+/* tabs */
+$$('nav.tabs button').forEach(btn => btn.addEventListener('click', () => {
+  $$('nav.tabs button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  $$('.tab').forEach(t => t.classList.remove('active'));
+  $('#tab-'+btn.dataset.tab).classList.add('active');
+  if (btn.dataset.tab === 'registry') renderRegistry();
+}));
+
+/* header buttons */
+$('#refreshBtn').addEventListener('click', loadEvents);
+$('#backupBtn').addEventListener('click', () => {
+  const payload = {
+    events: events,
+    registry: readReg(),
+    exported: new Date().toISOString()
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `historian_backup_${dayKey(new Date().toISOString())}.json`;
+  a.click(); URL.revokeObjectURL(a.href);
+});
+$('#restoreBtn').addEventListener('click', () => $('#restoreFile').click());
+$('#restoreFile').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      const incoming = Array.isArray(data) ? data : (data.events||[]);
+      if (!Array.isArray(incoming)) return alert('Invalid backup file.');
+      const byDet = new Map(events.map(x => [x.detId||x.id, x]));
+      let added=0, updated=0;
+      incoming.forEach(x => {
+        const k = x.detId||x.id;
+        if (byDet.has(k)) { byDet.set(k, x); updated++; } else { byDet.set(k, x); added++; }
+      });
+      events = [...byDet.values()];
+	  if (data.registry && typeof data.registry === 'object'){
+		  const reg = readReg();
+		  Object.assign(reg, data.registry);
+		  writeReg(reg);
+		}
+		renderRegistry();
+      localStorage.setItem(KEY, JSON.stringify(events));
+      loadEvents();
+      alert(`Restored: ${added} added, ${updated} updated.`);
+    } catch(err){ alert('Error reading backup: '+err.message); }
+  };
+  r.readAsText(f); e.target.value='';
+});
+$('#wipeBtn').addEventListener('click', () => {
+  if (!confirm('Delete ALL historian events? This cannot be undone.')) return;
+  localStorage.removeItem(KEY);
+  loadEvents();
+});
+
+/* cross-tab: refresh when another tab saves */
+window.addEventListener('storage', e => { if (e.key === KEY) loadEvents(); });
+
+/* ============================================================
+   Machine Registry tab
+   ============================================================ */
+const REG_KEY = 'historian_registry_v1';
+function readReg(){ try { return JSON.parse(localStorage.getItem(REG_KEY)||'{}'); } catch(e){ return {}; } }
+function writeReg(r){ try { localStorage.setItem(REG_KEY, JSON.stringify(r)); } catch(e){} }
+
+function renderRegistry(){
+  const reg = readReg();
+  const keys = Object.keys(reg).sort((a,b) => parseInt(a)-parseInt(b));
+  const el = $('#regTable');
+  if (!keys.length){
+    el.innerHTML = '<div class="empty">No mappings yet. Add one above, or save an event from any tool.</div>';
+    return;
+  }
+  const counts = {};
+  events.forEach(e => { if (e.machineId) counts[e.machineId] = (counts[e.machineId]||0)+1; });
+
+  let h = '<table style="width:100%;border-collapse:collapse;font-size:12.5px">' +
+    '<thead><tr style="background:#eef2f7;color:#41546b">' +
+    '<th style="text-align:left;padding:6px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid #d6dde6">MNO</th>' +
+    '<th style="text-align:left;padding:6px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid #d6dde6">Acronym</th>' +
+    '<th style="text-align:left;padding:6px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid #d6dde6">Canonical ID</th>' +
+    '<th style="text-align:right;padding:6px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid #d6dde6">Events</th>' +
+    '<th style="text-align:right;padding:6px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid #d6dde6"></th>' +
+    '</tr></thead><tbody>';
+
+  keys.forEach(mno => {
+    const acronym = reg[mno];
+    const canonical = `${acronym} ${mno}`;
+    h += `<tr style="border-bottom:1px solid #eef2f7">
+      <td style="padding:6px 10px;font-weight:700;color:#0b3d91">${esc(mno)}</td>
+      <td style="padding:6px 10px">${esc(acronym)}</td>
+      <td style="padding:6px 10px;font-weight:600">${esc(canonical)}</td>
+      <td style="padding:6px 10px;text-align:right;color:#5b6b80">${counts[canonical]||0}</td>
+      <td style="padding:6px 10px;text-align:right">
+        <button class="btn ghost" data-del="${esc(mno)}" style="padding:3px 10px;font-size:11px">Delete</button>
+      </td>
+    </tr>`;
+  });
+  h += '</tbody></table>';
+  el.innerHTML = h;
+
+  el.querySelectorAll('button[data-del]').forEach(b => b.addEventListener('click', () => {
+    const mno = b.dataset.del;
+    if (!confirm(`Remove mapping for MNO ${mno}? Existing events keep their canonical ID.`)) return;
+    const reg = readReg();
+    delete reg[mno];
+    writeReg(reg);
+    renderRegistry();
+  }));
+}
+
+$('#regAddBtn').addEventListener('click', () => {
+  const mno = String(parseInt($('#regMno').value, 10));
+  const acronym = $('#regAcronym').value;
+  if (!mno || isNaN(parseInt(mno,10))) { alert('Enter a numeric MNO.'); return; }
+  const reg = readReg();
+  reg[mno] = acronym;
+  writeReg(reg);
+  $('#regMno').value = '';
+  renderRegistry();
+});
+$('#regClearBtn').addEventListener('click', () => {
+  if (!confirm('Clear every mapping? This does not delete events.')) return;
+  writeReg({});
+  renderRegistry();
+});
+
+/* init */
+loadEvents();
+renderRegistry();
+window.addEventListener('storage', e => {
+  if (e.key === KEY) loadEvents();
+  if (e.key === REG_KEY) renderRegistry();
+});
+</script>
+</body>
+</html>
