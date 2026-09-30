@@ -2889,155 +2889,93 @@
     </script>
 	<!-- ============ Historian client (v2) ============ -->
 	<script>
-		(function(){
-		  const EV_KEY  = 'historian_events_v1';
-		  const REG_KEY = 'historian_registry_v1';
-		  const VALID_ACRONYMS = ['DBCS','DIOSS','CIOSS'];
-
-		  const uid  = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
-		  const norm = s => (s || '').replace(/\s+/g,' ').trim();
-
-		  function readAll(){
-			try { const r = localStorage.getItem(EV_KEY); return r ? JSON.parse(r) : []; }
-			catch(e){ return []; }
-		  }
-		  function writeAll(arr){
-			try { localStorage.setItem(EV_KEY, JSON.stringify(arr)); return true; }
-			catch(e){ alert('Historian storage error: ' + e.message); return false; }
-		  }
-		  function readReg(){
-			try { const r = localStorage.getItem(REG_KEY); return r ? JSON.parse(r) : {}; }
-			catch(e){ return {}; }
-		  }
-		  function writeReg(r){
-			try { localStorage.setItem(REG_KEY, JSON.stringify(r)); return true; }
-			catch(e){ return false; }
-		  }
-
-		  function parseMachineId(raw){
-			if (!raw) return null;
-			const m = String(raw).trim().match(/^([A-Za-z]+)[\s\-_]*0*(\d+)$/);
-			if (!m) return null;
-			return { acronym: m[1].toUpperCase(), mno: String(parseInt(m[2],10)) };
-		  }
-		  function canonicalId(acronym, mno){ return `${acronym} ${mno}`; }
-
-		  window.historianGetRegistry     = readReg;
-		  window.historianSaveRegistry    = writeReg;
-		  window.historianParseMachineId  = parseMachineId;
-		  window.historianCanonicalId     = canonicalId;
-
-		  window.historianRegisterMno = function(mno, acronym){
-			const reg = readReg();
-			reg[String(parseInt(mno,10))] = acronym.toUpperCase();
-			writeReg(reg);
-		  };
-
-		  window.historianPromptForMnOs = function(unknownMnos){
-			return new Promise((resolve) => {
-			  const ov = document.createElement('div');
-			  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99998;'+
-				'display:flex;align-items:center;justify-content:center;font:13px/1.5 system-ui,sans-serif;';
-			  const box = document.createElement('div');
-			  box.style.cssText = 'background:#fff;border-radius:12px;padding:20px 24px;max-width:520px;width:92%;'+
-				'box-shadow:0 12px 40px rgba(0,0,0,.3);max-height:85vh;overflow:auto;';
-
-			  let rowsHtml = '';
-			  unknownMnos.forEach(m => {
-				rowsHtml += `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #eef2f6;">
-				  <div style="font-weight:700;min-width:70px;color:#0b3d91;">MNO ${m}</div>
-				  <select data-mno="${m}" style="flex:1;padding:6px 10px;border:1px solid #b9c8dc;border-radius:6px;font:13px inherit;">
-					<option value="">— skip this machine —</option>
-					${VALID_ACRONYMS.map(a=>`<option value="${a}">${a}</option>`).join('')}
-				  </select>
-				</div>`;
-			  });
-
-			  box.innerHTML = `
-				<h3 style="margin:0 0 6px;color:#0b3d91;font-size:16px;">Assign machine types</h3>
-				<p style="margin:0 0 14px;color:#5b6b80;font-size:12.5px;">
-				  These MNOs aren't in the registry yet. Pick the acronym for each.
-				  Anything left as “skip” won't be saved this time.
-				</p>
-				<div>${rowsHtml}</div>
-				<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
-				  <button id="__hCancel" style="background:#fff;color:#0b3d91;border:1px solid #b9c8dc;border-radius:6px;padding:7px 16px;font:600 13px inherit;cursor:pointer;">Cancel</button>
-				  <button id="__hOK" style="background:#0b3d91;color:#fff;border:0;border-radius:6px;padding:7px 18px;font:600 13px inherit;cursor:pointer;">Save assignments</button>
-				</div>`;
-			  ov.appendChild(box);
-			  document.body.appendChild(ov);
-
-			  ov.querySelector('#__hCancel').onclick = () => { document.body.removeChild(ov); resolve({}); };
-			  ov.querySelector('#__hOK').onclick = () => {
-				const out = {};
-				box.querySelectorAll('select[data-mno]').forEach(sel => {
-				  if (sel.value) out[sel.dataset.mno] = sel.value;
-				});
-				document.body.removeChild(ov);
-				resolve(out);
-			  };
-			});
-		  };
-
-		  window.historianSave = function(ev){
-			ev.id = ev.id || uid();
-			ev.capturedAt = new Date().toISOString();
-
-			if (ev.payload && ev.payload.rawMno){
-			  const mno = String(parseInt(ev.payload.rawMno, 10));
-			  const reg = readReg();
-			  const acronym = reg[mno] || ev.payload.acronymHint || null;
-			  if (acronym){
-				ev.machineId = canonicalId(acronym, mno);
-				ev.machineResolved = true;
-			  } else {
-				ev.machineId = 'MNO ' + mno;
-				ev.machineResolved = false;
-			  }
-			}
-			else if (ev.machineId){
-			  const p = parseMachineId(ev.machineId);
-			  if (p){
-				ev.machineId = canonicalId(p.acronym, p.mno);
-				const reg = readReg();
-				if (!reg[p.mno]) { reg[p.mno] = p.acronym; writeReg(reg); }
-				ev.machineResolved = true;
-			  }
-			}
-
-			ev.detId = [ev.source||'', ev.machineId||'', ev.eventTime||'', ev.kind||'', norm(ev.summary||'')].join('|');
-
-			const all = readAll();
-			const i = all.findIndex(x => (x.detId||x.id) === ev.detId);
-			if (i >= 0){
-			  all[i] = Object.assign({}, all[i], ev);
-			  writeAll(all);
-			  return { action:'updated', total: all.length, machineId: ev.machineId };
-			}
-			all.push(ev);
-			writeAll(all);
-			return { action:'added', total: all.length, machineId: ev.machineId };
-		  };
-
-		  window.historianOpen = function(){ window.open('historian.html','historian'); };
-
-		  window.historianToast = function(msg, ok){
-			let el = document.getElementById('__histToast');
-			if (!el){
-			  el = document.createElement('div');
-			  el.id = '__histToast';
-			  el.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99999;'+
-				'padding:10px 16px;border-radius:8px;font:600 13px/1.4 system-ui,sans-serif;'+
-				'box-shadow:0 4px 14px rgba(0,0,0,.2);color:#fff;transition:opacity .3s;';
-			  document.body.appendChild(el);
-			}
-			el.style.background = ok === false ? '#b3261e' : '#1b5e20';
-			el.textContent = msg;
-			el.style.opacity = '1';
-			clearTimeout(el._t);
-			el._t = setTimeout(() => { el.style.opacity = '0'; }, 2600);
-		  };
-		})();
+	(function(){
+	    const EV_KEY  = 'historian_events_v1';
+	    const REG_KEY = 'historian_registry_v1';
+	    const MHTS_ACRONYMS = ['DBCS','DIOSS','CIOSS'];
+	    const KNOWN_ACRONYMS = ['DBCS','DIOSS','CIOSS','DBS','ASD','HSTS','STRAP','ATU','RACK','ADMIN','EMARS'];
+	    const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+	    const norm = s => (s || '').replace(/\s+/g,' ').trim();
+	    function readAll(){ try { const r = localStorage.getItem(EV_KEY); return r ? JSON.parse(r) : []; } catch(e){ return []; } }
+	    function writeAll(arr){ try { localStorage.setItem(EV_KEY, JSON.stringify(arr)); return true; } catch(e){ alert('Historian storage error: ' + e.message); return false; } }
+	    function readReg(){ try { const r = localStorage.getItem(REG_KEY); return r ? JSON.parse(r) : {}; } catch(e){ return {}; } }
+	    function writeReg(r){ try { localStorage.setItem(REG_KEY, JSON.stringify(r)); return true; } catch(e){ return false; } }
+	    function parseMachineId(raw){
+	        if (!raw) return null;
+	        const m = String(raw).trim().match(/^([A-Za-z]+)[\s\-_]*0*(\d+)$/);
+	        if (!m) return null;
+	        return { acronym: m[1].toUpperCase(), mno: String(parseInt(m[2],10)) };
+	    }
+	    function canonicalId(acronym, mno){ return `${acronym} ${mno}`; }
+	    window.historianGetRegistry     = readReg;
+	    window.historianSaveRegistry    = writeReg;
+	    window.historianParseMachineId  = parseMachineId;
+	    window.historianCanonicalId     = canonicalId;
+	    window.historianKnownAcronyms   = KNOWN_ACRONYMS;
+	    window.historianMhtsAcronyms    = MHTS_ACRONYMS;
+	    window.historianRegisterMno = function(mno, acronym){
+	        const reg = readReg();
+	        reg[String(parseInt(mno,10))] = String(acronym).toUpperCase();
+	        writeReg(reg);
+	    };
+	    window.historianPromptForMnOs = function(unknownMnos, acronymList){
+	        const list = (acronymList && acronymList.length) ? acronymList : MHTS_ACRONYMS;
+	        return new Promise((resolve) => {
+	            const ov = document.createElement('div');
+	            ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99998;display:flex;align-items:center;justify-content:center;font:13px/1.5 system-ui,sans-serif;';
+	            const box = document.createElement('div');
+	            box.style.cssText = 'background:#fff;border-radius:12px;padding:20px 24px;max-width:520px;width:92%;box-shadow:0 12px 40px rgba(0,0,0,.3);max-height:85vh;overflow:auto;';
+	            let rowsHtml = '';
+	            unknownMnos.forEach(m => {
+	                rowsHtml += `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #eef2f6;"><div style="font-weight:700;min-width:70px;color:#0b3d91;">MNO ${m}</div><select data-mno="${m}" style="flex:1;padding:6px 10px;border:1px solid #b9c8dc;border-radius:6px;font:13px inherit;"><option value="">— skip this machine —</option>${list.map(a=>`<option value="${a}">${a}</option>`).join('')}</select></div>`;
+	            });
+	            box.innerHTML = `<h3 style="margin:0 0 6px;color:#0b3d91;font-size:16px;">Assign machine types</h3><p style="margin:0 0 14px;color:#5b6b80;font-size:12.5px;">These MNOs aren't in the registry yet.</p><div>${rowsHtml}</div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;"><button id="__hCancel" style="background:#fff;color:#0b3d91;border:1px solid #b9c8dc;border-radius:6px;padding:7px 16px;font:600 13px inherit;cursor:pointer;">Cancel</button><button id="__hOK" style="background:#0b3d91;color:#fff;border:0;border-radius:6px;padding:7px 18px;font:600 13px inherit;cursor:pointer;">Save assignments</button></div>`;
+	            ov.appendChild(box); document.body.appendChild(ov);
+	            ov.querySelector('#__hCancel').onclick = () => { document.body.removeChild(ov); resolve({}); };
+	            ov.querySelector('#__hOK').onclick = () => { const out = {}; box.querySelectorAll('select[data-mno]').forEach(sel => { if (sel.value) out[sel.dataset.mno] = sel.value; }); document.body.removeChild(ov); resolve(out); };
+	        });
+	    };
+	    window.historianSave = function(ev){
+	        ev.id = ev.id || uid();
+	        ev.capturedAt = new Date().toISOString();
+	        if (ev.payload && ev.payload.rawMno){
+	            const mno = String(parseInt(ev.payload.rawMno, 10));
+	            const reg = readReg();
+	            const acronym = reg[mno] || ev.payload.acronymHint || null;
+	            if (acronym){ ev.machineId = canonicalId(acronym, mno); ev.machineResolved = true; }
+	            else { ev.machineId = 'MNO ' + mno; ev.machineResolved = false; }
+	        } else if (ev.machineId){
+	            const p = parseMachineId(ev.machineId);
+	            if (p){
+	                ev.machineId = canonicalId(p.acronym, p.mno);
+	                const reg = readReg();
+	                if (!reg[p.mno]) { reg[p.mno] = p.acronym; writeReg(reg); }
+	                ev.machineResolved = true;
+	            }
+	        }
+	        ev.detId = [ev.source||'', ev.machineId||'', ev.eventTime||'', ev.kind||'', norm(ev.summary||'')].join('|');
+	        const all = readAll();
+	        const i = all.findIndex(x => (x.detId||x.id) === ev.detId);
+	        if (i >= 0){ all[i] = Object.assign({}, all[i], ev); writeAll(all); return { action:'updated', total: all.length, machineId: ev.machineId }; }
+	        all.push(ev); writeAll(all);
+	        return { action:'added', total: all.length, machineId: ev.machineId };
+	    };
+	    window.historianOpen = function(){ window.open('historian.html','historian'); };
+	    window.historianToast = function(msg, ok){
+	        let el = document.getElementById('__histToast');
+	        if (!el){
+	            el = document.createElement('div');
+	            el.id = '__histToast';
+	            el.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99999;padding:10px 16px;border-radius:8px;font:600 13px/1.4 system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.2);color:#fff;transition:opacity .3s;';
+	            document.body.appendChild(el);
+	        }
+	        el.style.background = ok === false ? '#b3261e' : '#1b5e20';
+	        el.textContent = msg;
+	        el.style.opacity = '1';
+	        clearTimeout(el._t);
+	        el._t = setTimeout(() => { el.style.opacity = '0'; }, 2600);
+	    };
+	})();
 	</script>
     <script>
         document.getElementById('sendHistBtn').addEventListener('click', () => {
