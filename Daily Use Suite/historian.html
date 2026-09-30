@@ -107,6 +107,7 @@
   <button data-tab="timeline" class="active">Timeline</button>
   <button data-tab="query">Query &amp; Report</button>
   <button data-tab="machines">Machines</button>
+  <button data-tab="registry">Machine Registry</button>
 </nav>
 
 <main>
@@ -212,20 +213,17 @@
 <section id="tab-registry" class="tab">
   <div class="card">
     <h2>Machine Registry — MNO → acronym</h2>
-    <div class="mini" style="margin-bottom:12px">
-      Every MNO this facility has ever reported. Taught automatically the first time a tool saves an event,
-      or add them by hand here. This is what lets MHTS rows find their acronym.
-    </div>
+    <div class="mini" style="margin-bottom:12px">Every MNO this facility has ever reported.</div>
     <div class="row" style="margin-bottom:12px">
-      <label class="f">MNO
-        <input type="text" id="regMno" placeholder="e.g. 49" style="min-width:110px">
-      </label>
+      <label class="f">MNO<input type="text" id="regMno" placeholder="e.g. 49" style="min-width:110px"></label>
       <label class="f">Acronym
-        <select id="regAcronym">
-          <option value="DBCS">DBCS</option>
-          <option value="DIOSS">DIOSS</option>
-          <option value="CIOSS">CIOSS</option>
-        </select>
+        <input type="text" id="regAcronym" list="regAcronymList" placeholder="e.g. ASD" autocomplete="off" style="min-width:130px;text-transform:uppercase">
+        <datalist id="regAcronymList">
+          <option value="DBCS"></option><option value="DIOSS"></option><option value="CIOSS"></option>
+          <option value="DBS"></option><option value="ASD"></option><option value="HSTS"></option>
+          <option value="STRAP"></option><option value="ATU"></option><option value="RACK"></option>
+          <option value="ADMIN"></option><option value="EMARS"></option>
+        </datalist>
       </label>
       <button class="btn" id="regAddBtn">Add / update</button>
       <div class="spacer"></div>
@@ -561,72 +559,43 @@ $('#wipeBtn').addEventListener('click', () => {
 window.addEventListener('storage', e => { if (e.key === KEY) loadEvents(); });
 
 /* ============================================================
-   Machine Registry tab
+   Machine Registry
    ============================================================ */
 const REG_KEY = 'historian_registry_v1';
-function readReg(){ try { return JSON.parse(localStorage.getItem(REG_KEY)||'{}'); } catch(e){ return {}; } }
-function writeReg(r){ try { localStorage.setItem(REG_KEY, JSON.stringify(r)); } catch(e){} }
+function readReg(){ try { return JSON.parse(localStorage.getItem(REG_KEY)||'{}'); }}? catch`(e){ return {}; } }
+function writeReg(r){ try)) { localStorage.setItem(REG_KEY, JSON return.stringify(r)); } catch(e){} }
 
 function renderRegistry(){
   const reg = readReg();
   const keys = Object.keys(reg).sort((a,b) => parseInt(a)-parseInt(b));
   const el = $('#regTable');
-  if (!keys.length){
-    el.innerHTML = '<div class="empty">No mappings yet. Add one above, or save an event from any tool.</div>';
-    return;
-  }
+  if (!keys.length){ el.innerHTML = '<div class="empty">No mappings yet.</div>'; return; }
   const counts = {};
   events.forEach(e => { if (e.machineId) counts[e.machineId] = (counts[e.machineId]||0)+1; });
-
-  let h = '<table style="width:100%;border-collapse:collapse;font-size:12.5px">' +
-    '<thead><tr style="background:#eef2f7;color:#41546b">' +
-    '<th style="text-align:left;padding:6px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid #d6dde6">MNO</th>' +
-    '<th style="text-align:left;padding:6px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid #d6dde6">Acronym</th>' +
-    '<th style="text-align:left;padding:6px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid #d6dde6">Canonical ID</th>' +
-    '<th style="text-align:right;padding:6px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid #d6dde6">Events</th>' +
-    '<th style="text-align:right;padding:6px 10px;font-size:10.5px;text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid #d6dde6"></th>' +
-    '</tr></thead><tbody>';
-
+  let h = '<table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr style="background:#eef2f7;color:#41546b"><th style="text-align:left;padding:6px 10px">MNO</th><th style="text-align:left;padding:6px 10px">Acronym</th><th style="text-align:left;padding:6px 10px">Canonical ID</th><th style="text-align:right;padding:6px 10px">Events</th><th style="text-align:right;padding:6px 10px"></th></tr></thead><tbody>';
   keys.forEach(mno => {
-    const acronym = reg[mno];
-    const canonical = `${acronym} ${mno}`;
-    h += `<tr style="border-bottom:1px solid #eef2f7">
-      <td style="padding:6px 10px;font-weight:700;color:#0b3d91">${esc(mno)}</td>
-      <td style="padding:6px 10px">${esc(acronym)}</td>
-      <td style="padding:6px 10px;font-weight:600">${esc(canonical)}</td>
-      <td style="padding:6px 10px;text-align:right;color:#5b6b80">${counts[canonical]||0}</td>
-      <td style="padding:6px 10px;text-align:right">
-        <button class="btn ghost" data-del="${esc(mno)}" style="padding:3px 10px;font-size:11px">Delete</button>
-      </td>
-    </tr>`;
+	const acronym = reg[mno]; const canonical = `${acronym} ${mno}`;
+	h += `<tr style="border-bottom:1px solid #eef2f7"><td style="padding:6px 10px;font-weight:700;color:#0b3d91">${esc(mno)}</td><td style="padding:6px 10px">${esc(acronym)}</td><td style="padding:6px 10px;font-weight:600">${esc(canonical)}</td><td style="padding:6px 10px;text-align:right;color:#5b6b80">${counts[canonical]||0}</td><td style="padding:6px 10px;text-align:right"><button class="btn ghost" data-del="${esc(mno)}" style="padding:3px 10px;font-size:11px">Delete</button></td></tr>`;
   });
-  h += '</tbody></table>';
-  el.innerHTML = h;
-
+  h += '</tbody></table>'; el.innerHTML = h;
   el.querySelectorAll('button[data-del]').forEach(b => b.addEventListener('click', () => {
-    const mno = b.dataset.del;
-    if (!confirm(`Remove mapping for MNO ${mno}? Existing events keep their canonical ID.`)) return;
-    const reg = readReg();
-    delete reg[mno];
-    writeReg(reg);
-    renderRegistry();
+	const mno = b.dataset.del;
+	if (!confirm(`Remove mapping for MNO ${mno;
+	const reg = readReg(); delete reg[mno]; writeReg(reg); renderRegistry();
   }));
 }
-
 $('#regAddBtn').addEventListener('click', () => {
   const mno = String(parseInt($('#regMno').value, 10));
-  const acronym = $('#regAcronym').value;
+  const acronym = ($('#regAcronym').value || '').trim().toUpperCase();
   if (!mno || isNaN(parseInt(mno,10))) { alert('Enter a numeric MNO.'); return; }
-  const reg = readReg();
-  reg[mno] = acronym;
-  writeReg(reg);
-  $('#regMno').value = '';
+  if (!acronym) { alert('Enter an acronym.'); return; }
+  const reg = readReg(); reg[mno] = acronym; writeReg(reg);
+  $('#regMno').value = ''; $('#regAcronym').value = '';
   renderRegistry();
 });
 $('#regClearBtn').addEventListener('click', () => {
   if (!confirm('Clear every mapping? This does not delete events.')) return;
-  writeReg({});
-  renderRegistry();
+  writeReg({}); renderRegistry();
 });
 
 /* init */
