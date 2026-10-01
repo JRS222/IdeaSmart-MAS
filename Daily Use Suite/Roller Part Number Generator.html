@@ -1,0 +1,2054 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roller Part Number Generator</title>
+<style>
+  :root{--bg:#f4f6f9;--panel:#fff;--border:#d9dee5;--text:#1f2933;--muted:#5c6b7a;
+    --accent:#1e6fd9;--accent-dark:#155bb5;--ok:#1a8754;--ok-bg:#e6f4ec;
+    --warn:#b7791f;--warn-bg:#fff7e6;--err:#c53030;--err-bg:#fdecec;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;}
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
+  header{background:var(--panel);border-bottom:1px solid var(--border);
+    padding:16px 24px 0;position:sticky;top:0;z-index:10}
+  header h1{margin:0 0 12px;font-size:20px;font-weight:600}
+  nav.tabs{display:flex;gap:4px;overflow-x:auto}
+  nav.tabs button{background:transparent;border:none;padding:10px 16px;cursor:pointer;
+    font-size:14px;font-weight:500;color:var(--muted);border-bottom:2px solid transparent;
+    white-space:nowrap}
+  nav.tabs button.active{color:var(--accent);border-bottom-color:var(--accent)}
+  main{max-width:1400px;margin:0 auto;padding:24px}
+  .tab-panel{display:none}
+  .tab-panel.active{display:block}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:8px;
+    padding:20px;margin-bottom:20px}
+  .card h2{margin:0 0 16px;font-size:15px;font-weight:600;text-transform:uppercase;
+    letter-spacing:.04em;color:var(--muted)}
+  .card h3{margin:16px 0 8px;font-size:14px;font-weight:600}
+  .config-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  @media(max-width:900px){.config-grid{grid-template-columns:1fr}}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12px;font-weight:600;text-transform:uppercase;
+    letter-spacing:.03em;color:var(--muted);margin-bottom:4px}
+  .field input,.field select{width:100%;padding:8px 10px;border:1px solid var(--border);
+    border-radius:6px;font-size:14px;background:#fff;color:var(--text);font-family:inherit}
+  .field input:focus,.field select:focus{outline:none;border-color:var(--accent);
+    box-shadow:0 0 0 3px rgba(30,111,217,.12)}
+  .field .hint{font-size:12px;color:var(--muted);margin-top:3px}
+  table.kv{width:100%;border-collapse:collapse}
+  table.kv td{padding:8px 12px;border-bottom:1px solid var(--border);vertical-align:top}
+  table.kv td:first-child{color:var(--muted);font-weight:500;width:45%}
+  table.kv td:last-child{font-family:var(--mono);font-size:13px}
+  .vendor-block{border:1px solid var(--border);border-radius:8px;padding:16px;
+    margin-bottom:12px;background:#fbfcfe}
+  .vendor-block .vendor-name{font-weight:600;margin-bottom:8px;display:flex;
+    align-items:center;gap:8px}
+  .vendor-block .pn{font-family:var(--mono);font-size:15px;font-weight:600;
+    color:var(--accent-dark);background:#eef4fd;padding:10px 12px;border-radius:6px;
+    margin:8px 0;word-break:break-all}
+  .vendor-block .meta{font-size:12px;color:var(--muted);display:grid;
+    grid-template-columns:repeat(3,1fr);gap:6px}
+  button.btn{background:var(--accent);color:#fff;border:none;padding:9px 16px;
+    border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;font-family:inherit}
+  button.btn:hover{background:var(--accent-dark)}
+  button.btn.secondary{background:#eef2f7;color:var(--text)}
+  button.btn.secondary:hover{background:#e2e8f0}
+  .btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  table.data{width:100%;border-collapse:collapse;font-size:13px}
+  table.data th,table.data td{padding:8px 10px;text-align:left;
+    border-bottom:1px solid var(--border);white-space:nowrap}
+  table.data th{font-weight:600;color:var(--muted);font-size:11px;
+    text-transform:uppercase;letter-spacing:.04em;position:sticky;top:0;
+    background:var(--panel)}
+  table.data tr.valid td{background:var(--ok-bg)}
+  table.data tr.invalid td{opacity:.55}
+  table.data td.mono{font-family:var(--mono);font-size:12px}
+  .table-scroll{overflow:auto;max-height:600px;border:1px solid var(--border);
+    border-radius:6px}
+  .badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;
+    font-weight:600}
+  .badge.ok{background:var(--ok-bg);color:var(--ok)}
+  .badge.warn{background:var(--warn-bg);color:var(--warn)}
+  .badge.err{background:var(--err-bg);color:var(--err)}
+  .docs-layout{display:grid;grid-template-columns:250px 1fr;gap:24px}
+  @media(max-width:900px){.docs-layout{grid-template-columns:1fr}}
+  .docs-nav{position:sticky;top:80px;align-self:start;max-height:calc(100vh - 100px);
+    overflow-y:auto}
+  .docs-nav .nav-heading{font-size:11px;font-weight:700;text-transform:uppercase;
+    letter-spacing:.05em;color:var(--muted);padding:12px 10px 4px;
+    border-top:1px solid var(--border);margin-top:8px}
+  .docs-nav .nav-heading:first-child{border-top:none;margin-top:0}
+  .docs-nav a{display:block;padding:5px 10px;color:var(--muted);text-decoration:none;
+    font-size:13px;border-left:2px solid transparent}
+  .docs-nav a:hover{color:var(--accent);background:#eef4fd}
+  .docs-content details{background:var(--panel);border:1px solid var(--border);
+    border-radius:8px;margin-bottom:12px;padding:0}
+  .docs-content details summary{padding:14px 18px;cursor:pointer;font-weight:600;
+    font-size:14px;list-style:none;display:flex;align-items:center;gap:8px}
+  .docs-content details summary::before{content:"▸";color:var(--accent);
+    transition:transform .15s;display:inline-block}
+  .docs-content details[open] summary::before{transform:rotate(90deg)}
+  .docs-content details > div{padding:0 18px 18px}
+  .docs-content h4{font-size:13px;margin:16px 0 6px;text-transform:uppercase;
+    letter-spacing:.03em;color:var(--muted)}
+  .docs-content p{margin:6px 0}
+  .docs-content ul{margin:6px 0;padding-left:22px;font-size:13px}
+  .docs-content code{font-family:var(--mono);background:#eef2f7;padding:2px 6px;
+    border-radius:4px;font-size:12px}
+  .docs-content pre{background:#f7f9fb;border:1px solid var(--border);border-radius:6px;
+    padding:12px;font-family:var(--mono);font-size:12px;overflow-x:auto;margin:8px 0}
+  .pnc-seg{display:inline-block;padding:2px 6px;margin:1px;border-radius:3px;
+    font-family:var(--mono);font-size:12px}
+  .pnc-1{background:#d6e4ff}.pnc-2{background:#d6f5e0}.pnc-3{background:#ffe8cc}
+  .pnc-4{background:#f0d6ff}.pnc-5{background:#ffd6e0}.pnc-6{background:#d6f5f5}
+  .pnc-7{background:#f5f0d6}
+  .alert{padding:10px 14px;border-radius:6px;font-size:13px;margin-bottom:12px;
+    border:1px solid}
+  .alert.info{background:#eef4fd;border-color:#c5d8f5;color:#1a3d70}
+  .alert.warn{background:var(--warn-bg);border-color:#f0d9a8;color:#7a5410}
+  .alert.ok{background:var(--ok-bg);border-color:#b8e0c8;color:#0f5132}
+  .alert.err{background:var(--err-bg);border-color:#f5c5c5;color:#7a1f1f}
+  .search-bar{display:flex;gap:8px;margin-bottom:12px}
+  .search-bar input{flex:1;padding:8px 12px;border:1px solid var(--border);
+    border-radius:6px;font-size:14px;font-family:inherit}
+  .count-line{font-size:12px;color:var(--muted);margin-bottom:8px}
+  .pos-grid{display:grid;grid-template-columns:repeat(11,1fr);gap:6px;margin:16px 0}
+  @media(max-width:900px){.pos-grid{grid-template-columns:repeat(4,1fr)}}
+  .pos-card{background:#f7f9fb;border:1px solid var(--border);border-radius:6px;
+    padding:10px 8px;text-align:center}
+  .pos-card .pos-num{font-size:10px;font-weight:700;color:var(--muted);
+    text-transform:uppercase;letter-spacing:.05em}
+  .pos-card .pos-val{font-family:var(--mono);font-size:14px;font-weight:700;
+    color:var(--accent-dark);margin:4px 0}
+  .pos-card .pos-name{font-size:10px;color:var(--muted);line-height:1.3}
+  .microroll-example{background:#f0f7ff;border:1px solid #c5d8f5;border-radius:8px;
+    padding:14px 16px;margin:12px 0}
+  .microroll-example .ex-pn{font-family:var(--mono);font-size:18px;font-weight:700;
+    color:var(--accent-dark);letter-spacing:1px}
+  .microroll-example .ex-translation{font-size:13px;color:var(--muted);
+    margin-top:8px;line-height:1.6}
+  .verdict{padding:16px 20px;border-radius:8px;font-size:15px;font-weight:600;
+    margin:16px 0;display:flex;align-items:center;gap:12px;border:1px solid}
+  .verdict.ok{background:var(--ok-bg);border-color:#b8e0c8;color:#0f5132}
+  .verdict.warn{background:var(--warn-bg);border-color:#f0d9a8;color:#7a5410}
+  .verdict.err{background:var(--err-bg);border-color:#f5c5c5;color:#7a1f1f}
+  .verdict .icon{font-size:24px}
+  .compare-cell{display:flex;align-items:center;gap:6px;font-size:13px}
+  .match-icon{font-weight:700}
+  .match-icon.ok{color:var(--ok)}
+  .match-icon.warn{color:var(--warn)}
+  .match-icon.err{color:var(--err)}
+  .card-recommendation{background:linear-gradient(135deg,#f0f7ff,#e6f0fd);
+    border:1px solid #c5d8f5;border-radius:8px;padding:20px;margin-bottom:12px}
+  .card-recommendation .card-name{font-size:22px;font-weight:700;
+    color:var(--accent-dark);font-family:var(--mono);margin-bottom:4px}
+  .card-recommendation .card-sub{font-size:13px;color:var(--muted);margin-bottom:12px}
+  .card-recommendation .rec-meta{display:grid;grid-template-columns:repeat(2,1fr);
+    gap:12px;margin-top:12px}
+  .card-recommendation .rec-meta > div{background:#fff;border-radius:6px;
+    padding:10px 12px;font-size:12px}
+  .card-recommendation .rec-meta > div .label{color:var(--muted);font-weight:600;
+    text-transform:uppercase;font-size:10px;letter-spacing:.05em;margin-bottom:4px}
+  .card-recommendation .rec-meta > div .value{font-family:var(--mono);
+    font-size:14px;font-weight:600;color:var(--text)}
+  .card-list-item{display:flex;align-items:center;gap:12px;padding:12px 14px;
+    border:1px solid var(--border);border-radius:6px;margin-bottom:8px;
+    background:#fbfcfe}
+  .card-list-item .cname{font-family:var(--mono);font-weight:700;
+    font-size:14px;color:var(--accent-dark);min-width:140px}
+  .card-list-item .cinfo{flex:1;font-size:12px;color:var(--muted)}
+  .card-list-item .cfeat{font-size:11px;color:var(--muted);margin-top:2px}
+  .brand-tag{display:inline-block;padding:1px 6px;border-radius:8px;font-size:10px;
+    font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-left:6px;
+    vertical-align:middle}
+  .brand-itoh{background:#e6f0fd;color:#155bb5}
+  .brand-microroll{background:#e6f4ec;color:#1a8754}
+  .brand-infinidrive{background:#fff0e6;color:#c05621}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Roller Part Number Generator</h1>
+  <nav class="tabs">
+    <button data-tab="configurator" class="active">Configurator</button>
+    <button data-tab="database">Roller Database</button>
+    <button data-tab="driver">Driver Config</button>
+    <button data-tab="swap">Replacement &amp; Swap</button>
+    <button data-tab="docs">Reference Docs</button>
+  </nav>
+</header>
+
+<main>
+
+<!-- ============================ CONFIGURATOR ============================ -->
+<section id="tab-configurator" class="tab-panel active">
+  <div class="alert info">
+    Configure your application. The tool computes friction, torque, and
+    generates vendor-specific part numbers, then matches them against the
+    roller database.
+  </div>
+
+  <div class="config-grid">
+    <div class="card">
+      <h2>Application Inputs</h2>
+      <form id="config-form" autocomplete="off">
+        <div class="field">
+          <label for="packageMaterial">Package Material</label>
+          <select id="packageMaterial">
+            <option>Plastic</option><option selected>Cardboard</option>
+            <option>Wood</option><option>Steel</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="wlbsMax">Max Weight (lbs)</label>
+          <input type="number" id="wlbsMax" value="200" step="1" min="0">
+        </div>
+        <div class="field">
+          <label for="droller">Roller Diameter (in)</label>
+          <input type="number" id="droller" value="1.9" step="0.01" min="0">
+        </div>
+        <div class="field">
+          <label for="lbf">Between-Frame Length LBF (in)</label>
+          <input type="number" id="lbf" value="15.1" step="0.01" min="0">
+        </div>
+        <div class="field">
+          <label for="curveType">Curve Type</label>
+          <select id="curveType">
+            <option>Flat Curve</option><option>Up Spiral</option>
+            <option selected>Down Spiral</option><option>Straight</option>
+            <option>Pulley</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="driveStyle">Drive Style</label>
+          <select id="driveStyle">
+            <option selected>Standard</option><option>Pulley</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="hspiral">Height of Spiral (ft)</label>
+          <input type="number" id="hspiral" value="10" step="0.1" min="0">
+        </div>
+        <div class="field">
+          <label for="pitch">Pitch (complete turns)</label>
+          <input type="number" id="pitch" value="3" step="0.1" min="0">
+        </div>
+        <hr style="border:none;border-top:1px solid var(--border);margin:20px 0">
+        <h3 style="margin-top:0">Order Details (for email)</h3>
+        <div class="field">
+          <label for="cableLength">Desired Cable Length (in)</label>
+          <input type="number" id="cableLength" value="40" step="1" min="0">
+        </div>
+        <div class="field">
+          <label for="quantity">Quantity</label>
+          <input type="number" id="quantity" value="1" step="1" min="1">
+        </div>
+        <div class="field" id="taperField" style="display:none">
+          <label for="taperDiameter">Diameter of Taper (in)</label>
+          <input type="number" id="taperDiameter" value="2.2" step="0.01" min="0">
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Derived Values</h2>
+      <table class="kv">
+        <tr><td>Roller Body</td><td id="d-rollerBody">—</td></tr>
+        <tr><td>μ Static</td><td id="d-mu">—</td></tr>
+        <tr><td>θ Conveyance (deg)</td><td id="d-theta">—</td></tr>
+        <tr><td>F Tangential (lbs)</td><td id="d-ft">—</td></tr>
+        <tr><td>τ (in·lbs)</td><td id="d-torque">—</td></tr>
+      </table>
+      <h3>Vendor Part Numbers</h3>
+      <div id="vendor-results"></div>
+      <h3>Matching Rollers</h3>
+      <div class="count-line" id="match-count">—</div>
+      <div class="btn-row">
+        <button class="btn secondary" id="btn-email-all">Prepare Emails</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Valid Matches from Roller Database</h2>
+    <div class="table-scroll">
+      <table class="data" id="matches-table">
+        <thead><tr>
+          <th>Part Number</th><th>Description</th><th>BOH</th>
+          <th>Speed</th><th>Length (mm)</th><th>Grooved</th>
+          <th>Braking</th><th>Tapered</th><th>Status</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ DATABASE ============================ -->
+<section id="tab-database" class="tab-panel">
+  <div class="card">
+    <h2>Roller Database</h2>
+    <div class="search-bar">
+      <input type="text" id="db-search" placeholder="Search part number, description, PSN…">
+      <select id="db-filter" style="padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-family:inherit">
+        <option value="all">All</option><option value="valid">Valid only</option>
+        <option value="invalid">Invalid only</option>
+        <option value="grooved">Grooved</option>
+        <option value="braking">Braking</option>
+        <option value="tapered">Tapered</option>
+      </select>
+    </div>
+    <div class="count-line" id="db-count">—</div>
+    <div class="table-scroll">
+      <table class="data" id="db-table">
+        <thead><tr>
+          <th>PSN</th><th>Part Number</th><th>Description</th>
+          <th>BOH</th><th>Status</th><th>Speed</th><th>Length</th>
+          <th>Grooved</th><th>Braking</th><th>Tapered</th>
+          <th>Ideal Frame</th><th>Valid</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ DRIVER CONFIG ============================ -->
+<section id="tab-driver" class="tab-panel">
+  <div class="alert info">
+    Describe how you want the roller to behave. The tool recommends a driver
+    card, speed code, pin count, output type, and switch settings.
+  </div>
+
+  <div class="config-grid">
+    <div class="card">
+      <h2>Desired Behavior</h2>
+      <div class="field">
+        <label for="dc-roller">Roller Model</label>
+        <select id="dc-roller"></select>
+      </div>
+      <div class="field">
+        <label for="dc-application">Application Type</label>
+        <select id="dc-application">
+          <option value="standard">Standard transport (single direction)</option>
+          <option value="zpa">Zero Pressure Accumulation (ZPA)</option>
+          <option value="network">Networked / EtherNet/IP or EtherCAT</option>
+          <option value="brake">Indexing / positioning (brake required)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="dc-target-fpm">Target Speed (FPM)</label>
+        <input type="number" id="dc-target-fpm" value="60" step="1" min="1">
+      </div>
+      <div class="field">
+        <label for="dc-output">Output Type</label>
+        <select id="dc-output">
+          <option value="P">PNP output</option>
+          <option value="N">NPN output</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="dc-env">Environment</label>
+        <select id="dc-env">
+          <option value="standard">Standard</option>
+          <option value="lt">Low Temp (-22 °F)</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Recommended Setup</h2>
+      <div id="dc-recommendation"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>All Compatible Cards for Selected Roller</h2>
+    <div id="dc-card-list"></div>
+  </div>
+</section>
+
+<!-- ============================ SWAP ============================ -->
+<section id="tab-swap" class="tab-panel">
+  <div class="alert info">
+    Compare an old roller + card against a new roller + card to check drop-in
+    compatibility, or find a replacement for a known setup. Cross-brand swaps
+    are supported (Itoh Denki ↔ Microroll/InfiniDrive).
+  </div>
+
+  <div class="card">
+    <h2>Compare Old vs. New</h2>
+    <div class="config-grid">
+      <div>
+        <h3 style="margin-top:0">Old Setup</h3>
+        <div class="field">
+          <label for="sw-old-roller">Old Roller (from database)</label>
+          <select id="sw-old-roller"></select>
+        </div>
+        <div class="field">
+          <label for="sw-old-card">Old Driver Card</label>
+          <select id="sw-old-card"></select>
+        </div>
+      </div>
+      <div>
+        <h3 style="margin-top:0">New Setup</h3>
+        <div class="field">
+          <label for="sw-new-roller">New Roller (from database)</label>
+          <select id="sw-new-roller"></select>
+        </div>
+        <div class="field">
+          <label for="sw-new-card">New Driver Card</label>
+          <select id="sw-new-card"></select>
+        </div>
+      </div>
+    </div>
+    <div id="sw-verdict"></div>
+    <div id="sw-comparison"></div>
+  </div>
+
+  <div class="card">
+    <h2>Find a Replacement</h2>
+    <p style="margin-top:0;color:var(--muted);font-size:13px">
+      Enter your current setup. The tool suggests compatible replacement rollers
+      from the database plus driver card configuration to replicate.
+    </p>
+    <div class="config-grid">
+      <div>
+        <div class="field">
+          <label for="fr-roller">Current Roller</label>
+          <select id="fr-roller"></select>
+        </div>
+        <div class="field">
+          <label for="fr-card">Current Driver Card</label>
+          <select id="fr-card"></select>
+        </div>
+        <div class="field">
+          <label for="fr-behavior">Desired Behavior for Replacement</label>
+          <select id="fr-behavior">
+            <option value="same">Match current behavior exactly</option>
+            <option value="standard">Standard transport</option>
+            <option value="zpa">Zero Pressure Accumulation</option>
+            <option value="network">EtherNet/IP or EtherCAT</option>
+            <option value="brake">Brake required</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <h3 style="margin-top:0">Suggested Replacements</h3>
+        <div id="fr-suggestions"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================ DOCS ============================ -->
+<section id="tab-docs" class="tab-panel">
+  <div class="docs-layout">
+    <aside class="docs-nav">
+      <div class="nav-heading">Itoh Denki</div>
+      <a href="#doc-pn">Part Number Structure</a>
+      <a href="#doc-models">Model Reference</a>
+      <a href="#doc-speed">Speed Codes</a>
+      <a href="#doc-tube">Tube Length Guide</a>
+      <a href="#doc-drivers">Driver Cards</a>
+      <a href="#doc-brackets">Mounting Brackets</a>
+
+      <div class="nav-heading">Microroll / InfiniDrive</div>
+      <a href="#doc-id-overview">Relationship &amp; History</a>
+      <a href="#doc-id-pn">Positional Part Number</a>
+      <a href="#doc-id-models">RD / GM / SD Models</a>
+      <a href="#doc-id-drivers">Driver Cards</a>
+      <a href="#doc-id-performance">Performance Data</a>
+      <a href="#doc-id-install">Installation &amp; Torque</a>
+      <a href="#doc-mr-legacy">Legacy Microroll Format</a>
+    </aside>
+
+    <div class="docs-content">
+      <div class="alert info">
+        Reference content from Itoh Denki 2024 Power Moller® catalog and
+        InfiniDrive Motor Manufacturing (which acquired Microroll's roller
+        division). Specifications subject to change.
+      </div>
+
+      <details id="doc-pn">
+        <summary>Itoh Denki — Part Number Structure</summary>
+        <div>
+          <p>Power Moller® part numbers are built from ordered segments.</p>
+          <pre>PM486FE - 60 - 747 - D - 024 - JQ - C100 - P2 - KF
+  │       │    │    │    │    │     │     │    └─ Mounting (KF = no brackets)
+  │       │    │    │    │    │     │     └────── End cap / tube option
+  │       │    │    │    │    │     └──────────── Cable / connector option
+  │       │    │    │    │    └────────────────── Motor / roller option
+  │       │    │    │    └─────────────────────── Voltage (024 = 24 VDC)
+  │       │    │    └──────────────────────────── Diameter code
+  │       │    └───────────────────────────────── Tube length (mm)
+  │       └────────────────────────────────────── Speed code
+  └────────────────────────────────────────────── Model series</pre>
+          <h4>Segment Breakdown</h4>
+          <p>
+            <span class="pnc-seg pnc-1">PM486FE</span>
+            <span class="pnc-seg pnc-2">60</span>
+            <span class="pnc-seg pnc-3">747</span>
+            <span class="pnc-seg pnc-4">D</span>
+            <span class="pnc-seg pnc-5">024</span>
+            <span class="pnc-seg pnc-6">JQ</span>
+            <span class="pnc-seg pnc-7">C100</span>
+            <span class="pnc-seg pnc-6">P2</span>
+            <span class="pnc-seg pnc-7">KF</span>
+          </p>
+          <table class="data" style="margin-top:12px">
+            <thead><tr><th>Position</th><th>Meaning</th><th>Example</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>Model series</td><td class="mono">PM486FE</td></tr>
+              <tr><td>2</td><td>Speed code</td><td class="mono">60</td></tr>
+              <tr><td>3</td><td>Tube length (mm)</td><td class="mono">747</td></tr>
+              <tr><td>4</td><td>Diameter code</td><td class="mono">D = 48.6 mm</td></tr>
+              <tr><td>5</td><td>Voltage (024 = 24 VDC)</td><td class="mono">024</td></tr>
+              <tr><td>6</td><td>Roller option (JQ, JT, JH, BR, WA)</td><td class="mono">JQ</td></tr>
+              <tr><td>7</td><td>Cable option (C050…C300, Z…)</td><td class="mono">C100</td></tr>
+              <tr><td>8</td><td>End cap / tube (P1, P2, VG, RP, VP)</td><td class="mono">P2</td></tr>
+              <tr><td>9</td><td>Mounting (KF = no brackets)</td><td class="mono">KF</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details id="doc-models">
+        <summary>Itoh Denki — Model Reference</summary>
+        <div>
+          <table class="data">
+            <thead><tr><th>Model</th><th>Diameter</th><th>Shaft</th><th>Key Features</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">PM486FE</td><td>48.6 mm</td><td>7/16" plain hex</td><td>Variable speed, dynamic brake</td></tr>
+              <tr><td class="mono">PM486FS</td><td>48.6 mm</td><td>7/16" plain hex</td><td>Dual-shaft</td></tr>
+              <tr><td class="mono">PM486FP</td><td>48.6 mm</td><td>7/16" threaded hex</td><td>High torque</td></tr>
+              <tr><td class="mono">PM486FH</td><td>48.6 mm</td><td>7/16" plain hex</td><td>High torque + high speed</td></tr>
+              <tr><td class="mono">PM570FE</td><td>57.0 mm</td><td>7/16" plain hex</td><td>Standard duty</td></tr>
+              <tr><td class="mono">PM605FE</td><td>60.5 mm</td><td>7/16" plain hex</td><td>Standard duty, larger diameter</td></tr>
+              <tr><td class="mono">PM635FS</td><td>63.5 mm</td><td>11/16" threaded hex</td><td>Heavy duty pallet</td></tr>
+              <tr><td class="mono">PM635KE</td><td>63.5 mm</td><td>11/16" threaded hex</td><td>10 A motor</td></tr>
+              <tr><td class="mono">PM635KT</td><td>63.5 mm</td><td>11/16" threaded hex</td><td>7 A, sprocket + brake</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details id="doc-speed">
+        <summary>Itoh Denki — Speed Codes</summary>
+        <div>
+          <h4>PM486FE — CB-016S7</h4>
+          <table class="data">
+            <thead><tr><th>Gear</th><th>Code</th><th>FPM High</th><th>FPM Low</th><th>Tangential (lb)</th><th>Torque (lb-in)</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td class="mono">35</td><td>24</td><td>7</td><td>95.0</td><td>90.8</td></tr>
+              <tr><td>2</td><td class="mono">30</td><td>121</td><td>25</td><td>31.5</td><td>30.1</td></tr>
+              <tr><td>2</td><td class="mono">45</td><td>159</td><td>25</td><td>30.3</td><td>29.0</td></tr>
+              <tr><td>2</td><td class="mono">60</td><td>197</td><td>25</td><td>24.7</td><td>23.7</td></tr>
+              <tr><td>3</td><td class="mono">100</td><td>431</td><td>88</td><td>10.1</td><td>9.6</td></tr>
+            </tbody>
+          </table>
+          <p style="font-size:12px;color:var(--muted)">Full tables preserved from catalog.</p>
+        </div>
+      </details>
+
+      <details id="doc-tube">
+        <summary>Itoh Denki — Tube Length Guide</summary>
+        <div>
+          <pre>TL(mm) = BF(inches) × 25.4 − allowance</pre>
+          <table class="data">
+            <thead><tr><th>Model Series</th><th>Option</th><th>Subtract</th></tr></thead>
+            <tbody>
+              <tr><td>PM486 (all)</td><td>Standard / grooved / brake / WP</td><td>15 mm</td></tr>
+              <tr><td>PM486</td><td>JQ threaded hex shaft</td><td>21 mm</td></tr>
+              <tr><td>PM486</td><td>VG poly-V end cap</td><td>41 mm</td></tr>
+              <tr><td>PM486</td><td>RP / VP belt pulley</td><td>35 mm</td></tr>
+              <tr><td>PM570FE</td><td>Standard</td><td>15 mm</td></tr>
+              <tr><td>PM570FE</td><td>VP / RP</td><td>35 mm</td></tr>
+              <tr><td>PM570FE</td><td>VG poly-V</td><td>41 mm</td></tr>
+              <tr><td>PM570KT</td><td>Standard</td><td>17 mm</td></tr>
+              <tr><td>PM605FE</td><td>Standard / brake / WP</td><td>15 mm</td></tr>
+              <tr><td>PM635 (all)</td><td>Standard / sprocket</td><td>20 mm</td></tr>
+              <tr><td>PM635 (all)</td><td>VG poly-V</td><td>66 mm</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details id="doc-drivers">
+        <summary>Itoh Denki — Driver Cards</summary>
+        <div>
+          <table class="data">
+            <thead><tr><th>Card</th><th>Pins</th><th>Rollers</th><th>Features</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">CB-016S7</td><td>9</td><td>PM486FE/FP/FS, PM570FE, PM605FE, PM635FS</td><td>20 speeds, dynamic brake</td></tr>
+              <tr><td class="mono">CB-016BS7-UL</td><td>10</td><td>Brake models</td><td>Brake version</td></tr>
+              <tr><td class="mono">CBK-109F-UL</td><td>12</td><td>PM486FH, PM570KT, PM635KT</td><td>High torque (7 A)</td></tr>
+              <tr><td class="mono">CBM-103F</td><td>3+7 split</td><td>PM635KE only</td><td>10 A, 10 speeds</td></tr>
+              <tr><td class="mono">CBM-105F</td><td>9</td><td>PM486FE/FP/FS, PM570FE, PM605FE, PM635FS</td><td>Error output</td></tr>
+              <tr><td class="mono">HB-510</td><td>9</td><td>PM486FE/FP/FS, PM570FE, PM605FE, PM635FS</td><td>ZPA hybrid</td></tr>
+              <tr><td class="mono">HBM-604B-UL</td><td>10</td><td>PM486FE/FP/FS, PM570FE, PM605FE, PM635FS</td><td>2-zone ZPA</td></tr>
+              <tr><td class="mono">HBK-608F</td><td>12</td><td>PM486FH, PM570KT, PM635KT</td><td>2-zone ZPA (12-pin)</td></tr>
+              <tr><td class="mono">IB-E03A</td><td>10</td><td>PM486FE/FP/FS, PM570FE, PM605FE, PM635FS</td><td>EtherNet/IP</td></tr>
+              <tr><td class="mono">IB-E04F</td><td>12</td><td>PM486FH, PM570KT, PM635KT</td><td>EtherNet/IP (12-pin)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details id="doc-brackets">
+        <summary>Itoh Denki — Mounting Brackets</summary>
+        <div>
+          <table class="data">
+            <thead><tr><th>Bracket</th><th>Models</th><th>Torque</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">MBB-071 / MBB-081</td><td>FE, FS, FH, FP, XE/XP</td><td>2.2 lb·ft (3 Nm)</td></tr>
+              <tr><td class="mono">MBC-071 / MBC-081</td><td>FE, FS, FH, FP, XE/XP</td><td>2.2 lb·ft (3 Nm)</td></tr>
+              <tr><td class="mono">Z-071-D / Z-081-D</td><td>FE, PM320HS, FS, FH, FP (JH)</td><td>—</td></tr>
+              <tr><td class="mono">P-0B1 / P-0C1</td><td>PM486FP</td><td>22.1 lb·ft (30 Nm)</td></tr>
+              <tr><td class="mono">P-0D1 / P-0E1</td><td>PM635FS / KE / KT</td><td>110.6 lb·ft (149.5 Nm)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <!-- ============ INFINIDRIVE / MICROROLL ============ -->
+
+      <details id="doc-id-overview" open>
+        <summary>Microroll / InfiniDrive — Relationship &amp; History</summary>
+        <div>
+          <div class="alert warn">
+            <strong>Corporate note:</strong> InfiniDrive Motor Manufacturing
+            (Grand Rapids, MI) acquired Microroll's roller division. Microroll
+            RC-format and InfiniDrive RD-series part numbers are
+            <strong>positionally identical</strong> — a Microroll RC-format
+            part number can be reordered as an InfiniDrive RD-series part.
+          </div>
+          <h4>What this means for you</h4>
+          <ul>
+            <li>Both brands use the same 10-character positional format plus a trailing specials character.</li>
+            <li>Diameter codes are shared: A=48, B=50, C=57, D=60, E=63.</li>
+            <li>Source &amp; power codes are shared: D000 (idler), D032 (22 W), D042 (35 W), DU42 (35 W UL), DB32 (22 W brake), DB42 (35 W brake).</li>
+            <li>Both brands use JST XHP-10 connectors for standard rollers.</li>
+            <li>InfiniDrive's own driver card line (C100, C100Z, C166ZB) replaces the older Microroll cards.</li>
+          </ul>
+          <h4>Legacy Microroll part numbers</h4>
+          <p>The compact <code>MR-…</code> format you may see in older databases
+          is Microroll's pre-acquisition syntax. It still maps 1:1 to the
+          positional format — see the "Legacy Microroll Format" section.</p>
+        </div>
+      </details>
+
+      <details id="doc-id-pn">
+        <summary>Microroll / InfiniDrive — Positional Part Number</summary>
+        <div>
+          <p>Both Microroll (RC format) and InfiniDrive (RD series) use the same
+          strictly positional 10-character part number plus a trailing specials
+          character. Order matters.</p>
+
+          <div class="microroll-example">
+            <div class="ex-pn">RC A DO32 G 0500 HTS 12 K 0 X</div>
+            <div class="ex-translation">
+              Carbon steel roller · 48 mm · 22 W / 24 VDC · two standard 3/16"
+              O-ring grooves · 500 mm between frames · spring-loaded hex free
+              end / threaded motor end · 12:1 reduction · PU sleeve · 400 mm
+              cable · standard end housings.
+            </div>
+          </div>
+
+          <h4>Position Map</h4>
+          <div class="pos-grid">
+            <div class="pos-card"><div class="pos-num">1–2</div><div class="pos-val">RC</div><div class="pos-name">Type</div></div>
+            <div class="pos-card"><div class="pos-num">3</div><div class="pos-val">A</div><div class="pos-name">Diameter</div></div>
+            <div class="pos-card"><div class="pos-num">4</div><div class="pos-val">DO32</div><div class="pos-name">Source &amp; Power</div></div>
+            <div class="pos-card"><div class="pos-num">5</div><div class="pos-val">G</div><div class="pos-name">Tube &amp; Face</div></div>
+            <div class="pos-card"><div class="pos-num">6</div><div class="pos-val">0500</div><div class="pos-name">Between Frames</div></div>
+            <div class="pos-card"><div class="pos-num">7</div><div class="pos-val">HTS</div><div class="pos-name">Shaft Options</div></div>
+            <div class="pos-card"><div class="pos-num">8</div><div class="pos-val">12</div><div class="pos-name">Gearbox Reduction</div></div>
+            <div class="pos-card"><div class="pos-num">9</div><div class="pos-val">K</div><div class="pos-name">Drumshell Finish</div></div>
+            <div class="pos-card"><div class="pos-num">10</div><div class="pos-val">0</div><div class="pos-name">Cable &amp; Jumper</div></div>
+            <div class="pos-card"><div class="pos-num">11</div><div class="pos-val">X</div><div class="pos-name">Specials</div></div>
+          </div>
+
+          <h4>Position 1–2 — Type</h4>
+          <table class="data">
+            <thead><tr><th>Code</th><th>Meaning</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">RC</td><td>Roller, Carbon Steel (round)</td></tr>
+              <tr><td class="mono">RA</td><td>Square Roller, Aluminum</td></tr>
+              <tr><td class="mono">GM</td><td>Gear Motor</td></tr>
+            </tbody>
+          </table>
+
+          <h4>Position 3 — Diameter</h4>
+          <table class="data">
+            <thead><tr><th>Code</th><th>Diameter</th><th>InfiniDrive Model</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">A</td><td>48 mm</td><td>RD48 / GM48</td></tr>
+              <tr><td class="mono">B</td><td>50 mm</td><td>RD50</td></tr>
+              <tr><td class="mono">C</td><td>57 mm</td><td>RD57</td></tr>
+              <tr><td class="mono">D</td><td>60 mm</td><td>RD60</td></tr>
+              <tr><td class="mono">E</td><td>63 mm</td><td>RD63 / RD63S</td></tr>
+              <tr><td class="mono">D</td><td>Special (drawing required)</td><td>—</td></tr>
+            </tbody>
+          </table>
+
+          <h4>Position 4 — Source &amp; Power</h4>
+          <table class="data">
+            <thead><tr><th>Code</th><th>Power</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">D000</td><td>Idler (no motor)</td></tr>
+              <tr><td class="mono">D032</td><td>22 W, 24 VDC</td></tr>
+              <tr><td class="mono">D042</td><td>35 W, 24 VDC</td></tr>
+              <tr><td class="mono">DU42</td><td>35 W, 24 VDC, UL</td></tr>
+              <tr><td class="mono">DB32</td><td>22 W, 24 VDC, Brake</td></tr>
+              <tr><td class="mono">DB42</td><td>35 W, 24 VDC, Brake</td></tr>
+            </tbody>
+          </table>
+
+          <h4>Position 5 — Tube &amp; Face</h4>
+          <table class="data">
+            <thead><tr><th>Code</th><th>Description</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">G</td><td>Two standard 3/16" O-ring grooves</td></tr>
+              <tr><td class="mono">H</td><td>Two standard 1/4" O-ring grooves</td></tr>
+              <tr><td class="mono">J</td><td>Two deep 3/16" O-ring grooves</td></tr>
+              <tr><td class="mono">K</td><td>Two deep 1/4" O-ring grooves</td></tr>
+              <tr><td class="mono">N</td><td>No grooves</td></tr>
+              <tr><td class="mono">P</td><td>Aluminum Poly-Ribbed Drive (must end in "A")</td></tr>
+              <tr><td class="mono">C</td><td>Chain Sprocket (RD63 only)</td></tr>
+              <tr><td class="mono">M</td><td>Modular Sprocket (RA square only)</td></tr>
+              <tr><td class="mono">F</td><td>Flat Face Round (RD63 only)</td></tr>
+              <tr><td class="mono">T</td><td>Trapezoidal Crown (RD63 only)</td></tr>
+              <tr><td class="mono">S</td><td>Shaft Output (gear motor only)</td></tr>
+              <tr><td class="mono">D</td><td>Special Drawing</td></tr>
+            </tbody>
+          </table>
+
+          <h4>Position 6 — Between Frames (mm)</h4>
+          <table class="data">
+            <thead><tr><th>Value</th><th>Meaning</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">0000</td><td>Gear Motor</td></tr>
+              <tr><td class="mono">0296–0316</td><td>Minimum depending on series</td></tr>
+              <tr><td class="mono">1270</td><td>Maximum (contact InfiniDrive for greater)</td></tr>
+            </tbody>
+          </table>
+
+          <h4>Position 7 — Shaft Options</h4>
+          <table class="data">
+            <thead><tr><th>Code</th><th>Configuration</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">HNA</td><td>7/16" Hex, Aluminum — FE: Spring-Loaded · ME: Non-Threaded</td></tr>
+              <tr><td class="mono">HNS</td><td>7/16" Hex — FE: Spring-Loaded · ME: Non-Threaded</td></tr>
+              <tr><td class="mono">HTS</td><td>7/16" Hex — FE: Spring-Loaded · ME: Threaded</td></tr>
+              <tr><td class="mono">HTA</td><td>7/16" Hex, Aluminum — FE: Spring-Loaded · ME: Threaded</td></tr>
+              <tr><td class="mono">DSA</td><td>12 mm Double-D — FE: Spring-Loaded · ME: Non-Threaded</td></tr>
+              <tr><td class="mono">SNA</td><td>12 mm Semi-circle — FE: Spring-Loaded · ME: Non-Threaded</td></tr>
+              <tr><td class="mono">DNA</td><td>20 mm Double-D — FE: Non-Spring-Loaded · ME: Non-Threaded</td></tr>
+              <tr><td class="mono">GM</td><td>Gear Motor Output</td></tr>
+              <tr><td class="mono">DDD</td><td>Special Drawing</td></tr>
+            </tbody>
+          </table>
+
+          <h4>Position 8 — Gearbox Reduction</h4>
+          <table class="data">
+            <thead><tr><th>Code</th><th>Ratio</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">XX</td><td>Idler</td></tr>
+              <tr><td class="mono">04</td><td>4:1</td></tr>
+              <tr><td class="mono">05</td><td>5:1</td></tr>
+              <tr><td class="mono">09</td><td>9:1</td></tr>
+              <tr><td class="mono">12</td><td>12:1</td></tr>
+              <tr><td class="mono">16</td><td>16:1</td></tr>
+              <tr><td class="mono">27</td><td>27:1</td></tr>
+              <tr><td class="mono">36</td><td>36:1</td></tr>
+              <tr><td class="mono">48</td><td>48:1</td></tr>
+              <tr><td class="mono">64</td><td>64:1</td></tr>
+            </tbody>
+          </table>
+
+          <h4>Position 9 — Drumshell Finish</h4>
+          <table class="data">
+            <thead><tr><th>Code</th><th>Finish</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">A</td><td>Standard Zinc Finish</td></tr>
+              <tr><td class="mono">B</td><td>Black Rubber, 1/8" Thick</td></tr>
+              <tr><td class="mono">C</td><td>Standard Aluminum Finish (RA only)</td></tr>
+              <tr><td class="mono">K</td><td>PU Sleeve, 1/8" Thick</td></tr>
+              <tr><td class="mono">P</td><td>PVC Coating, 1/32" Thick</td></tr>
+              <tr><td class="mono">R</td><td>Linatex Rubber, 1/8" Thick</td></tr>
+              <tr><td class="mono">T</td><td>Soft PU Tapered Sleeve *</td></tr>
+              <tr><td class="mono">U</td><td>Molded PU, 1/8" Thick</td></tr>
+              <tr><td class="mono">W</td><td>White FDA Rubber, 1/8" Thick</td></tr>
+              <tr><td class="mono">X</td><td>Not Applicable</td></tr>
+              <tr><td class="mono">D</td><td>Special Drawing</td></tr>
+            </tbody>
+          </table>
+
+          <h4>Position 10 — Cable Length &amp; Jumper</h4>
+          <table class="data">
+            <thead><tr><th>Code</th><th>Configuration</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">X</td><td>Idler — no motor or cable</td></tr>
+              <tr><td class="mono">0</td><td>400 mm Standard Cable</td></tr>
+              <tr><td class="mono">1</td><td>1 M Standard Cable (RD63)</td></tr>
+              <tr><td class="mono">D</td><td>Special</td></tr>
+            </tbody>
+          </table>
+
+          <h4>Position 11 — Specials</h4>
+          <table class="data">
+            <thead><tr><th>Code</th><th>Meaning</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">A</td><td>Aluminum Dual Bearing Housings Both Ends</td></tr>
+              <tr><td class="mono">D</td><td>Drawing Required for full description</td></tr>
+              <tr><td class="mono">X</td><td>Standard End Housings</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details id="doc-id-models">
+        <summary>Microroll / InfiniDrive — RD / GM / SD Models</summary>
+        <div>
+          <h4>Motor Driven Rollers (35 W unless noted)</h4>
+          <table class="data">
+            <thead><tr><th>Model</th><th>OD</th><th>UL PN</th><th>Connector</th><th>Cable</th><th>Min BF</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">RD48</td><td>48 mm</td><td class="mono">RCADU42</td><td>JST XHP-10</td><td>400 mm</td><td>—</td></tr>
+              <tr><td class="mono">RD50</td><td>50 mm</td><td class="mono">RCBDU42</td><td>JST XHP-10</td><td>400 mm</td><td>—</td></tr>
+              <tr><td class="mono">RD57</td><td>57 mm</td><td class="mono">RCCDU42</td><td>JST XHP-10</td><td>400 mm</td><td>317 mm</td></tr>
+              <tr><td class="mono">RD60</td><td>60 mm</td><td class="mono">RCDDU42</td><td>JST XHP-10</td><td>400 mm</td><td>317 mm</td></tr>
+              <tr><td class="mono">RD63</td><td>63 mm</td><td class="mono">RCEDU42</td><td>JST XHP-10</td><td>1000 mm</td><td>442 mm</td></tr>
+              <tr><td class="mono">RD63S</td><td>63 mm (square)</td><td class="mono">RAEDU42</td><td>JST XHP-10</td><td>1000 mm</td><td>411 mm</td></tr>
+            </tbody>
+          </table>
+
+          <h4>Gear Motor</h4>
+          <table class="data">
+            <thead><tr><th>Model</th><th>UL PN</th><th>Rated</th><th>Starting</th><th>Connector</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">GM48</td><td class="mono">GMADU42</td><td>8.6–41 in-lb (by ratio)</td><td>45–334 in-lb</td><td>JST XHP-10</td></tr>
+            </tbody>
+          </table>
+
+          <h4>SlimDrive Motor</h4>
+          <table class="data">
+            <thead><tr><th>Model</th><th>UL PN</th><th>Power</th><th>Speed</th><th>Torque</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">SD095 / FM24095</td><td class="mono">FM24095</td><td>95 W</td><td>60–360 RPM</td><td>11 in-lb @ 360 RPM</td><td>Built-in driver card; up to 62 motors</td></tr>
+            </tbody>
+          </table>
+          <p style="font-size:12px;color:var(--muted)">
+            SlimDrive motors use FM-series control cards only (FMTC24001,
+            FMZP24001, FMET24001) and are NOT compatible with C100-series cards.
+          </p>
+        </div>
+      </details>
+
+      <details id="doc-id-drivers">
+        <summary>Microroll / InfiniDrive — Driver Cards</summary>
+        <div>
+          <h4>C100 Series — Basic Driver Cards (for RD / GM series)</h4>
+          <table class="data">
+            <thead><tr>
+              <th>Card</th><th>Motor Watts</th><th>UL</th><th>CE</th>
+              <th>Brake Support</th><th>Speed Control</th><th>I/O Terminals</th>
+            </tr></thead>
+            <tbody>
+              <tr><td class="mono">C100B</td><td>22 W + 35 W</td><td>No</td><td>Yes</td><td>Both (DIP 1/2)</td><td>Internal pot + external PLC</td><td>6 Pin</td></tr>
+              <tr><td class="mono">C100DB</td><td>35 W + 55 W</td><td>No</td><td>Yes</td><td>Both + digital speed</td><td>Pot + PLC + digital</td><td>2 Pin + 7 Pin</td></tr>
+              <tr><td class="mono">C101BU</td><td>35 W</td><td>Yes</td><td>No</td><td>Both</td><td>Pot + PLC</td><td>2 Pin + 4 Pin</td></tr>
+              <tr><td class="mono">C102B</td><td>22 W only</td><td>No</td><td>Yes</td><td>Both</td><td>Pot + PLC</td><td>6 Pin</td></tr>
+            </tbody>
+          </table>
+          <p style="font-size:12px;color:var(--muted)">
+            RPM range: 1000–4000 (C100B/C100DB/C101BU); 1000–3400 (C102B).
+            All ship as PNP; specify NPN at order. 24 VDC via JST XHP-10.
+          </p>
+
+          <h4>ZPA Cards (for RD / GM series)</h4>
+          <table class="data">
+            <thead><tr><th>Card</th><th>Motor Support</th><th>Sensor</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">C100Z-22</td><td>22 W rollers / gear motors</td><td>RJ-11 auto-sensing NPN/PNP</td><td>1 card per motor; 6 PNP aux I/O</td></tr>
+              <tr><td class="mono">C100Z-35</td><td>35 W rollers / gear motors</td><td>RJ-11 auto-sensing NPN/PNP</td><td>1 card per motor; 6 PNP aux I/O</td></tr>
+              <tr><td class="mono">C166ZB</td><td>(2) RD or GM motors</td><td>4 × M8 sockets, PNP</td><td>EtherCAT, IP67, dual-zone ZPA, UL/CE</td></tr>
+            </tbody>
+          </table>
+
+          <h4>FM-Series Cards (for SlimDrive FM24095 only)</h4>
+          <table class="data">
+            <thead><tr><th>Card</th><th>Motors</th><th>Function</th><th>Compliance</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">FMTC24001</td><td>Up to 62</td><td>Transport — basic run/dir/speed</td><td>UL E520785, CE</td></tr>
+              <tr><td class="mono">FMZP24001</td><td>Up to 2 zones</td><td>Dual-zone ZPA with upstream/downstream communication</td><td>UL E476509, CE</td></tr>
+              <tr><td class="mono">FMET24001</td><td>Up to 63 devices</td><td>Ethernet + Wi-Fi, real-time data via NOVAbus</td><td>UL E476509, CE</td></tr>
+            </tbody>
+          </table>
+
+          <h4>Wiring (C100 series)</h4>
+          <table class="data">
+            <thead><tr><th>Pin</th><th>Function</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>24 VDC</td></tr>
+              <tr><td>2</td><td>Common (0V)</td></tr>
+              <tr><td>3</td><td>Run</td></tr>
+              <tr><td>4</td><td>Direction</td></tr>
+              <tr><td>5</td><td>External (analog) speed input (0–10 VDC)</td></tr>
+              <tr><td>6</td><td>Fault (to ground)</td></tr>
+            </tbody>
+          </table>
+          <p style="font-size:12px;color:var(--muted)">
+            <strong>WARNING:</strong> Signal voltage on Pin 5 must not exceed
+            10 VDC — exceeding 10 VDC will damage the driver card.
+          </p>
+
+          <h4>DIP Switch Roles (C100 series)</h4>
+          <table class="data">
+            <thead><tr><th>Switch</th><th>Function</th></tr></thead>
+            <tbody>
+              <tr><td>DIP 1</td><td>Wattage selection (22 W / 35 W)</td></tr>
+              <tr><td>DIP 2</td><td>Amp boost / Mechanical brake enable</td></tr>
+              <tr><td>DIP 3</td><td>Direction</td></tr>
+              <tr><td>DIP 4</td><td>Auto-reset enable (must be ON for auto-reset faults)</td></tr>
+              <tr><td>DIP 5–8</td><td>Speed setting (used with rotary; set all OFF for external speed control)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details id="doc-id-performance">
+        <summary>Microroll / InfiniDrive — Performance Data</summary>
+        <div>
+          <h4>RD48 — 35 W, 48 mm OD, 2.8 A rated</h4>
+          <table class="data">
+            <thead><tr><th>Ratio</th><th>Speed Range FPM</th><th>Tangential Force (lb)</th><th>Rated Torque (in-lb)</th><th>Starting Torque (in-lb)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">4:1</td><td>115–462</td><td>3.8</td><td>3.6</td><td>14.4</td></tr>
+              <tr><td class="mono">5:1</td><td>92–369</td><td>4.7</td><td>4.5</td><td>17.9</td></tr>
+              <tr><td class="mono">9:1</td><td>51–205</td><td>8.5</td><td>8.1</td><td>32.3</td></tr>
+              <tr><td class="mono">12:1</td><td>38–154</td><td>11.3</td><td>10.8</td><td>43.1</td></tr>
+              <tr><td class="mono">16:1</td><td>29–115</td><td>15.1</td><td>14.4</td><td>57.4</td></tr>
+              <tr><td class="mono">27:1</td><td>17–68</td><td>25.5</td><td>24.2</td><td>96.9</td></tr>
+              <tr><td class="mono">36:1</td><td>13–51</td><td>34.0</td><td>32.3</td><td>129.2</td></tr>
+              <tr><td class="mono">48:1</td><td>10–38</td><td>45.3</td><td>43.1</td><td>172.3</td></tr>
+              <tr><td class="mono">64:1</td><td>7–29</td><td>60.5</td><td>57.4</td><td>229.8</td></tr>
+            </tbody>
+          </table>
+
+          <h4>RD50 — 35 W, 50 mm OD</h4>
+          <table class="data">
+            <thead><tr><th>Ratio</th><th>Speed Range FPM</th><th>Tangential (lb)</th><th>Rated Torque (in-lb)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">4:1</td><td>120–478</td><td>3.6</td><td>3.6</td></tr>
+              <tr><td class="mono">9:1</td><td>53–213</td><td>8.2</td><td>8.1</td></tr>
+              <tr><td class="mono">16:1</td><td>30–120</td><td>14.6</td><td>14.4</td></tr>
+              <tr><td class="mono">27:1</td><td>18–71</td><td>24.6</td><td>24.2</td></tr>
+              <tr><td class="mono">64:1</td><td>7–29</td><td>58.4</td><td>57.4</td></tr>
+            </tbody>
+          </table>
+
+          <h4>RD57 — 35 W, 57 mm OD</h4>
+          <table class="data">
+            <thead><tr><th>Ratio</th><th>Speed Range FPM</th><th>Tangential (lb)</th><th>Rated Torque (in-lb)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">4:1</td><td>137–545</td><td>3.2</td><td>3.6</td></tr>
+              <tr><td class="mono">9:1</td><td>60–243</td><td>7.1</td><td>8.1</td></tr>
+              <tr><td class="mono">16:1</td><td>34–137</td><td>12.6</td><td>14.4</td></tr>
+              <tr><td class="mono">27:1</td><td>21–81</td><td>21.3</td><td>24.2</td></tr>
+              <tr><td class="mono">64:1</td><td>8–34</td><td>51.3</td><td>57.4</td></tr>
+            </tbody>
+          </table>
+
+          <h4>RD63 — 35 W, 63 mm OD</h4>
+          <table class="data">
+            <thead><tr><th>Ratio</th><th>Speed Range FPM</th><th>Tangential (lb)</th><th>Rated Torque (in-lb)</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">4:1</td><td>151–602</td><td>2.8</td><td>3.6</td></tr>
+              <tr><td class="mono">9:1</td><td>67–268</td><td>6.4</td><td>8.1</td></tr>
+              <tr><td class="mono">16:1</td><td>38–151</td><td>11.4</td><td>14.4</td></tr>
+              <tr><td class="mono">27:1</td><td>23–89</td><td>19.2</td><td>24.2</td></tr>
+              <tr><td class="mono">64:1</td><td>9–38</td><td>46.4</td><td>57.4</td></tr>
+            </tbody>
+          </table>
+
+          <h4>GM48 Gear Motor</h4>
+          <table class="data">
+            <thead><tr><th>Ratio</th><th>Rated Torque (in-lb)</th><th>Starting Torque (in-lb)</th><th>Min RPM</th><th>Max RPM</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">9:1</td><td>8.6</td><td>45</td><td>111</td><td>444</td></tr>
+              <tr><td class="mono">12:1</td><td>11</td><td>50</td><td>83.3</td><td>333</td></tr>
+              <tr><td class="mono">16:1</td><td>15</td><td>81</td><td>62.5</td><td>250</td></tr>
+              <tr><td class="mono">27:1</td><td>24</td><td>147</td><td>37.0</td><td>148</td></tr>
+              <tr><td class="mono">36:1</td><td>32</td><td>202</td><td>27.8</td><td>111</td></tr>
+              <tr><td class="mono">48:1</td><td>35</td><td>253</td><td>20.8</td><td>83.3</td></tr>
+              <tr><td class="mono">64:1</td><td>41</td><td>334</td><td>15.6</td><td>62.5</td></tr>
+            </tbody>
+          </table>
+          <p style="font-size:12px;color:var(--muted)">
+            FPM for RD63S = 0.2618 × sprocket's nominal pitch diameter × RPM.
+          </p>
+        </div>
+      </details>
+
+      <details id="doc-id-install">
+        <summary>Microroll / InfiniDrive — Installation &amp; Torque</summary>
+        <div>
+          <h4>Threaded Shaft Installation (RD48–RD63)</h4>
+          <ol style="font-size:13px;padding-left:22px">
+            <li>Prepare motor connector: tilt 90°, twist until wires are taut.</li>
+            <li>First nut + lock washer are pre-installed on shaft. Feed connector through frame hex hole.</li>
+            <li>Depress spring-loaded shaft, insert into opposite rail hex hole.</li>
+            <li>Insert wires through second lock washer + retaining nut.</li>
+          </ol>
+          <table class="data">
+            <thead><tr><th>Model</th><th>Shaft</th><th>Torque</th></tr></thead>
+            <tbody>
+              <tr><td>RD48 / RD50 / RD57 / RD60</td><td>7/16" hex</td><td>29 ft-lb</td></tr>
+              <tr><td>RD63 / RD63S</td><td>11/16" hex</td><td>110 ft-lb</td></tr>
+            </tbody>
+          </table>
+
+          <h4>Non-Threaded Installation (Bracket Mounted)</h4>
+          <table class="data">
+            <thead><tr><th>Model</th><th>Shaft</th><th>Torque</th></tr></thead>
+            <tbody>
+              <tr><td>RD48–RD60</td><td>7/16" hex</td><td>2.2 ft-lb</td></tr>
+              <tr><td>RD63 / RD63S</td><td>11/16" hex</td><td>6.6 ft-lb</td></tr>
+            </tbody>
+          </table>
+
+          <h4>GM48 Mounting</h4>
+          <ul style="font-size:13px">
+            <li>4 × M5 bolts, grade 8.8 minimum, for gear motor to plate</li>
+            <li>Mounting plate to conveyor frame: <strong>54 in-lb</strong> torque</li>
+            <li>Recommended: Loctite on mounting hardware</li>
+          </ul>
+
+          <h4>Environmental (All InfiniDrive)</h4>
+          <table class="data">
+            <tbody>
+              <tr><td>Operating temperature</td><td>0 to 40 °C (32 to 104 °F)</td></tr>
+              <tr><td>Humidity</td><td>5–95% RH non-condensing</td></tr>
+              <tr><td>Altitude</td><td>5,300 ft / 1600 m max</td></tr>
+              <tr><td>Pollution degree</td><td>2</td></tr>
+              <tr><td>Duty cycle</td><td>100% @ 40 °C (RD / GM); 100% @ 50 °C (SlimDrive 3 A @ 360 RPM)</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <details id="doc-mr-legacy">
+        <summary>Legacy Microroll — Compact MR Format</summary>
+        <div>
+          <p>The compact <code>MR-…</code> format predates the positional
+          system. It is still accepted for reorders and appears in older
+          inventories (including your workbook's ROLLER DB).</p>
+          <pre>MR-AD-48-296-10YWGY
+ │  │   │   │ │ │ │
+ │  │   │   │ │ │ └── Q = variant suffix
+ │  │   │   │ │ └──── Grooves (A = pulley, G = standard)
+ │  │   │   │ └────── τ (W = standard, Z = up-spiral)
+ │  │   │   └──────── Speed code
+ │  │   └──────────── Tube length (mm)
+ │  └──────────────── Braking (B = down-spiral, A = none)
+ └─────────────────── MR = Microroll series</pre>
+
+          <h4>Mapping Legacy → Positional</h4>
+          <table class="data">
+            <thead><tr><th>Legacy</th><th>Positional Equivalent</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">MR-AD-48-296-10YWGY</td><td class="mono">RC A D042 G 0296 HTS 10 Y 0 X</td></tr>
+              <tr><td class="mono">MR-BD-48-361-40-YWGQ</td><td class="mono">RC A DB42 G 0361 HTS 40 Y 0 X</td></tr>
+            </tbody>
+          </table>
+          <p style="font-size:12px;color:var(--muted)">
+            Note that groove orientation and poly-ribbed options may not map
+            exactly — confirm with InfiniDrive for production orders.
+          </p>
+
+          <h4>Common Microroll / InfiniDrive Driver Cards</h4>
+          <ul style="font-size:13px">
+            <li><strong>C100B / C100DB / C101BU / C102B</strong> — basic transport</li>
+            <li><strong>C100Z-22 / C100Z-35</strong> — ZPA accumulation</li>
+            <li><strong>C166ZB</strong> — EtherCAT dual-zone ZPA + data reporting</li>
+          </ul>
+        </div>
+      </details>
+
+    </div>
+  </div>
+</section>
+
+</main>
+
+<script>
+/* ==========================================================================
+   DATA — Roller DB (adds InfiniDrive samples)
+   ========================================================================== */
+const ROLLER_DB = [
+  /* Itoh Denki */
+  {psn:"3915080003669",pn:"PM486FS-45-264-D-024-C100-KF",desc:"ROLLER ASSY, DR, BRUSHLESS, MDR, 24VDC, STD TORQUE W/CVR",boh:26,status:"A",speed:45,len:264,grooved:false,braking:false,tapered:false,idealFrame:10.98425196850394,repl:null},
+  {psn:"3915110002598",pn:"PM486FS-55-268-D-024-KF",desc:"ROLLER ASSY, POWERED, COATED, 1.9\" DIA X 11\" BF",boh:10,status:"A",speed:55,len:268,grooved:false,braking:false,tapered:false,idealFrame:11.14173228346457,repl:null},
+  {psn:"3915060009753",pn:"PM486FP-15-328-D-024-OS",desc:"ROLLER, MOTORIZED, HIGH TORQUE, W/PULLEYS, INCLINE",boh:5,status:"A",speed:15,len:328,grooved:false,braking:false,tapered:false,idealFrame:13.50393700787402,repl:null},
+  {psn:"3915070006264",pn:"MR-AD-48-361-40-YWGQ",desc:"ROLLER, POWER, UNCOATED, W/O CARD, 15\" BF",boh:331,status:"A",speed:40,len:361,grooved:true,braking:false,tapered:false,idealFrame:14.99259842519685,repl:null},
+  {psn:"3915070006181",pn:"MR-BD-48-361-40-YWGQ-1168MM",desc:"POWER ROLLER, BRAKING, 36IN LEADS",boh:35,status:"A",speed:40,len:361,grooved:true,braking:true,tapered:false,idealFrame:14.99259842519685,repl:null},
+  {psn:"3915110002597",pn:"MR-AD-48-361-40-YWGQ/TS",desc:"ROLLER, PWR, TAPERED, COATED, 1.9\" DIA X 15\" BF",boh:9,status:"A",speed:40,len:361,grooved:true,braking:false,tapered:true,idealFrame:14.99259842519685,repl:null},
+  {psn:"3915080001757",pn:"PM486FS-55-366-D-024-P2-JH",desc:"ROLLER, DRIVE, BRUSHLESS, ITOH MDR, 24VDC, STD TORQUE",boh:144,status:"A",speed:55,len:366,grooved:true,braking:false,tapered:false,idealFrame:15,repl:null},
+  {psn:"3915120008334",pn:"PM486FE-45-528-D-024-P2-0S",desc:"ROLLER MOTORIZED, 48.6MM DIA, 528MM L, 24VDC",boh:242,status:"U",speed:45,len:528,grooved:true,braking:false,tapered:false,idealFrame:21.37795275590551,repl:null},
+  {psn:"3915050001098",pn:"MR-AD-48-742-40-YWGQ",desc:"ROLLER, DRIVE, 1.9IN DIA X 29.21IN L, HIGH TORQUE",boh:27,status:"A",speed:40,len:742,grooved:true,braking:false,tapered:false,idealFrame:29.99259842519685,repl:null},
+  {psn:"3915050000466",pn:"PM486FS-30-315-D-024-JT-P2-OS",desc:"ROLLER ASSY, MOTORIZED, W/TAPERED SLEEVE",boh:67,status:"A",speed:30,len:315,grooved:true,braking:false,tapered:true,idealFrame:12.992125984252,repl:null},
+  {psn:"3915080002528",pn:"PM486FX-45-442-D-024-C150-P2",desc:"POWER ROLLER, 2 GROOVED, 148FPM, 18\" BF",boh:240,status:"A",speed:45,len:442,grooved:true,braking:false,tapered:false,idealFrame:17.99212598425197,repl:null},
+  {psn:"3915120002980",pn:"PM486FE-45-493-D-024-C100-P2-KF",desc:"ROLLER, POWER, 20\" BF",boh:31,status:"U",speed:45,len:493,grooved:true,braking:false,tapered:false,idealFrame:20,repl:null},
+
+  /* InfiniDrive — new positional format */
+  {psn:"INF-RD48-001",pn:"RC A DU42 G 0500 HTS 12 A 0 X",desc:"InfiniDrive RD48, 35W, 48mm, dual 3/16 groove",boh:42,status:"A",speed:null,len:500,grooved:true,braking:false,tapered:false,idealFrame:20.63,repl:null},
+  {psn:"INF-RD50-001",pn:"RC B DU42 G 0600 HTS 16 A 0 X",desc:"InfiniDrive RD50, 35W, 50mm, dual 3/16 groove",boh:28,status:"A",speed:null,len:600,grooved:true,braking:false,tapered:false,idealFrame:24.56,repl:null},
+  {psn:"INF-RD57-001",pn:"RC C DU42 G 0800 HTS 27 A 0 X",desc:"InfiniDrive RD57, 35W, 57mm, dual 3/16 groove",boh:15,status:"A",speed:null,len:800,grooved:true,braking:false,tapered:false,idealFrame:32.44,repl:null},
+  {psn:"INF-RD60-001",pn:"RC D DU42 N 0400 HTS 9 A 0 X",desc:"InfiniDrive RD60, 35W, 60mm, no groove",boh:22,status:"A",speed:null,len:400,grooved:false,braking:false,tapered:false,idealFrame:16.69,repl:null},
+  {psn:"INF-RD63-001",pn:"RC E DU42 C 0600 HTA 27 C 1 X",desc:"InfiniDrive RD63, 35W, 63mm, chain sprocket",boh:8,status:"A",speed:null,len:600,grooved:false,braking:false,tapered:false,idealFrame:24.56,repl:null},
+  {psn:"INF-RD63S-001",pn:"RA E DU42 M 0600 HTA 16 C 1 X",desc:"InfiniDrive RD63S square, modular sprocket",boh:6,status:"A",speed:null,len:600,grooved:false,braking:false,tapered:false,idealFrame:24.56,repl:null},
+  {psn:"INF-RD48-BR",pn:"RC A DB42 G 0500 HTS 27 A 0 X",desc:"InfiniDrive RD48, 35W, brake, 48mm",boh:5,status:"A",speed:null,len:500,grooved:true,braking:true,tapered:false,idealFrame:20.63,repl:null},
+  {psn:"INF-GM48-001",pn:"GM A DU42 S 0000 GMO 27 A 0 A",desc:"InfiniDrive GM48 Gear Motor, 35W, 27:1",boh:12,status:"A",speed:null,len:0,grooved:false,braking:false,tapered:false,idealFrame:0,repl:null}
+];
+
+/* ==========================================================================
+   DATA — mu table, vendors
+   ========================================================================== */
+const MU_TABLE = {
+  "Straight": { "Plastic": 0.04, "Cardboard": 0.10, "Wood": 0.05, "Steel": 0.02 },
+  "Tapered":  { "Plastic": 0.04, "Cardboard": 0.15, "Wood": 0.06, "Steel": 0.03 }
+};
+const VENDORS = [
+  { key:"itoh", name:"Itoh Denki", vfpm:45, email:"insidesales@itohdenki.com" },
+  { key:"microroll", name:"Microroll / InfiniDrive", vfpm:40, email:"sales@infinidrivemotors.com" },
+  { key:"rfs1", name:"RFS Holdings (Dan)", vfpm:40, email:"dantrzy@RFSHoldings.com" },
+  { key:"rfs2", name:"RFS Holdings (Faye)", vfpm:40, email:"faye@RFSHoldings.com" }
+];
+
+/* ==========================================================================
+   DATA — Series specs (Itoh + InfiniDrive)
+   ========================================================================== */
+const SERIES_SPECS = {
+  /* Itoh Denki */
+  "PM486FE": {brand:"itoh", diameter:48.6, pins:9, brakePins:10, mount:1,
+    cards:["CB-016S7","CBM-105F","HB-510","IB-E03A"],
+    brakeCards:["CB-016BS7-UL","HBM-604B-UL"], speedModel:"PM486FE"},
+  "PM486FS": {brand:"itoh", diameter:48.6, pins:9, brakePins:10, mount:2,
+    cards:["CB-016S7","CBM-105F","HB-510","IB-E03A"],
+    brakeCards:["CB-016BS7-UL","HBM-604B-UL"], speedModel:"PM486FS"},
+  "PM486FP": {brand:"itoh", diameter:48.6, pins:9, brakePins:10, mount:2,
+    cards:["CB-016S7","CBM-105F","HB-510","IB-E03A"],
+    brakeCards:["CB-016BS7-UL","HBM-604B-UL"], speedModel:"PM486FP"},
+  "PM486FH": {brand:"itoh", diameter:48.6, pins:12, brakePins:null, mount:2,
+    cards:["CBK-109F-UL","HBK-608F","IB-E04F"], brakeCards:[], speedModel:"PM486FH"},
+  "PM570FE": {brand:"itoh", diameter:57.0, pins:9, brakePins:10, mount:1,
+    cards:["CB-016S7","CBM-105F","HB-510","IB-E03A"],
+    brakeCards:["CB-016BS7-UL","HBM-604B-UL"], speedModel:"PM570FE"},
+  "PM605FE": {brand:"itoh", diameter:60.5, pins:9, brakePins:10, mount:1,
+    cards:["CB-016S7","CBM-105F","HB-510","IB-E03A"],
+    brakeCards:["CB-016BS7-UL","HBM-604B-UL"], speedModel:"PM605FE"},
+  "PM635FS": {brand:"itoh", diameter:63.5, pins:9, brakePins:10, mount:1,
+    cards:["CB-016S7","CBM-105F","HB-510","IB-E03A"],
+    brakeCards:["CB-016BS7-UL","HBM-604B-UL"], speedModel:"PM635FS"},
+  "PM635KE": {brand:"itoh", diameter:63.5, pins:"3+7 split", brakePins:null, mount:1,
+    cards:["CBM-103F"], brakeCards:[], speedModel:"PM635KE"},
+  "PM635KT": {brand:"itoh", diameter:63.5, pins:12, brakePins:13, mount:1,
+    cards:["CBK-109F-UL","HBK-608F","IB-E04F"],
+    brakeCards:["CBK-109B-UL"], speedModel:"PM635KT"},
+
+  /* InfiniDrive — 10-pin JST XHP-10 across the board */
+  "RD48": {brand:"infinidrive", diameter:48, pins:10, brakePins:10, mount:2,
+    cards:["C100B","C100DB","C101BU","C100Z-22","C100Z-35","C166ZB"],
+    brakeCards:["C100B","C100DB","C101BU","C166ZB"], speedModel:"RD48"},
+  "RD50": {brand:"infinidrive", diameter:50, pins:10, brakePins:10, mount:2,
+    cards:["C100B","C100DB","C101BU","C100Z-22","C100Z-35","C166ZB"],
+    brakeCards:["C100B","C100DB","C101BU","C166ZB"], speedModel:"RD50"},
+  "RD57": {brand:"infinidrive", diameter:57, pins:10, brakePins:10, mount:2,
+    cards:["C100B","C100DB","C101BU","C100Z-35","C166ZB"],
+    brakeCards:["C100B","C100DB","C101BU","C166ZB"], speedModel:"RD57"},
+  "RD60": {brand:"infinidrive", diameter:60, pins:10, brakePins:10, mount:2,
+    cards:["C100B","C100DB","C101BU","C100Z-35","C166ZB"],
+    brakeCards:["C100B","C100DB","C101BU","C166ZB"], speedModel:"RD60"},
+  "RD63": {brand:"infinidrive", diameter:63, pins:10, brakePins:10, mount:2,
+    cards:["C100B","C100DB","C101BU","C100Z-35","C166ZB"],
+    brakeCards:["C100B","C100DB","C101BU","C166ZB"], speedModel:"RD63"},
+  "RD63S": {brand:"infinidrive", diameter:63, pins:10, brakePins:10, mount:2,
+    cards:["C100B","C100DB","C101BU","C100Z-35","C166ZB"],
+    brakeCards:["C100B","C100DB","C101BU","C166ZB"], speedModel:"RD63S"},
+  "GM48": {brand:"infinidrive", diameter:48, pins:10, brakePins:10, mount:0,
+    cards:["C100B","C100DB","C101BU","C100Z-22","C100Z-35","C166ZB"],
+    brakeCards:["C100B","C100DB","C101BU","C166ZB"], speedModel:"GM48"},
+  "FM24095": {brand:"infinidrive", diameter:null, pins:"CAT6 RJ45", brakePins:null, mount:0,
+    cards:["FMTC24001","FMZP24001","FMET24001"], brakeCards:[], speedModel:null,
+    slimDrive:true},
+
+  /* Microroll legacy alias */
+  "MICROROLL": {brand:"microroll", diameter:"48 / 50 / 57 / 60 / 63", pins:10, brakePins:10, mount:2,
+    cards:["C100B","C100DB","C101BU","C100Z-22","C100Z-35","C166ZB"],
+    brakeCards:["C100B","C100DB","C101BU","C166ZB"], speedModel:null,
+    alias:"infinidrive", note:"Microroll RC-format is InfiniDrive positional format."}
+};
+
+/* ==========================================================================
+   DATA — Driver card registry
+   ========================================================================== */
+const DRIVER_CARDS = {
+  /* Itoh Denki */
+  "CB-016S7": {brand:"itoh", pins:9, family:"standard", speedSettings:20, outputOptions:["P","N"],
+    features:["Variable speed (DIP + rotary)","Dynamic brake","Thermal overload recovery"],
+    rollerSeries:["PM486FE","PM486FS","PM486FP","PM570FE","PM605FE","PM635FS"],
+    brakeVariant:"CB-016BS7-UL", ltVariant:"CB-016S7-LT",
+    notes:"Standard 9-pin card.", verified:true},
+  "CB-016BS7-UL": {brand:"itoh", pins:10, family:"brake", speedSettings:20, outputOptions:["P","N"],
+    features:["Brake control","UL recognized","Dynamic brake"],
+    rollerSeries:["PM486FE","PM486FS","PM486FP","PM570FE","PM605FE","PM635FS"],
+    requiresBrakeRoller:true, notes:"10-pin brake variant.", verified:true},
+  "CBK-109F-UL": {brand:"itoh", pins:12, family:"standard", speedSettings:20, outputOptions:["P","N"],
+    features:["High torque (7A)","Dynamic brake","UL recognized"],
+    rollerSeries:["PM486FH","PM570KT","PM635KT"],
+    brakeVariant:"CBK-109B-UL", notes:"12-pin card for high-torque.", verified:true},
+  "CBK-109B-UL": {brand:"itoh", pins:13, family:"brake", speedSettings:20, outputOptions:["P","N"],
+    features:["Brake control","High torque (7A)","UL recognized"],
+    rollerSeries:["PM635KT"], requiresBrakeRoller:true,
+    notes:"13-pin brake variant. PM635KT only.", verified:true},
+  "CBM-103F": {brand:"itoh", pins:"3+7 split", family:"standard", speedSettings:10, outputOptions:["P","N"],
+    features:["10 A motor","10 speed settings","Servo brake control"],
+    rollerSeries:["PM635KE"], notes:"Only card for PM635KE.", verified:true},
+  "CBM-105F": {brand:"itoh", pins:9, family:"standard", speedSettings:16, outputOptions:["P","N"],
+    features:["Error output","Servo + dynamic brake","Self-diagnosis"],
+    rollerSeries:["PM486FE","PM486FS","PM486FP","PM570FE","PM605FE","PM635FS"],
+    notes:"Alternative 9-pin card with error output.", verified:true},
+  "HB-510": {brand:"itoh", pins:9, family:"zpa", speedSettings:10, outputOptions:["P","N"],
+    features:["Zero Pressure Accumulation (ZPA)","Direct photo-eye","Chainable"],
+    rollerSeries:["PM486FE","PM486FS","PM486FP","PM570FE","PM605FE","PM635FS"],
+    brakeVariant:"HB-510B", ltVariant:"HB-510-LT",
+    notes:"Use for accumulation conveyor sections.", verified:true},
+  "HB-510B": {brand:"itoh", pins:10, family:"zpa", speedSettings:10, outputOptions:["P","N"],
+    features:["ZPA","Brake control"],
+    rollerSeries:["PM486FE","PM486FS","PM486FP","PM570FE","PM605FE","PM635FS"],
+    requiresBrakeRoller:true, notes:"Brake version of HB-510.", verified:true},
+  "HBM-604B-UL": {brand:"itoh", pins:10, family:"zpa", speedSettings:null, outputOptions:["P","N"],
+    features:["2-zone ZPA","Controls 2 rollers","Handshakes with IB-E03A"],
+    rollerSeries:["PM486FE","PM486FS","PM486FP","PM570FE","PM605FE","PM635FS"],
+    notes:"10-pin card, controls 2 rollers per zone.", verified:true},
+  "HBK-608F": {brand:"itoh", pins:12, family:"zpa", speedSettings:null, outputOptions:["P","N"],
+    features:["2-zone ZPA (12-pin)","Controls 2 rollers","2×10 A fuses"],
+    rollerSeries:["PM486FH","PM570KT","PM635KT"],
+    notes:"12-pin ZPA card for high-torque.", verified:true},
+  "IB-E03A": {brand:"itoh", pins:10, family:"network", speedSettings:null, outputOptions:["P","N"],
+    features:["EtherNet/IP","2-port switch","Device Level Ring (DLR)","Life-cycle monitoring"],
+    rollerSeries:["PM486FE","PM486FS","PM486FP","PM570FE","PM605FE","PM635FS"],
+    requiresConnectorKit:"IB-E Basic Connector Kit (required)",
+    notes:"Requires IB-E Basic Kit. Z cable needed for non-brake rollers.", verified:true},
+  "IB-E04F": {brand:"itoh", pins:12, family:"network", speedSettings:null, outputOptions:["P","N"],
+    features:["EtherNet/IP (12-pin)","Corrosion-resistant option","2-port switch"],
+    rollerSeries:["PM486FH","PM570KT","PM635KT"],
+    requiresConnectorKit:"IB-E Basic Connector Kit (required)",
+    notes:"12-pin EtherNet/IP for high-torque.", verified:true},
+
+  /* InfiniDrive C100 Series — Basic */
+  "C100B": {brand:"infinidrive", pins:"JST XHP-10", family:"standard", speedSettings:null,
+    outputOptions:["P","N"],
+    features:["Internal pot + external PLC speed","Ramp-up/down pot","DIP 1 wattage","RPM 1000–4000"],
+    rollerSeries:["RD48","RD50","RD57","RD60","RD63","RD63S","GM48"],
+    supportsBrakeViaDip:true, motorWattage:"22 W + 35 W",
+    notes:"Basic 24 VDC card. Ships PNP; specify NPN at order.", verified:true},
+  "C100DB": {brand:"infinidrive", pins:"2 Pin + 7 Pin", family:"standard", speedSettings:null,
+    outputOptions:["P","N"],
+    features:["Digital speed input","Internal pot + external PLC","Ramp-up/down pot","RPM 1000–4000"],
+    rollerSeries:["RD48","RD50","RD57","RD60","RD63","RD63S","GM48"],
+    supportsBrakeViaDip:true, motorWattage:"35 W + 55 W",
+    notes:"Adds digital speed input vs C100B. Higher wattage support.", verified:true},
+  "C101BU": {brand:"infinidrive", pins:"2 Pin + 4 Pin", family:"standard", speedSettings:null,
+    outputOptions:["P","N"],
+    features:["UL Recognized","Internal pot + external PLC","Ramp-up/down pot"],
+    rollerSeries:["RD48","RD50","RD57","RD60","RD63","RD63S","GM48"],
+    supportsBrakeViaDip:true, motorWattage:"35 W",
+    notes:"Only UL Recognized card in the C100 basic line.", verified:true},
+  "C102B": {brand:"infinidrive", pins:"6 Pin", family:"standard", speedSettings:null,
+    outputOptions:["P","N"],
+    features:["22 W only","Internal pot + external PLC","RPM 1000–3400"],
+    rollerSeries:["RD48","RD50","RD57","RD60","RD63","RD63S"],
+    supportsBrakeViaDip:true, motorWattage:"22 W only",
+    notes:"Restricted to 22 W motors only.", verified:true},
+
+  /* InfiniDrive C100Z Series — ZPA */
+  "C100Z-22": {brand:"infinidrive", pins:"RJ-11 sensor + aux", family:"zpa", speedSettings:null,
+    outputOptions:["P","N"],
+    features:["ZPA logic pre-programmed","6 PNP aux I/O (3 IN / 3 OUT)","Auto-sensing NPN/PNP sensor","1 card per motor"],
+    rollerSeries:["RD48","RD50","RD57","RD60","RD63","RD63S","GM48"],
+    motorWattage:"22 W",
+    notes:"ZPA card for 22 W rollers.", verified:true},
+  "C100Z-35": {brand:"infinidrive", pins:"RJ-11 sensor + aux", family:"zpa", speedSettings:null,
+    outputOptions:["P","N"],
+    features:["ZPA logic pre-programmed","6 PNP aux I/O","Auto-sensing sensor","1 card per motor"],
+    rollerSeries:["RD48","RD50","RD57","RD60","RD63","RD63S","GM48"],
+    motorWattage:"35 W",
+    notes:"ZPA card for 35 W rollers / gear motors.", verified:true},
+
+  /* InfiniDrive C166ZB — EtherCAT */
+  "C166ZB": {brand:"infinidrive", pins:"M8 + B23 ENP", family:"network", speedSettings:null,
+    outputOptions:["P"],
+    features:["EtherCAT (Beckhoff licensed)","2 motors per card","IP67","Data reporting","Dual-zone ZPA"],
+    rollerSeries:["RD48","RD50","RD57","RD60","RD63","RD63S","GM48"],
+    notes:"EtherCAT dual-zone ZPA card. IP67 rated.", verified:true},
+
+  /* InfiniDrive FM-Series — SlimDrive only */
+  "FMTC24001": {brand:"infinidrive", pins:"Phoenix 2+4", family:"standard", speedSettings:null,
+    outputOptions:["P","N"],
+    features:["Up to 62 motors per card","Basic run/dir/speed","UL E520785"],
+    rollerSeries:["FM24095"], slimDriveOnly:true,
+    notes:"Only for SlimDrive FM24095. Not compatible with RD/GM series.", verified:true},
+  "FMZP24001": {brand:"infinidrive", pins:"Phoenix 2+4", family:"zpa", speedSettings:null,
+    outputOptions:["P","N"],
+    features:["Dual-zone ZPA (2 motors)","Upstream/downstream comm","UL E476509"],
+    rollerSeries:["FM24095"], slimDriveOnly:true,
+    notes:"Only for SlimDrive FM24095.", verified:true},
+  "FMET24001": {brand:"infinidrive", pins:"Phoenix 2+4", family:"network", speedSettings:null,
+    outputOptions:["P","N"],
+    features:["Ethernet + Wi-Fi","Up to 63 devices via NOVAbus","Real-time data","UL E476509"],
+    rollerSeries:["FM24095"], slimDriveOnly:true,
+    notes:"Only for SlimDrive FM24095.", verified:true},
+
+  /* Legacy Microroll alias — points at InfiniDrive cards */
+  "MR-DRV-STD": {brand:"microroll", pins:"JST XHP-10", family:"standard", speedSettings:null,
+    outputOptions:["P","N"],
+    features:["Legacy Microroll card — superseded by C100B"],
+    rollerSeries:["MICROROLL"],
+    supersededBy:"C100B",
+    notes:"Legacy card. Use C100B for new orders.", verified:true}
+};
+
+/* ==========================================================================
+   DATA — Speed codes
+   ========================================================================== */
+const SPEED_CODES = {
+  "PM486FE": [
+    {code:"35",gear:1,fpmHigh:24,fpmLow:7,tangential:95.0,torque:90.8},
+    {code:"30",gear:2,fpmHigh:121,fpmLow:25,tangential:31.5,torque:30.1},
+    {code:"45",gear:2,fpmHigh:159,fpmLow:25,tangential:30.3,torque:29.0},
+    {code:"60",gear:2,fpmHigh:197,fpmLow:25,tangential:24.7,torque:23.7},
+    {code:"100",gear:3,fpmHigh:431,fpmLow:88,tangential:10.1,torque:9.6}
+  ],
+  "PM486FS": [
+    {code:"35",gear:1,fpmHigh:25,fpmLow:7,tangential:92.8,torque:88.8},
+    {code:"45",gear:1,fpmHigh:35,fpmLow:null,tangential:96.3,torque:92.1},
+    {code:"30",gear:2,fpmHigh:132,fpmLow:27,tangential:29.0,torque:27.7},
+    {code:"45",gear:2,fpmHigh:173,fpmLow:27,tangential:27.9,torque:26.7},
+    {code:"55",gear:2,fpmHigh:214,fpmLow:27,tangential:23.8,torque:22.8}
+  ],
+  "PM486FP": [
+    {code:"35",gear:1,fpmHigh:26,fpmLow:7,tangential:149.4,torque:142.9},
+    {code:"45",gear:1,fpmHigh:37,fpmLow:null,tangential:141.9,torque:135.7},
+    {code:"30",gear:2,fpmHigh:138,fpmLow:27,tangential:42.7,torque:40.9},
+    {code:"100",gear:3,fpmHigh:448,fpmLow:121,tangential:11.2,torque:10.7}
+  ],
+  "PM486FH": [
+    {code:"20",gear:2,fpmHigh:89,fpmLow:null,tangential:53.4,torque:51.3},
+    {code:"45",gear:2,fpmHigh:187,fpmLow:null,tangential:49.3,torque:46.9},
+    {code:"100",gear:1,fpmHigh:405,fpmLow:122,tangential:13.3,torque:12.4},
+    {code:"255",gear:1,fpmHigh:974,fpmLow:122,tangential:11.3,torque:10.6}
+  ],
+  "PM570FE": [
+    {code:"35",gear:1,fpmHigh:28,fpmLow:7,tangential:98.0,torque:90.8},
+    {code:"30",gear:2,fpmHigh:142,fpmLow:27,tangential:31.9,torque:30.1},
+    {code:"60",gear:2,fpmHigh:231,fpmLow:27,tangential:24.7,torque:23.7},
+    {code:"100",gear:3,fpmHigh:506,fpmLow:109,tangential:10.6,torque:9.3}
+  ],
+  "PM605FE": [
+    {code:"35",gear:1,fpmHigh:30,fpmLow:7,tangential:97.3,torque:90.8},
+    {code:"30",gear:2,fpmHigh:151,fpmLow:27,tangential:31.9,torque:30.1},
+    {code:"100",gear:3,fpmHigh:537,fpmLow:109,tangential:10.7,torque:9.3}
+  ],
+  "PM635FS": [
+    {code:"36",gear:3,fpmHigh:34,fpmLow:9,tangential:114.3,torque:142.9},
+    {code:"48",gear:3,fpmHigh:50,fpmLow:null,tangential:108.6,torque:135.7},
+    {code:"160",gear:2,fpmHigh:60,fpmLow:18,tangential:81.6,torque:227.4},
+    {code:"201",gear:1,fpmHigh:150,fpmLow:86,tangential:86.7,torque:103.7}
+  ],
+  "PM635KE": [
+    {code:"65",gear:1,fpmHigh:37,fpmLow:22,tangential:228.6,torque:285.9},
+    {code:"600",gear:2,fpmHigh:200,fpmLow:25,tangential:63.3,torque:78.8},
+    {code:"1230",gear:3,fpmHigh:758,fpmLow:95,tangential:17.5,torque:22.1}
+  ],
+  "PM635KT": [
+    {code:"36",gear:3,fpmHigh:34,fpmLow:9,tangential:114.3,torque:142.9},
+    {code:"48",gear:3,fpmHigh:50,fpmLow:null,tangential:108.6,torque:135.7}
+  ],
+
+  /* InfiniDrive — codes are gear ratios (4:1, 5:1, etc.) */
+  "RD48": [
+    {code:"04",gear:1,fpmHigh:462,fpmLow:115,tangential:3.8,torque:3.6},
+    {code:"05",gear:1,fpmHigh:369,fpmLow:92,tangential:4.7,torque:4.5},
+    {code:"09",gear:2,fpmHigh:205,fpmLow:51,tangential:8.5,torque:8.1},
+    {code:"12",gear:2,fpmHigh:154,fpmLow:38,tangential:11.3,torque:10.8},
+    {code:"16",gear:2,fpmHigh:115,fpmLow:29,tangential:15.1,torque:14.4},
+    {code:"27",gear:3,fpmHigh:68,fpmLow:17,tangential:25.5,torque:24.2},
+    {code:"36",gear:3,fpmHigh:51,fpmLow:13,tangential:34.0,torque:32.3},
+    {code:"48",gear:3,fpmHigh:38,fpmLow:10,tangential:45.3,torque:43.1},
+    {code:"64",gear:3,fpmHigh:29,fpmLow:7,tangential:60.5,torque:57.4}
+  ],
+  "RD50": [
+    {code:"04",gear:1,fpmHigh:478,fpmLow:120,tangential:3.6,torque:3.6},
+    {code:"09",gear:2,fpmHigh:213,fpmLow:53,tangential:8.2,torque:8.1},
+    {code:"16",gear:2,fpmHigh:120,fpmLow:30,tangential:14.6,torque:14.4},
+    {code:"27",gear:3,fpmHigh:71,fpmLow:18,tangential:24.6,torque:24.2},
+    {code:"64",gear:3,fpmHigh:29,fpmLow:7,tangential:58.4,torque:57.4}
+  ],
+  "RD57": [
+    {code:"04",gear:1,fpmHigh:545,fpmLow:137,tangential:3.2,torque:3.6},
+    {code:"09",gear:2,fpmHigh:243,fpmLow:60,tangential:7.1,torque:8.1},
+    {code:"16",gear:2,fpmHigh:137,fpmLow:34,tangential:12.6,torque:14.4},
+    {code:"27",gear:3,fpmHigh:81,fpmLow:21,tangential:21.3,torque:24.2},
+    {code:"64",gear:3,fpmHigh:34,fpmLow:8,tangential:51.3,torque:57.4}
+  ],
+  "RD60": [
+    {code:"04",gear:1,fpmHigh:571,fpmLow:144,tangential:3.0,torque:3.6},
+    {code:"09",gear:2,fpmHigh:256,fpmLow:64,tangential:6.7,torque:8.1},
+    {code:"16",gear:2,fpmHigh:144,fpmLow:36,tangential:12.0,torque:14.4},
+    {code:"27",gear:3,fpmHigh:85,fpmLow:22,tangential:20.2,torque:24.2},
+    {code:"64",gear:3,fpmHigh:36,fpmLow:8,tangential:48.7,torque:57.4}
+  ],
+  "RD63": [
+    {code:"04",gear:1,fpmHigh:602,fpmLow:151,tangential:2.8,torque:3.6},
+    {code:"09",gear:2,fpmHigh:268,fpmLow:67,tangential:6.4,torque:8.1},
+    {code:"16",gear:2,fpmHigh:151,fpmLow:38,tangential:11.4,torque:14.4},
+    {code:"27",gear:3,fpmHigh:89,fpmLow:23,tangential:19.2,torque:24.2},
+    {code:"64",gear:3,fpmHigh:38,fpmLow:9,tangential:46.4,torque:57.4}
+  ],
+  "RD63S": [
+    {code:"09",gear:2,fpmHigh:507,fpmLow:116,tangential:null,torque:8.1},
+    {code:"16",gear:2,fpmHigh:285,fpmLow:65,tangential:null,torque:14.4},
+    {code:"27",gear:3,fpmHigh:169,fpmLow:39,tangential:null,torque:24.2},
+    {code:"64",gear:3,fpmHigh:72,fpmLow:17,tangential:null,torque:57.4}
+  ],
+  "GM48": [
+    {code:"09",gear:1,fpmHigh:444,fpmLow:111,tangential:null,torque:8.6},
+    {code:"12",gear:1,fpmHigh:333,fpmLow:83,tangential:null,torque:11},
+    {code:"16",gear:1,fpmHigh:250,fpmLow:62,tangential:null,torque:15},
+    {code:"27",gear:2,fpmHigh:148,fpmLow:37,tangential:null,torque:24},
+    {code:"36",gear:2,fpmHigh:111,fpmLow:27,tangential:null,torque:32},
+    {code:"48",gear:2,fpmHigh:83,fpmLow:20,tangential:null,torque:35},
+    {code:"64",gear:2,fpmHigh:62,fpmLow:15,tangential:null,torque:41}
+  ]
+};
+
+/* ==========================================================================
+   HELPERS
+   ========================================================================== */
+const $ = id => document.getElementById(id);
+const fmt = (n,d=3) => Number(n).toFixed(d);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function brandClass(b) {
+  return b === 'itoh' ? 'brand-itoh' : b === 'infinidrive' ? 'brand-infinidrive' : 'brand-microroll';
+}
+function brandLabel(b) {
+  return b === 'itoh' ? 'Itoh Denki' : b === 'infinidrive' ? 'InfiniDrive' : 'Microroll';
+}
+function rollerBrand(pn) {
+  if (!pn) return null;
+  if (/^(PM|IB|CB|HB|CBM|CBK)/.test(pn)) return 'itoh';
+  if (/^MR-/i.test(pn)) return 'microroll';
+  if (/^(RC|RA|GM|FM)/.test(pn) || /^RD/.test(pn)) return 'infinidrive';
+  return null;
+}
+
+function parseSeries(pn) {
+  if (!pn) return null;
+  const s = String(pn).trim();
+  /* Legacy MR- prefix → Microroll alias */
+  if (/^MR-/i.test(s)) return "MICROROLL";
+  /* Itoh Denki */
+  const m = s.match(/^(PM\d{3}[A-Z]{2})/);
+  if (m && SERIES_SPECS[m[1]]) return m[1];
+  /* InfiniDrive positional: RC/RA/GM + diameter letter */
+  const pos = s.match(/^(RC|RA|GM)\s([A-E])\s/);
+  if (pos) {
+    const diamLetter = pos[2];
+    const diamMap = {A:48, B:50, C:57, D:60, E:63};
+    const seriesMap = {"RC-48":"RD48","RC-50":"RD50","RC-57":"RD57",
+                        "RC-60":"RD60","RC-63":"RD63","RA-63":"RD63S",
+                        "GM-48":"GM48"};
+    const key = `${pos[1]}-${diamMap[diamLetter]}`;
+    if (seriesMap[key]) return seriesMap[key];
+  }
+  /* Direct RD/GM name */
+  if (/^(RD48|RD50|RD57|RD60|RD63|RD63S|GM48|FM24095)/.test(s)) {
+    return s.match(/^(RD48S?|RD50|RD57|RD60|RD63S?|GM48|FM24095)/)[1];
+  }
+  return null;
+}
+
+function getRollerByPn(pn) { return ROLLER_DB.find(r => r.pn === pn) || null; }
+
+function compatibleCardsForSeries(series, isBrake) {
+  const spec = SERIES_SPECS[series];
+  if (!spec) return [];
+  /* Microroll alias resolves to InfiniDrive cards */
+  if (spec.alias === 'infinidrive') {
+    const idSpec = {RD48:1,RD50:1,RD57:1,RD60:1,RD63:1,RD63S:1,GM48:1};
+    const list = isBrake ? spec.brakeCards : spec.cards;
+    return list.filter(c => DRIVER_CARDS[c]);
+  }
+  const list = isBrake ? (spec.brakeCards || []) : (spec.cards || []);
+  return list.filter(c => DRIVER_CARDS[c]);
+}
+
+function isBrakeRoller(r) { return !!(r && r.braking); }
+
+function findClosestSpeedCode(model, targetFpm) {
+  const codes = SPEED_CODES[model];
+  if (!codes || !codes.length) return null;
+  let best = codes[0], bestDiff = Infinity;
+  codes.forEach(c => {
+    const d = Math.abs(c.fpmHigh - targetFpm);
+    if (d < bestDiff) { bestDiff = d; best = c; }
+  });
+  return { best, diff: bestDiff };
+}
+
+/* ==========================================================================
+   CONFIGURATOR
+   ========================================================================== */
+function getInputs() {
+  return {
+    packageMaterial: $('packageMaterial').value,
+    wlbsMax: parseFloat($('wlbsMax').value) || 0,
+    droller: parseFloat($('droller').value) || 0,
+    lbf: parseFloat($('lbf').value) || 0,
+    curveType: $('curveType').value,
+    driveStyle: $('driveStyle').value,
+    hspiral: parseFloat($('hspiral').value) || 0,
+    pitch: parseFloat($('pitch').value) || 0,
+    cableLength: parseFloat($('cableLength').value) || 0,
+    quantity: parseInt($('quantity').value) || 1,
+    taperDiameter: parseFloat($('taperDiameter').value) || 0
+  };
+}
+function calcDerived(inp) {
+  const rollerBody = inp.curveType === "Straight" ? "Straight" : "Tapered";
+  const muStatic = MU_TABLE[rollerBody]?.[inp.packageMaterial] ?? 0;
+  const theta = rollerBody === "Tapered"
+    ? Math.atan(inp.pitch / (Math.PI * inp.hspiral)) * (180 / Math.PI) : 0;
+  const fTangential = inp.wlbsMax * muStatic * Math.cos(theta * Math.PI / 180);
+  const torque = fTangential * (inp.droller / 2 * muStatic);
+  return { rollerBody, muStatic, theta, fTangential, torque };
+}
+function lroller(inp) { return Math.round((inp.lbf - 0.78) * 25.4); }
+function buildItohPart(inp, d, vfpm) {
+  const g = inp.driveStyle === "Pulley" ? "A" : "G";
+  const b = inp.curveType === "Down Spiral" ? "B" : "A";
+  return `PM486FE-${vfpm}-${lroller(inp)}-D-024-${g}-${b}`;
+}
+function buildMicrorollPart(inp, d, vfpm) {
+  const b = inp.curveType === "Down Spiral" ? "B" : "A";
+  const t = inp.curveType === "Up Spiral" ? "Z" : "W";
+  const g = inp.driveStyle === "Pulley" ? "A" : "G";
+  return `MR-${b}D-${lroller(inp)}-${vfpm}Y${t}${g}Q`;
+}
+function buildInfiniDrivePart(inp) {
+  /* Build positional: RC A DU42 G {BF} HTS {ratio} A 0 X */
+  const bf = String(Math.round(inp.lbf * 25.4)).padStart(4, '0');
+  const groove = inp.driveStyle === "Pulley" ? "P" : "G";
+  const ratio = "27"; /* default mid-torque */
+  return `RC A DU42 ${groove} ${bf} HTS ${ratio} A 0 X`;
+}
+function validateRoller(roller, inp, derived) {
+  if (Math.abs(roller.idealFrame - inp.lbf) > 0.315) return "Invalid";
+  if (derived.rollerBody === "Tapered" && !roller.tapered) return "Invalid";
+  if (inp.curveType === "Down Spiral" && !roller.braking) return "Invalid";
+  if (inp.driveStyle === "Standard" && !roller.grooved) return "Invalid";
+  if (inp.driveStyle === "Pulley" && roller.tapered) return "Invalid";
+  return "Valid";
+}
+
+function renderConfigurator() {
+  const inp = getInputs();
+  const d = calcDerived(inp);
+  $('taperField').style.display = d.rollerBody === "Tapered" ? "block" : "none";
+  $('d-rollerBody').textContent = d.rollerBody;
+  $('d-mu').textContent = fmt(d.muStatic, 4);
+  $('d-theta').textContent = fmt(d.theta, 4);
+  $('d-ft').textContent = fmt(d.fTangential, 4);
+  $('d-torque').textContent = fmt(d.torque, 4);
+
+  $('vendor-results').innerHTML = VENDORS.map(v => {
+    let pn, brand;
+    if (v.key === "itoh") { pn = buildItohPart(inp, d, v.vfpm); brand = 'itoh'; }
+    else if (v.key === "microroll") { pn = buildInfiniDrivePart(inp); brand = 'infinidrive'; }
+    else { pn = buildMicrorollPart(inp, d, v.vfpm); brand = 'microroll'; }
+    return `<div class="vendor-block">
+      <div class="vendor-name">${esc(v.name)}<span class="brand-tag ${brandClass(brand)}">${esc(brandLabel(brand))}</span></div>
+      <div class="pn">${esc(pn)}</div>
+      <div class="meta">
+        <div>VFPM: ${v.vfpm}</div>
+        <div>Length: ${lroller(inp)} mm</div>
+        <div>Email: ${esc(v.email)}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const matches = ROLLER_DB
+    .map(r => ({...r, valid: validateRoller(r, inp, d)}))
+    .filter(r => r.valid === "Valid");
+  $('match-count').textContent = `${matches.length} matching rollers found`;
+
+  const tb = document.querySelector('#matches-table tbody');
+  tb.innerHTML = matches.length === 0
+    ? `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">No matching rollers.</td></tr>`
+    : matches.map(r => `<tr class="valid">
+        <td class="mono">${esc(r.pn)}</td><td>${esc(r.desc)}</td>
+        <td>${esc(r.boh)}</td><td>${esc(r.speed ?? '—')}</td>
+        <td>${esc(r.len)}</td>
+        <td>${r.grooved ? '✓' : '—'}</td><td>${r.braking ? '✓' : '—'}</td>
+        <td>${r.tapered ? '✓' : '—'}</td>
+        <td><span class="badge ok">Valid</span></td></tr>`).join('');
+}
+
+/* ==========================================================================
+   DATABASE
+   ========================================================================== */
+function renderDatabase() {
+  const q = $('db-search').value.trim().toLowerCase();
+  const f = $('db-filter').value;
+  let rows = ROLLER_DB.map(r => ({...r, valid: r.valid ?? 'Valid'}));
+  if (q) rows = rows.filter(r =>
+    (r.pn||'').toLowerCase().includes(q) ||
+    (r.desc||'').toLowerCase().includes(q) ||
+    (r.psn||'').toLowerCase().includes(q));
+  if (f === 'valid') rows = rows.filter(r => r.valid === 'Valid');
+  if (f === 'invalid') rows = rows.filter(r => r.valid === 'Invalid');
+  if (f === 'grooved') rows = rows.filter(r => r.grooved);
+  if (f === 'braking') rows = rows.filter(r => r.braking);
+  if (f === 'tapered') rows = rows.filter(r => r.tapered);
+  $('db-count').textContent = `${rows.length} of ${ROLLER_DB.length} rollers shown`;
+  document.querySelector('#db-table tbody').innerHTML = rows.map(r => {
+    const b = rollerBrand(r.pn);
+    const badge = b ? `<span class="brand-tag ${brandClass(b)}">${esc(brandLabel(b))}</span>` : '';
+    return `<tr class="${r.valid === 'Valid' ? 'valid' : 'invalid'}">
+      <td class="mono">${esc(r.psn)}</td>
+      <td class="mono">${esc(r.pn)}${badge}</td>
+      <td>${esc(r.desc)}</td><td>${esc(r.boh)}</td><td>${esc(r.status)}</td>
+      <td>${esc(r.speed ?? '—')}</td><td>${esc(r.len)}</td>
+      <td>${r.grooved ? '✓' : '—'}</td><td>${r.braking ? '✓' : '—'}</td>
+      <td>${r.tapered ? '✓' : '—'}</td>
+      <td>${esc(fmt(r.idealFrame, 3))}</td>
+      <td><span class="badge ${r.valid === 'Valid' ? 'ok' : 'err'}">${r.valid}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+/* ==========================================================================
+   DRIVER CONFIG TAB
+   ========================================================================== */
+function populateDriverRollerSelect() {
+  const sel = $('dc-roller');
+  /* Group by brand */
+  const itoh = Object.keys(SERIES_SPECS).filter(s => SERIES_SPECS[s].brand === 'itoh');
+  const id = Object.keys(SERIES_SPECS).filter(s => SERIES_SPECS[s].brand === 'infinidrive' && !SERIES_SPECS[s].slimDrive);
+  const sd = Object.keys(SERIES_SPECS).filter(s => SERIES_SPECS[s].slimDrive);
+  sel.innerHTML = '<option value="">— Select a model —</option>' +
+    `<optgroup label="Itoh Denki">${itoh.map(s => `<option value="${s}">${s}</option>`).join('')}</optgroup>` +
+    `<optgroup label="InfiniDrive (RD / GM)">${id.map(s => `<option value="${s}">${s}</option>`).join('')}</optgroup>` +
+    `<optgroup label="InfiniDrive SlimDrive">${sd.map(s => `<option value="${s}">${s}</option>`).join('')}</optgroup>`;
+}
+
+function renderDriverConfig() {
+  const model = $('dc-roller').value;
+  const appType = $('dc-application').value;
+  const targetFpm = parseFloat($('dc-target-fpm').value) || 60;
+  const output = $('dc-output').value;
+
+  const cardListEl = $('dc-card-list');
+  const recEl = $('dc-recommendation');
+
+  if (!model) {
+    recEl.innerHTML = '<div class="alert info">Select a roller model to see recommendations.</div>';
+    cardListEl.innerHTML = '';
+    return;
+  }
+
+  const spec = SERIES_SPECS[model];
+  const isBrake = appType === 'brake';
+  const compatible = compatibleCardsForSeries(model, isBrake);
+
+  let recommended = null;
+  if (appType === 'zpa') recommended = compatible.find(c => DRIVER_CARDS[c].family === 'zpa');
+  else if (appType === 'network') recommended = compatible.find(c => DRIVER_CARDS[c].family === 'network');
+  else if (appType === 'brake') recommended = compatible.find(c => DRIVER_CARDS[c].family === 'brake');
+  else recommended = compatible.find(c => DRIVER_CARDS[c].family === 'standard');
+  if (!recommended) recommended = compatible[0];
+
+  if (!recommended) {
+    recEl.innerHTML = `<div class="alert err">No compatible driver card for <strong>${esc(model)}</strong> with the selected application.</div>`;
+    cardListEl.innerHTML = '';
+    return;
+  }
+
+  const card = DRIVER_CARDS[recommended];
+  const speedMatch = spec.speedModel ? findClosestSpeedCode(spec.speedModel, targetFpm) : null;
+  const brandBadge = `<span class="brand-tag ${brandClass(card.brand)}">${esc(brandLabel(card.brand))}</span>`;
+
+  recEl.innerHTML = `
+    <div class="card-recommendation">
+      <div class="card-name">${esc(recommended)}${output === 'P' || output === 'N' ? '-' + output : ''}</div>
+      <div class="card-sub">${brandBadge} · ${esc(card.pins)} pins · ${esc(card.family)}</div>
+      <div class="rec-meta">
+        <div><div class="label">Speed Code</div><div class="value">${speedMatch ? esc(speedMatch.best.code) : '—'}</div></div>
+        <div><div class="label">Gear Stage</div><div class="value">${speedMatch ? esc(speedMatch.best.gear) : '—'}</div></div>
+        <div><div class="label">Target FPM</div><div class="value">${speedMatch ? esc(speedMatch.best.fpmHigh) : '—'}</div></div>
+        <div><div class="label">Output</div><div class="value">${output === 'P' ? 'PNP' : 'NPN'}</div></div>
+        <div><div class="label">Speed Settings</div><div class="value">${card.speedSettings ?? 'Fixed / DIP'}</div></div>
+        <div><div class="label">Motor Watts</div><div class="value">${esc(card.motorWattage ?? '—')}</div></div>
+      </div>
+    </div>
+    <h3>How to Set the Card</h3>
+    <table class="kv">
+      <tr><td>Card</td><td>${esc(recommended)}${output === 'P' || output === 'N' ? '-' + output : ''}</td></tr>
+      <tr><td>Speed Code</td><td>${speedMatch ? esc(speedMatch.best.code) : 'n/a'}</td></tr>
+      <tr><td>Output type</td><td>${output === 'P' ? 'PNP' : 'NPN'} — must be specified at order (C100 series ships PNP)</td></tr>
+      <tr><td>Pin count</td><td>${esc(card.pins)}</td></tr>
+      <tr><td>Notes</td><td>${esc(card.notes)}</td></tr>
+    </table>
+    ${card.requiresBrakeRoller ? '<div class="alert warn" style="margin-top:12px">This card requires a brake-equipped roller. Verify your roller series supports the brake option.</div>' : ''}
+    ${!card.verified ? '<div class="alert warn" style="margin-top:12px">⚠ Unverified card record.</div>' : ''}
+  `;
+
+  cardListEl.innerHTML = compatible.length === 0
+    ? `<div class="alert info">No cards found for this series.</div>`
+    : compatible.map(cName => {
+        const c = DRIVER_CARDS[cName];
+        const isRec = cName === recommended;
+        const bBadge = `<span class="brand-tag ${brandClass(c.brand)}">${esc(brandLabel(c.brand))}</span>`;
+        return `<div class="card-list-item">
+          <div class="cname">${esc(cName)} ${isRec ? '<span class="badge ok" style="margin-left:6px">Rec</span>' : ''}</div>
+          <div class="cinfo">
+            ${bBadge} ${esc(c.pins)} pins · ${esc(c.family)}
+            <div class="cfeat">${c.features.join(' · ')}</div>
+          </div>
+          <div>
+            ${c.requiresBrakeRoller ? '<span class="badge warn">Brake only</span>' : ''}
+            ${c.supersededBy ? `<span class="badge warn">→ ${esc(c.supersededBy)}</span>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+}
+
+/* ==========================================================================
+   SWAP TAB
+   ========================================================================== */
+function populateSwapSelects() {
+  const opts = ROLLER_DB.map(r => {
+    const b = rollerBrand(r.pn);
+    const tag = b ? ` [${brandLabel(b)}]` : '';
+    return `<option value="${esc(r.pn)}">${esc(r.pn)}${tag} — ${esc(r.desc.slice(0,40))}</option>`;
+  }).join('');
+  ['sw-old-roller','sw-new-roller','fr-roller'].forEach(id => {
+    $(id).innerHTML = `<option value="">— Select roller —</option>` + opts;
+  });
+  const cards = Object.keys(DRIVER_CARDS);
+  const cardOpts = cards.map(c => {
+    const cd = DRIVER_CARDS[c];
+    return `<option value="${esc(c)}">${esc(c)} [${brandLabel(cd.brand)}, ${esc(cd.pins)} pin]</option>`;
+  }).join('');
+  ['sw-old-card','sw-new-card','fr-card'].forEach(id => {
+    $(id).innerHTML = `<option value="">— Select card —</option>` + cardOpts;
+  });
+}
+
+function verdictFromScore(score) {
+  if (score >= 0.9) return {level:'ok', text:'Drop-in compatible', icon:'✓'};
+  if (score >= 0.65) return {level:'warn', text:'Compatible with caveats', icon:'⚠'};
+  return {level:'err', text:'Not drop-in compatible', icon:'✕'};
+}
+
+function compareRollers(oldR, newR) {
+  const checks = [];
+  const oldS = parseSeries(oldR.pn);
+  const newS = parseSeries(newR.pn);
+  const oldSpec = SERIES_SPECS[oldS] || {};
+  const newSpec = SERIES_SPECS[newS] || {};
+
+  /* Diameter */
+  if (oldSpec.diameter && newSpec.diameter && typeof oldSpec.diameter === 'number' && typeof newSpec.diameter === 'number') {
+    const match = Math.abs(oldSpec.diameter - newSpec.diameter) < 0.5;
+    checks.push({item:'Diameter', oldVal: oldSpec.diameter + ' mm', newVal: newSpec.diameter + ' mm',
+      status: match ? 'ok' : 'err',
+      note: match ? 'Match' : 'Diameter differs — mounting/shaft may not align'});
+  }
+
+  /* Ideal frame length */
+  const lenDiff = Math.abs(oldR.idealFrame - newR.idealFrame);
+  checks.push({item:'Ideal Frame Length',
+    oldVal: fmt(oldR.idealFrame, 3) + '"', newVal: fmt(newR.idealFrame, 3) + '"',
+    status: lenDiff <= 0.001 ? 'ok' : (lenDiff <= 0.315 ? 'warn' : 'err'),
+    note: lenDiff <= 0.001 ? 'Exact match' :
+          (lenDiff <= 0.315 ? `Δ ${fmt(lenDiff,3)}" — within tolerance` :
+           `Δ ${fmt(lenDiff,3)}" — beyond 0.315" tolerance`)});
+
+  /* Grooved */
+  checks.push({item:'Grooves',
+    oldVal: oldR.grooved ? 'Yes' : 'No', newVal: newR.grooved ? 'Yes' : 'No',
+    status: oldR.grooved === newR.grooved ? 'ok' : (newR.grooved ? 'warn' : 'err'),
+    note: oldR.grooved === newR.grooved ? 'Match' :
+          (newR.grooved ? 'New has grooves, old did not' : 'Old was grooved, new is not')});
+
+  /* Braking */
+  checks.push({item:'Braking',
+    oldVal: oldR.braking ? 'Yes' : 'No', newVal: newR.braking ? 'Yes' : 'No',
+    status: oldR.braking === newR.braking ? 'ok' : 'err',
+    note: oldR.braking === newR.braking ? 'Match' : 'Braking capability differs — behavior will change'});
+
+  /* Tapered */
+  checks.push({item:'Tapered',
+    oldVal: oldR.tapered ? 'Yes' : 'No', newVal: newR.tapered ? 'Yes' : 'No',
+    status: oldR.tapered === newR.tapered ? 'ok' : 'err',
+    note: oldR.tapered === newR.tapered ? 'Match' : 'Tapered sleeve differs — curve behavior will change'});
+
+  /* Pins */
+  if (oldSpec.pins != null && newSpec.pins != null) {
+    const oldPins = oldR.braking ? (oldSpec.brakePins ?? oldSpec.pins) : oldSpec.pins;
+    const newPins = newR.braking ? (newSpec.brakePins ?? newSpec.pins) : newSpec.pins;
+    const match = oldPins === newPins;
+    checks.push({item:'Connector',
+      oldVal: String(oldPins), newVal: String(newPins),
+      status: match ? 'ok' : 'warn',
+      note: match ? 'Match' : 'Pin count differs — adapter cable may be required'});
+  }
+
+  /* Cross-brand note */
+  if (oldSpec.brand && newSpec.brand && oldSpec.brand !== newSpec.brand) {
+    checks.push({item:'Brand change',
+      oldVal: brandLabel(oldSpec.brand), newVal: brandLabel(newSpec.brand),
+      status: 'warn',
+      note: 'Cross-brand swap — driver card and cable compatibility must be verified'});
+  }
+
+  return checks;
+}
+
+function checkCardCompatibility(cardName, roller) {
+  if (!cardName || !roller) return null;
+  const card = DRIVER_CARDS[cardName];
+  if (!card) return {status:'err', note:'Unknown card'};
+  const series = parseSeries(roller.pn);
+  if (!series) return {status:'err', note:'Cannot determine roller series'};
+  const spec = SERIES_SPECS[series];
+  if (!spec) return {status:'err', note:'Unknown roller series'};
+  const rollerIsBrake = roller.braking;
+
+  if (card.requiresBrakeRoller && !rollerIsBrake)
+    return {status:'err', note:`${cardName} is brake-only but roller has no brake`};
+  if (rollerIsBrake && card.family !== 'brake' && !card.supportsBrakeViaDip && !card.brakeCards)
+    return {status:'err', note:`Roller has brake but ${cardName} does not support brake control`};
+
+  if (!card.rollerSeries.includes(series)) {
+    /* Allow Microroll legacy alias */
+    const alias = spec.alias === 'infinidrive';
+    if (!alias) return {status:'err', note:`${cardName} not listed for ${series}`};
+  }
+  if (card.slimDriveOnly && series !== 'FM24095')
+    return {status:'err', note:`${cardName} is SlimDrive-only`};
+  if (!card.slimDriveOnly && series === 'FM24095')
+    return {status:'err', note:`SlimDrive FM24095 requires FM-series cards`};
+
+  return {status:'ok', note:'Compatible'};
+}
+
+function renderSwap() {
+  const oldPn = $('sw-old-roller').value;
+  const newPn = $('sw-new-roller').value;
+  const oldCard = $('sw-old-card').value;
+  const newCard = $('sw-new-card').value;
+
+  const vEl = $('sw-verdict');
+  const cEl = $('sw-comparison');
+
+  if (!oldPn || !newPn) {
+    vEl.innerHTML = '<div class="alert info">Select both an old and a new roller to compare.</div>';
+    cEl.innerHTML = '';
+    return;
+  }
+  const oldR = getRollerByPn(oldPn);
+  const newR = getRollerByPn(newPn);
+  if (!oldR || !newR) return;
+
+  const checks = compareRollers(oldR, newR);
+
+  if (oldCard) {
+    const st = checkCardCompatibility(oldCard, oldR);
+    checks.push({item:'Old card ↔ old roller', oldVal: oldCard, newVal:'—', status: st.status, note: st.note});
+  }
+  if (newCard) {
+    const st = checkCardCompatibility(newCard, newR);
+    checks.push({item:'New card ↔ new roller', oldVal:'—', newVal: newCard, status: st.status, note: st.note});
+  }
+  if (oldCard && newCard && oldCard !== newCard) {
+    checks.push({item:'Card changed', oldVal: oldCard, newVal: newCard, status:'warn',
+      note:'Driver card is different — new settings must be applied'});
+  }
+
+  const okCount = checks.filter(c => c.status === 'ok').length;
+  const errCount = checks.filter(c => c.status === 'err').length;
+  const total = checks.length;
+  let score = (okCount + (total - okCount - errCount) * 0.5) / total;
+  if (errCount > 0) score = Math.min(score, 0.5);
+  const v = verdictFromScore(score);
+
+  vEl.innerHTML = `<div class="verdict ${v.level}"><div class="icon">${v.icon}</div><div>${v.text}</div></div>`;
+
+  cEl.innerHTML = `<table class="data" style="white-space:normal">
+    <thead><tr><th style="width:22%">Check</th><th style="width:20%">Old</th>
+    <th style="width:20%">New</th><th>Notes</th></tr></thead>
+    <tbody>
+      ${checks.map(c => {
+        const icon = c.status === 'ok' ? '✓' : (c.status === 'warn' ? '⚠' : '✕');
+        return `<tr>
+          <td>${esc(c.item)}</td>
+          <td class="mono">${esc(c.oldVal)}</td>
+          <td class="mono">${esc(c.newVal)}</td>
+          <td><span class="match-icon ${c.status}">${icon}</span> ${esc(c.note)}</td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>`;
+}
+
+function renderFindReplacement() {
+  const pn = $('fr-roller').value;
+  const behavior = $('fr-behavior').value;
+  const el = $('fr-suggestions');
+
+  if (!pn) {
+    el.innerHTML = '<div class="alert info">Select a current roller to see replacements.</div>';
+    return;
+  }
+  const roller = getRollerByPn(pn);
+  if (!roller) { el.innerHTML = ''; return; }
+  const series = parseSeries(roller.pn);
+  const spec = SERIES_SPECS[series] || {};
+
+  const candidates = ROLLER_DB.filter(r => {
+    if (r.pn === roller.pn) return false;
+    const rs = parseSeries(r.pn);
+    if (!rs) return false;
+    const rSpec = SERIES_SPECS[rs];
+    if (!rSpec) return false;
+    if (typeof spec.diameter === 'number' && typeof rSpec.diameter === 'number') {
+      if (Math.abs(rSpec.diameter - spec.diameter) > 0.5) return false;
+    }
+    if (behavior === 'brake' && !r.braking) return false;
+    if (behavior === 'standard' && r.braking) return false;
+    return true;
+  }).slice(0, 10);
+
+  if (candidates.length === 0) {
+    el.innerHTML = '<div class="alert warn">No candidates in DB with matching diameter and behavior.</div>';
+    return;
+  }
+
+  const scored = candidates.map(r => {
+    const checks = compareRollers(roller, r);
+    const okCount = checks.filter(c => c.status === 'ok').length;
+    const errCount = checks.filter(c => c.status === 'err').length;
+    return {roller: r, checks, score: errCount === 0 ? okCount / checks.length : 0, errCount};
+  }).sort((a,b) => b.score - a.score);
+
+  const top = scored[0];
+  const topSeries = parseSeries(top.roller.pn);
+  const isBrake = top.roller.braking;
+  const recommendedCard = compatibleCardsForSeries(topSeries, isBrake)[0];
+  const topSpec = SERIES_SPECS[topSeries] || {};
+  const speedMatch = topSpec.speedModel ? findClosestSpeedCode(topSpec.speedModel, roller.speed || 60) : null;
+
+  el.innerHTML = `
+    <div class="alert ok"><strong>Best match:</strong> ${esc(top.roller.pn)}</div>
+    ${recommendedCard ? `
+      <div class="card-recommendation" style="margin-bottom:12px">
+        <div class="card-name">${esc(recommendedCard)}</div>
+        <div class="card-sub">Recommended driver card for the replacement</div>
+        <div class="rec-meta">
+          <div><div class="label">Speed Code</div><div class="value">${speedMatch ? esc(speedMatch.best.code) : '—'}</div></div>
+          <div><div class="label">Target FPM</div><div class="value">${speedMatch ? esc(speedMatch.best.fpmHigh) : '—'}</div></div>
+        </div>
+      </div>` : ''}
+    <h3>All Candidates</h3>
+    ${scored.map(s => {
+      const icon = s.errCount === 0 ? '✓' : (s.errCount <= 1 ? '⚠' : '✕');
+      const cls = s.errCount === 0 ? 'ok' : (s.errCount <= 1 ? 'warn' : 'err');
+      const b = rollerBrand(s.roller.pn);
+      const badge = b ? `<span class="brand-tag ${brandClass(b)}">${esc(brandLabel(b))}</span>` : '';
+      const deltaLen = Math.abs(s.roller.idealFrame - roller.idealFrame);
+      return `<div class="card-list-item">
+        <div class="cname" style="min-width:220px">${esc(s.roller.pn)}${badge}</div>
+        <div class="cinfo">
+          ${esc(s.roller.desc.slice(0,60))}
+          <div class="cfeat">Length Δ: ${fmt(deltaLen,3)}" · ${s.roller.grooved ? 'Grooved' : 'Plain'} · ${s.roller.braking ? 'Brake' : 'No brake'}</div>
+        </div>
+        <div><span class="match-icon ${cls}" style="font-size:18px">${icon}</span></div>
+      </div>`;
+    }).join('')}
+  `;
+}
+
+/* ==========================================================================
+   TABS
+   ========================================================================== */
+document.querySelectorAll('nav.tabs button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('nav.tabs button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    $('tab-' + btn.dataset.tab).classList.add('active');
+    if (btn.dataset.tab === 'database') renderDatabase();
+    if (btn.dataset.tab === 'driver') renderDriverConfig();
+    if (btn.dataset.tab === 'swap') { renderSwap(); renderFindReplacement(); }
+  });
+});
+
+/* ==========================================================================
+   INIT
+   ========================================================================== */
+function init() {
+  ['packageMaterial','wlbsMax','droller','lbf','curveType','driveStyle',
+   'hspiral','pitch','cableLength','quantity','taperDiameter'].forEach(id => {
+    const el = $(id);
+    el.addEventListener('input', renderConfigurator);
+    el.addEventListener('change', renderConfigurator);
+  });
+  $('db-search').addEventListener('input', renderDatabase);
+  $('db-filter').addEventListener('change', renderDatabase);
+
+  populateDriverRollerSelect();
+  ['dc-roller','dc-application','dc-target-fpm','dc-output','dc-env'].forEach(id => {
+    $(id).addEventListener('input', renderDriverConfig);
+    $(id).addEventListener('change', renderDriverConfig);
+  });
+
+  populateSwapSelects();
+  ['sw-old-roller','sw-new-roller','sw-old-card','sw-new-card'].forEach(id => {
+    $(id).addEventListener('change', renderSwap);
+  });
+  ['fr-roller','fr-card','fr-behavior'].forEach(id => {
+    $(id).addEventListener('change', renderFindReplacement);
+  });
+
+  renderConfigurator();
+  renderDatabase();
+  renderDriverConfig();
+  renderSwap();
+  renderFindReplacement();
+}
+
+init();
+</script>
+</body>
+</html>
