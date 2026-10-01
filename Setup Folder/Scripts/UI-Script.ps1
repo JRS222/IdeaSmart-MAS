@@ -2679,305 +2679,322 @@ function Setup-SearchTab {
     })
 
 	$searchButton.Add_Click({
-			Write-Log "Performing part search..."
+		Write-Log "Performing part search..."
 
-			$nsnSearch = $script:textBoxNSN.Text.Trim()
-			$oemSearch = $script:textBoxOEM.Text.Trim()
-			$descriptionSearch = $script:textBoxDescription.Text.Trim()
+		$nsnSearch         = $script:textBoxNSN.Text.Trim()
+		$oemSearch         = $script:textBoxOEM.Text.Trim()
+		$descriptionSearch = $script:textBoxDescription.Text.Trim()
+		Write-Log "Search criteria - NSN: $nsnSearch, OEM: $oemSearch, Description: $descriptionSearch"
 
-			Write-Log "Search criteria - NSN: $nsnSearch, OEM: $oemSearch, Description: $descriptionSearch"
-
-			# Normalized search terms — strip separators so any hyphen/space/nbsp form matches
-			$cleanSearchNSN = ($nsnSearch -replace '[^0-9]', '')
-			$cleanSearchOEM = ($oemSearch -replace '[^A-Za-z0-9]', '').ToUpper()
-
-			#### Availability Search ####
-			$csvFiles = Get-ChildItem -Path $config.PartsRoomDirectory -Filter "*.csv" -File
-
-			if ($csvFiles.Count -eq 0) {
-				[System.Windows.Forms.MessageBox]::Show("No CSV files found in $($config.PartsRoomDirectory).", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-				Write-Log "No CSV files found in $($config.PartsRoomDirectory)."
-				return
-			} elseif ($csvFiles.Count -gt 1) {
-				[System.Windows.Forms.MessageBox]::Show("Multiple CSV files found in $($config.PartsRoomDirectory). Please ensure only one CSV file is present.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-				Write-Log "Multiple CSV files found in $($config.PartsRoomDirectory)."
-				return
+		# --- NSN pattern (keep * for wildcards) ---
+		$nsnActive  = $false
+		$nsnNoMatch = $false
+		$nsnPattern = $null
+		if (-not [string]::IsNullOrWhiteSpace($nsnSearch)) {
+			$nsnCleaned = $nsnSearch -replace '[^0-9*]', ''
+			if ([string]::IsNullOrEmpty($nsnCleaned) -or $nsnCleaned -eq '*') {
+				$nsnNoMatch = $true
 			} else {
-				$csvFilePath = $csvFiles[0].FullName
-				Write-Log "Using CSV file: $csvFilePath"
+				$nsnPattern = ([regex]::Escape($nsnCleaned)) -replace '\\\*', '.*'
+				$nsnActive  = $true
 			}
+		}
 
-			try {
-				$data = @(Import-Csv -Path $csvFilePath)
-				Write-Log "CSV file loaded successfully. Row count: $($data.Count)"
-			} catch {
-				[System.Windows.Forms.MessageBox]::Show("Failed to read CSV file. Error: $_", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-				Write-Log "Failed to read CSV file. Error: $_"
-				return
+		# --- OEM pattern (keep * for wildcards) ---
+		$oemActive  = $false
+		$oemNoMatch = $false
+		$oemPattern = $null
+		if (-not [string]::IsNullOrWhiteSpace($oemSearch)) {
+			$oemCleaned = ($oemSearch -replace '[^A-Za-z0-9*]', '').ToUpper()
+			if ([string]::IsNullOrEmpty($oemCleaned) -or $oemCleaned -eq '*') {
+				$oemNoMatch = $true
+			} else {
+				$oemPattern = ([regex]::Escape($oemCleaned)) -replace '\\\*', '.*'
+				$oemActive  = $true
 			}
+		}
 
+		# --- Description tokens ---
+		$descTokens = @()
+		if (-not [string]::IsNullOrWhiteSpace($descriptionSearch)) {
+			$descTokens = @(
+				($descriptionSearch -replace '[^A-Za-z0-9]', ' ').ToLower() -split '\s+' |
+				Where-Object { $_ -ne '' }
+			)
+		}
+		$descActive = $descTokens.Count -gt 0
+
+		Write-Log "Patterns: NSN='$nsnPattern' active=$nsnActive noMatch=$nsnNoMatch ; OEM='$oemPattern' active=$oemActive noMatch=$oemNoMatch ; DescTokens=$($descTokens -join ',')"
+
+		# =========================================================
+		# 1) AVAILABILITY
+		# =========================================================
+		$csvFiles = Get-ChildItem -Path $config.PartsRoomDirectory -Filter "*.csv" -File
+		if ($csvFiles.Count -eq 0) {
+			[System.Windows.Forms.MessageBox]::Show("No CSV files found in $($config.PartsRoomDirectory).", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+			Write-Log "No CSV files found in $($config.PartsRoomDirectory)."
+			return
+		} elseif ($csvFiles.Count -gt 1) {
+			[System.Windows.Forms.MessageBox]::Show("Multiple CSV files found in $($config.PartsRoomDirectory). Please ensure only one CSV file is present.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+			Write-Log "Multiple CSV files found in $($config.PartsRoomDirectory)."
+			return
+		} else {
+			$csvFilePath = $csvFiles[0].FullName
+			Write-Log "Using CSV file: $csvFilePath"
+		}
+
+		try {
+			$data = @(Import-Csv -Path $csvFilePath)
+			Write-Log "CSV file loaded successfully. Row count: $($data.Count)"
+		} catch {
+			[System.Windows.Forms.MessageBox]::Show("Failed to read CSV file. Error: $_", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+			Write-Log "Failed to read CSV file. Error: $_"
+			return
+		}
+
+		if ($nsnNoMatch -or $oemNoMatch) {
+			$filteredData = @()
+		} else {
 			$filteredData = @($data | Where-Object {
-				$rowNSN = [string]$_.'Part (NSN)'
-				# [^0-9] strips every non-ASCII-digit character, including Unicode digit lookalikes
-				$cleanRowNSN = $rowNSN -replace '[^0-9]', ''
-
-				$nsnOk = ($nsnSearch -eq '') -or (
-					(-not [string]::IsNullOrEmpty($cleanSearchNSN)) -and
-					$cleanRowNSN.Contains($cleanSearchNSN)
-				)
-
-				$oemOk = if ($oemSearch -eq '') {
-					$true
-				} else {
-					if ([string]::IsNullOrEmpty($cleanSearchOEM)) {
-						$false
-					} else {
-						$rowOems = @(
-							(([string]$_.'OEM 1') -replace '[^A-Za-z0-9]', '').ToUpper()
-							(([string]$_.'OEM 2') -replace '[^A-Za-z0-9]', '').ToUpper()
-							(([string]$_.'OEM 3') -replace '[^A-Za-z0-9]', '').ToUpper()
-						) | Where-Object { -not [string]::IsNullOrEmpty($_) }
-
-						($rowOems | Where-Object { $_.Contains($cleanSearchOEM) }).Count -gt 0
+				$nsnOk = $true
+				if ($nsnActive) {
+					$rowNSN = ([string]$_.'Part (NSN)') -replace '[^0-9]', ''
+					$nsnOk = $rowNSN -match $nsnPattern
+				}
+				$oemOk = $true
+				if ($oemActive) {
+					$oemOk = $false
+					foreach ($f in 'OEM 1','OEM 2','OEM 3') {
+						$rowOem = ([string]$_.$f -replace '[^A-Za-z0-9]', '').ToUpper()
+						if ($rowOem -and $rowOem -match $oemPattern) { $oemOk = $true; break }
 					}
 				}
-
-				$descOk = ($descriptionSearch -eq '') -or
-						  (([string]$_.Description).IndexOf($descriptionSearch, [System.StringComparison]::OrdinalIgnoreCase) -ge 0)
-
+				$descOk = $true
+				if ($descActive) {
+					$rowDesc = (([string]$_.Description -replace '[^A-Za-z0-9]', ' ').ToLower() -replace '\s+', ' ').Trim()
+					foreach ($token in $descTokens) {
+						if (-not $rowDesc.Contains($token)) { $descOk = $false; break }
+					}
+				}
 				$nsnOk -and $oemOk -and $descOk
 			})
+		}
+		if ($null -eq $filteredData) { $filteredData = @() }
+		Write-Log "Found $($filteredData.Count) matching records in Availability."
 
-			Write-Log "Found $($filteredData.Count) matching records in Availability."
-
-			$script:listViewAvailability.Items.Clear()
-
-			if ($filteredData.Count -gt 0) {
-				foreach ($row in $filteredData) {
-					Write-Log "Adding row to listview: $($row.'Part (NSN)')"
-					$item = New-Object System.Windows.Forms.ListViewItem($row.'Part (NSN)')
-					$item.SubItems.Add($row.Description)
-					$item.SubItems.Add($row.QTY)
-					$item.SubItems.Add($row.'13 Period Usage')
-					$item.SubItems.Add($row.Location)
-					$item.SubItems.Add($row.'OEM 1')
-					$item.SubItems.Add($row.'OEM 2')
-					$item.SubItems.Add($row.'OEM 3')
-					if ($row.PSObject.Properties.Name -contains 'Changed Part (NSN)') {
-						$item.SubItems.Add($row.'Changed Part (NSN)')
-					} else {
-						$item.SubItems.Add("")
-					}
-					$script:listViewAvailability.Items.Add($item)
-				}
-				Write-Log "Added $($filteredData.Count) items to Availability ListView."
+		$script:listViewAvailability.Items.Clear()
+		foreach ($row in $filteredData) {
+			$item = New-Object System.Windows.Forms.ListViewItem([string]$row.'Part (NSN)')
+			$item.SubItems.Add([string]$row.Description)
+			$item.SubItems.Add([string]$row.QTY)
+			$item.SubItems.Add([string]$row.'13 Period Usage')
+			$item.SubItems.Add([string]$row.Location)
+			$item.SubItems.Add([string]$row.'OEM 1')
+			$item.SubItems.Add([string]$row.'OEM 2')
+			$item.SubItems.Add([string]$row.'OEM 3')
+			if ($row.PSObject.Properties.Name -contains 'Changed Part (NSN)') {
+				$item.SubItems.Add([string]$row.'Changed Part (NSN)')
 			} else {
-				[System.Windows.Forms.MessageBox]::Show("No matching records found in Availability.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-				Write-Log "No matching records found in Availability."
+				$item.SubItems.Add("")
+			}
+			$script:listViewAvailability.Items.Add($item) | Out-Null
+		}
+
+		# =========================================================
+		# 2) SAME DAY AVAILABILITY
+		# =========================================================
+		$sameDayPartsDir = Join-Path $config.PartsRoomDirectory "Same Day Parts Room"
+		if (Test-Path $sameDayPartsDir) {
+			$sameDayCsvFiles = Get-ChildItem -Path $sameDayPartsDir -Filter "*.csv" -File
+			Write-Log "Found $($sameDayCsvFiles.Count) CSV files in Same Day Parts Room."
+
+			$sameDayData = @()
+			foreach ($csvFile in $sameDayCsvFiles) {
+				$siteName = [IO.Path]::GetFileNameWithoutExtension($csvFile.Name)
+				try {
+					$csvData = Import-Csv -Path $csvFile.FullName
+					foreach ($row in $csvData) {
+						$row | Add-Member -NotePropertyName 'SiteName' -NotePropertyValue $siteName -Force
+						$sameDayData += $row
+					}
+				} catch {
+					Write-Log "Failed to read CSV file $($csvFile.FullName). Error: $_"
+				}
 			}
 
-			#### Same Day Parts Availability Search ####
-			$sameDayPartsDir = Join-Path $config.PartsRoomDirectory "Same Day Parts Room"
-			if (Test-Path $sameDayPartsDir) {
-				$sameDayCsvFiles = Get-ChildItem -Path $sameDayPartsDir -Filter "*.csv" -File
-				Write-Log "Found $($sameDayCsvFiles.Count) CSV files in Same Day Parts Room."
-
-				$sameDayData = @()
-				foreach ($csvFile in $sameDayCsvFiles) {
-					$siteName = [IO.Path]::GetFileNameWithoutExtension($csvFile.Name)
-					try {
-						$csvData = Import-Csv -Path $csvFile.FullName
-						foreach ($row in $csvData) {
-							$row | Add-Member -NotePropertyName 'SiteName' -NotePropertyValue $siteName -Force
-							$sameDayData += $row
-						}
-					} catch {
-						Write-Log "Failed to read CSV file $($csvFile.FullName). Error: $_"
+			if ($nsnNoMatch -or $oemNoMatch) {
+				$filteredSameDayData = @()
+			} else {
+				$filteredSameDayData = @($sameDayData | Where-Object {
+					$nsnOk = $true
+					if ($nsnActive) {
+						$rowNSN = ([string]$_.'Part (NSN)') -replace '[^0-9]', ''
+						$nsnOk = $rowNSN -match $nsnPattern
 					}
-				}
-
-				$filteredSameDayData = $sameDayData | Where-Object {
-					$rowNSN = [string]$_.'Part (NSN)'
-					$cleanRowNSN = $rowNSN -replace '[^0-9]', ''
-
-					$nsnOk = ($nsnSearch -eq '') -or (
-						(-not [string]::IsNullOrEmpty($cleanSearchNSN)) -and
-						$cleanRowNSN.Contains($cleanSearchNSN)
-					)
-
-					$oemOk = if ($oemSearch -eq '') {
-						$true
-					} else {
-						if ([string]::IsNullOrEmpty($cleanSearchOEM)) {
-							$false
-						} else {
-							$rowOems = @(
-								(([string]$_.'OEM 1') -replace '[^A-Za-z0-9]', '').ToUpper()
-								(([string]$_.'OEM 2') -replace '[^A-Za-z0-9]', '').ToUpper()
-								(([string]$_.'OEM 3') -replace '[^A-Za-z0-9]', '').ToUpper()
-							) | Where-Object { -not [string]::IsNullOrEmpty($_) }
-
-							($rowOems | Where-Object { $_.Contains($cleanSearchOEM) }).Count -gt 0
+					$oemOk = $true
+					if ($oemActive) {
+						$oemOk = $false
+						foreach ($f in 'OEM 1','OEM 2','OEM 3') {
+							$rowOem = ([string]$_.$f -replace '[^A-Za-z0-9]', '').ToUpper()
+							if ($rowOem -and $rowOem -match $oemPattern) { $oemOk = $true; break }
 						}
 					}
-
-					$descOk = ($descriptionSearch -eq '') -or
-							  (([string]$_.Description).IndexOf($descriptionSearch, [System.StringComparison]::OrdinalIgnoreCase) -ge 0)
-
+					$descOk = $true
+					if ($descActive) {
+						$rowDesc = (([string]$_.Description -replace '[^A-Za-z0-9]', ' ').ToLower() -replace '\s+', ' ').Trim()
+						foreach ($token in $descTokens) {
+							if (-not $rowDesc.Contains($token)) { $descOk = $false; break }
+						}
+					}
 					$nsnOk -and $oemOk -and $descOk
-				}
-
-				Write-Log "Found $($filteredSameDayData.Count) matching records in Same Day Parts Availability."
-
-				$script:listViewSameDayAvailability.Items.Clear()
-
-				if ($filteredSameDayData.Count -gt 0) {
-					foreach ($row in $filteredSameDayData) {
-						$item = New-Object System.Windows.Forms.ListViewItem($row.'Part (NSN)')
-						$item.SubItems.Add($row.Description)
-						$item.SubItems.Add($row.QTY)
-						$item.SubItems.Add($row.'13 Period Usage')
-						$item.SubItems.Add($row.Location)
-						$item.SubItems.Add($row.'OEM 1')
-						$item.SubItems.Add($row.'OEM 2')
-						$item.SubItems.Add($row.'OEM 3')
-						$item.SubItems.Add($row.SiteName)
-						$script:listViewSameDayAvailability.Items.Add($item)
-					}
-					Write-Log "Added $($filteredSameDayData.Count) items to Same Day Availability ListView."
-				} else {
-					[System.Windows.Forms.MessageBox]::Show("No matching records found in Same Day Parts Availability.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-					Write-Log "No matching records found in Same Day Parts Availability."
-				}
-			} else {
-				Write-Log "Same Day Parts Room directory not found at $sameDayPartsDir"
+				})
 			}
+			if ($null -eq $filteredSameDayData) { $filteredSameDayData = @() }
+			Write-Log "Found $($filteredSameDayData.Count) matching records in Same Day Parts Availability."
 
-			#### Cross Reference Search ####
-			$crossRefResults = @()
+			$script:listViewSameDayAvailability.Items.Clear()
+			foreach ($row in $filteredSameDayData) {
+			$item = New-Object System.Windows.Forms.ListViewItem([string]$row.'Part (NSN)')
+			$item.SubItems.Add([string]$row.Description)
+			$item.SubItems.Add([string]$row.QTY)
+			$item.SubItems.Add([string]$row.'13 Period Usage')
+			$item.SubItems.Add([string]$row.Location)
+			$item.SubItems.Add([string]$row.'OEM 1')
+			$item.SubItems.Add([string]$row.'OEM 2')
+			$item.SubItems.Add([string]$row.'OEM 3')
+			$item.SubItems.Add([string]$row.SiteName)
+			$script:listViewSameDayAvailability.Items.Add($item) | Out-Null
+			}
+		} else {
+			Write-Log "Same Day Parts Room directory not found at $sameDayPartsDir"
+		}
 
-			if ($config.Books) {
-				foreach ($book in $config.Books.PSObject.Properties) {
-					$bookName = $book.Name
-					$volumesCsvPath = $book.Value.VolumesToUrlCsvPath
-					if ($volumesCsvPath) {
-						$bookDir = Split-Path -Path $volumesCsvPath -Parent
-					} else {
-						$bookDir = Join-Path $config.PartsBooksDirectory $bookName
-					}
-					$combinedSectionsDir = Join-Path $bookDir "CombinedSections"
-					$sectionNamesFile = Join-Path $bookDir "SectionNames.txt"
+		# =========================================================
+		# 3) CROSS REFERENCE
+		# =========================================================
+		$crossRefResults = @()
+		if ($config.Books) {
+			foreach ($book in $config.Books.PSObject.Properties) {
+				$bookName = $book.Name
+				$volumesCsvPath = $book.Value.VolumesToUrlCsvPath
+				if ($volumesCsvPath) {
+					$bookDir = Split-Path -Path $volumesCsvPath -Parent
+				} else {
+					$bookDir = Join-Path $config.PartsBooksDirectory $bookName
+				}
 
-					# Create a mapping of section numbers to full section names
-					$sectionNameMapping = @{}
-					if (Test-Path $sectionNamesFile) {
-						$sectionNames = Get-Content -Path $sectionNamesFile
-						foreach ($line in $sectionNames) {
-							if ($line -match '^Section\s+(\d+)\s*(.*)$') {
-								$sectionNumber = $Matches[1]
-								$sectionFullName = $line.Trim()
-								$sectionNameMapping["Section $sectionNumber"] = $sectionFullName
-							}
+				$combinedSectionsDir = Join-Path $bookDir "CombinedSections"
+				$sectionNamesFile    = Join-Path $bookDir "SectionNames.txt"
+
+				$sectionNameMapping = @{}
+				if (Test-Path $sectionNamesFile) {
+					$sectionNames = Get-Content -Path $sectionNamesFile
+					foreach ($line in $sectionNames) {
+						if ($line -match '^Section\s+(\d+)\s+(.*)$') {
+							$sectionNumber   = $Matches[1]
+							$sectionFullName = $line.Trim()
+							$sectionNameMapping["Section $sectionNumber"] = $sectionFullName
 						}
-						Write-Log "Loaded $($sectionNameMapping.Count) section names for $bookName"
+					}
+					Write-Log "Loaded $($sectionNameMapping.Count) section names for $bookName"
+				} else {
+					Write-Log "SectionNames.txt not found for $bookName"
+				}
+
+				if (-not (Test-Path $combinedSectionsDir)) {
+					Write-Log "CombinedSections directory not found for $bookName"
+					continue
+				}
+
+				$sectionCsvFiles = Get-ChildItem -Path $combinedSectionsDir -Filter "*.csv" -File
+				Write-Log "Found $($sectionCsvFiles.Count) CSV files in $bookName"
+
+				foreach ($csvFile in $sectionCsvFiles) {
+					$sectionFileName = [IO.Path]::GetFileNameWithoutExtension($csvFile.Name)
+					$csvFilePath = $csvFile.FullName
+
+					if ($sectionFileName -match '^Section\s+(\d+)$') {
+						$sectionNumber = $Matches[1]
+						if ($sectionNameMapping.ContainsKey("Section $sectionNumber")) {
+							$sectionName = $sectionNameMapping["Section $sectionNumber"]
+						} else {
+							$sectionName = "Section $sectionNumber"
+						}
 					} else {
-						Write-Log "SectionNames.txt not found for $bookName"
+						$sectionName = $sectionFileName
 					}
 
-					if (-not (Test-Path $combinedSectionsDir)) {
-						Write-Log "CombinedSections directory not found for $bookName"
+					try {
+						$sectionData = Import-Csv -Path $csvFilePath
+						Write-Log "Processed $($sectionData.Count) rows from $($csvFile.Name)"
+					} catch {
+						Write-Log "Failed to read CSV file $csvFilePath. Error: $_"
 						continue
 					}
 
-					$sectionCsvFiles = Get-ChildItem -Path $combinedSectionsDir -Filter "*.csv" -File
-					Write-Log "Found $($sectionCsvFiles.Count) CSV files in $bookName"
-
-					foreach ($csvFile in $sectionCsvFiles) {
-						$sectionFileName = [IO.Path]::GetFileNameWithoutExtension($csvFile.Name)
-						$csvFilePath = $csvFile.FullName
-
-						# Extract section number and get full section name
-						if ($sectionFileName -match '^Section\s+(\d+)$') {
-							$sectionNumber = $Matches[1]
-							if ($sectionNameMapping.ContainsKey("Section $sectionNumber")) {
-								$sectionName = $sectionNameMapping["Section $sectionNumber"]
-							} else {
-								$sectionName = "Section $sectionNumber"
+					if ($nsnNoMatch -or $oemNoMatch) {
+						$filteredSectionData = @()
+					} else {
+						$filteredSectionData = @($sectionData | Where-Object {
+							$nsnOk = $true
+							if ($nsnActive) {
+								$rowStock = ([string]$_.'STOCK NO.') -replace '[^0-9]', ''
+								$nsnOk = $rowStock -match $nsnPattern
 							}
-						} else {
-							$sectionName = $sectionFileName
-						}
-
-						try {
-							$sectionData = Import-Csv -Path $csvFilePath
-							Write-Log "Processed $($sectionData.Count) rows from $($csvFile.Name)"
-						} catch {
-							Write-Log "Failed to read CSV file $csvFilePath. Error: $_"
-							continue
-						}
-
-						$filteredSectionData = $sectionData | Where-Object {
-							$nsnOk = ($nsnSearch -eq '') -or
-									 ((-not [string]::IsNullOrEmpty($cleanSearchNSN)) -and
-									  (($_.'STOCK NO.' -replace '\D', '') -like "*$cleanSearchNSN*"))
-
-							$oemOk = ($oemSearch -eq '') -or
-									 ((-not [string]::IsNullOrEmpty($cleanSearchOEM)) -and
-									  ((($_.'PART NO.' -replace '[^A-Za-z0-9]', '').ToUpper()) -like "*$cleanSearchOEM*"))
-
-							$descOk = ($descriptionSearch -eq '') -or
-									  ($_.'PART DESCRIPTION' -like "*$descriptionSearch*")
-
+							$oemOk = $true
+							if ($oemActive) {
+								$rowPart = ([string]$_.'PART NO.' -replace '[^A-Za-z0-9]', '').ToUpper()
+								$oemOk = ($rowPart -and ($rowPart -match $oemPattern))
+							}
+							$descOk = $true
+							if ($descActive) {
+								$rowDesc = (([string]$_.'PART DESCRIPTION' -replace '[^A-Za-z0-9]', ' ').ToLower() -replace '\s+', ' ').Trim()
+								foreach ($token in $descTokens) {
+									if (-not $rowDesc.Contains($token)) { $descOk = $false; break }
+								}
+							}
 							$nsnOk -and $oemOk -and $descOk
-						}
-
-						foreach ($item in $filteredSectionData) {
-							$item | Add-Member -NotePropertyName 'Handbook' -NotePropertyValue $bookName -Force
-							$item | Add-Member -NotePropertyName 'Section Name' -NotePropertyValue $sectionName -Force
-							$crossRefResults += $item
-						}
-					}
-				}
-
-				Write-Log "Found $($crossRefResults.Count) matching records in Cross Reference."
-
-				$script:listViewCrossRef.Items.Clear()
-
-				if ($crossRefResults.Count -gt 0) {
-					$columns = @('Handbook', 'Section Name', 'NO.', 'PART DESCRIPTION', 'REF.', 'STOCK NO.', 'PART NO.', 'CAGE', 'Location', 'QTY')
-
-					foreach ($row in $crossRefResults) {
-						$item = New-Object System.Windows.Forms.ListViewItem($row.Handbook)
-						foreach ($column in $columns[1..($columns.Count-1)]) {
-							$value = if ($row.PSObject.Properties.Name -contains $column) { $row.$column } else { "" }
-							if ($column -eq 'REF.' -and $value -is [string]) {
-								$value = $value -replace '\.csv$', ''
-							}
-							$item.SubItems.Add($value)
-						}
-						$script:listViewCrossRef.Items.Add($item)
+						})
 					}
 
-					$script:listViewCrossRef.AutoResizeColumns([System.Windows.Forms.ColumnHeaderAutoResizeStyle]::HeaderSize)
-					Write-Log "Added $($crossRefResults.Count) items to Cross Reference ListView."
-				} else {
-					[System.Windows.Forms.MessageBox]::Show("No matching records found in Cross Reference.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-					Write-Log "No matching records found in Cross Reference."
+					foreach ($item in $filteredSectionData) {
+						$item | Add-Member -NotePropertyName 'Handbook'     -NotePropertyValue $bookName    -Force
+						$item | Add-Member -NotePropertyName 'Section Name' -NotePropertyValue $sectionName -Force
+						$crossRefResults += $item
+					}
 				}
-			} else {
-				Write-Log "No books defined in configuration."
 			}
-		})
-    Write-Log "Search tab setup completed."
+		} else {
+			Write-Log "No books defined in configuration."
+		}
+
+		Write-Log "Found $($crossRefResults.Count) matching records in Cross Reference."
+
+		$script:listViewCrossRef.Items.Clear()
+		if ($crossRefResults.Count -gt 0) {
+			$columns = @('Handbook', 'Section Name', 'NO.', 'PART DESCRIPTION', 'REF.', 'STOCK NO.', 'PART NO.', 'CAGE', 'Location', 'QTY')
+			foreach ($row in $crossRefResults) {
+				$item = New-Object System.Windows.Forms.ListViewItem($row.Handbook)
+				foreach ($column in $columns[1..($columns.Count - 1)]) {
+					$value = if ($row.PSObject.Properties.Name -contains $column) { $row.$column } else { "" }
+					if ($column -eq 'REF.' -and $value -is [string]) {
+						$value = $value -replace '\.csv$', ''
+					}
+					$item.SubItems.Add($value)
+				}
+				$script:listViewCrossRef.Items.Add($item) | Out-Null
+			}
+			$script:listViewCrossRef.AutoResizeColumns([System.Windows.Forms.ColumnHeaderAutoResizeStyle]::HeaderSize)
+			Write-Log "Added $($crossRefResults.Count) items to Cross Reference ListView."
+		} else {
+			[System.Windows.Forms.MessageBox]::Show("No matching records found in Cross Reference.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+			Write-Log "No matching records found in Cross Reference."
+		}
+
+		Write-Log "Search complete."
+	})
+	Write-Log "Search tab setup completed."
 }
-    
-    # Get all the parts books from the configuration
-    if (-not $config.Books -or $config.Books.PSObject.Properties.Count -eq 0) {
-        Write-Log "No parts books found in configuration"
-        [System.Windows.Forms.MessageBox]::Show("No parts books found in configuration", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-        $progressForm.Close()
-        return $false
-    }
 
 # Combo box loader
 function Load-ComboBoxData {
@@ -3189,14 +3206,14 @@ function Update-PartsBooks {
         return $false
     }
 
-    $progressBar.Maximum = $totalBooks
+    $progressBar.Maximum = 100
     $progressBar.Value = 0
     $totalUpdatedCSVs = 0
     $totalUpdatedParts = 0
 
     for ($bookIndex = 0; $bookIndex -lt $totalBooks; $bookIndex++) {
         $book = $booksToProcess[$bookIndex]
-        $progressBar.Value = $bookIndex
+        $progressBar.Value = [Math]::Min([int](($bookIndex / [double]$totalBooks) * 100), 100)
         $bookLabel.Text = "Processing book: $($book.Name)"
         $progressLabel.Text = "Scanning sections..."
         $progressForm.Refresh()
