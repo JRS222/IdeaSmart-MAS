@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NMARS Daily Task Parser with Multi-Person Timeline</title>
+<title>NMARS Daily Task Parser</title>
 <style>
 body {
     font-family: Arial, sans-serif;
@@ -184,12 +184,6 @@ input[type="time"], input[type="number"] {
 .person-1-assigned {
     border-left: 4px solid #2196F3;
 }
-.person-2-assigned {
-    border-left: 4px solid #4CAF50;
-}
-.person-3-assigned {
-    border-left: 4px solid #FF9800;
-}
 .select-all-btn {
     background-color: #28a745;
     margin-right: 10px;
@@ -208,172 +202,6 @@ input[type="time"], input[type="number"] {
     color: #003366;
     margin: 10px 0;
 }
-.timeline-section {
-    background-color: white;
-    padding: 20px;
-    border-radius: 8px;
-    border: 2px solid #28a745;
-    margin: 20px 0;
-}
-.timeline-section h3 {
-    color: #28a745;
-    margin-top: 0;
-}
-.time-input-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 15px;
-    margin: 15px 0;
-}
-.time-input-item {
-    background-color: #f8f9fa;
-    padding: 10px;
-    border-radius: 4px;
-    border: 1px solid #dee2e6;
-}
-.time-input-item label {
-    display: block;
-    font-weight: bold;
-    margin-bottom: 5px;
-    color: #495057;
-}
-.interruption-list {
-    margin: 15px 0;
-}
-.interruption-item {
-    background-color: #f8f9fa;
-    padding: 10px;
-    border-radius: 4px;
-    margin: 10px 0;
-    border-left: 4px solid #6c757d;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-.interruption-item.break {
-    border-left-color: #6c757d;
-}
-.interruption-item.reactive {
-    border-left-color: #dc3545;
-}
-.interruption-item button {
-    padding: 5px 10px;
-    font-size: 12px;
-    background-color: #dc3545;
-}
-.add-interruption-btn {
-    background-color: #28a745;
-    margin: 5px;
-}
-.timeline-visual {
-    background-color: white;
-    padding: 20px;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    margin: 20px 0;
-    min-height: 200px;
-}
-.timeline-bar {
-    position: relative;
-    height: 60px;
-    background: linear-gradient(to right, #e9ecef 0%, #e9ecef 100%);
-    border-radius: 4px;
-    margin: 10px 0;
-    overflow: visible;
-}
-.timeline-segment {
-    position: absolute;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-weight: bold;
-    font-size: 11px;
-    border-right: 1px solid white;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    padding: 0 5px;
-}
-.timeline-segment.loto {
-    background-color: #9C27B0;
-}
-.timeline-segment.power-off-p1 {
-    background-color: #2196F3;
-}
-.timeline-segment.power-off-p2 {
-    background-color: #4CAF50;
-}
-.timeline-segment.power-off-p3 {
-    background-color: #FF9800;
-}
-.timeline-segment.power-on {
-    background-color: #F44336;
-}
-.timeline-segment.break {
-    background-color: #6c757d;
-}
-.timeline-segment.reactive {
-    background-color: #dc3545;
-}
-.timeline-marker {
-    position: absolute;
-    width: 2px;
-    height: 80px;
-    background-color: #003366;
-    top: -10px;
-}
-.timeline-marker-label {
-    position: absolute;
-    top: -30px;
-    left: -30px;
-    font-weight: bold;
-    color: #003366;
-    white-space: nowrap;
-    font-size: 14px;
-}
-.finish-time-display {
-    background-color: #28a745;
-    color: white;
-    padding: 15px;
-    border-radius: 4px;
-    margin: 15px 0;
-    text-align: center;
-    font-size: 24px;
-    font-weight: bold;
-}
-.machine-timing-inputs {
-    background-color: #e3f2fd;
-    padding: 15px;
-    border-radius: 4px;
-    margin: 15px 0;
-    border-left: 4px solid #2196F3;
-}
-.machine-timing-item {
-    background-color: white;
-    padding: 10px;
-    margin: 10px 0;
-    border-radius: 4px;
-    border: 1px solid #90caf9;
-}
-.legend {
-    display: flex;
-    gap: 20px;
-    margin: 15px 0;
-    flex-wrap: wrap;
-}
-.legend-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-.legend-color {
-    width: 30px;
-    height: 20px;
-    border-radius: 3px;
-    border: 1px solid #dee2e6;
-}
 .editable-time {
     cursor: pointer;
     padding: 2px 6px;
@@ -387,21 +215,13 @@ input[type="time"], input[type="number"] {
     width: 60px;
     padding: 2px 4px;
 }
-.machine-summary {
-    background-color: #fff3cd;
-    padding: 10px;
-    margin: 10px 0;
-    border-radius: 4px;
-    border-left: 4px solid #ffc107;
-}
 .person-totals {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
+    display: flex;
+    justify-content: center;
     margin: 10px 0;
 }
 .person-total-box {
-    padding: 10px;
+    padding: 10px 24px;
     border-radius: 4px;
     text-align: center;
     font-weight: bold;
@@ -410,16 +230,6 @@ input[type="time"], input[type="number"] {
     background-color: #e3f2fd;
     border: 2px solid #2196F3;
     color: #1565C0;
-}
-.person-2-box {
-    background-color: #e8f5e9;
-    border: 2px solid #4CAF50;
-    color: #2E7D32;
-}
-.person-3-box {
-    background-color: #fff3e0;
-    border: 2px solid #FF9800;
-    color: #E65100;
 }
 
 /* ===== Fixes for weekly worksheet rendering & actual-time input ===== */
@@ -589,12 +399,38 @@ input[type="time"], input[type="number"] {
 .btn-send:hover{background:#144a19}
 .btn-send:disabled{opacity:.45;cursor:not-allowed}
 
+/* ===== Close-tab / send-to-historian prompt ===== */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.55);
+  display:flex;align-items:center;justify-content:center;
+  z-index:100000;padding:20px;
+}
+.modal-box{
+  background:#fff;border-radius:12px;padding:22px 26px;
+  max-width:560px;width:100%;box-shadow:0 14px 44px rgba(0,0,0,.35);
+  font:14px/1.5 Arial, sans-serif;
+}
+.modal-box h3{margin:0 0 8px;color:#0b3d91;font-size:17px;}
+.modal-box p{margin:0 0 12px;color:#33415c;}
+.modal-list{margin:0 0 16px;padding-left:20px;color:#5b6b80;font-size:13px;}
+.modal-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;}
+.modal-actions button{
+  padding:9px 16px;border-radius:6px;font-weight:600;font-size:13px;cursor:pointer;border:0;margin:0;
+}
+.modal-send{background:#1b5e20;color:#fff;}
+.modal-send:hover{background:#144a19;}
+.modal-leave{background:#fff;color:#b3261e;border:1px solid #e5b4b0 !important;}
+.modal-leave:hover{background:#fdecea;}
+.modal-stay{background:#fff;color:#0b3d91;border:1px solid #b9c8dc !important;}
+.modal-stay:hover{background:#eef3fa;}
+.modal-note{font-size:12px;color:#94a3b8;margin-top:10px;}
+
 </style>
 </head>
 
 <body>
 <div class="container">
-<h1>NMARS Daily Task Parser with Multi-Person Timeline</h1>
+<h1>NMARS Daily Task Parser</h1>
 
 <!-- Weekly Worksheet Parser -->
 <div class="parser-section">
@@ -678,73 +514,6 @@ input[type="time"], input[type="number"] {
 <div id="machineCount" style="font-weight: bold; color: #28a745; margin-top: 10px;"></div>
 </div>
 
-<!-- Timeline Section -->
-<div class="timeline-section" id="timelineSection" style="display: none;">
-<h3>⏱️ Work Timeline & Finish Time Calculator</h3>
-
-<div class="info-box">
-<h3>👥 Multi-Person Workflow:</h3>
-<ul>
-<li><strong>LOTO Time:</strong> Set when lockout is complete for each machine</li>
-<li><strong>Power-Off Tasks:</strong> Can be done concurrently by multiple people</li>
-<li><strong>Power-On Tasks:</strong> Must be done sequentially (one at a time)</li>
-<li><strong>Assign Tasks:</strong> Check person boxes for each task in the table below</li>
-</ul>
-</div>
-
-<div class="time-input-grid">
-<div class="time-input-item">
-<label for="workStartTime">Work Start Time:</label>
-<input type="time" id="workStartTime" onchange="calculateTimeline()">
-</div>
-</div>
-
-<div class="machine-timing-inputs" id="machineTimingInputs">
-<h4>Machine LOTO Complete Times:</h4>
-<div id="machineTimingContent"></div>
-</div>
-
-<div>
-<h4>Breaks:</h4>
-<button class="add-interruption-btn" onclick="addBreak()">+ Add Break</button>
-<div id="breaksList" class="interruption-list"></div>
-</div>
-
-<div id="machinesSummary"></div>
-
-<div class="finish-time-display" id="finishTimeDisplay">
-Overall Finish Time: --:--
-</div>
-
-<div class="legend">
-<div class="legend-item">
-<div class="legend-color" style="background-color: #9C27B0;"></div>
-<span>LOTO</span>
-</div>
-<div class="legend-item">
-<div class="legend-color" style="background-color: #2196F3;"></div>
-<span>Person 1 Power-Off</span>
-</div>
-<div class="legend-item">
-<div class="legend-color" style="background-color: #4CAF50;"></div>
-<span>Person 2 Power-Off</span>
-</div>
-<div class="legend-item">
-<div class="legend-color" style="background-color: #FF9800;"></div>
-<span>Person 3 Power-Off</span>
-</div>
-<div class="legend-item">
-<div class="legend-color" style="background-color: #F44336;"></div>
-<span>Power-On (Sequential)</span>
-</div>
-<div class="legend-item">
-<div class="legend-color" style="background-color: #6c757d;"></div>
-<span>Breaks</span>
-</div>
-</div>
-
-<div class="timeline-visual" id="timelineVisual"></div>
-</div>
 <!-- ===== Job Log: Reactive Calls + Work Orders ===== -->
 <div class="joblog-section" id="jobLogSection">
 
@@ -764,6 +533,7 @@ Overall Finish Time: --:--
 
   <div id="jobLogList" class="joblog-list"></div>
 </div>
+
 <div class="totals-box" id="totalsBox" style="display: none;">
 <h3>⏱️ Time Estimates & Person Assignments</h3>
 <div id="totalsContent"></div>
@@ -790,13 +560,11 @@ Overall Finish Time: --:--
 <th>Due Date</th>
 <th style="width: 80px;">Est. Time (min)</th>
 <th style="width: 60px;">P1</th>
-<th style="width: 60px;">P2</th>
-<th style="width: 60px;">P3</th>
 </tr>
 </thead>
 <tbody id="dailyTableBody">
 <tr>
-<td colspan="10" style="text-align:center; padding:40px; color:#666;">
+<td colspan="8" style="text-align:center; padding:40px; color:#666;">
 <strong>No machines added yet.</strong>
 </td>
 </tr>
@@ -806,13 +574,25 @@ Overall Finish Time: --:--
 </div>
 </div>
 
+<!-- ===== Close-tab prompt ===== -->
+<div class="modal-overlay" id="closePromptOverlay" style="display:none;">
+  <div class="modal-box">
+    <h3>📤 Send everything to the Historian before closing?</h3>
+    <p>You still have work on this page that hasn't been sent to the Historian:</p>
+    <ul class="modal-list" id="closePromptList"></ul>
+    <div class="modal-actions">
+      <button class="modal-stay" onclick="closePromptStay()">Stay on page</button>
+      <button class="modal-leave" onclick="closePromptLeaveAnyway()">Close without sending</button>
+      <button class="modal-send" onclick="closePromptSendAll()">Send everything now</button>
+    </div>
+    <div class="modal-note" id="closePromptNote"></div>
+  </div>
+</div>
+
 <script>
 let weeklyParsedData = [];
 let dailyMachines = [];
 let currentDateString = '';
-let breaks = [];
-let reactiveCalls = [];
-let machineLotoTimes = {};
 
 // Initialize current date
 function initializeCurrentDate() {
@@ -862,9 +642,6 @@ showStatus('weeklyStatus',
 const rows = doc.querySelectorAll('tr');
 const data = [];
 let inCorrectDateSection = !foundCurrentDate;
-// Tracks whether the most recently pushed data row belongs to the
-// current Scheduled-Date section. Prevents a stray PM Description row
-// (from a different section) from being attached to the wrong WO row.
 let lastRowWasDataRow = false;
 
 rows.forEach((row) => {
@@ -876,12 +653,10 @@ if (rowText.includes('Scheduled Date:')) {
     if (foundCurrentDate) {
         inCorrectDateSection = rowText.includes(currentDateString);
     }
-    // Reset the "last row was a data row" flag on every section change.
     lastRowWasDataRow = false;
     return;
 }
 
-// --- Skip rows outside the target date section ---
 if (foundCurrentDate && !inCorrectDateSection) {
     return;
 }
@@ -889,11 +664,6 @@ if (foundCurrentDate && !inCorrectDateSection) {
 if (cells.length === 0) return;
 
 // --- PM Description row: attach to the PREVIOUS data row ---
-// In the source HTML, the PM Description row appears AFTER the
-// work-order row it belongs to. The original parser attached it to
-// the NEXT row, which is why long descriptions ended up on the wrong
-// WO. We now attach it backwards, and only if the last pushed row
-// came from the current section.
 if (rowText.includes('PM Description')) {
     const match = rowText.match(/PM Description\s*:\s*([\s\S]+)/);
     if (match && lastRowWasDataRow && data.length > 0) {
@@ -937,17 +707,17 @@ data.push({
     classCode: classCode,
     equipNo: equipNo,
     dueDate: dueDate,
-    pmDescription: '',   // filled in by the following PM Description row, if any
+    pmDescription: '',
     description: description,
     estimatedTime: estimatedTime,
-    actualTime: null     // user-editable; null = not entered yet
+    actualTime: null
 });
 
 lastRowWasDataRow = true;
 });
 
 weeklyParsedData = data;
-syncWorksheetActualTimes();     // <-- populate auto values into the row objects first
+syncWorksheetActualTimes();
 displayWeeklyData(data);
 
 if (data.length > 0) {
@@ -1038,7 +808,6 @@ function updateWeeklyActualTime(index, value) {
   }
   weeklyParsedData[index].manualOverride = true;
 
-  // update classes/badge in place
   const inputs = document.querySelectorAll('#weeklyTableBody .actual-time-input');
   if (inputs[index]) {
     const v = weeklyParsedData[index].actualTime;
@@ -1116,10 +885,8 @@ function syncWorksheetActualTimes(force) {
       row.actualTime = newAuto;
       row.manualOverride = false;
     } else if (!row.manualOverride) {
-      // auto went from a value to nothing; clear unless the user typed over it
       row.actualTime = null;
     } else {
-      // auto went away but user has a manual value — keep it
       row.manualOverride = false;
     }
     changed = true;
@@ -1171,7 +938,7 @@ document.getElementById('weeklyStatus').textContent = '';
 document.getElementById('weeklyRecordCount').textContent = '';
 document.getElementById('weeklyCsvBtn').disabled = true;
 document.getElementById('weeklyExcelBtn').disabled = true;
-document.getElementById('syncActualBtn').disabled = true; 
+document.getElementById('syncActualBtn').disabled = true;
 document.getElementById('weeklyTotals').style.display = 'none';
 }
 
@@ -1301,10 +1068,6 @@ showStatus('dailyStatus', `Added ${tasks.length} tasks for ${machineDisplay}`, '
 displayDailyTasks();
 updateTotals();
 updateMachineCount();
-renderMachineTimingInputs();
-calculateTimeline();
-
-document.getElementById('timelineSection').style.display = 'block';
 
 document.getElementById('selectAllBtn').disabled = false;
 document.getElementById('deselectAllBtn').disabled = false;
@@ -1376,9 +1139,7 @@ normalizedDueDate: normalizedDueDate || dueDate,
 estTime: parseFloat(estTime) || 0,
 customTime: null,
 selected: true,
-person1: false,
-person2: false,
-person3: false
+person1: false
 };
 }
 
@@ -1397,7 +1158,7 @@ const tbody = document.getElementById('dailyTableBody');
 tbody.innerHTML = '';
 
 if (dailyMachines.length === 0) {
-tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:40px;">No machines added yet.</td></tr>';
+tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;">No machines added yet.</td></tr>';
 document.getElementById('totalsBox').style.display = 'none';
 return;
 }
@@ -1413,8 +1174,6 @@ rowClass += ' working-ahead';
 }
 
 if (task.person1) rowClass += ' person-1-assigned';
-else if (task.person2) rowClass += ' person-2-assigned';
-else if (task.person3) rowClass += ' person-3-assigned';
 
 if (rowClass) tr.className = rowClass.trim();
 
@@ -1441,16 +1200,6 @@ ${displayTime}
 ${task.person1 ? 'checked' : ''}
 onchange="togglePerson(${machineIndex}, ${taskIndex}, 1)">
 </td>
-<td style="text-align: center;">
-<input type="checkbox"
-${task.person2 ? 'checked' : ''}
-onchange="togglePerson(${machineIndex}, ${taskIndex}, 2)">
-</td>
-<td style="text-align: center;">
-<input type="checkbox"
-${task.person3 ? 'checked' : ''}
-onchange="togglePerson(${machineIndex}, ${taskIndex}, 3)">
-</td>
 `;
 tbody.appendChild(tr);
 });
@@ -1475,7 +1224,6 @@ const newValue = parseFloat(this.value) || task.estTime;
 task.customTime = newValue !== task.estTime ? newValue : null;
 displayDailyTasks();
 updateTotals();
-calculateTimeline();
 };
 
 input.onkeydown = function(e) {
@@ -1495,7 +1243,6 @@ dailyMachines[machineIndex].tasks[taskIndex].selected =
 !dailyMachines[machineIndex].tasks[taskIndex].selected;
 displayDailyTasks();
 updateTotals();
-calculateTimeline();
 }
 
 function togglePerson(machineIndex, taskIndex, personNum) {
@@ -1503,7 +1250,6 @@ const task = dailyMachines[machineIndex].tasks[taskIndex];
 task[`person${personNum}`] = !task[`person${personNum}`];
 displayDailyTasks();
 updateTotals();
-calculateTimeline();
 }
 
 function selectAllTasks() {
@@ -1512,7 +1258,6 @@ machine.tasks.forEach(task => task.selected = true);
 });
 displayDailyTasks();
 updateTotals();
-calculateTimeline();
 }
 
 function deselectAllTasks() {
@@ -1521,27 +1266,22 @@ machine.tasks.forEach(task => task.selected = false);
 });
 displayDailyTasks();
 updateTotals();
-calculateTimeline();
 }
 
 function updateTotals() {
 const totalsContent = document.getElementById('totalsContent');
 
-let person1Total = 0, person2Total = 0, person3Total = 0;
+let person1Total = 0;
 
 dailyMachines.forEach(machine => {
 machine.tasks.filter(t => t.selected).forEach(task => {
 const time = task.customTime !== null ? task.customTime : task.estTime;
 if (task.person1) person1Total += time;
-if (task.person2) person2Total += time;
-if (task.person3) person3Total += time;
 });
 });
 
 let html = '<div class="person-totals">';
 html += `<div class="person-total-box person-1-box">Person 1<br>${person1Total} min (${(person1Total/60).toFixed(2)} hrs)</div>`;
-html += `<div class="person-total-box person-2-box">Person 2<br>${person2Total} min (${(person2Total/60).toFixed(2)} hrs)</div>`;
-html += `<div class="person-total-box person-3-box">Person 3<br>${person3Total} min (${(person3Total/60).toFixed(2)} hrs)</div>`;
 html += '</div>';
 
 html += '<table style="width: 100%; border: none; margin-top: 20px;">';
@@ -1610,9 +1350,6 @@ function clearDailyData() {
 if (dailyMachines.length > 0 && !confirm('Clear all machines?')) return;
 
 dailyMachines = [];
-breaks = [];
-reactiveCalls = [];
-machineLotoTimes = {};
 displayDailyTasks();
 document.getElementById('dailyStatus').textContent = '';
 document.getElementById('machineCount').textContent = '';
@@ -1623,277 +1360,8 @@ document.getElementById('dailyCsvBtn').disabled = true;
 document.getElementById('dailyExcelBtn').disabled = true;
 document.getElementById('reportBtn').disabled = true;
 document.getElementById('histBtn').disabled = true;
-document.getElementById('timelineSection').style.display = 'none';
-  // clear worksheet auto-fill since there are no daily machines left 
+  // clear worksheet auto-fill since there are no daily machines left
 syncWorksheetActualTimes(false);
-}
-
-// ==================== MACHINE TIMING FUNCTIONS ====================
-
-function renderMachineTimingInputs() {
-const container = document.getElementById('machineTimingContent');
-container.innerHTML = '';
-
-dailyMachines.forEach(machine => {
-const div = document.createElement('div');
-div.className = 'machine-timing-item';
-div.innerHTML = `
-<label><strong>${machine.machine}</strong> LOTO Complete Time:</label>
-<input type="time" id="loto_${machine.machineId}"
-value="${machineLotoTimes[machine.machineId] || ''}"
-onchange="updateMachineLotoTime('${machine.machineId}', this.value)">
-`;
-container.appendChild(div);
-});
-}
-
-function updateMachineLotoTime(machineId, time) {
-machineLotoTimes[machineId] = time;
-calculateTimeline();
-}
-
-// ==================== TIMELINE FUNCTIONS ====================
-
-function addBreak() {
-const id = Date.now();
-breaks.push({ id, startTime: '', duration: 0 });
-renderInterruptions();
-}
-
-function addReactiveCall() {
-const id = Date.now();
-reactiveCalls.push({ id, startTime: '', duration: 0, description: '' });
-renderInterruptions();
-}
-
-function removeBreak(id) {
-breaks = breaks.filter(b => b.id !== id);
-renderInterruptions();
-calculateTimeline();
-}
-
-function removeReactiveCall(id) {
-reactiveCalls = reactiveCalls.filter(r => r.id !== id);
-renderInterruptions();
-calculateTimeline();
-}
-
-function renderInterruptions() {
-const breaksList = document.getElementById('breaksList');
-breaksList.innerHTML = '';
-breaks.forEach(b => {
-const div = document.createElement('div');
-div.className = 'interruption-item break';
-div.innerHTML = `
-<div>
-<label>Start: <input type="time" value="${b.startTime}"
-onchange="breaks.find(x=>x.id===${b.id}).startTime=this.value; calculateTimeline();"></label>
-<label>Duration (min): <input type="number" value="${b.duration}" min="0"
-onchange="breaks.find(x=>x.id===${b.id}).duration=parseInt(this.value)||0; calculateTimeline();" style="width: 80px;"></label>
-</div>
-<button onclick="removeBreak(${b.id})">Remove</button>
-`;
-breaksList.appendChild(div);
-});
-
-const reactiveList = document.getElementById('reactiveCallsList');
-reactiveList.innerHTML = '';
-reactiveCalls.forEach(r => {
-const div = document.createElement('div');
-div.className = 'interruption-item reactive';
-div.innerHTML = `
-<div>
-<label>Start: <input type="time" value="${r.startTime}"
-onchange="reactiveCalls.find(x=>x.id===${r.id}).startTime=this.value; calculateTimeline();"></label>
-<label>Duration (min): <input type="number" value="${r.duration}" min="0"
-onchange="reactiveCalls.find(x=>x.id===${r.id}).duration=parseInt(this.value)||0; calculateTimeline();" style="width: 80px;"></label>
-<label>Note: <input type="text" value="${r.description}"
-onchange="reactiveCalls.find(x=>x.id===${r.id}).description=this.value;"
-placeholder="Optional" style="width: 150px;"></label>
-</div>
-<button onclick="removeReactiveCall(${r.id})">Remove</button>
-`;
-reactiveList.appendChild(div);
-});
-}
-
-function calculateTimeline() {
-if (dailyMachines.length === 0) return;
-
-const workStartTime = document.getElementById('workStartTime').value;
-if (!workStartTime) {
-document.getElementById('finishTimeDisplay').textContent = 'Overall Finish Time: Set work start time';
-return;
-}
-
-const machineResults = [];
-
-dailyMachines.forEach(machine => {
-const lotoCompleteTime = machineLotoTimes[machine.machineId];
-if (!lotoCompleteTime) return;
-
-const selectedTasks = machine.tasks.filter(t => t.selected);
-
-const powerOffTasks = selectedTasks.filter(t => t.powerState === 'Power Off');
-const powerOnTasks = selectedTasks.filter(t => t.powerState === 'Power On');
-
-let person1PowerOffTime = 0, person2PowerOffTime = 0, person3PowerOffTime = 0;
-
-powerOffTasks.forEach(task => {
-const time = task.customTime !== null ? task.customTime : task.estTime;
-if (task.person1) person1PowerOffTime += time;
-if (task.person2) person2PowerOffTime += time;
-if (task.person3) person3PowerOffTime += time;
-});
-
-const maxPowerOffTime = Math.max(person1PowerOffTime, person2PowerOffTime, person3PowerOffTime);
-const powerOffCompleteTime = addMinutesToTime(lotoCompleteTime, maxPowerOffTime);
-
-let powerOnTotalTime = 0;
-powerOnTasks.forEach(task => {
-const time = task.customTime !== null ? task.customTime : task.estTime;
-powerOnTotalTime += time;
-});
-
-const powerOnCompleteTime = addMinutesToTime(powerOffCompleteTime, powerOnTotalTime);
-
-machineResults.push({
-machine: machine.machine,
-machineId: machine.machineId,
-lotoComplete: lotoCompleteTime,
-powerOffComplete: powerOffCompleteTime,
-powerOnComplete: powerOnCompleteTime,
-person1PowerOff: person1PowerOffTime,
-person2PowerOff: person2PowerOffTime,
-person3PowerOff: person3PowerOffTime,
-powerOnTotal: powerOnTotalTime
-});
-});
-
-let overallFinish = workStartTime;
-machineResults.forEach(result => {
-if (timeToMinutes(result.powerOnComplete) > timeToMinutes(overallFinish)) {
-overallFinish = result.powerOnComplete;
-}
-});
-
-const summaryDiv = document.getElementById('machinesSummary');
-summaryDiv.innerHTML = '<h4>Machine Timelines:</h4>';
-machineResults.forEach(result => {
-summaryDiv.innerHTML += `
-<div class="machine-summary">
-<strong>${result.machine}</strong><br>
-LOTO Complete: ${result.lotoComplete} |
-Power-Off Complete: ${result.powerOffComplete} |
-Power-On Complete: ${result.powerOnComplete}<br>
-<small>
-P1: ${result.person1PowerOff}min |
-P2: ${result.person2PowerOff}min |
-P3: ${result.person3PowerOff}min |
-Power-On: ${result.powerOnTotal}min
-</small>
-</div>
-`;
-});
-
-document.getElementById('finishTimeDisplay').innerHTML =
-`Overall Finish Time: <span style="font-size: 32px;">${overallFinish}</span>`;
-
-renderTimelineVisual(workStartTime, overallFinish, machineResults);
-}
-
-function renderTimelineVisual(startTime, finishTime, machineResults) {
-const visual = document.getElementById('timelineVisual');
-visual.innerHTML = '<h4>Visual Timeline:</h4>';
-
-machineResults.forEach(result => {
-const bar = document.createElement('div');
-bar.innerHTML = `<strong style="margin-bottom: 5px; display: block;">${result.machine}</strong>`;
-
-const timelineBar = document.createElement('div');
-timelineBar.className = 'timeline-bar';
-
-const totalMinutes = timeToMinutes(result.powerOnComplete) - timeToMinutes(startTime);
-let currentOffset = 0;
-
-const lotoMinutes = timeToMinutes(result.lotoComplete) - timeToMinutes(startTime);
-if (lotoMinutes > 0) {
-const width = (lotoMinutes / totalMinutes) * 100;
-const segment = document.createElement('div');
-segment.className = 'timeline-segment loto';
-segment.style.left = currentOffset + '%';
-segment.style.width = width + '%';
-segment.textContent = `LOTO (${lotoMinutes}m)`;
-timelineBar.appendChild(segment);
-currentOffset += width;
-}
-
-const powerOffStart = timeToMinutes(result.lotoComplete) - timeToMinutes(startTime);
-const powerOffEnd = timeToMinutes(result.powerOffComplete) - timeToMinutes(startTime);
-const powerOffDuration = powerOffEnd - powerOffStart;
-
-if (powerOffDuration > 0) {
-const width = (powerOffDuration / totalMinutes) * 100;
-const baseOffset = currentOffset;
-
-if (result.person1PowerOff > 0) {
-const segment = document.createElement('div');
-segment.className = 'timeline-segment power-off-p1';
-segment.style.left = baseOffset + '%';
-segment.style.width = width + '%';
-segment.style.opacity = '0.7';
-segment.textContent = `P1 (${result.person1PowerOff}m)`;
-timelineBar.appendChild(segment);
-}
-if (result.person2PowerOff > 0) {
-const segment = document.createElement('div');
-segment.className = 'timeline-segment power-off-p2';
-segment.style.left = baseOffset + '%';
-segment.style.width = width + '%';
-segment.style.opacity = '0.7';
-segment.style.top = '20px';
-segment.textContent = `P2 (${result.person2PowerOff}m)`;
-timelineBar.appendChild(segment);
-}
-if (result.person3PowerOff > 0) {
-const segment = document.createElement('div');
-segment.className = 'timeline-segment power-off-p3';
-segment.style.left = baseOffset + '%';
-segment.style.width = width + '%';
-segment.style.opacity = '0.7';
-segment.style.top = '40px';
-segment.textContent = `P3 (${result.person3PowerOff}m)`;
-timelineBar.appendChild(segment);
-}
-
-currentOffset += width;
-}
-
-if (result.powerOnTotal > 0) {
-const width = (result.powerOnTotal / totalMinutes) * 100;
-const segment = document.createElement('div');
-segment.className = 'timeline-segment power-on';
-segment.style.left = currentOffset + '%';
-segment.style.width = width + '%';
-segment.textContent = `Power-On (${result.powerOnTotal}m)`;
-timelineBar.appendChild(segment);
-}
-
-bar.appendChild(timelineBar);
-visual.appendChild(bar);
-});
-}
-
-function timeToMinutes(time) {
-const [hours, minutes] = time.split(':').map(Number);
-return hours * 60 + minutes;
-}
-
-function addMinutesToTime(time, minutes) {
-let totalMinutes = timeToMinutes(time) + minutes;
-const hours = Math.floor(totalMinutes / 60) % 24;
-const mins = totalMinutes % 60;
-return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
 }
 
 // ==================== EXPORT FUNCTIONS ====================
@@ -1911,7 +1379,6 @@ headers.join(','),
 ].join(','))
 ].join('\n');
 
-// Append totals as a final row
 const totalEst = weeklyParsedData.reduce((s, r) => s + (parseFloat(r.estimatedTime) || 0), 0);
 const totalAct = weeklyParsedData.reduce((s, r) => s + (r.actualTime || 0), 0);
 const totalsRow = `"TOTAL","","","","","","","${totalEst.toFixed(2)}","${totalAct.toFixed(2)}"`;
@@ -1952,7 +1419,7 @@ dailyMachines.forEach(machine => {
 machine.tasks.filter(t => t.selected).forEach(task => selectedTasks.push(task));
 });
 
-const headers = ['Machine', 'Item No', 'Task', 'Power State', 'Due Date', 'Time (min)', 'Person 1', 'Person 2', 'Person 3'];
+const headers = ['Machine', 'Item No', 'Task', 'Power State', 'Due Date', 'Time (min)', 'Person 1'];
 const csvContent = [
 headers.join(','),
 ...selectedTasks.map(t => {
@@ -1960,9 +1427,7 @@ const time = t.customTime !== null ? t.customTime : t.estTime;
 return [
 `"${t.machine}"`, `"${t.itemNo}"`, `"${t.description}"`,
 `"${t.powerState}"`, `"${t.dueDate}"`, time,
-t.person1 ? 'Yes' : 'No',
-t.person2 ? 'Yes' : 'No',
-t.person3 ? 'Yes' : 'No'
+t.person1 ? 'Yes' : 'No'
 ].join(',');
 })
 ].join('\n');
@@ -1973,56 +1438,14 @@ downloadFile(csvContent, `daily_tasks_${currentDateString}.csv`, 'text/csv');
 async function exportDailyToExcel() {
 let content = '';
 
-content += 'MACHINE SUMMARIES\n';
-content += 'Machine\tLOTO Start\tLOTO Complete\tPower-Off Complete\tPower-On Complete\tP1 Total (min)\tP2 Total (min)\tP3 Total (min)\n';
-
-const workStartTime = document.getElementById('workStartTime').value || 'Not Set';
-
-dailyMachines.forEach(machine => {
-const lotoComplete = machineLotoTimes[machine.machineId] || 'Not Set';
-const selectedTasks = machine.tasks.filter(t => t.selected);
-
-const powerOffTasks = selectedTasks.filter(t => t.powerState === 'Power Off');
-const powerOnTasks = selectedTasks.filter(t => t.powerState === 'Power On');
-
-let p1PowerOff = 0, p2PowerOff = 0, p3PowerOff = 0;
-powerOffTasks.forEach(task => {
-const time = task.customTime !== null ? task.customTime : task.estTime;
-if (task.person1) p1PowerOff += time;
-if (task.person2) p2PowerOff += time;
-if (task.person3) p3PowerOff += time;
-});
-
-const maxPowerOff = Math.max(p1PowerOff, p2PowerOff, p3PowerOff);
-const powerOffComplete = lotoComplete !== 'Not Set' ? addMinutesToTime(lotoComplete, maxPowerOff) : 'Not Set';
-
-let powerOnTotal = 0;
-powerOnTasks.forEach(task => {
-const time = task.customTime !== null ? task.customTime : task.estTime;
-powerOnTotal += time;
-});
-
-const powerOnComplete = powerOffComplete !== 'Not Set' ? addMinutesToTime(powerOffComplete, powerOnTotal) : 'Not Set';
-
-let p1Total = p1PowerOff, p2Total = p2PowerOff, p3Total = p3PowerOff;
-powerOnTasks.forEach(task => {
-const time = task.customTime !== null ? task.customTime : task.estTime;
-if (task.person1) p1Total += time;
-if (task.person2) p2Total += time;
-if (task.person3) p3Total += time;
-});
-
-content += `${machine.machine}\t${workStartTime}\t${lotoComplete}\t${powerOffComplete}\t${powerOnComplete}\t${p1Total}\t${p2Total}\t${p3Total}\n`;
-});
-
-content += '\n\nTASK DETAILS\n';
-content += 'Machine\tItem No\tTask\tPower State\tDue Date\tTime (min)\tPerson 1\tPerson 2\tPerson 3\n';
+content += 'TASK DETAILS\n';
+content += 'Machine\tItem No\tTask\tPower State\tDue Date\tTime (min)\tPerson 1\n';
 
 dailyMachines.forEach(machine => {
 machine.tasks.filter(t => t.selected).forEach(task => {
 const time = task.customTime !== null ? task.customTime : task.estTime;
 content += `${task.machine}\t${task.itemNo}\t${task.description}\t${task.powerState}\t${task.dueDate}\t${time}\t`;
-content += `${task.person1 ? 'Yes' : 'No'}\t${task.person2 ? 'Yes' : 'No'}\t${task.person3 ? 'Yes' : 'No'}\n`;
+content += `${task.person1 ? 'Yes' : 'No'}\n`;
 });
 });
 
@@ -2040,15 +1463,6 @@ function generateReport() {
 if (dailyMachines.length === 0) {
 alert('No machine tasks to report.');
 return;
-}
-
-const workStart = document.getElementById('workStartTime').value || 'Not set';
-const finishDisplay = document.getElementById('finishTimeDisplay');
-let finishTime = 'Not calculated';
-if (finishDisplay && !finishDisplay.textContent.includes('--:--')) {
-const span = finishDisplay.querySelector('span');
-if (span) finishTime = span.textContent;
-else finishTime = finishDisplay.textContent.replace('Overall Finish Time:', '').trim();
 }
 
 let html = `
@@ -2078,7 +1492,6 @@ tr:nth-child(even) { background-color: #f9f9f9; }
 </div>
 <h1>Daily Work Report</h1>
 <p><strong>Date:</strong> ${currentDateString}</p>
-<p><strong>Work Start:</strong> ${workStart} &nbsp;|&nbsp; <strong>Overall Finish:</strong> ${finishTime}</p>
 `;
 
 // ---- Section 1: Weekly Assignment Worksheet ----
@@ -2174,30 +1587,6 @@ html += `<tr style="background-color: #003366; color: white; font-weight: bold;"
 html += `</tbody></table>`;
 }
 
-// ---- Section 3: Breaks ----
-html += `<h2>☕ Breaks</h2>`;
-if (breaks.length === 0) {
-html += `<p><em>No breaks recorded.</em></p>`;
-} else {
-html += `<table><thead><tr><th>Start Time</th><th>Duration (min)</th></tr></thead><tbody>`;
-breaks.forEach(b => {
-html += `<tr><td>${b.startTime || 'Not set'}</td><td>${b.duration}</td></tr>`;
-});
-html += `</tbody></table>`;
-}
-
-// ---- Section 4: Reactive Calls ----
-html += `<h2>📞 Reactive Calls</h2>`;
-if (reactiveCalls.length === 0) {
-html += `<p><em>No reactive calls recorded.</em></p>`;
-} else {
-html += `<table><thead><tr><th>Start Time</th><th>Duration (min)</th><th>Description</th></tr></thead><tbody>`;
-reactiveCalls.forEach(r => {
-html += `<tr><td>${r.startTime || 'Not set'}</td><td>${r.duration}</td><td>${escapeHtml(r.description) || '-'}</td></tr>`;
-});
-html += `</tbody></table>`;
-}
-
 html += `
 <div class="footer">Report generated on ${new Date().toLocaleString()}</div>
 </body>
@@ -2239,390 +1628,397 @@ document.body.removeChild(a);
 URL.revokeObjectURL(url);
 }
 </script>
-	<!-- ============ Historian client (v2) ============ -->
-	<script>
-	(function(){
-		const EV_KEY  = 'historian_events_v1';
-		const REG_KEY = 'historian_registry_v1';
-		const MHTS_ACRONYMS = ['DBCS','DIOSS','CIOSS'];
-		const KNOWN_ACRONYMS = ['DBCS','DIOSS','CIOSS','DBS','ASD','HSTS','STRAP','ATU','RACK','ADMIN','EMARS'];
-		const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
-		const norm = s => (s || '').replace(/\s+/g,' ').trim();
-		function readAll(){ try { const r = localStorage.getItem(EV_KEY); return r ? JSON.parse(r) : []; } catch(e){ return []; } }
-		function writeAll(arr){ try { localStorage.setItem(EV_KEY, JSON.stringify(arr)); return true; } catch(e){ alert('Historian storage error: ' + e.message); return false; } }
-		function readReg(){ try { const r = localStorage.getItem(REG_KEY); return r ? JSON.parse(r) : {}; } catch(e){ return {}; } }
-		function writeReg(r){ try { localStorage.setItem(REG_KEY, JSON.stringify(r)); return true; } catch(e){ return false; } }
-		function parseMachineId(raw){
-			if (!raw) return null;
-			const m = String(raw).trim().match(/^([A-Za-z]+)[\s\-_]*0*(\d+)$/);
-			if (!m) return null;
-			return { acronym: m[1].toUpperCase(), mno: String(parseInt(m[2],10)) };
-		}
-		function canonicalId(acronym, mno){ return `${acronym} ${mno}`; }
-		window.historianGetRegistry     = readReg;
-		window.historianSaveRegistry    = writeReg;
-		window.historianParseMachineId  = parseMachineId;
-		window.historianCanonicalId     = canonicalId;
-		window.historianKnownAcronyms   = KNOWN_ACRONYMS;
-		window.historianMhtsAcronyms    = MHTS_ACRONYMS;
-		window.historianRegisterMno = function(mno, acronym){
-			const reg = readReg();
-			reg[String(parseInt(mno,10))] = String(acronym).toUpperCase();
-			writeReg(reg);
-		};
-		window.historianPromptForMnOs = function(unknownMnos, acronymList){
-			const list = (acronymList && acronymList.length) ? acronymList : MHTS_ACRONYMS;
-			return new Promise((resolve) => {
-				const ov = document.createElement('div');
-				ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99998;display:flex;align-items:center;justify-content:center;font:13px/1.5 system-ui,sans-serif;';
-				const box = document.createElement('div');
-				box.style.cssText = 'background:#fff;border-radius:12px;padding:20px 24px;max-width:520px;width:92%;box-shadow:0 12px 40px rgba(0,0,0,.3);max-height:85vh;overflow:auto;';
-				let rowsHtml = '';
-				unknownMnos.forEach(m => {
-					rowsHtml += `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #eef2f6;"><div style="font-weight:700;min-width:70px;color:#0b3d91;">MNO ${m}</div><select data-mno="${m}" style="flex:1;padding:6px 10px;border:1px solid #b9c8dc;border-radius:6px;font:13px inherit;"><option value="">— skip this machine —</option>${list.map(a=>`<option value="${a}">${a}</option>`).join('')}</select></div>`;
-				});
-				box.innerHTML = `<h3 style="margin:0 0 6px;color:#0b3d91;font-size:16px;">Assign machine types</h3><p style="margin:0 0 14px;color:#5b6b80;font-size:12.5px;">These MNOs aren't in the registry yet.</p><div>${rowsHtml}</div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;"><button id="__hCancel" style="background:#fff;color:#0b3d91;border:1px solid #b9c8dc;border-radius:6px;padding:7px 16px;font:600 13px inherit;cursor:pointer;">Cancel</button><button id="__hOK" style="background:#0b3d91;color:#fff;border:0;border-radius:6px;padding:7px 18px;font:600 13px inherit;cursor:pointer;">Save assignments</button></div>`;
-				ov.appendChild(box); document.body.appendChild(ov);
-				ov.querySelector('#__hCancel').onclick = () => { document.body.removeChild(ov); resolve({}); };
-				ov.querySelector('#__hOK').onclick = () => { const out = {}; box.querySelectorAll('select[data-mno]').forEach(sel => { if (sel.value) out[sel.dataset.mno] = sel.value; }); document.body.removeChild(ov); resolve(out); };
-			});
-		};
-		window.historianSave = function(ev){
-			ev.id = ev.id || uid();
-			ev.capturedAt = new Date().toISOString();
-			if (ev.payload && ev.payload.rawMno){
-				const mno = String(parseInt(ev.payload.rawMno, 10));
-				const reg = readReg();
-				const acronym = reg[mno] || ev.payload.acronymHint || null;
-				if (acronym){ ev.machineId = canonicalId(acronym, mno); ev.machineResolved = true; }
-				else { ev.machineId = 'MNO ' + mno; ev.machineResolved = false; }
-			} else if (ev.machineId){
-				const p = parseMachineId(ev.machineId);
-				if (p){
-					ev.machineId = canonicalId(p.acronym, p.mno);
-					const reg = readReg();
-					if (!reg[p.mno]) { reg[p.mno] = p.acronym; writeReg(reg); }
-					ev.machineResolved = true;
-				}
-			}
-			ev.detId = [ev.source||'', ev.machineId||'', ev.eventTime||'', ev.kind||'', norm(ev.summary||'')].join('|');
-			const all = readAll();
-			const i = all.findIndex(x => (x.detId||x.id) === ev.detId);
-			if (i >= 0){ all[i] = Object.assign({}, all[i], ev); writeAll(all); return { action:'updated', total: all.length, machineId: ev.machineId }; }
-			all.push(ev); writeAll(all);
-			return { action:'added', total: all.length, machineId: ev.machineId };
-		};
-		window.historianOpen = function(){ window.open('historian.html','historian'); };
-		window.historianToast = function(msg, ok){
-			let el = document.getElementById('__histToast');
-			if (!el){
-				el = document.createElement('div');
-				el.id = '__histToast';
-				el.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99999;padding:10px 16px;border-radius:8px;font:600 13px/1.4 system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.2);color:#fff;transition:opacity .3s;';
-				document.body.appendChild(el);
-			}
-			el.style.background = ok === false ? '#b3261e' : '#1b5e20';
-			el.textContent = msg;
-			el.style.opacity = '1';
-			clearTimeout(el._t);
-			el._t = setTimeout(() => { el.style.opacity = '0'; }, 2600);
-		};
-	})();
-	/* ============================================================
-	   Job Log — Reactive Calls + Work Orders
-	   ============================================================ */
-	const JOBS_KEY = 'work_tracking_jobs_v1';
-	let jobs = [];
+        <!-- ============ Historian client (v2) ============ -->
+        <script>
+        (function(){
+                const EV_KEY  = 'historian_events_v1';
+                const REG_KEY = 'historian_registry_v1';
+                const MHTS_ACRONYMS = ['DBCS','DIOSS','CIOSS'];
+                const KNOWN_ACRONYMS = ['DBCS','DIOSS','CIOSS','DBS','ASD','HSTS','STRAP','ATU','RACK','ADMIN','EMARS'];
+                const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,8);
+                const norm = s => (s || '').replace(/\s+/g,' ').trim();
+                function readAll(){ try { const r = localStorage.getItem(EV_KEY); return r ? JSON.parse(r) : []; } catch(e){ return []; } }
+                function writeAll(arr){ try { localStorage.setItem(EV_KEY, JSON.stringify(arr)); return true; } catch(e){ alert('Historian storage error: ' + e.message); return false; } }
+                function readReg(){ try { const r = localStorage.getItem(REG_KEY); return r ? JSON.parse(r) : {}; } catch(e){ return {}; } }
+                function writeReg(r){ try { localStorage.setItem(REG_KEY, JSON.stringify(r)); return true; } catch(e){ return false; } }
+                function parseMachineId(raw){
+                        if (!raw) return null;
+                        const m = String(raw).trim().match(/^([A-Za-z]+)[\s\-_]*0*(\d+)$/);
+                        if (!m) return null;
+                        return { acronym: m[1].toUpperCase(), mno: String(parseInt(m[2],10)) };
+                }
+                function canonicalId(acronym, mno){ return `${acronym} ${mno}`; }
+                window.historianGetRegistry     = readReg;
+                window.historianSaveRegistry    = writeReg;
+                window.historianParseMachineId  = parseMachineId;
+                window.historianCanonicalId     = canonicalId;
+                window.historianKnownAcronyms   = KNOWN_ACRONYMS;
+                window.historianMhtsAcronyms    = MHTS_ACRONYMS;
+                window.historianRegisterMno = function(mno, acronym){
+                        const reg = readReg();
+                        reg[String(parseInt(mno,10))] = String(acronym).toUpperCase();
+                        writeReg(reg);
+                };
+                window.historianPromptForMnOs = function(unknownMnos, acronymList){
+                        const list = (acronymList && acronymList.length) ? acronymList : MHTS_ACRONYMS;
+                        return new Promise((resolve) => {
+                                const ov = document.createElement('div');
+                                ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:99998;display:flex;align-items:center;justify-content:center;font:13px/1.5 system-ui,sans-serif;';
+                                const box = document.createElement('div');
+                                box.style.cssText = 'background:#fff;border-radius:12px;padding:20px 24px;max-width:520px;width:92%;box-shadow:0 12px 40px rgba(0,0,0,.3);max-height:85vh;overflow:auto;';
+                                let rowsHtml = '';
+                                unknownMnos.forEach(m => {
+                                        rowsHtml += `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #eef2f6;"><div style="font-weight:700;min-width:70px;color:#0b3d91;">MNO ${m}</div><select data-mno="${m}" style="flex:1;padding:6px 10px;border:1px solid #b9c8dc;border-radius:6px;font:13px inherit;"><option value="">— skip this machine —</option>${list.map(a=>`<option value="${a}">${a}</option>`).join('')}</select></div>`;
+                                });
+                                box.innerHTML = `<h3 style="margin:0 0 6px;color:#0b3d91;font-size:16px;">Assign machine types</h3><p style="margin:0 0 14px;color:#5b6b80;font-size:12.5px;">These MNOs aren't in the registry yet.</p><div>${rowsHtml}</div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;"><button id="__hCancel" style="background:#fff;color:#0b3d91;border:1px solid #b9c8dc;border-radius:6px;padding:7px 16px;font:600 13px inherit;cursor:pointer;">Cancel</button><button id="__hOK" style="background:#0b3d91;color:#fff;border:0;border-radius:6px;padding:7px 18px;font:600 13px inherit;cursor:pointer;">Save assignments</button></div>`;
+                                ov.appendChild(box); document.body.appendChild(ov);
+                                ov.querySelector('#__hCancel').onclick = () => { document.body.removeChild(ov); resolve({}); };
+                                ov.querySelector('#__hOK').onclick = () => { const out = {}; box.querySelectorAll('select[data-mno]').forEach(sel => { if (sel.value) out[sel.dataset.mno] = sel.value; }); document.body.removeChild(ov); resolve(out); };
+                        });
+                };
+                window.historianSave = function(ev){
+                        ev.id = ev.id || uid();
+                        ev.capturedAt = new Date().toISOString();
+                        if (ev.payload && ev.payload.rawMno){
+                                const mno = String(parseInt(ev.payload.rawMno, 10));
+                                const reg = readReg();
+                                const acronym = reg[mno] || ev.payload.acronymHint || null;
+                                if (acronym){ ev.machineId = canonicalId(acronym, mno); ev.machineResolved = true; }
+                                else { ev.machineId = 'MNO ' + mno; ev.machineResolved = false; }
+                        } else if (ev.machineId){
+                                const p = parseMachineId(ev.machineId);
+                                if (p){
+                                        ev.machineId = canonicalId(p.acronym, p.mno);
+                                        const reg = readReg();
+                                        if (!reg[p.mno]) { reg[p.mno] = p.acronym; writeReg(reg); }
+                                        ev.machineResolved = true;
+                                }
+                        }
+                        if (ev.dedupKey) {
+  ev.detId = 'custom|' + ev.dedupKey;
+} else {
+  ev.detId = [ev.source||'', ev.machineId||'', ev.eventTime||'', ev.kind||'', norm(ev.summary||'')].join('|');
+}
+                        const all = readAll();
+                        const i = all.findIndex(x => (x.detId||x.id) === ev.detId);
+                        if (i >= 0){ all[i] = Object.assign({}, all[i], ev); writeAll(all); return { action:'updated', total: all.length, machineId: ev.machineId }; }
+                        all.push(ev); writeAll(all);
+                        return { action:'added', total: all.length, machineId: ev.machineId };
+                };
+                window.historianOpen = function(){ window.open('historian.html','historian'); };
+                window.historianToast = function(msg, ok){
+                        let el = document.getElementById('__histToast');
+                        if (!el){
+                                el = document.createElement('div');
+                                el.id = '__histToast';
+                                el.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99999;padding:10px 16px;border-radius:8px;font:600 13px/1.4 system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.2);color:#fff;transition:opacity .3s;';
+                                document.body.appendChild(el);
+                        }
+                        el.style.background = ok === false ? '#b3261e' : '#1b5e20';
+                        el.textContent = msg;
+                        el.style.opacity = '1';
+                        clearTimeout(el._t);
+                        el._t = setTimeout(() => { el.style.opacity = '0'; }, 2600);
+                };
+        })();
+        /* ============================================================
+           Job Log — Reactive Calls + Work Orders
+           ============================================================ */
+        const JOBS_KEY = 'work_tracking_jobs_v1';
+        let jobs = [];
 
-	const jobUid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
-	const jobEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        const jobUid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+        const jobEsc = s => String(s == null ? '' : s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-	function loadJobs(){
-	  try { jobs = JSON.parse(localStorage.getItem(JOBS_KEY) || '[]'); } catch(e){ jobs = []; }
-	  if (!Array.isArray(jobs)) jobs = [];
-	}
-	function saveJobs(){ try { localStorage.setItem(JOBS_KEY, JSON.stringify(jobs)); } catch(e){} }
-	function getJob(id){ return jobs.find(x => x.id === id); }
+        function loadJobs(){
+          try { jobs = JSON.parse(localStorage.getItem(JOBS_KEY) || '[]'); } catch(e){ jobs = []; }
+          if (!Array.isArray(jobs)) jobs = [];
+        }
+        function saveJobs(){ try { localStorage.setItem(JOBS_KEY, JSON.stringify(jobs)); } catch(e){} }
+        function getJob(id){ return jobs.find(x => x.id === id); }
 
-	/* ---- New-day cleanup: remove unresolved jobs from previous days ---- */
-	function jobIsResolved(j){
-	  if (j.sentToHistorian) return true;
-	  if (j.workOrderNo && j.workOrderNo.trim()) return true;
-	  return false;
-	}
-	function pruneOldJobs(){
-	  const today = new Date().toISOString().split('T')[0];
-	  const removed = [];
-	  jobs = jobs.filter(j => {
-		const day = (j.createdAt || '').split('T')[0];
-		if (day === today) return true;
-		if (jobIsResolved(j)) return true;
-		removed.push(j);
-		return false;
-	  });
-	  if (removed.length){
-		saveJobs();
-		historianToast(`Removed ${removed.length} unresolved job${removed.length===1?'':'s'} from previous days.`, true);
-	  }
-	}
+        /* ---- New-day cleanup: remove unresolved jobs from previous days ---- */
+        function jobIsResolved(j){
+          if (j.sentToHistorian) return true;
+          if (j.workOrderNo && j.workOrderNo.trim()) return true;
+          return false;
+        }
+        function pruneOldJobs(){
+          const today = new Date().toISOString().split('T')[0];
+          const removed = [];
+          jobs = jobs.filter(j => {
+                const day = (j.createdAt || '').split('T')[0];
+                if (day === today) return true;
+                if (jobIsResolved(j)) return true;
+                removed.push(j);
+                return false;
+          });
+          if (removed.length){
+                saveJobs();
+                historianToast(`Removed ${removed.length} unresolved job${removed.length===1?'':'s'} from previous days.`, true);
+          }
+        }
 
-	function addJob(kind){
-	  const j = {
-		id: jobUid(), kind,
-		machineId: '', startTime: '', endTime: '', hoursOverride: null,
-		description: '', workOrderNo: '', parts: [],
-		createdAt: new Date().toISOString(),
-		sentToHistorian: false, sentAt: null
-	  };
-	  jobs.push(j); saveJobs(); renderJobs(); refreshRegistryBanner();
-	  const el = document.querySelector(`[data-job-id="${j.id}"] .job-machine`);
-	  if (el) el.focus();
-	}
-	function deleteJob(id){
-	  const j = getJob(id); if (!j) return;
-	  if (!confirm(`Delete this ${j.kind === 'reactive' ? 'reactive call' : 'work order'}?`)) return;
-	  jobs = jobs.filter(x => x.id !== id); saveJobs(); renderJobs(); refreshRegistryBanner();
-	}
-	function setNow(btn){
-	  const id = btn.closest('[data-job-id]').dataset.jobId;
-	  const field = btn.dataset.field;
-	  const j = getJob(id); if (!j) return;
-	  const now = new Date();
-	  j[field === 'start' ? 'startTime' : 'endTime'] = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-	  if (field === 'end' && j.hoursOverride != null) j.hoursOverride = null;
-	  saveJobs(); renderJobs();
-	}
-	function calcHours(start, end){
-	  if (!start || !end) return null;
-	  const [sh,sm] = start.split(':').map(Number);
-	  const [eh,em] = end.split(':').map(Number);
-	  let mins = (eh*60 + em) - (sh*60 + sm);
-	  if (mins < 0) mins += 24*60;
-	  return Math.round(mins / 60 * 100) / 100;
-	}
-	function jobHours(j){ if (j.hoursOverride != null) return j.hoursOverride; return calcHours(j.startTime, j.endTime); }
+        function addJob(kind){
+          const j = {
+                id: jobUid(), kind,
+                machineId: '', startTime: '', endTime: '', hoursOverride: null,
+                description: '', workOrderNo: '', parts: [],
+                createdAt: new Date().toISOString(),
+                sentToHistorian: false, sentAt: null
+          };
+          jobs.push(j); saveJobs(); renderJobs(); refreshRegistryBanner();
+          const el = document.querySelector(`[data-job-id="${j.id}"] .job-machine`);
+          if (el) el.focus();
+        }
+        function deleteJob(id){
+          const j = getJob(id); if (!j) return;
+          if (!confirm(`Delete this ${j.kind === 'reactive' ? 'reactive call' : 'work order'}?`)) return;
+          jobs = jobs.filter(x => x.id !== id); saveJobs(); renderJobs(); refreshRegistryBanner();
+        }
+        function setNow(btn){
+          const id = btn.closest('[data-job-id]').dataset.jobId;
+          const field = btn.dataset.field;
+          const j = getJob(id); if (!j) return;
+          const now = new Date();
+          j[field === 'start' ? 'startTime' : 'endTime'] = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+          if (field === 'end' && j.hoursOverride != null) j.hoursOverride = null;
+          saveJobs(); renderJobs();
+        }
+        function calcHours(start, end){
+          if (!start || !end) return null;
+          const [sh,sm] = start.split(':').map(Number);
+          const [eh,em] = end.split(':').map(Number);
+          let mins = (eh*60 + em) - (sh*60 + sm);
+          if (mins < 0) mins += 24*60;
+          return Math.round(mins / 60 * 100) / 100;
+        }
+        function jobHours(j){ if (j.hoursOverride != null) return j.hoursOverride; return calcHours(j.startTime, j.endTime); }
 
-	function updateJob(id, field, value){
-	  const j = getJob(id); if (!j) return;
-	  j[field] = value; saveJobs();
-	  if (field === 'startTime' || field === 'endTime'){
-		const hoursEl = document.querySelector(`[data-job-id="${id}"] .job-hours`);
-		const h = jobHours(j);
-		if (hoursEl && h != null) hoursEl.value = h.toFixed(2);
-	  }
-	  if (field === 'machineId') refreshRegistryBanner();
-	  updateJobValidation(id);
-	}
-	function updatePart(id, idx, field, value){ const j = getJob(id); if (!j || !j.parts[idx]) return; j.parts[idx][field] = value; saveJobs(); updateJobValidation(id); }
-	function addPart(id){ const j = getJob(id); if (!j) return; j.parts.push({ name:'', nsn:'', oem:'' }); saveJobs(); renderJobs(); }
-	function removePart(id, idx){ const j = getJob(id); if (!j) return; j.parts.splice(idx, 1); saveJobs(); renderJobs(); }
-	function normalizeMachineInput(input, id){
-	  const j = getJob(id); if (!j) return;
-	  const p = historianParseMachineId(input.value);
-	  if (p){
-		const canonical = historianCanonicalId(p.acronym, p.mno);
-		input.value = canonical; j.machineId = canonical;
-		saveJobs(); renderJobs();
-	  }
-	}
-	function validateJob(j){
-	  const issues = [];
-	  const p = historianParseMachineId(j.machineId);
-	  if (!p) issues.push('Machine ID must look like "DBCS 49"');
-	  if (!j.startTime) issues.push('Start time required');
-	  if (!j.endTime)   issues.push('End time required');
-	  const h = jobHours(j);
-	  if (h != null && h <= 0) issues.push('End time must be after start time');
-	  const needsDetail = (h != null && h > 0.5) || (j.parts && j.parts.length > 0);
-	  if (needsDetail){
-		if (!j.description || !j.description.trim()) issues.push('Description required (>30 min or parts used)');
-		if (!j.workOrderNo || !j.workOrderNo.trim()) issues.push('Work order number required (>30 min or parts used)');
-		if (j.parts && j.parts.length){
-		  j.parts.forEach((pt, i) => { if (!pt.name && !pt.nsn && !pt.oem) issues.push(`Part ${i+1}: needs at least one of name / NSN / OEM`); });
-		}
-	  }
-	  return issues;
-	}
-	function updateJobValidation(id){
-	  const j = getJob(id); if (!j) return;
-	  const card = document.querySelector(`[data-job-id="${id}"]`); if (!card) return;
-	  const msg = card.querySelector('.validation-msg');
-	  const sendBtn = card.querySelector('.job-send');
-	  const issues = validateJob(j);
-	  if (issues.length){ msg.textContent = '⚠ ' + issues[0]; msg.className = 'validation-msg warn'; if (sendBtn) sendBtn.disabled = true; }
-	  else { msg.textContent = '✓ Ready to send'; msg.className = 'validation-msg ok'; if (sendBtn) sendBtn.disabled = false; }
-	}
-	function ensureAcronymDatalist(){
-	  if (document.getElementById('jobMachineAcronyms')) return;
-	  const dl = document.createElement('datalist');
-	  dl.id = 'jobMachineAcronyms';
-	  (window.historianKnownAcronyms || ['DBCS','DIOSS','CIOSS']).forEach(a => { const o = document.createElement('option'); o.value = a + ' '; dl.appendChild(o); });
-	  document.body.appendChild(dl);
-	}
-	function renderJobs(){
-	  ensureAcronymDatalist();
-	  const list = document.getElementById('jobLogList');
-	  if (!jobs.length){ list.innerHTML = '<div style="padding:24px;text-align:center;color:#94a3b8;font-style:italic;">No reactive calls or work orders logged yet.</div>'; return; }
-	  list.innerHTML = jobs.map(renderJobCard).join('');
-	  jobs.forEach(j => updateJobValidation(j.id));
-	}
-	function renderJobCard(j){
-	  const p = historianParseMachineId(j.machineId);
-	  const canonical = p ? historianCanonicalId(p.acronym, p.mno) : '';
-	  const reg = historianGetRegistry();
-	  let regWarning = '';
-	  if (p && reg[p.mno] && reg[p.mno] !== p.acronym){
-		regWarning = `<div class="reg-warn">⚠ Registry says MNO ${jobEsc(p.mno)} is ${jobEsc(reg[p.mno])}. Fix the ID or resolve on send.</div>`;
-	  }
-	  const hours = jobHours(j);
-	  const hoursDisplay = hours != null ? hours.toFixed(2) : '';
-	  const partsHtml = (j.parts || []).map((pt, idx) => `
-		<div class="part-row">
-		  <input type="text" placeholder="Part name" value="${jobEsc(pt.name)}" oninput="updatePart('${j.id}', ${idx}, 'name', this.value)">
-		  <input type="text" placeholder="NSN" value="${jobEsc(pt.nsn)}" oninput="updatePart('${j.id}', ${idx}, 'nsn', this.value)">
-		  <input type="text" placeholder="OEM" value="${jobEsc(pt.oem)}" oninput="updatePart('${j.id}', ${idx}, 'oem', this.value)">
-		  <button class="btn-x" onclick="removePart('${j.id}', ${idx})" title="Remove part">×</button>
-		</div>`).join('');
-	  return `
-	  <div class="job-card ${j.kind}" data-job-id="${j.id}">
-		<div class="job-header">
-		  <span class="job-kind ${j.kind}">${j.kind === 'reactive' ? 'REACTIVE CALL' : 'WORK ORDER'}</span>
-		  ${j.sentToHistorian ? '<span class="job-status sent">✓ Sent</span>' : '<span class="job-status draft">DRAFT</span>'}
-		  <div class="spacer"></div>
-		  <button class="btn-x" onclick="deleteJob('${j.id}')" title="Delete">×</button>
-		</div>
-		<div class="job-field">
-		  <label>Machine ID</label>
-		  <input type="text" class="job-machine" list="jobMachineAcronyms" placeholder="e.g. DBCS 49" value="${jobEsc(j.machineId)}"
-				 oninput="updateJob('${j.id}', 'machineId', this.value)"
-				 onblur="normalizeMachineInput(this, '${j.id}')">
-		  ${canonical ? `<span class="machine-canonical">→ ${jobEsc(canonical)}</span>` : ''}
-		  ${regWarning}
-		</div>
-		<div class="job-time-row">
-		  <div class="job-field compact"><label>Start</label>
-			<div class="time-with-btn">
-			  <input type="time" value="${jobEsc(j.startTime)}" oninput="updateJob('${j.id}', 'startTime', this.value)">
-			  <button class="btn-now" data-field="start" onclick="setNow(this)">Now</button>
-			</div>
-		  </div>
-		  <div class="job-field compact"><label>End</label>
-			<div class="time-with-btn">
-			  <input type="time" value="${jobEsc(j.endTime)}" oninput="updateJob('${j.id}', 'endTime', this.value)">
-			  <button class="btn-now" data-field="end" onclick="setNow(this)">Now</button>
-			</div>
-		  </div>
-		  <div class="job-field compact"><label>Hours</label>
-			<input type="number" step="0.01" class="job-hours" value="${hoursDisplay}" placeholder="—"
-				   oninput="updateJob('${j.id}', 'hoursOverride', this.value === '' ? null : parseFloat(this.value))">
-		  </div>
-		</div>
-		<div class="job-field"><label>Description <span class="cond-hint">required if &gt;30 min or parts used</span></label>
-		  <textarea rows="2" oninput="updateJob('${j.id}', 'description', this.value)">${jobEsc(j.description)}</textarea>
-		</div>
-		<div class="job-field"><label>Work Order # <span class="cond-hint">required if &gt;30 min or parts used — can be added after the fact</span></label>
-		  <input type="text" value="${jobEsc(j.workOrderNo)}" placeholder="e.g. 613-27"
-				 oninput="updateJob('${j.id}', 'workOrderNo', this.value)">
-		</div>
-		<div class="job-field"><label>Parts Used</label>
-		  <div class="parts-list">${partsHtml}</div>
-		  <button class="btn-add-part" onclick="addPart('${j.id}')">+ Add Part</button>
-		</div>
-		<div class="job-footer">
-		  <span class="validation-msg"></span>
-		  <div class="spacer"></div>
-		  <button class="btn-save" onclick="saveJobs(); historianToast('Saved.', true)">💾 Save</button>
-		  <button class="btn-send job-send" onclick="sendJobToHistorian('${j.id}')">📤 Send to Historian</button>
-		</div>
-	  </div>`;
-	}
-	function refreshRegistryBanner(){
-	  const banner = document.getElementById('regBanner');
-	  const reg = historianGetRegistry();
-	  const unknowns = new Set();
-	  jobs.forEach(j => { const p = historianParseMachineId(j.machineId); if (p && !reg[p.mno]) unknowns.add(p.mno); });
-	  if (!unknowns.size){ banner.style.display = 'none'; return; }
-	  banner.style.display = 'flex';
-	  banner.innerHTML = `<span>⚠ ${unknowns.size} unregistered machine${unknowns.size===1?'':'s'}: MNO ${[...unknowns].join(', ')}</span><button onclick="registerAllNow()">Register now</button>`;
-	}
-	async function registerAllNow(){
-	  const reg = historianGetRegistry();
-	  const adds = {};
-	  jobs.forEach(j => { const p = historianParseMachineId(j.machineId); if (p && !reg[p.mno]) adds[p.mno] = p.acronym; });
-	  const keys = Object.keys(adds);
-	  if (!keys.length) return;
-	  keys.forEach(mno => historianRegisterMno(mno, adds[mno]));
-	  renderJobs(); refreshRegistryBanner();
-	  historianToast(`Registered ${keys.length} machine${keys.length===1?'':'s'}.`, true);
-	}
-	async function sendJobToHistorian(id){
-	  const j = getJob(id); if (!j) return;
-	  const issues = validateJob(j);
-	  if (issues.length){ alert('Cannot send yet:\n- ' + issues.join('\n- ')); return; }
-	  const p = historianParseMachineId(j.machineId);
-	  if (!p){ alert('Machine ID must look like "DBCS 49".'); return; }
-	  const reg = historianGetRegistry();
-	  let finalAcronym = p.acronym;
-	  if (reg[p.mno] && reg[p.mno] !== p.acronym){
-		const ok = confirm(`Registry says MNO ${p.mno} is "${reg[p.mno]}", but this job says "${p.acronym}".\n\nOK = trust registry.\nCancel = update registry to "${p.acronym}"`);
-		if (ok){ finalAcronym = reg[p.mno]; }
-		else { historianRegisterMno(p.mno, p.acronym); finalAcronym = p.acronym; }
-	  } else if (!reg[p.mno]) {
-		historianRegisterMno(p.mno, p.acronym);
-	  }
-	  doSendJob(j, { acronym: finalAcronym, mno: p.mno });
-	  refreshRegistryBanner();
-	}
-	function doSendJob(j, p){
-	  const canonical = historianCanonicalId(p.acronym, p.mno);
-	  const h = jobHours(j);
-	  const woLabel = j.workOrderNo ? ` · WO ${j.workOrderNo}` : '';
-	  const label = j.kind === 'reactive' ? 'Reactive call' : 'Work order';
-	  const partsLines = (j.parts || []).map((pt, i) => {
-		const bits = [];
-		if (pt.name) bits.push(`name: ${pt.name}`);
-		if (pt.nsn)  bits.push(`NSN: ${pt.nsn}`);
-		if (pt.oem)  bits.push(`OEM: ${pt.oem}`);
-		return `  • Part ${i+1}: ${bits.join(' | ')}`;
-	  }).join('\n');
-	  const detailParts = [];
-	  detailParts.push(`Window: ${j.startTime} → ${j.endTime} (${h.toFixed(2)}h)`);
-	  if (j.description) detailParts.push(j.description);
-	  if (j.workOrderNo) detailParts.push(`WO#: ${j.workOrderNo}`);
-	  if (j.parts && j.parts.length) detailParts.push(`Parts used:\n${partsLines}`);
-	  const now = new Date();
-	  const [sh, sm] = j.startTime.split(':').map(Number);
-	  const evt = new Date(now.getFullYear(), now.getMonth(), now.getDate(), sh, sm);
-	  const res = historianSave({
-		source: 'work_tracking', eventTime: evt.toISOString(), machineId: canonical,
-		tech: (document.getElementById('jobTech')?.value || '').trim(),
-		category: j.kind === 'reactive' ? 'reactive' : 'workorder',
-		kind: j.kind === 'reactive' ? 'reactive.call' : 'workorder.standalone',
-		status: 'info',
-		summary: `${label} — ${canonical} · ${h.toFixed(2)}h${woLabel}`,
-		detail: detailParts.join('\n'),
-		payload: { job: JSON.parse(JSON.stringify(j)), acronym: p.acronym, mno: p.mno, hours: h, workOrderNo: j.workOrderNo || null, parts: j.parts || [] }
-	  });
-	  j.sentToHistorian = true; j.sentAt = new Date().toISOString();
-	  saveJobs(); renderJobs();
-	  historianToast(`Historian ${res.action} — ${canonical} (${res.total} total).`, true);
-	}
-	function sendAllJobsToHistorian(){
-	  const ready = jobs.filter(j => !j.sentToHistorian && validateJob(j).length === 0);
-	  if (!ready.length){ historianToast('No ready-to-send jobs.', false); return; }
-	  if (!confirm(`Send ${ready.length} job${ready.length===1?'':'s'} to historian?`)) return;
-	  ready.forEach(j => sendJobToHistorian(j.id));
-	}
+        function updateJob(id, field, value){
+          const j = getJob(id); if (!j) return;
+          j[field] = value; saveJobs();
+          if (field === 'startTime' || field === 'endTime'){
+                const hoursEl = document.querySelector(`[data-job-id="${id}"] .job-hours`);
+                const h = jobHours(j);
+                if (hoursEl && h != null) hoursEl.value = h.toFixed(2);
+          }
+          if (field === 'machineId') refreshRegistryBanner();
+          updateJobValidation(id);
+        }
+        function updatePart(id, idx, field, value){ const j = getJob(id); if (!j || !j.parts[idx]) return; j.parts[idx][field] = value; saveJobs(); updateJobValidation(id); }
+        function addPart(id){ const j = getJob(id); if (!j) return; j.parts.push({ name:'', nsn:'', oem:'' }); saveJobs(); renderJobs(); }
+        function removePart(id, idx){ const j = getJob(id); if (!j) return; j.parts.splice(idx, 1); saveJobs(); renderJobs(); }
+        function normalizeMachineInput(input, id){
+          const j = getJob(id); if (!j) return;
+          const p = historianParseMachineId(input.value);
+          if (p){
+                const canonical = historianCanonicalId(p.acronym, p.mno);
+                input.value = canonical; j.machineId = canonical;
+                saveJobs(); renderJobs();
+          }
+        }
+        function validateJob(j){
+          const issues = [];
+          const p = historianParseMachineId(j.machineId);
+          if (!p) issues.push('Machine ID must look like "DBCS 49"');
+          if (!j.startTime) issues.push('Start time required');
+          if (!j.endTime)   issues.push('End time required');
+          const h = jobHours(j);
+          if (h != null && h <= 0) issues.push('End time must be after start time');
+          const needsDetail = (h != null && h > 0.5) || (j.parts && j.parts.length > 0);
+          if (needsDetail){
+                if (!j.description || !j.description.trim()) issues.push('Description required (>30 min or parts used)');
+                if (!j.workOrderNo || !j.workOrderNo.trim()) issues.push('Work order number required (>30 min or parts used)');
+                if (j.parts && j.parts.length){
+                  j.parts.forEach((pt, i) => { if (!pt.name && !pt.nsn && !pt.oem) issues.push(`Part ${i+1}: needs at least one of name / NSN / OEM`); });
+                }
+          }
+          return issues;
+        }
+        function updateJobValidation(id){
+          const j = getJob(id); if (!j) return;
+          const card = document.querySelector(`[data-job-id="${id}"]`); if (!card) return;
+          const msg = card.querySelector('.validation-msg');
+          const sendBtn = card.querySelector('.job-send');
+          const issues = validateJob(j);
+          if (issues.length){ msg.textContent = '⚠ ' + issues[0]; msg.className = 'validation-msg warn'; if (sendBtn) sendBtn.disabled = true; }
+          else { msg.textContent = '✓ Ready to send'; msg.className = 'validation-msg ok'; if (sendBtn) sendBtn.disabled = false; }
+        }
+        function ensureAcronymDatalist(){
+          if (document.getElementById('jobMachineAcronyms')) return;
+          const dl = document.createElement('datalist');
+          dl.id = 'jobMachineAcronyms';
+          (window.historianKnownAcronyms || ['DBCS','DIOSS','CIOSS']).forEach(a => { const o = document.createElement('option'); o.value = a + ' '; dl.appendChild(o); });
+          document.body.appendChild(dl);
+        }
+        function renderJobs(){
+          ensureAcronymDatalist();
+          const list = document.getElementById('jobLogList');
+          if (!jobs.length){ list.innerHTML = '<div style="padding:24px;text-align:center;color:#94a3b8;font-style:italic;">No reactive calls or work orders logged yet.</div>'; return; }
+          list.innerHTML = jobs.map(renderJobCard).join('');
+          jobs.forEach(j => updateJobValidation(j.id));
+        }
+        function renderJobCard(j){
+          const p = historianParseMachineId(j.machineId);
+          const canonical = p ? historianCanonicalId(p.acronym, p.mno) : '';
+          const reg = historianGetRegistry();
+          let regWarning = '';
+          if (p && reg[p.mno] && reg[p.mno] !== p.acronym){
+                regWarning = `<div class="reg-warn">⚠ Registry says MNO ${jobEsc(p.mno)} is ${jobEsc(reg[p.mno])}. Fix the ID or resolve on send.</div>`;
+          }
+          const hours = jobHours(j);
+          const hoursDisplay = hours != null ? hours.toFixed(2) : '';
+          const partsHtml = (j.parts || []).map((pt, idx) => `
+                <div class="part-row">
+                  <input type="text" placeholder="Part name" value="${jobEsc(pt.name)}" oninput="updatePart('${j.id}', ${idx}, 'name', this.value)">
+                  <input type="text" placeholder="NSN" value="${jobEsc(pt.nsn)}" oninput="updatePart('${j.id}', ${idx}, 'nsn', this.value)">
+                  <input type="text" placeholder="OEM" value="${jobEsc(pt.oem)}" oninput="updatePart('${j.id}', ${idx}, 'oem', this.value)">
+                  <button class="btn-x" onclick="removePart('${j.id}', ${idx})" title="Remove part">×</button>
+                </div>`).join('');
+          return `
+          <div class="job-card ${j.kind}" data-job-id="${j.id}">
+                <div class="job-header">
+                  <span class="job-kind ${j.kind}">${j.kind === 'reactive' ? 'REACTIVE CALL' : 'WORK ORDER'}</span>
+                  ${j.sentToHistorian ? '<span class="job-status sent">✓ Sent</span>' : '<span class="job-status draft">DRAFT</span>'}
+                  <div class="spacer"></div>
+                  <button class="btn-x" onclick="deleteJob('${j.id}')" title="Delete">×</button>
+                </div>
+                <div class="job-field">
+                  <label>Machine ID</label>
+                  <input type="text" class="job-machine" list="jobMachineAcronyms" placeholder="e.g. DBCS 49" value="${jobEsc(j.machineId)}"
+                                oninput="updateJob('${j.id}', 'machineId', this.value)"
+                                onblur="normalizeMachineInput(this, '${j.id}')">
+                  ${canonical ? `<span class="machine-canonical">→ ${jobEsc(canonical)}</span>` : ''}
+                  ${regWarning}
+                </div>
+                <div class="job-time-row">
+                  <div class="job-field compact"><label>Start</label>
+                        <div class="time-with-btn">
+                          <input type="time" value="${jobEsc(j.startTime)}" oninput="updateJob('${j.id}', 'startTime', this.value)">
+                          <button class="btn-now" data-field="start" onclick="setNow(this)">Now</button>
+                        </div>
+                  </div>
+                  <div class="job-field compact"><label>End</label>
+                        <div class="time-with-btn">
+                          <input type="time" value="${jobEsc(j.endTime)}" oninput="updateJob('${j.id}', 'endTime', this.value)">
+                          <button class="btn-now" data-field="end" onclick="setNow(this)">Now</button>
+                        </div>
+                  </div>
+                  <div class="job-field compact"><label>Hours</label>
+                        <input type="number" step="0.01" class="job-hours" value="${hoursDisplay}" placeholder="—"
+                                   oninput="updateJob('${j.id}', 'hoursOverride', this.value === '' ? null : parseFloat(this.value))">
+                  </div>
+                </div>
+                <div class="job-field"><label>Description <span class="cond-hint">required if &gt;30 min or parts used</span></label>
+                  <textarea rows="2" oninput="updateJob('${j.id}', 'description', this.value)">${jobEsc(j.description)}</textarea>
+                </div>
+                <div class="job-field"><label>Work Order # <span class="cond-hint">required if &gt;30 min or parts used — can be added after the fact</span></label>
+                  <input type="text" value="${jobEsc(j.workOrderNo)}" placeholder="e.g. 613-27"
+                                oninput="updateJob('${j.id}', 'workOrderNo', this.value)">
+                </div>
+                <div class="job-field"><label>Parts Used</label>
+                  <div class="parts-list">${partsHtml}</div>
+                  <button class="btn-add-part" onclick="addPart('${j.id}')">+ Add Part</button>
+                </div>
+                <div class="job-footer">
+                  <span class="validation-msg"></span>
+                  <div class="spacer"></div>
+                  <button class="btn-save" onclick="saveJobs(); historianToast('Saved.', true)">💾 Save</button>
+                  <button class="btn-send job-send" onclick="sendJobToHistorian('${j.id}')">📤 Send to Historian</button>
+                </div>
+          </div>`;
+        }
+        function refreshRegistryBanner(){
+          const banner = document.getElementById('regBanner');
+          const reg = historianGetRegistry();
+          const unknowns = new Set();
+          jobs.forEach(j => { const p = historianParseMachineId(j.machineId); if (p && !reg[p.mno]) unknowns.add(p.mno); });
+          if (!unknowns.size){ banner.style.display = 'none'; return; }
+          banner.style.display = 'flex';
+          banner.innerHTML = `<span>⚠ ${unknowns.size} unregistered machine${unknowns.size===1?'':'s'}: MNO ${[...unknowns].join(', ')}</span><button onclick="registerAllNow()">Register now</button>`;
+        }
+        async function registerAllNow(){
+          const reg = historianGetRegistry();
+          const adds = {};
+          jobs.forEach(j => { const p = historianParseMachineId(j.machineId); if (p && !reg[p.mno]) adds[p.mno] = p.acronym; });
+          const keys = Object.keys(adds);
+          if (!keys.length) return;
+          keys.forEach(mno => historianRegisterMno(mno, adds[mno]));
+          renderJobs(); refreshRegistryBanner();
+          historianToast(`Registered ${keys.length} machine${keys.length===1?'':'s'}.`, true);
+        }
+        async function sendJobToHistorian(id){
+          const j = getJob(id); if (!j) return;
+          const issues = validateJob(j);
+          if (issues.length){ alert('Cannot send yet:\n- ' + issues.join('\n- ')); return; }
+          const p = historianParseMachineId(j.machineId);
+          if (!p){ alert('Machine ID must look like "DBCS 49".'); return; }
+          const reg = historianGetRegistry();
+          let finalAcronym = p.acronym;
+          if (reg[p.mno] && reg[p.mno] !== p.acronym){
+                const ok = confirm(`Registry says MNO ${p.mno} is "${reg[p.mno]}", but this job says "${p.acronym}".\n\nOK = trust registry.\nCancel = update registry to "${p.acronym}"`);
+                if (ok){ finalAcronym = reg[p.mno]; }
+                else { historianRegisterMno(p.mno, p.acronym); finalAcronym = p.acronym; }
+          } else if (!reg[p.mno]) {
+                historianRegisterMno(p.mno, p.acronym);
+          }
+          doSendJob(j, { acronym: finalAcronym, mno: p.mno });
+          refreshRegistryBanner();
+        }
+        function doSendJob(j, p){
+          const canonical = historianCanonicalId(p.acronym, p.mno);
+          const h = jobHours(j);
+          const woLabel = j.workOrderNo ? ` · WO ${j.workOrderNo}` : '';
+          const label = j.kind === 'reactive' ? 'Reactive call' : 'Work order';
+          const partsLines = (j.parts || []).map((pt, i) => {
+                const bits = [];
+                if (pt.name) bits.push(`name: ${pt.name}`);
+                if (pt.nsn)  bits.push(`NSN: ${pt.nsn}`);
+                if (pt.oem)  bits.push(`OEM: ${pt.oem}`);
+                return `  • Part ${i+1}: ${bits.join(' | ')}`;
+          }).join('\n');
+          const detailParts = [];
+          detailParts.push(`Window: ${j.startTime} → ${j.endTime} (${h.toFixed(2)}h)`);
+          if (j.description) detailParts.push(j.description);
+          if (j.workOrderNo) detailParts.push(`WO#: ${j.workOrderNo}`);
+          if (j.parts && j.parts.length) detailParts.push(`Parts used:\n${partsLines}`);
+          const now = new Date();
+          const [sh, sm] = j.startTime.split(':').map(Number);
+          const evt = new Date(now.getFullYear(), now.getMonth(), now.getDate(), sh, sm);
+          const res = historianSave({
+                source: 'work_tracking', eventTime: evt.toISOString(), machineId: canonical,
+                tech: (document.getElementById('jobTech')?.value || '').trim(),
+                category: j.kind === 'reactive' ? 'reactive' : 'workorder',
+                kind: j.kind === 'reactive' ? 'reactive.call' : 'workorder.standalone',
+                status: 'info',
+                summary: `${label} — ${canonical} · ${h.toFixed(2)}h${woLabel}`,
+                detail: detailParts.join('\n'),
+                payload: { job: JSON.parse(JSON.stringify(j)), acronym: p.acronym, mno: p.mno, hours: h, workOrderNo: j.workOrderNo || null, parts: j.parts || [] }
+          });
+          j.sentToHistorian = true; j.sentAt = new Date().toISOString();
+          saveJobs(); renderJobs();
+          historianToast(`Historian ${res.action} — ${canonical} (${res.total} total).`, true);
+        }
+        function sendAllJobsToHistorian(){
+          const ready = jobs.filter(j => !j.sentToHistorian && validateJob(j).length === 0);
+          if (!ready.length){ historianToast('No ready-to-send jobs.', false); return; }
+          if (!confirm(`Send ${ready.length} job${ready.length===1?'':'s'} to historian?`)) return;
+          ready.forEach(j => sendJobToHistorian(j.id));
+          lastSentSignature = currentWorkSignature();
+        }
 
-	/* ---- init with day-cleanup ---- */
-	loadJobs();
-	pruneOldJobs();
-	renderJobs();
-	refreshRegistryBanner();
-	</script>
+        /* ---- init with day-cleanup ---- */
+        loadJobs();
+        pruneOldJobs();
+        renderJobs();
+        refreshRegistryBanner();
+        </script>
 <script>
 function sendToHistorian() {
-  const tech = (document.getElementById('techName')?.value || '').trim();
+  const tech = (document.getElementById('techName')?.value
+              || document.getElementById('jobTech')?.value
+              || '').trim();
   const eventTime = new Date().toISOString();
   let sent = 0;
 
@@ -2660,10 +2056,10 @@ function sendToHistorian() {
       const selected = m.tasks.filter(t => t.selected);
       if (!selected.length) return;
       const totalMin = selected.reduce((s,t)=> s + (t.customTime != null ? t.customTime : t.estTime), 0);
-      const assigned = selected.filter(t => t.person1 || t.person2 || t.person3).length;
+      const assigned = selected.filter(t => t.person1).length;
       const detail = selected.map(t => {
         const time = t.customTime != null ? t.customTime : t.estTime;
-        const who = [t.person1?'P1':'', t.person2?'P2':'', t.person3?'P3':''].filter(Boolean).join(',');
+        const who = t.person1 ? 'P1' : '';
         return `  • ${t.itemNo} ${t.powerState} ${time}min ${who ? '('+who+')' : ''} — ${t.description}`;
       }).join('\n');
 
@@ -2683,8 +2079,187 @@ function sendToHistorian() {
     });
   }
 
-  if (!sent) { historianToast('Nothing to send yet.', false); return; }
-  historianToast(`Sent ${sent} historian event${sent===1?'':'s'}.`, true);
+  if (!sent) { historianToast('Nothing to send yet.', false); }
+  else { historianToast(`Sent ${sent} historian event${sent===1?'':'s'}.`, true); }
+
+  lastSentSignature = currentWorkSignature();
+  return sent;
+}
+</script>
+<script>
+/* ============================================================
+   Close-tab guard — offer to send everything to the Historian
+   ============================================================ */
+let lastSentSignature = null;
+let allowLeave = false;
+let closePromptVisible = false;
+let closePromptRetry = false;
+
+/* A fingerprint of everything that would go to the historian. */
+function currentWorkSignature() {
+  let jobSig = [];
+  try {
+    jobSig = (Array.isArray(jobs) ? jobs : []).map(j => [
+      j.id, j.machineId, j.startTime, j.endTime, j.hoursOverride,
+      j.description, j.workOrderNo,
+      (j.parts || []).map(p => [p.name, p.nsn, p.oem]),
+      !!j.sentToHistorian
+    ]);
+  } catch (e) {}
+
+  let dailySig = [];
+  try {
+    dailySig = dailyMachines.map(m => [
+      m.machineId,
+      m.tasks.filter(t => t.selected)
+             .map(t => [t.itemNo, t.powerState, t.customTime, t.person1])
+    ]);
+  } catch (e) {}
+
+  let weeklySig = [];
+  try {
+    weeklySig = weeklyParsedData
+      .filter(r => r.actualTime !== null && r.actualTime !== undefined && r.actualTime !== '')
+      .map(r => [r.number, r.equipNo, r.actualTime]);
+  } catch (e) {}
+
+  return JSON.stringify({ jobSig, dailySig, weeklySig });
+}
+
+/* Anything pending for the historian? */
+function hasUnsentWork() {
+  try {
+    if (Array.isArray(jobs) && jobs.some(j => !j.sentToHistorian)) return true;
+  } catch (e) {}
+  return currentWorkSignature() !== lastSentSignature;
+}
+
+/* Human-readable summary of what is pending. */
+function describePendingWork() {
+  const parts = [];
+  try {
+    const unsent = (Array.isArray(jobs) ? jobs : []).filter(j => !j.sentToHistorian);
+    if (unsent.length) parts.push(`${unsent.length} job log entr${unsent.length === 1 ? 'y' : 'ies'} not sent`);
+  } catch (e) {}
+
+  let dirty = false;
+  try { dirty = currentWorkSignature() !== lastSentSignature; } catch (e) {}
+
+  if (dirty) {
+    try {
+      let n = 0;
+      dailyMachines.forEach(m => n += m.tasks.filter(t => t.selected).length);
+      if (n) parts.push(`${n} daily task${n === 1 ? '' : 's'} selected`);
+    } catch (e) {}
+    try {
+      const n = weeklyParsedData.filter(r => r.actualTime !== null && r.actualTime !== undefined && r.actualTime !== '').length;
+      if (n) parts.push(`${n} weekly worksheet task${n === 1 ? '' : 's'} with actual time`);
+    } catch (e) {}
+  }
+  return parts;
+}
+
+/* --- beforeunload: native hold + custom offer when the user stays --- */
+window.addEventListener('beforeunload', function (e) {
+  if (allowLeave) return;
+  if (!hasUnsentWork()) return;
+
+  e.preventDefault();
+  e.returnValue = '';
+  if (e.returnValue !== undefined) e.returnValue = '';
+
+  if (!closePromptRetry) {
+    closePromptRetry = true;
+    setTimeout(function () {
+      closePromptRetry = false;
+      if (!allowLeave && hasUnsentWork()) showClosePrompt();
+    }, 400);
+  }
+  return '';
+});
+
+function showClosePrompt() {
+  if (closePromptVisible) return;
+
+  const overlay = document.getElementById('closePromptOverlay');
+  const list = document.getElementById('closePromptList');
+  const note = document.getElementById('closePromptNote');
+  const items = describePendingWork();
+
+  list.innerHTML = items.length
+    ? items.map(t => `<li>${t}</li>`).join('')
+    : '<li>Unsent work detected.</li>';
+  note.textContent = 'Anything that cannot be validated (e.g. missing times or work order numbers) will be skipped.';
+
+  overlay.style.display = 'flex';
+  closePromptVisible = true;
+}
+
+function hideClosePrompt() {
+  document.getElementById('closePromptOverlay').style.display = 'none';
+  closePromptVisible = false;
+}
+
+function closePromptStay() {
+  hideClosePrompt();
+}
+
+function closePromptLeaveAnyway() {
+  hideClosePrompt();
+  allowLeave = true;
+  try { window.close(); } catch (e) {}
+  historianToast('You can close the tab now.', true);
+}
+
+function closePromptSendAll() {
+  hideClosePrompt();
+  const result = sendEverythingToHistorian();
+
+  if (result.blocked > 0) {
+    setTimeout(function () {
+      showClosePrompt();
+      document.getElementById('closePromptNote').textContent =
+        `${result.blocked} entr${result.blocked === 1 ? 'y' : 'ies'} could not be sent — finish the missing fields above, or close without sending.`;
+    }, 50);
+    return;
+  }
+  if (result.sent === 0) {
+    historianToast('Nothing could be sent.', false);
+    return;
+  }
+  historianToast(`Sent ${result.sent} historian event${result.sent === 1 ? '' : 's'}. You can close the tab now.`, true);
+}
+
+/* --- One-click "send everything" used by the close prompt --- */
+function sendEverythingToHistorian() {
+  let jobsSent = 0;
+  let blocked = 0;
+
+  try {
+    if (Array.isArray(jobs)) {
+      jobs.filter(j => !j.sentToHistorian).forEach(j => {
+        if (validateJob(j).length === 0) {
+          sendJobToHistorian(j.id);
+          jobsSent++;
+        } else {
+          blocked++;
+        }
+      });
+    }
+  } catch (e) { console.warn('Job send failed:', e); }
+
+  let taskEvents = 0;
+  try { taskEvents = sendToHistorian() || 0; } catch (e) { console.warn('Task send failed:', e); }
+
+  lastSentSignature = currentWorkSignature();
+
+  return { sent: jobsSent + taskEvents, jobsSent, taskEvents, blocked };
+}
+
+/* --- Baseline so a freshly loaded page doesn't nag --- */
+loadJobsBaseline();
+function loadJobsBaseline() {
+  try { lastSentSignature = currentWorkSignature(); } catch (e) { lastSentSignature = null; }
 }
 </script>
 </body>

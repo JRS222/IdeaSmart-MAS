@@ -405,9 +405,46 @@
     (2) Pickoff belts are a set of six; tension is measured in grams (700–900 g with 5 mm deflection).
     (3) Auger belt, timing belt, and pocket belts have no tension specification listed in Section 6.2.
     (4) Click <strong>⚙ Modules</strong> in the toolbar to briefly reveal the stacker module headers if you need to remove a module.
+    (5) NSNs are cross-referenced from the Section 2 parts list by exact part number; rows showing <em>Not listed</em> had no exact match in that list.
 </div>
 
 <script>
+    // ============================================================
+    //  PART NUMBER → NSN CROSS-REFERENCE
+    //  Source: "Section 2.csv" (STOCK NO. column matched to PART NO.)
+    //  Only exact part-number matches are included.
+    // ============================================================
+    const PART_NSN_MAP = {
+        // ---- Feeder / Transport ----
+        '320.853331':        '3030-01-000-3465',  // Fig. 2-4  Feeder Flat Belt BL2
+        '34.1532.190-50':    '3030-02-000-2980',  // Fig. 2-5  Transport Flat Belt BL3
+        '320.856766':        '3030-01-000-3393',  // Fig. 2-5  Transport Flat Belt BL3
+
+        // ---- Reader Module ----
+        '32.1555.119-53':    '3030-02-000-2969',  // Fig. 2-6  Reader Entry Flat Belt 4A9BL1
+        '32.1555.120-50':    '3030-02-000-2993',  // Fig. 2-6  Lower Elevator Flat Belt BL1
+        '32.1555.120-51':    '3030-02-000-2983',  // Fig. 2-6  Lower Elevator Flat Belt BL2
+        '32.1555.920-05':    '3030-02-000-6348',  // Fig. 2-8  Upper Elevator Flat Belt BL3/BL12
+        '32.1555.958-50':    '3030-03-000-0030',  // Fig. 2-8  Upper Elevator Flat Belt BL3
+        '32.1555.958-51':    '3030-03-000-0031',  // Fig. 2-9  Tier 1 Flat Belt BL4
+        '32.1555.958-52':    '3030-03-000-0032',  // Fig. 2-9  Tier 1 Flat Belt BL5
+        '32.1555.958-54':    '3030-03-000-0034',  // Fig. 2-10 Tier 2 Flat Belt BL7
+        '32.1555.958-55':    '3030-03-000-0035',  // Fig. 2-11 Tier 3 Flat Belt BL8
+        '32.1555.958-56':    '3030-03-000-0036',  // Fig. 2-11 Tier 3 Flat Belt BL9
+        '32.1555.958-57':    '3030-03-000-0037',  // Fig. 2-12 Tier 4 Flat Belt BL10
+        '32.1555.958-58':    '3030-03-000-0038',  // Fig. 2-12 Tier 4 Flat Belt BL11
+
+        // ---- Stacker ----
+        '32.1554.020-05':    '3030-03-000-8208',  // Fig. 2-15 Stacker Transport Belt (Ph 4-5)
+        '320.854706':        '3030-01-000-6954',  // Fig. 2-15 Pocket Belt
+        '32.1555.967-08':    '3030-03-000-0041',  // Fig. 2-16 End Stacker Tier 1 Drive Belt
+        '32.1555.968-04':    '3030-03-000-0044',  // Fig. 2-15 End/First Stacker Tier 4 Drive Belt
+        '32.1555.968-06':    '3030-03-000-0046',  // Fig. 2-17 First/Mid Stacker Tier 1 Drive Belt
+        '32.1554.968-06':    '3030-03-000-8211',  // Fig. 2-18 Phase 4/5 Tier 1 Drive Belt
+        '32.1554.968-05':    '3030-03-000-8210',  // Fig. 2-19 Phase 4/5 Tier 2&3 Drive Belt
+        '32.1554.968-04':    '3030-03-000-8209'   // Fig. 2-23 Phase 4/5 Tier 4 Drive Belt
+    };
+
     // ============================================================
     //  MASTER BELT LIST — every unique belt in MS-229 Vol B §6.2
     //  with the specific figures cited in the procedures.
@@ -430,7 +467,7 @@
             loc: 'Feeder Module',
             desc: 'Feeder Flat Belt (BL2)',
             part: '320.853331',
-            nsn: 'Not listed',
+            nsn: '3030-01-000-3465',
             ref: '6.2.3.2',
             figs: 'Fig. 6-69 (Feeder Flat Belt BL2 Tension Adjustment); Fig. 6-68 (Adjustment Locations)',
             spec: '15-25',
@@ -472,7 +509,7 @@
             loc: 'Transport Module',
             desc: 'Transport Flat Belt (BL3)',
             part: '34.1532.190-50',
-            nsn: 'Not listed',
+            nsn: '3030-02-000-2980',
             ref: '6.2.4.2',
             figs: 'Fig. 6-71 (Transport Flat Belt BL3 Tension Adjustment)',
             spec: '15-25',
@@ -482,7 +519,7 @@
             loc: 'Transport Module',
             desc: 'Transport Flat Belt (BL3)',
             part: '320.856766',
-            nsn: 'Not listed',
+            nsn: '3030-01-000-3393',
             ref: '6.2.4.3',
             figs: 'Fig. 6-72 (Transport Flat Belt BL3 Tension Adjustment)',
             spec: '15-25',
@@ -504,7 +541,7 @@
             loc: 'Reader Module',
             desc: 'Reader Entry Flat Belt (4A9BL1)',
             part: '32.1555.119-53',
-            nsn: 'Not listed',
+            nsn: '3030-02-000-2969',
             ref: '6.2.5.2',
             figs: 'Fig. 6-75 (Reader Entry Flat Belts 4A9BL1, 4A9BL2 Tension Adjustment); Fig. 6-77 (Roller Guide Adjustment); Fig. 6-78 (Fine Adjustment)',
             spec: '15-25',
@@ -524,7 +561,7 @@
             loc: 'Reader Module',
             desc: 'Lower Elevator Flat Belt (BL1)',
             part: '32.1555.120-50',
-            nsn: 'Not listed',
+            nsn: '3030-02-000-2993',
             ref: '6.2.5.3',
             figs: 'Fig. 6-76 (Reader Lower BL1, BL2 & Upper Elevator BL3 Tension Adjustment); Fig. 6-77 (Roller Guide Adjustment); Fig. 6-78 (Fine Adjustment)',
             spec: '15-25',
@@ -534,7 +571,7 @@
             loc: 'Reader Module',
             desc: 'Lower Elevator Flat Belt (BL2)',
             part: '32.1555.120-51',
-            nsn: 'Not listed',
+            nsn: '3030-02-000-2983',
             ref: '6.2.5.3',
             figs: 'Fig. 6-76 (Reader Lower BL1, BL2 & Upper Elevator BL3 Tension Adjustment); Fig. 6-77 (Roller Guide Adjustment); Fig. 6-78 (Fine Adjustment)',
             spec: '15-25',
@@ -544,7 +581,7 @@
             loc: 'Reader Module',
             desc: 'Upper Elevator Flat Belt (BL3)',
             part: '32.1555.920-05',
-            nsn: 'Not listed',
+            nsn: '3030-02-000-6348',
             ref: '6.2.5.3',
             figs: 'Fig. 6-76 (Reader Lower BL1, BL2 & Upper Elevator BL3 Tension Adjustment); Fig. 6-79 (Reader Module Upper Elevator Belts BL3 & BL12 Tracking)',
             spec: '15-25',
@@ -554,7 +591,7 @@
             loc: 'Reader Module',
             desc: 'Upper Elevator Flat Belt (BL3)',
             part: '32.1555.958-50',
-            nsn: 'Not listed',
+            nsn: '3030-03-000-0030',
             ref: '6.2.5.5',
             figs: 'Fig. 6-79 (Reader Module Upper Elevator Belts BL3 & BL12 Tracking)',
             spec: '15-25',
@@ -564,7 +601,7 @@
             loc: 'Reader Module',
             desc: 'Upper Elevator Flat Belt (BL12)',
             part: '32.1555.920-05',
-            nsn: 'Not listed',
+            nsn: '3030-02-000-6348',
             ref: '6.2.5.5',
             figs: 'Fig. 6-79 (Reader Module Upper Elevator Belts BL3 & BL12 Tracking)',
             spec: '15-25',
@@ -574,7 +611,7 @@
             loc: 'Reader Module – Tier 1',
             desc: 'Flat Belt (BL4)',
             part: '32.1555.958-51',
-            nsn: 'Not listed',
+            nsn: '3030-03-000-0031',
             ref: '6.2.5.6',
             figs: 'Fig. 6-80 (Reader Module Tier 1 Flat Belt BL4 and BL5 Tension); Fig. 6-84 (Reader Module Tier 1 Flat Belt 4BL4 and 4BL5 Tracking)',
             spec: '15-25',
@@ -584,7 +621,7 @@
             loc: 'Reader Module – Tier 1',
             desc: 'Flat Belt (BL5)',
             part: '32.1555.958-52',
-            nsn: 'Not listed',
+            nsn: '3030-03-000-0032',
             ref: '6.2.5.6',
             figs: 'Fig. 6-80 (Reader Module Tier 1 Flat Belt BL4 and BL5 Tension); Fig. 6-84 (Reader Module Tier 1 Flat Belt 4BL4 and 4BL5 Tracking)',
             spec: '15-25',
@@ -604,7 +641,7 @@
             loc: 'Reader Module – Tier 2',
             desc: 'Flat Belt (BL7)',
             part: '32.1555.958-54',
-            nsn: 'Not listed',
+            nsn: '3030-03-000-0034',
             ref: '6.2.5.7',
             figs: 'Fig. 6-81 (Reader Module Tier 2 Flat Belt Tension); Fig. 6-85 (Reader Module Tier 2 Flat Belt BL6 and BL7 Tracking)',
             spec: '15-25',
@@ -614,7 +651,7 @@
             loc: 'Reader Module – Tier 3',
             desc: 'Flat Belt (BL8)',
             part: '32.1555.958-55',
-            nsn: 'Not listed',
+            nsn: '3030-03-000-0035',
             ref: '6.2.5.8',
             figs: 'Fig. 6-82 (Reader Module Tier 3 Flat Belt Tension); Fig. 6-86 (Reader Module Tier 3 Flat Belt BL8 and BL9 Tracking)',
             spec: '15-25',
@@ -624,7 +661,7 @@
             loc: 'Reader Module – Tier 3',
             desc: 'Flat Belt (BL9)',
             part: '32.1555.958-56',
-            nsn: 'Not listed',
+            nsn: '3030-03-000-0036',
             ref: '6.2.5.8',
             figs: 'Fig. 6-82 (Reader Module Tier 3 Flat Belt Tension); Fig. 6-86 (Reader Module Tier 3 Flat Belt BL8 and BL9 Tracking)',
             spec: '15-25',
@@ -634,7 +671,7 @@
             loc: 'Reader Module – Tier 4',
             desc: 'Flat Belt (BL10)',
             part: '32.1555.958-57',
-            nsn: 'Not listed',
+            nsn: '3030-03-000-0037',
             ref: '6.2.5.9',
             figs: 'Fig. 6-83 (Reader Module Tier 4 Flat Belt Tension); Fig. 6-87 (Reader Module Tier 4 Flat Belt BL10 and BL11 Tracking)',
             spec: '15-25',
@@ -644,7 +681,7 @@
             loc: 'Reader Module – Tier 4',
             desc: 'Flat Belt (BL11)',
             part: '32.1555.958-58',
-            nsn: 'Not listed',
+            nsn: '3030-03-000-0038',
             ref: '6.2.5.9',
             figs: 'Fig. 6-83 (Reader Module Tier 4 Flat Belt Tension); Fig. 6-87 (Reader Module Tier 4 Flat Belt BL10 and BL11 Tracking)',
             spec: '15-25',
@@ -656,7 +693,7 @@
             loc: 'Stacker Transport',
             desc: 'Transport Belt (Phases 4-5)',
             part: '32.1554.020-05',
-            nsn: 'Not listed',
+            nsn: '3030-03-000-8208',
             ref: '6.2.6.3',
             figs: 'Fig. 6-90 (Offset Roller Adjustment); Fig. 6-91 (Stacker Transport Belt Tension Adjustment); Fig. 6-92 (Stacker Transport Belt Tracking Adjustment); Fig. 6-93 (Belt/Diverter Gate Clearance); Fig. A-6 / Fig. A-8 (Transport Belts for adding stackers)',
             spec: '15-25',
@@ -696,7 +733,7 @@
             loc: 'Stacker Module',
             desc: 'Pocket Belt',
             part: '320.854706',
-            nsn: 'Not listed',
+            nsn: '3030-01-000-6954',
             ref: 'A.6',
             figs: 'Fig. A-19 (Mid Tiers Stacker Belting); Fig. A-16 to A-20 (Stacker Belting)',
             spec: 'N/A',
@@ -731,6 +768,29 @@
         'Fig. A-16 to A-20 (Stacker Belting)';
 
     // ============================================================
+    //  NSN HELPERS
+    // ============================================================
+    function nsnForPart(part, fallback) {
+        if (part && PART_NSN_MAP[part]) return PART_NSN_MAP[part];
+        return fallback || 'Not listed';
+    }
+
+    // Back-fill NSNs on any row whose part number is now mapped
+    // but whose stored NSN is blank / "Not listed".
+    function migrateNSNs(rows) {
+        let changed = false;
+        rows.forEach(item => {
+            if (!item.part) return;
+            const mapped = PART_NSN_MAP[item.part];
+            if (mapped && (!item.nsn || item.nsn === 'Not listed')) {
+                item.nsn = mapped;
+                changed = true;
+            }
+        });
+        return changed;
+    }
+
+    // ============================================================
     //  STATE
     // ============================================================
     let beltData = [];
@@ -746,6 +806,7 @@
 
     function buildDefaultState() {
         const non = JSON.parse(JSON.stringify(defaultNonStacker));
+        migrateNSNs(non);
         const modules = [
             { id: 1, position: 'First', tiers: ['Tier 1', 'Tier 2&3', 'Tier 4'] }
         ];
@@ -757,7 +818,7 @@
                     loc: `Stacker Module ${mod.id} (${mod.position})`,
                     desc: `${tier} Drive Belt`,
                     part: pn,
-                    nsn: 'Not listed',
+                    nsn: nsnForPart(pn),
                     ref: '6.2.6.1',
                     figs: stackerDriveFigs,
                     spec: '26-30',
@@ -784,6 +845,12 @@
                     beltData = parsed.beltData;
                     stackerModules = parsed.stackerModules;
                     nextModuleId = parsed.nextModuleId || 1;
+                    // Back-fill any NSNs that are now known from Section 2
+                    if (migrateNSNs(beltData)) {
+                        localStorage.setItem(key, JSON.stringify({
+                            beltData, stackerModules, nextModuleId
+                        }));
+                    }
                     return;
                 }
             } catch (e) { /* fall through to defaults */ }
@@ -833,6 +900,7 @@
         tbody.innerHTML = '';
 
         const nonRows = beltData.filter(item => !item._moduleId);
+        migrateNSNs(nonRows);
 
         const stackerRows = [];
         stackerModules.forEach(mod => {
@@ -844,7 +912,7 @@
                         loc: `Stacker Module ${mod.id} (${mod.position})`,
                         desc: `${tier} Drive Belt`,
                         part: pn,
-                        nsn: 'Not listed',
+                        nsn: nsnForPart(pn),
                         ref: '6.2.6.1',
                         figs: stackerDriveFigs,
                         spec: '26-30',
@@ -854,8 +922,11 @@
                         _moduleId: mod.id,
                         _tier: tier
                     };
-                } else if (!existing.figs) {
-                    existing.figs = stackerDriveFigs;
+                } else {
+                    if (!existing.figs) existing.figs = stackerDriveFigs;
+                    if (!existing.nsn || existing.nsn === 'Not listed') {
+                        existing.nsn = nsnForPart(existing.part);
+                    }
                 }
                 stackerRows.push(existing);
             });
@@ -968,7 +1039,7 @@
                 loc: `Stacker Module ${newMod.id} (${pos})`,
                 desc: `${tier} Drive Belt`,
                 part: pn,
-                nsn: 'Not listed',
+                nsn: nsnForPart(pn),
                 ref: '6.2.6.1',
                 figs: stackerDriveFigs,
                 spec: '26-30',
@@ -1077,6 +1148,9 @@
             }
 
             if (newData.length === 0) { alert('No valid data rows found.'); event.target.value = ''; return; }
+
+            // Fill in NSNs for any imported row that had none but is now mapped
+            migrateNSNs(newData);
 
             const moduleIds = new Set();
             newData.forEach(d => { if (d._moduleId !== undefined) moduleIds.add(d._moduleId); });
@@ -1212,7 +1286,11 @@
                 ev.machineResolved = true;
             }
         }
-        ev.detId = [ev.source||'', ev.machineId||'', ev.eventTime||'', ev.kind||'', norm(ev.summary||'')].join('|');
+        if (ev.dedupKey) {
+  ev.detId = 'custom|' + ev.dedupKey;
+} else {
+  ev.detId = [ev.source||'', ev.machineId||'', ev.eventTime||'', ev.kind||'', norm(ev.summary||'')].join('|');
+}
         const all = readAll();
         const i = all.findIndex(x => (x.detId||x.id) === ev.detId);
         if (i >= 0){ all[i] = Object.assign({}, all[i], ev); writeAll(all); return { action:'updated', total: all.length, machineId: ev.machineId }; }

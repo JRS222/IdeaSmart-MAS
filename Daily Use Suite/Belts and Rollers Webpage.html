@@ -2953,7 +2953,11 @@
 	                ev.machineResolved = true;
 	            }
 	        }
-	        ev.detId = [ev.source||'', ev.machineId||'', ev.eventTime||'', ev.kind||'', norm(ev.summary||'')].join('|');
+	        if (ev.dedupKey) {
+  ev.detId = 'custom|' + ev.dedupKey;
+} else {
+  ev.detId = [ev.source||'', ev.machineId||'', ev.eventTime||'', ev.kind||'', norm(ev.summary||'')].join('|');
+}
 	        const all = readAll();
 	        const i = all.findIndex(x => (x.detId||x.id) === ev.detId);
 	        if (i >= 0){ all[i] = Object.assign({}, all[i], ev); writeAll(all); return { action:'updated', total: all.length, machineId: ev.machineId }; }

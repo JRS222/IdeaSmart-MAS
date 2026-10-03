@@ -101,6 +101,7 @@
   <input type="file" id="restoreFile" accept=".json" hidden>
   <button class="hbtn" id="wipeBtn">🗑 Wipe</button>
   <button class="hbtn" id="refreshBtn">↻ Refresh</button>
+  <button class="hbtn" id="dedupBtn">🧹 Dedup belts</button>
 </header>
 
 <nav class="tabs">
@@ -613,6 +614,49 @@ renderRegistry();
 window.addEventListener('storage', e => {
   if (e.key === KEY) loadEvents();
   if (e.key === REG_KEY) renderRegistry();
+});
+
+$('#dedupBtn').addEventListener('click', () => {
+  if (!confirm('Collapse duplicate belt_log events (same machine + same readings)?')) return;
+
+  const groups = new Map();
+  const passthrough = [];
+
+  events.forEach(e => {
+    if (e.source !== 'belt_log' || !e.payload?.readings) { passthrough.push(e); return; }
+    const fp = e.payload.readings
+      .map(r => [r.loc, r.desc, r.part, r.found, r.adj].join(':'))
+      .sort()
+      .join('§');
+    const key = `${e.machineId}|${fp}`;
+    const prev = groups.get(key);
+    // Keep the earliest captured event as the canonical record;
+    // refresh its eventTime to the latest occurrence so timeline is accurate.
+    if (!prev || (e.capturedAt || '') > (prev.capturedAt || '')) {
+      if (prev) e.capturedAt = prev.capturedAt || e.capturedAt;
+      groups.set(key, e);
+    }
+  });
+
+  const merged = [...passthrough, ...groups.values()]
+    .sort((a, b) => (b.eventTime || '').localeCompare(a.eventTime || ''));
+
+  const removed = events.length - merged.length;
+  if (removed === 0) { alert('No duplicate belt_log events found.'); return; }
+
+  events = merged;
+  // Rebuild deterministic IDs so future saves still match these records
+  events.forEach(e => {
+    if (e.source === 'belt_log' && e.payload?.readings) {
+      const fp = e.payload.readings
+        .map(r => [r.loc, r.desc, r.part, r.found, r.adj].join(':'))
+        .sort().join('§');
+      e.detId = `custom|${e.machineId}|${fp}`;
+    }
+  });
+  localStorage.setItem(KEY, JSON.stringify(events));
+  loadEvents();
+  alert(`Removed ${removed} duplicate belt_log event${removed === 1 ? '' : 's'}.`);
 });
 </script>
 </body>
