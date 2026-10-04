@@ -12,6 +12,199 @@
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
+# Modern animated progress bar
+Add-Type -ReferencedAssemblies System.Windows.Forms, System.Drawing -TypeDefinition @"
+using System;
+using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Windows.Forms;
+
+public class ModernProgressBar : Control
+{
+    private int _value = 0;
+    private int _maximum = 100;
+    private int _minimum = 0;
+    private bool _marquee = false;
+    private int _marqueeOffset = 0;
+    private Timer _marqueeTimer;
+    private float _glowPhase = 0f;
+    private Timer _glowTimer;
+
+    public Color BarColorStart = Color.FromArgb(52, 152, 219);   // blue
+    public Color BarColorEnd   = Color.FromArgb(155, 89, 182);   // purple
+    public Color TrackColor    = Color.FromArgb(226, 232, 240);
+    public bool  ShowPercentage = true;
+
+    public int Minimum { get { return _minimum; } set { _minimum = value; Invalidate(); } }
+    public int Maximum { get { return _maximum; } set { _maximum = value; Invalidate(); } }
+    public int Value {
+        get { return _value; }
+        set { _value = Math.Max(_minimum, Math.Min(_maximum, value)); Invalidate(); }
+    }
+
+    // Drop-in compatibility with System.Windows.Forms.ProgressBar
+    public ProgressBarStyle Style {
+        get { return _marquee ? ProgressBarStyle.Marquee : ProgressBarStyle.Blocks; }
+        set {
+            if (value == ProgressBarStyle.Marquee) { Marquee = true;  ShowPercentage = false; }
+            else                                   { Marquee = false; ShowPercentage = true;  }
+        }
+    }
+
+    public bool Marquee {
+        get { return _marquee; }
+        set {
+            _marquee = value;
+            if (_marquee) _marqueeTimer.Start();
+            else { _marqueeTimer.Stop(); Invalidate(); }
+        }
+    }
+
+    public ModernProgressBar()
+    {
+        SetStyle(ControlStyles.AllPaintingInWmPaint
+               | ControlStyles.OptimizedDoubleBuffer
+               | ControlStyles.UserPaint
+               | ControlStyles.ResizeRedraw, true);
+        Height = 26;
+        BackColor = Color.Transparent;
+
+        _marqueeTimer = new Timer { Interval = 25 };
+        _marqueeTimer.Tick += (s, e) => {
+            _marqueeOffset = (_marqueeOffset + 6) % (Width + 140);
+            Invalidate();
+        };
+
+        _glowTimer = new Timer { Interval = 35 };
+        _glowTimer.Tick += (s, e) => {
+            _glowPhase += 0.09f;
+            if (_glowPhase > (float)(Math.PI * 2)) _glowPhase -= (float)(Math.PI * 2);
+            if (!_marquee) Invalidate();
+        };
+        _glowTimer.Start();
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        var g = e.Graphics;
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+
+        int radius = Height / 2;
+        var trackRect = new Rectangle(0, 0, Width - 1, Height - 1);
+
+        using (var path  = RoundedRect(trackRect, radius))
+        using (var brush = new SolidBrush(TrackColor))
+            g.FillPath(brush, path);
+
+        if (!_marquee)
+        {
+            double pct = (_maximum > _minimum)
+                ? (double)(_value - _minimum) / (_maximum - _minimum) : 0;
+            int fillWidth = (int)((Width - 2) * pct);
+
+            if (fillWidth > 0)
+            {
+                var fillRect   = new Rectangle(1, 1, fillWidth, Height - 2);
+                int fillRadius = Math.Min(radius, fillWidth / 2);
+
+                using (var path = RoundedRect(fillRect, fillRadius))
+                using (var brush = new LinearGradientBrush(
+                    new Rectangle(0, 0, Math.Max(1, fillWidth), Height),
+                    BarColorStart, BarColorEnd, LinearGradientMode.Horizontal))
+                    g.FillPath(brush, path);
+
+                // Subtle top shine
+                var shineRect = new Rectangle(1, 1, fillWidth, Math.Max(1, Height / 2 - 1));
+                using (var path = RoundedRect(fillRect, fillRadius))
+                using (var shine = new LinearGradientBrush(
+                    shineRect,
+                    Color.FromArgb(95, 255, 255, 255),
+                    Color.FromArgb(0, 255, 255, 255),
+                    LinearGradientMode.Vertical))
+                {
+                    var state = g.Save();
+                    g.SetClip(path);
+                    g.FillRectangle(shine, shineRect);
+                    g.Restore(state);
+                }
+
+                // Pulsing leading-edge glow
+                float alpha = 0.30f + 0.30f * (float)Math.Sin(_glowPhase);
+                int glowWidth = Math.Min(32, fillWidth);
+                int glowX     = fillWidth - glowWidth + 1;
+                if (glowX >= 0)
+                {
+                    var glowRect = new Rectangle(glowX, 1, glowWidth, Height - 2);
+                    using (var path = RoundedRect(glowRect, Math.Min(radius, glowWidth / 2)))
+                    using (var glowBrush = new LinearGradientBrush(
+                        glowRect,
+                        Color.FromArgb((int)(alpha * 255), 255, 255, 255),
+                        Color.FromArgb(0, 255, 255, 255),
+                        LinearGradientMode.Horizontal))
+                        g.FillPath(glowBrush, path);
+                }
+            }
+        }
+        else
+        {
+            // Marquee: sliding gradient block
+            int blockWidth = Math.Max(90, Width / 3);
+            int x = _marqueeOffset - blockWidth;
+            var clipRect  = new Rectangle(x, 1, blockWidth, Height - 2);
+            var intersect = Rectangle.Intersect(clipRect, new Rectangle(1, 1, Width - 2, Height - 2));
+            if (intersect.Width > 0)
+            {
+                using (var path = RoundedRect(new Rectangle(1, 1, Width - 2, Height - 2), radius))
+                using (var brush = new LinearGradientBrush(
+                    clipRect, BarColorStart, BarColorEnd, LinearGradientMode.Horizontal))
+                {
+                    var state = g.Save();
+                    g.SetClip(path);
+                    g.FillRectangle(brush, clipRect);
+                    g.Restore(state);
+                }
+            }
+        }
+
+        // Thin outline
+        using (var path = RoundedRect(trackRect, radius))
+        using (var pen  = new Pen(Color.FromArgb(28, 0, 0, 0), 1))
+            g.DrawPath(pen, path);
+
+        // Percentage overlay
+        if (ShowPercentage && !_marquee)
+        {
+            double pct = (_maximum > _minimum)
+                ? (double)(_value - _minimum) / (_maximum - _minimum) : 0;
+            string text = ((int)Math.Round(pct * 100)) + "%";
+            using (var fmt = new StringFormat {
+                Alignment = StringAlignment.Center,
+                LineAlignment = StringAlignment.Center })
+            using (var font = new Font("Segoe UI", 9, FontStyle.Bold))
+            {
+                using (var shadow = new SolidBrush(Color.FromArgb(110, 0, 0, 0)))
+                    g.DrawString(text, font, shadow, new RectangleF(1, 1, Width, Height), fmt);
+                using (var fg = new SolidBrush(Color.White))
+                    g.DrawString(text, font, fg, new RectangleF(0, 0, Width, Height), fmt);
+            }
+        }
+    }
+
+    private GraphicsPath RoundedRect(Rectangle bounds, int radius)
+    {
+        var path = new GraphicsPath();
+        if (radius <= 0) { path.AddRectangle(bounds); return path; }
+        int d = radius * 2;
+        path.AddArc(bounds.X, bounds.Y, d, d, 180, 90);
+        path.AddArc(bounds.Right - d, bounds.Y, d, d, 270, 90);
+        path.AddArc(bounds.Right - d, bounds.Bottom - d, d, d, 0, 90);
+        path.AddArc(bounds.X, bounds.Bottom - d, d, d, 90, 90);
+        path.CloseFigure();
+        return path;
+    }
+}
+"@ -ErrorAction Stop
+
 ################################################################################
 #                           Global Variables                                   #
 ################################################################################
@@ -107,23 +300,69 @@ if (-not $laborLogsFilePath) {
     Write-Log "Labor logs file path was not in config, set to: $laborLogsFilePath"
 }
 
-# Helper function to create buttons
+# Helper function to create buttons with optional color styles
 function New-Button {
     param(
         [string]$text,
         [scriptblock]$action,
-        [object]$Tag = $null
+        [object]$Tag = $null,
+        [ValidateSet('Primary','Success','Danger','Secondary','Ghost')]
+        [string]$Style = 'Primary',
+        [int]$Width = 450,
+        [int]$Height = 36,
+        [System.Drawing.ContentAlignment]$TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
     )
+
     $button = New-Object System.Windows.Forms.Button
     $button.Text = $text
-    $button.Width = 450
-    $button.Height = 30
-    $button.Margin = New-Object System.Windows.Forms.Padding(5)
-    if ($Tag -ne $null) {
-        $button.Tag = $Tag
+    $button.Width = $Width
+    $button.Height = $Height
+    $button.Margin = New-Object System.Windows.Forms.Padding(6)
+    $button.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $button.FlatAppearance.BorderSize = 0
+    $button.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Regular)
+    $button.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $button.TextAlign = $TextAlign
+    $button.Padding = New-Object System.Windows.Forms.Padding(10, 0, 0, 0)
+    $button.UseVisualStyleBackColor = $false
+
+    switch ($Style) {
+        'Primary'   { $button.BackColor = [System.Drawing.Color]::FromArgb(52,152,219);  $button.ForeColor = [System.Drawing.Color]::White }
+        'Success'   { $button.BackColor = [System.Drawing.Color]::FromArgb(39,174,96);   $button.ForeColor = [System.Drawing.Color]::White }
+        'Danger'    { $button.BackColor = [System.Drawing.Color]::FromArgb(231,76,60);   $button.ForeColor = [System.Drawing.Color]::White }
+        'Secondary' { $button.BackColor = [System.Drawing.Color]::FromArgb(189,195,199); $button.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80) }
+        'Ghost'     { $button.BackColor = [System.Drawing.Color]::FromArgb(236,240,241); $button.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80) }
     }
+
+    # Hover feedback (lighten/darken)
+    $baseColor = $button.BackColor
+    $button.Add_MouseEnter({
+        $c = $this.BackColor
+        $this.BackColor = [System.Drawing.Color]::FromArgb(
+            [Math]::Min(255, $c.R + 20),
+            [Math]::Min(255, $c.G + 20),
+            [Math]::Min(255, $c.B + 20))
+    })
+    $button.Add_MouseLeave({
+        $this.BackColor = $baseColor
+    })
+
+    if ($Tag -ne $null) { $button.Tag = $Tag }
     $button.Add_Click($action)
     return $button
+}
+
+# Helper to apply a consistent ListView style
+function Set-ListViewStyle {
+    param([System.Windows.Forms.ListView]$ListView)
+    $ListView.View = [System.Windows.Forms.View]::Details
+    $ListView.FullRowSelect = $true
+    $ListView.GridLines = $true
+    $ListView.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
+    $ListView.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+    $ListView.BackColor = [System.Drawing.Color]::White
+    $ListView.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $ListView.HideSelection = $false
 }
 
 ################################################################################
@@ -331,10 +570,10 @@ function Create-ExcelFromCsv {
         $progressForm.Size = New-Object System.Drawing.Size(400, 150)
         $progressForm.StartPosition = 'CenterScreen'
         
-        $progressBar = New-Object System.Windows.Forms.ProgressBar
-        $progressBar.Size = New-Object System.Drawing.Size(360,20)
-        $progressBar.Location = New-Object System.Drawing.Point(10,10)
-        $progressForm.Controls.Add($progressBar)
+		$progressBar = New-Object ModernProgressBar
+		$progressBar.Size = New-Object System.Drawing.Size(360,24)
+		$progressBar.Location = New-Object System.Drawing.Point(10,12)
+		$progressForm.Controls.Add($progressBar)
         
         $progressLabel = New-Object System.Windows.Forms.Label
         $progressLabel.Size = New-Object System.Drawing.Size(360,40)
@@ -811,10 +1050,10 @@ function Update-AllFiles {
     $progressLabel.Text = "Starting..."
     $progressForm.Controls.Add($progressLabel)
 
-    $progressBar = New-Object System.Windows.Forms.ProgressBar
-    $progressBar.Location = New-Object System.Drawing.Point(10, 55)
-    $progressBar.Size = New-Object System.Drawing.Size(490, 20)
-    $progressForm.Controls.Add($progressBar)
+	$progressBar = New-Object ModernProgressBar
+	$progressBar.Location = New-Object System.Drawing.Point(10, 55)
+	$progressBar.Size = New-Object System.Drawing.Size(490, 26)
+	$progressForm.Controls.Add($progressBar)
 
     $detailLabel = New-Object System.Windows.Forms.Label
     $detailLabel.Location = New-Object System.Drawing.Point(10, 85)
@@ -1698,26 +1937,38 @@ function Setup-CallLogsTab {
 
     Write-Log "Setting up Call Logs tab..."
 
+    # Root container
     $callLogsPanel = New-Object System.Windows.Forms.Panel
     $callLogsPanel.Dock = 'Fill'
+    $callLogsPanel.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $callLogsPanel.Padding = New-Object System.Windows.Forms.Padding(12)
     $parentTab.Controls.Add($callLogsPanel)
 
-    # Call Log ListView
+    # Bottom action bar (Dock=Bottom first, so ListView fill goes above it)
+    $actionBar = New-Object System.Windows.Forms.FlowLayoutPanel
+    $actionBar.Dock = 'Bottom'
+    $actionBar.Height = 52
+    $actionBar.FlowDirection = [System.Windows.Forms.FlowDirection]::LeftToRight
+    $actionBar.WrapContents = $false
+    $actionBar.BackColor = [System.Drawing.Color]::Transparent
+    $actionBar.Padding = New-Object System.Windows.Forms.Padding(0, 8, 0, 0)
+    $callLogsPanel.Controls.Add($actionBar)
+
+    # Call Log ListView (Dock=Fill)
     $script:listViewCallLogs = New-Object System.Windows.Forms.ListView
-    $script:listViewCallLogs.Location = New-Object System.Drawing.Point(10, 10)
-    $script:listViewCallLogs.Size = New-Object System.Drawing.Size(850, 420)
-    $script:listViewCallLogs.View = [System.Windows.Forms.View]::Details
-    $script:listViewCallLogs.FullRowSelect = $true
+    $script:listViewCallLogs.Dock = 'Fill'
     $script:listViewCallLogs.Columns.Clear()
-    $script:listViewCallLogs.Columns.Add("Date", 100) | Out-Null
-    $script:listViewCallLogs.Columns.Add("Machine ID", 120) | Out-Null
-    $script:listViewCallLogs.Columns.Add("Cause", 100) | Out-Null
-    $script:listViewCallLogs.Columns.Add("Action", 100) | Out-Null
-    $script:listViewCallLogs.Columns.Add("Noun", 100) | Out-Null
-    $script:listViewCallLogs.Columns.Add("Time Down", 80) | Out-Null
-    $script:listViewCallLogs.Columns.Add("Time Up", 80) | Out-Null
-    $script:listViewCallLogs.Columns.Add("Notes", 150) | Out-Null
+    $script:listViewCallLogs.Columns.Add("Date", 100)      | Out-Null
+    $script:listViewCallLogs.Columns.Add("Machine ID", 140) | Out-Null
+    $script:listViewCallLogs.Columns.Add("Cause", 100)     | Out-Null
+    $script:listViewCallLogs.Columns.Add("Action", 100)    | Out-Null
+    $script:listViewCallLogs.Columns.Add("Noun", 100)      | Out-Null
+    $script:listViewCallLogs.Columns.Add("Time Down", 80)  | Out-Null
+    $script:listViewCallLogs.Columns.Add("Time Up", 80)    | Out-Null
+    $script:listViewCallLogs.Columns.Add("Notes", 200)     | Out-Null
+    Set-ListViewStyle -ListView $script:listViewCallLogs
     $callLogsPanel.Controls.Add($script:listViewCallLogs)
+    $script:listViewCallLogs.BringToFront()
 
     # Load existing call logs
     Load-Logs -listView $script:listViewCallLogs -filePath $callLogsFilePath
@@ -1725,19 +1976,30 @@ function Setup-CallLogsTab {
     # Ensure Labor Logs CSV exists and process historical logs
     Process-HistoricalLogs
 
-    # Add New Call Log Button
+    # ---------- Add New Call Log button (unchanged sub-form logic) ----------
     $addCallLogButton = New-Object System.Windows.Forms.Button
-    $addCallLogButton.Location = New-Object System.Drawing.Point(10, 440)
-    $addCallLogButton.Size = New-Object System.Drawing.Size(150, 30)
+    $addCallLogButton.Size = New-Object System.Drawing.Size(160, 36)
     $addCallLogButton.Text = "Add New Call Log"
+    $addCallLogButton.BackColor = [System.Drawing.Color]::FromArgb(52,152,219)
+    $addCallLogButton.ForeColor = [System.Drawing.Color]::White
+    $addCallLogButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $addCallLogButton.FlatAppearance.BorderSize = 0
+    $addCallLogButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $addCallLogButton.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $addCallLogButton.Margin = New-Object System.Windows.Forms.Padding(0,0,8,0)
+
     $addCallLogButton.Add_Click({
         $addCallLogForm = New-Object System.Windows.Forms.Form
         $addCallLogForm.Text = "Add New Call Log"
         $addCallLogForm.Size = New-Object System.Drawing.Size(400, 500)
-        $addCallLogForm.StartPosition = 'CenterScreen'
+        $addCallLogForm.StartPosition = 'CenterParent'
+        $addCallLogForm.FormBorderStyle = 'FixedDialog'
+        $addCallLogForm.MaximizeBox = $false
+        $addCallLogForm.MinimizeBox = $false
+        $addCallLogForm.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+        $addCallLogForm.Font = New-Object System.Drawing.Font("Segoe UI", 9)
 
-
-        # Date
+        # ---- (unchanged internals) ----
         $labelDate = New-Object System.Windows.Forms.Label
         $labelDate.Location = New-Object System.Drawing.Point(10, 20)
         $labelDate.Size = New-Object System.Drawing.Size(100, 20)
@@ -1750,7 +2012,6 @@ function Setup-CallLogsTab {
         $textBoxDate.Text = Get-Date -Format "yyyy-MM-dd"
         $addCallLogForm.Controls.Add($textBoxDate)
 
-        # Machine ID
         $labelMachineId = New-Object System.Windows.Forms.Label
         $labelMachineId.Location = New-Object System.Drawing.Point(10, 50)
         $labelMachineId.Size = New-Object System.Drawing.Size(100, 20)
@@ -1761,11 +2022,8 @@ function Setup-CallLogsTab {
         $comboBoxMachineId.Location = New-Object System.Drawing.Point(120, 50)
         $comboBoxMachineId.Size = New-Object System.Drawing.Size(250, 20)
         $addCallLogForm.Controls.Add($comboBoxMachineId)
-
-        # Load Machine IDs
         Load-ComboBoxData -comboBox $comboBoxMachineId -csvName "Machines"
 
-        # Cause
         $labelCause = New-Object System.Windows.Forms.Label
         $labelCause.Location = New-Object System.Drawing.Point(10, 80)
         $labelCause.Size = New-Object System.Drawing.Size(100, 20)
@@ -1778,7 +2036,6 @@ function Setup-CallLogsTab {
         $addCallLogForm.Controls.Add($comboBoxCause)
         Load-ComboBoxData -comboBox $comboBoxCause -csvName "Causes"
 
-        # Action
         $labelAction = New-Object System.Windows.Forms.Label
         $labelAction.Location = New-Object System.Drawing.Point(10, 110)
         $labelAction.Size = New-Object System.Drawing.Size(100, 20)
@@ -1791,7 +2048,6 @@ function Setup-CallLogsTab {
         $addCallLogForm.Controls.Add($comboBoxAction)
         Load-ComboBoxData -comboBox $comboBoxAction -csvName "Actions"
 
-        # Noun
         $labelNoun = New-Object System.Windows.Forms.Label
         $labelNoun.Location = New-Object System.Drawing.Point(10, 140)
         $labelNoun.Size = New-Object System.Drawing.Size(100, 20)
@@ -1804,7 +2060,6 @@ function Setup-CallLogsTab {
         $addCallLogForm.Controls.Add($comboBoxNoun)
         Load-ComboBoxData -comboBox $comboBoxNoun -csvName "Nouns"
 
-        # Time Down
         $labelTimeDown = New-Object System.Windows.Forms.Label
         $labelTimeDown.Location = New-Object System.Drawing.Point(10, 200)
         $labelTimeDown.Size = New-Object System.Drawing.Size(100, 20)
@@ -1844,7 +2099,6 @@ function Setup-CallLogsTab {
         })
         $addCallLogForm.Controls.Add($buttonTimeDownNow)
 
-        # Time Up
         $labelTimeUp = New-Object System.Windows.Forms.Label
         $labelTimeUp.Location = New-Object System.Drawing.Point(10, 230)
         $labelTimeUp.Size = New-Object System.Drawing.Size(100, 20)
@@ -1884,7 +2138,6 @@ function Setup-CallLogsTab {
         })
         $addCallLogForm.Controls.Add($buttonTimeUpNow)
 
-        # Notes
         $labelNotes = New-Object System.Windows.Forms.Label
         $labelNotes.Location = New-Object System.Drawing.Point(10, 260)
         $labelNotes.Size = New-Object System.Drawing.Size(100, 20)
@@ -1897,11 +2150,14 @@ function Setup-CallLogsTab {
         $textBoxNotes.Multiline = $true
         $addCallLogForm.Controls.Add($textBoxNotes)
 
-        # Add button
         $addButton = New-Object System.Windows.Forms.Button
         $addButton.Location = New-Object System.Drawing.Point(150, 330)
         $addButton.Size = New-Object System.Drawing.Size(100, 30)
         $addButton.Text = "Add"
+        $addButton.BackColor = [System.Drawing.Color]::FromArgb(39,174,96)
+        $addButton.ForeColor = [System.Drawing.Color]::White
+        $addButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $addButton.FlatAppearance.BorderSize = 0
         $addButton.Add_Click({
             $item = New-Object System.Windows.Forms.ListViewItem($textBoxDate.Text)
             $item.SubItems.Add($comboBoxMachineId.SelectedItem)
@@ -1909,113 +2165,127 @@ function Setup-CallLogsTab {
             $item.SubItems.Add($comboBoxAction.SelectedItem)
             $item.SubItems.Add($comboBoxNoun.SelectedItem)
             $timeDown = "$($comboBoxTimeDownHour.SelectedItem):$($comboBoxTimeDownMinute.SelectedItem)"
-            $timeUp = "$($comboBoxTimeUpHour.SelectedItem):$($comboBoxTimeUpMinute.SelectedItem)"
+            $timeUp   = "$($comboBoxTimeUpHour.SelectedItem):$($comboBoxTimeUpMinute.SelectedItem)"
             $item.SubItems.Add($timeDown)
             $item.SubItems.Add($timeUp)
             $item.SubItems.Add($textBoxNotes.Text)
 
             $script:listViewCallLogs.Items.Add($item)
-
-            # Save call logs after adding a new entry
             Save-Logs -listView $script:listViewCallLogs -filePath $callLogsFilePath
-
             $addCallLogForm.Close()
         })
         $addCallLogForm.Controls.Add($addButton)
-
         $addCallLogForm.ShowDialog()
     })
-    $callLogsPanel.Controls.Add($addCallLogButton)
+    $actionBar.Controls.Add($addCallLogButton)
 
-    # Add Machine Button
+    # ---------- Add Machine button ----------
     $addMachineButton = New-Object System.Windows.Forms.Button
-    $addMachineButton.Location = New-Object System.Drawing.Point(170, 440)
-    $addMachineButton.Size = New-Object System.Drawing.Size(150, 30)
+    $addMachineButton.Size = New-Object System.Drawing.Size(150, 36)
     $addMachineButton.Text = "Add Machine"
+    $addMachineButton.BackColor = [System.Drawing.Color]::FromArgb(52,152,219)
+    $addMachineButton.ForeColor = [System.Drawing.Color]::White
+    $addMachineButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $addMachineButton.FlatAppearance.BorderSize = 0
+    $addMachineButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $addMachineButton.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $addMachineButton.Margin = New-Object System.Windows.Forms.Padding(0,0,8,0)
     $addMachineButton.Add_Click({
         $addMachineForm = New-Object System.Windows.Forms.Form
         $addMachineForm.Text = "Add New Machine"
-        $addMachineForm.Size = New-Object System.Drawing.Size(300, 200)
-        $addMachineForm.StartPosition = 'CenterScreen'
+        $addMachineForm.Size = New-Object System.Drawing.Size(300, 220)
+        $addMachineForm.StartPosition = 'CenterParent'
+        $addMachineForm.FormBorderStyle = 'FixedDialog'
+        $addMachineForm.MaximizeBox = $false
+        $addMachineForm.MinimizeBox = $false
+        $addMachineForm.Font = New-Object System.Drawing.Font("Segoe UI", 9)
 
         $labelAcronym = New-Object System.Windows.Forms.Label
         $labelAcronym.Location = New-Object System.Drawing.Point(10, 20)
-        $labelAcronym.Size = New-Object System.Drawing.Size(100, 20)
+        $labelAcronym.Size = New-Object System.Drawing.Size(120, 20)
         $labelAcronym.Text = "Machine Acronym:"
         $addMachineForm.Controls.Add($labelAcronym)
 
         $textBoxAcronym = New-Object System.Windows.Forms.TextBox
-        $textBoxAcronym.Location = New-Object System.Drawing.Point(120, 20)
+        $textBoxAcronym.Location = New-Object System.Drawing.Point(130, 20)
         $textBoxAcronym.Size = New-Object System.Drawing.Size(150, 20)
         $addMachineForm.Controls.Add($textBoxAcronym)
 
         $labelEquipmentNumber = New-Object System.Windows.Forms.Label
         $labelEquipmentNumber.Location = New-Object System.Drawing.Point(10, 50)
-        $labelEquipmentNumber.Size = New-Object System.Drawing.Size(100, 20)
+        $labelEquipmentNumber.Size = New-Object System.Drawing.Size(120, 20)
         $labelEquipmentNumber.Text = "Equipment Number:"
         $addMachineForm.Controls.Add($labelEquipmentNumber)
 
         $textBoxEquipmentNumber = New-Object System.Windows.Forms.TextBox
-        $textBoxEquipmentNumber.Location = New-Object System.Drawing.Point(120, 50)
+        $textBoxEquipmentNumber.Location = New-Object System.Drawing.Point(130, 50)
         $textBoxEquipmentNumber.Size = New-Object System.Drawing.Size(150, 20)
         $addMachineForm.Controls.Add($textBoxEquipmentNumber)
 
         $addButton = New-Object System.Windows.Forms.Button
-        $addButton.Location = New-Object System.Drawing.Point(100, 90)
+        $addButton.Location = New-Object System.Drawing.Point(100, 100)
         $addButton.Size = New-Object System.Drawing.Size(100, 30)
         $addButton.Text = "Add Machine"
+        $addButton.BackColor = [System.Drawing.Color]::FromArgb(39,174,96)
+        $addButton.ForeColor = [System.Drawing.Color]::White
+        $addButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $addButton.FlatAppearance.BorderSize = 0
         $addButton.Add_Click({
             $machineAcronym = $textBoxAcronym.Text.Trim()
             $equipmentNumber = $textBoxEquipmentNumber.Text.Trim()
-    
+
             if ([string]::IsNullOrWhiteSpace($machineAcronym) -or [string]::IsNullOrWhiteSpace($equipmentNumber)) {
                 [System.Windows.Forms.MessageBox]::Show("Please enter both Machine Acronym and Equipment Number.", "Input Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
                 return
             }
-    
+
             $machinesCsvPath = Join-Path $config.DropdownCsvsDirectory "Machines.csv"
-    
-            # Create the CSV file if it doesn't exist
+
             if (-not (Test-Path $machinesCsvPath)) {
                 "Machine Acronym,Machine Number" | Out-File -FilePath $machinesCsvPath -Encoding utf8
                 Write-Log "Created new Machines.csv file at $machinesCsvPath"
             }
-    
-            # Read existing data
+
             $existingData = Import-Csv -Path $machinesCsvPath
-    
-            # Check if the entry already exists
+
             if ($existingData | Where-Object { $_.'Machine Acronym' -eq $machineAcronym -and $_.'Machine Number' -eq $equipmentNumber }) {
                 [System.Windows.Forms.MessageBox]::Show("This machine and equipment number combination already exists.", "Duplicate Entry", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
                 return
             }
-    
-            # Append the new machine to the CSV
+
             "$machineAcronym,$equipmentNumber" | Out-File -FilePath $machinesCsvPath -Append -Encoding utf8
             Write-Log "Added new machine: $machineAcronym with equipment number: $equipmentNumber to $machinesCsvPath"
-    
-            # Set a flag to indicate that the Machines list has been updated
+
             $script:machinesUpdated = $true
-    
+
             [System.Windows.Forms.MessageBox]::Show("Machine added successfully.", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
             $addMachineForm.Close()
         })
         $addMachineForm.Controls.Add($addButton)
-    
         $addMachineForm.ShowDialog()
     })
-    $callLogsPanel.Controls.Add($addMachineButton)
+    $actionBar.Controls.Add($addMachineButton)
 
-    # Add Send Logs Button
+    # ---------- Send Logs button ----------
     $sendLogsButton = New-Object System.Windows.Forms.Button
-    $sendLogsButton.Location = New-Object System.Drawing.Point(330, 440)
-    $sendLogsButton.Size = New-Object System.Drawing.Size(150, 30)
+    $sendLogsButton.Size = New-Object System.Drawing.Size(150, 36)
     $sendLogsButton.Text = "Send Logs"
+    $sendLogsButton.BackColor = [System.Drawing.Color]::FromArgb(52,152,219)
+    $sendLogsButton.ForeColor = [System.Drawing.Color]::White
+    $sendLogsButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $sendLogsButton.FlatAppearance.BorderSize = 0
+    $sendLogsButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $sendLogsButton.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $sendLogsButton.Margin = New-Object System.Windows.Forms.Padding(0,0,8,0)
     $sendLogsButton.Add_Click({
         $sendLogsForm = New-Object System.Windows.Forms.Form
         $sendLogsForm.Text = "Send Logs"
         $sendLogsForm.Size = New-Object System.Drawing.Size(300, 200)
-        $sendLogsForm.StartPosition = 'CenterScreen'
+        $sendLogsForm.StartPosition = 'CenterParent'
+        $sendLogsForm.FormBorderStyle = 'FixedDialog'
+        $sendLogsForm.MaximizeBox = $false
+        $sendLogsForm.MinimizeBox = $false
+        $sendLogsForm.Font = New-Object System.Drawing.Font("Segoe UI", 9)
 
         $labelDate = New-Object System.Windows.Forms.Label
         $labelDate.Location = New-Object System.Drawing.Point(10, 20)
@@ -2033,6 +2303,10 @@ function Setup-CallLogsTab {
         $sendButton.Location = New-Object System.Drawing.Point(100, 100)
         $sendButton.Size = New-Object System.Drawing.Size(100, 30)
         $sendButton.Text = "Save to File"
+        $sendButton.BackColor = [System.Drawing.Color]::FromArgb(39,174,96)
+        $sendButton.ForeColor = [System.Drawing.Color]::White
+        $sendButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $sendButton.FlatAppearance.BorderSize = 0
         $sendButton.Add_Click({
             $selectedDate = $dateTimePicker.Value.ToString("yyyy-MM-dd")
             $logsForDate = $script:listViewCallLogs.Items | Where-Object { $_.SubItems[0].Text -eq $selectedDate }
@@ -2051,7 +2325,6 @@ function Setup-CallLogsTab {
                 $timeDown = $_.SubItems[6].Text
                 $timeUp = $_.SubItems[7].Text
                 $notes = $_.SubItems[8].Text
-
                 "Machine: $machine`r`nEquipment Number: $equipmentNumber`r`nCause: $cause`r`nAction: $action`r`nNoun: $noun`r`nTime Down: $timeDown`r`nTime Up: $timeUp`r`nNotes: $notes`r`n`r`n"
             }
 
@@ -2066,26 +2339,21 @@ function Setup-CallLogsTab {
                 if ($saveFileDialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
                     $filePath = $saveFileDialog.FileName
                     $content | Out-File -FilePath $filePath -Encoding utf8
-
                     Write-Log "Call logs for $selectedDate saved to $filePath"
                     [System.Windows.Forms.MessageBox]::Show("Call logs have been saved to $filePath", "Logs Saved", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-                }
-                else {
+                } else {
                     Write-Log "Log file save cancelled by user"
                 }
-            }
-            catch {
+            } catch {
                 Write-Log "Error saving log file: $_"
                 [System.Windows.Forms.MessageBox]::Show("Error saving log file: $_", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
             }
-
             $sendLogsForm.Close()
         })
         $sendLogsForm.Controls.Add($sendButton)
-
         $sendLogsForm.ShowDialog()
     })
-    $callLogsPanel.Controls.Add($sendLogsButton)
+    $actionBar.Controls.Add($sendLogsButton)
 
     Write-Log "Call Logs tab setup completed."
 }
@@ -2098,29 +2366,38 @@ function Setup-LaborLogTab {
 
     $laborLogPanel = New-Object System.Windows.Forms.Panel
     $laborLogPanel.Dock = 'Fill'
+    $laborLogPanel.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $laborLogPanel.Padding = New-Object System.Windows.Forms.Padding(12)
     $parentTab.Controls.Add($laborLogPanel)
+
+    # Bottom button bar
+    $buttonBar = New-Object System.Windows.Forms.FlowLayoutPanel
+    $buttonBar.Dock = 'Bottom'
+    $buttonBar.Height = 52
+    $buttonBar.FlowDirection = [System.Windows.Forms.FlowDirection]::LeftToRight
+    $buttonBar.WrapContents = $false
+    $buttonBar.Padding = New-Object System.Windows.Forms.Padding(0, 8, 0, 0)
+    $buttonBar.BackColor = [System.Drawing.Color]::Transparent
+    $laborLogPanel.Controls.Add($buttonBar)
 
     # Labor Log ListView
     $script:listViewLaborLog = New-Object System.Windows.Forms.ListView
-    $script:listViewLaborLog.Location = New-Object System.Drawing.Point(10, 10)
-    $script:listViewLaborLog.Size = New-Object System.Drawing.Size(850, 500)
-    $script:listViewLaborLog.View = [System.Windows.Forms.View]::Details
-    $script:listViewLaborLog.FullRowSelect = $true
+    $script:listViewLaborLog.Dock = 'Fill'
     $script:listViewLaborLog.Scrollable = $true
-	$script:listViewLaborLog.ShowItemToolTips = $true
-    $script:listViewLaborLog.AutoResizeColumns([System.Windows.Forms.ColumnHeaderAutoResizeStyle]::None)
-    $script:listViewLaborLog.Columns.Add("Date", 100) | Out-Null
-    $script:listViewLaborLog.Columns.Add("Work Order", 150) | Out-Null
-    $script:listViewLaborLog.Columns.Add("Description", 300) | Out-Null
-    $script:listViewLaborLog.Columns.Add("Machine", 100) | Out-Null
-    $script:listViewLaborLog.Columns.Add("Duration", 100) | Out-Null
-    $script:listViewLaborLog.Columns.Add("Parts", 300) | Out-Null  # Increase width to 300 pixels
-    $script:listViewLaborLog.Columns.Add("Notes", 150) | Out-Null
+    $script:listViewLaborLog.ShowItemToolTips = $true
+    $script:listViewLaborLog.Columns.Add("Date", 100)        | Out-Null
+    $script:listViewLaborLog.Columns.Add("Work Order", 150)  | Out-Null
+    $script:listViewLaborLog.Columns.Add("Description", 300)| Out-Null
+    $script:listViewLaborLog.Columns.Add("Machine", 100)     | Out-Null
+    $script:listViewLaborLog.Columns.Add("Duration", 100)    | Out-Null
+    $script:listViewLaborLog.Columns.Add("Parts", 300)       | Out-Null
+    $script:listViewLaborLog.Columns.Add("Notes", 180)       | Out-Null
+    Set-ListViewStyle -ListView $script:listViewLaborLog
     $laborLogPanel.Controls.Add($script:listViewLaborLog)
-    
-    # Tooltip for hovering
-    $script:listViewToolTip = New-Object System.Windows.Forms.ToolTip
+    $script:listViewLaborLog.BringToFront()
 
+    # Tooltip
+    $script:listViewToolTip = New-Object System.Windows.Forms.ToolTip
     $script:listViewLaborLog.Add_MouseMove({
         param($sender, $e)
         $item = $script:listViewLaborLog.GetItemAt($e.X, $e.Y)
@@ -2131,9 +2408,7 @@ function Setup-LaborLogTab {
         }
     })
 
-
-
-    # Double-Click for details
+    # Double-click details (unchanged)
     $script:listViewLaborLog.Add_DoubleClick({
         $selectedItems = $script:listViewLaborLog.SelectedItems
         if ($selectedItems.Count -gt 0) {
@@ -2141,20 +2416,21 @@ function Setup-LaborLogTab {
             $workOrderNumber = $item.SubItems[1].Text
             if ($script:workOrderParts.ContainsKey($workOrderNumber)) {
                 $parts = $script:workOrderParts[$workOrderNumber]
-                
                 $detailsForm = New-Object System.Windows.Forms.Form
                 $detailsForm.Text = "Parts Details for Work Order #$workOrderNumber"
                 $detailsForm.Size = New-Object System.Drawing.Size(600, 400)
-                
+                $detailsForm.StartPosition = 'CenterParent'
+                $detailsForm.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+
                 $detailsListView = New-Object System.Windows.Forms.ListView
-                $detailsListView.View = [System.Windows.Forms.View]::Details
                 $detailsListView.Dock = 'Fill'
                 $detailsListView.Columns.Add("Part Number", 100)
                 $detailsListView.Columns.Add("OEM", 100)
                 $detailsListView.Columns.Add("Quantity", 100)
                 $detailsListView.Columns.Add("Location", 100)
                 $detailsListView.Columns.Add("Source", 100)
-                
+                Set-ListViewStyle -ListView $detailsListView
+
                 foreach ($part in $parts) {
                     $partItem = New-Object System.Windows.Forms.ListViewItem($part.PartNumber)
                     $partItem.SubItems.Add($part.PartNo)
@@ -2163,111 +2439,84 @@ function Setup-LaborLogTab {
                     $partItem.SubItems.Add($part.Source)
                     $detailsListView.Items.Add($partItem)
                 }
-                
+
                 $detailsForm.Controls.Add($detailsListView)
                 $detailsForm.ShowDialog()
             }
         }
     })
-    
-    # Initialize notification icon
+
+    # Notification icon (top-right of tab)
     $script:notificationIcon = New-Object System.Windows.Forms.Label
     $script:notificationIcon.Text = "•"
-    $script:notificationIcon.ForeColor = [System.Drawing.Color]::Red
+    $script:notificationIcon.ForeColor = [System.Drawing.Color]::FromArgb(231,76,60)
     $script:notificationIcon.Font = New-Object System.Drawing.Font("Arial", 16, [System.Drawing.FontStyle]::Bold)
-    $script:notificationIcon.Size = New-Object System.Drawing.Size(20, 20)
-    $script:notificationIcon.Location = New-Object System.Drawing.Point(($tabControl.Width - 25), 5)
+    $script:notificationIcon.AutoSize = $true
+    $script:notificationIcon.BackColor = [System.Drawing.Color]::Transparent
+    $script:notificationIcon.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
+    $script:notificationIcon.Location = New-Object System.Drawing.Point(($parentTab.Width - 40), 6)
     $script:notificationIcon.Visible = $false
     $parentTab.Controls.Add($script:notificationIcon)
+    $script:notificationIcon.BringToFront()
 
     # Load existing labor logs
     Load-LaborLogs -listView $script:listViewLaborLog -filePath $laborLogsFilePath
 
-    # Add New Labor Log Entry Button
-    $addLaborLogButton = New-Object System.Windows.Forms.Button
-    $addLaborLogButton.Location = New-Object System.Drawing.Point(10, 520)
-    $addLaborLogButton.Size = New-Object System.Drawing.Size(150, 30)
-    $addLaborLogButton.Text = "Add Labor Log Entry"
+    # Helper for styled action buttons on the button bar
+    $makeActionButton = {
+        param([string]$Text, [System.Drawing.Color]$Back)
+        $b = New-Object System.Windows.Forms.Button
+        $b.Text = $Text
+        $b.Size = New-Object System.Drawing.Size(160, 36)
+        $b.BackColor = $Back
+        $b.ForeColor = [System.Drawing.Color]::White
+        $b.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $b.FlatAppearance.BorderSize = 0
+        $b.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+        $b.Cursor = [System.Windows.Forms.Cursors]::Hand
+        $b.Margin = New-Object System.Windows.Forms.Padding(0,0,8,0)
+        return $b
+    }
+
+    # Add Labor Log Entry
+    $addLaborLogButton = & $makeActionButton "Add Labor Log Entry" ([System.Drawing.Color]::FromArgb(52,152,219))
     $addLaborLogButton.Add_Click({
         $addLaborLogForm = New-Object System.Windows.Forms.Form
         $addLaborLogForm.Text = "Add Labor Log Entry"
-        $addLaborLogForm.Size = New-Object System.Drawing.Size(400, 400)
-        $addLaborLogForm.StartPosition = 'CenterScreen'
+        $addLaborLogForm.Size = New-Object System.Drawing.Size(400, 420)
+        $addLaborLogForm.StartPosition = 'CenterParent'
+        $addLaborLogForm.FormBorderStyle = 'FixedDialog'
+        $addLaborLogForm.MaximizeBox = $false
+        $addLaborLogForm.MinimizeBox = $false
+        $addLaborLogForm.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+        $addLaborLogForm.Font = New-Object System.Drawing.Font("Segoe UI", 9)
 
-        $labelDate = New-Object System.Windows.Forms.Label
-        $labelDate.Location = New-Object System.Drawing.Point(10, 20)
-        $labelDate.Size = New-Object System.Drawing.Size(100, 20)
-        $labelDate.Text = "Date:"
-        $addLaborLogForm.Controls.Add($labelDate)
+        $labelDate = New-Object System.Windows.Forms.Label; $labelDate.Location = New-Object System.Drawing.Point(10, 20); $labelDate.Size = New-Object System.Drawing.Size(100, 20); $labelDate.Text = "Date:"; $addLaborLogForm.Controls.Add($labelDate)
+        $textBoxDate = New-Object System.Windows.Forms.TextBox; $textBoxDate.Location = New-Object System.Drawing.Point(120, 20); $textBoxDate.Size = New-Object System.Drawing.Size(250, 20); $textBoxDate.Text = Get-Date -Format "yyyy-MM-dd"; $addLaborLogForm.Controls.Add($textBoxDate)
 
-        $textBoxDate = New-Object System.Windows.Forms.TextBox
-        $textBoxDate.Location = New-Object System.Drawing.Point(120, 20)
-        $textBoxDate.Size = New-Object System.Drawing.Size(250, 20)
-        $textBoxDate.Text = Get-Date -Format "yyyy-MM-dd"
-        $addLaborLogForm.Controls.Add($textBoxDate)
+        $labelWorkOrder = New-Object System.Windows.Forms.Label; $labelWorkOrder.Location = New-Object System.Drawing.Point(10, 50); $labelWorkOrder.Size = New-Object System.Drawing.Size(100, 20); $labelWorkOrder.Text = "Work Order #:"; $addLaborLogForm.Controls.Add($labelWorkOrder)
+        $textBoxWorkOrder = New-Object System.Windows.Forms.TextBox; $textBoxWorkOrder.Location = New-Object System.Drawing.Point(120, 50); $textBoxWorkOrder.Size = New-Object System.Drawing.Size(250, 20); $addLaborLogForm.Controls.Add($textBoxWorkOrder)
 
-        $labelWorkOrder = New-Object System.Windows.Forms.Label
-        $labelWorkOrder.Location = New-Object System.Drawing.Point(10, 50)
-        $labelWorkOrder.Size = New-Object System.Drawing.Size(100, 20)
-        $labelWorkOrder.Text = "Work Order #:"
-        $addLaborLogForm.Controls.Add($labelWorkOrder)
+        $labelTask = New-Object System.Windows.Forms.Label; $labelTask.Location = New-Object System.Drawing.Point(10, 80); $labelTask.Size = New-Object System.Drawing.Size(100, 20); $labelTask.Text = "Task:"; $addLaborLogForm.Controls.Add($labelTask)
+        $textBoxTask = New-Object System.Windows.Forms.TextBox; $textBoxTask.Location = New-Object System.Drawing.Point(120, 80); $textBoxTask.Size = New-Object System.Drawing.Size(250, 60); $textBoxTask.Multiline = $true; $addLaborLogForm.Controls.Add($textBoxTask)
 
-        $textBoxWorkOrder = New-Object System.Windows.Forms.TextBox
-        $textBoxWorkOrder.Location = New-Object System.Drawing.Point(120, 50)
-        $textBoxWorkOrder.Size = New-Object System.Drawing.Size(250, 20)
-        $addLaborLogForm.Controls.Add($textBoxWorkOrder)
+        $labelMachineId = New-Object System.Windows.Forms.Label; $labelMachineId.Location = New-Object System.Drawing.Point(10, 150); $labelMachineId.Size = New-Object System.Drawing.Size(100, 20); $labelMachineId.Text = "Machine ID:"; $addLaborLogForm.Controls.Add($labelMachineId)
+        $comboBoxMachineId = New-Object System.Windows.Forms.ComboBox; $comboBoxMachineId.Location = New-Object System.Drawing.Point(120, 150); $comboBoxMachineId.Size = New-Object System.Drawing.Size(250, 20); $addLaborLogForm.Controls.Add($comboBoxMachineId); Load-ComboBoxData -comboBox $comboBoxMachineId -csvName "Machines"
 
-        $labelTask = New-Object System.Windows.Forms.Label
-        $labelTask.Location = New-Object System.Drawing.Point(10, 80)
-        $labelTask.Size = New-Object System.Drawing.Size(100, 20)
-        $labelTask.Text = "Task:"
-        $addLaborLogForm.Controls.Add($labelTask)
+        $labelDuration = New-Object System.Windows.Forms.Label; $labelDuration.Location = New-Object System.Drawing.Point(10, 180); $labelDuration.Size = New-Object System.Drawing.Size(100, 20); $labelDuration.Text = "Duration:"; $addLaborLogForm.Controls.Add($labelDuration)
+        $textBoxDuration = New-Object System.Windows.Forms.TextBox; $textBoxDuration.Location = New-Object System.Drawing.Point(120, 180); $textBoxDuration.Size = New-Object System.Drawing.Size(250, 20); $addLaborLogForm.Controls.Add($textBoxDuration)
 
-        $textBoxTask = New-Object System.Windows.Forms.TextBox
-        $textBoxTask.Location = New-Object System.Drawing.Point(120, 80)
-        $textBoxTask.Size = New-Object System.Drawing.Size(250, 60)
-        $textBoxTask.Multiline = $true
-        $addLaborLogForm.Controls.Add($textBoxTask)
-
-        $labelMachineId = New-Object System.Windows.Forms.Label
-        $labelMachineId.Location = New-Object System.Drawing.Point(10, 150)
-        $labelMachineId.Size = New-Object System.Drawing.Size(100, 20)
-        $labelMachineId.Text = "Machine ID:"
-        $addLaborLogForm.Controls.Add($labelMachineId)
-
-        $comboBoxMachineId = New-Object System.Windows.Forms.ComboBox
-        $comboBoxMachineId.Location = New-Object System.Drawing.Point(120, 150)
-        $comboBoxMachineId.Size = New-Object System.Drawing.Size(250, 20)
-        $addLaborLogForm.Controls.Add($comboBoxMachineId)
-        Load-ComboBoxData -comboBox $comboBoxMachineId -csvName "Machines"
-
-        $labelDuration = New-Object System.Windows.Forms.Label
-        $labelDuration.Location = New-Object System.Drawing.Point(10, 180)
-        $labelDuration.Size = New-Object System.Drawing.Size(100, 20)
-        $labelDuration.Text = "Duration:"
-        $addLaborLogForm.Controls.Add($labelDuration)
-
-        $textBoxDuration = New-Object System.Windows.Forms.TextBox
-        $textBoxDuration.Location = New-Object System.Drawing.Point(120, 180)
-        $textBoxDuration.Size = New-Object System.Drawing.Size(250, 20)
-        $addLaborLogForm.Controls.Add($textBoxDuration)
-
-        $labelNotes = New-Object System.Windows.Forms.Label
-        $labelNotes.Location = New-Object System.Drawing.Point(10, 210)
-        $labelNotes.Size = New-Object System.Drawing.Size(100, 20)
-        $labelNotes.Text = "Notes:"
-        $addLaborLogForm.Controls.Add($labelNotes)
-
-        $textBoxNotes = New-Object System.Windows.Forms.TextBox
-        $textBoxNotes.Location = New-Object System.Drawing.Point(120, 210)
-        $textBoxNotes.Size = New-Object System.Drawing.Size(250, 60)
-        $textBoxNotes.Multiline = $true
-        $addLaborLogForm.Controls.Add($textBoxNotes)
+        $labelNotes = New-Object System.Windows.Forms.Label; $labelNotes.Location = New-Object System.Drawing.Point(10, 210); $labelNotes.Size = New-Object System.Drawing.Size(100, 20); $labelNotes.Text = "Notes:"; $addLaborLogForm.Controls.Add($labelNotes)
+        $textBoxNotes = New-Object System.Windows.Forms.TextBox; $textBoxNotes.Location = New-Object System.Drawing.Point(120, 210); $textBoxNotes.Size = New-Object System.Drawing.Size(250, 60); $textBoxNotes.Multiline = $true; $addLaborLogForm.Controls.Add($textBoxNotes)
 
         $addButton = New-Object System.Windows.Forms.Button
-        $addButton.Location = New-Object System.Drawing.Point(150, 300)
+        $addButton.Location = New-Object System.Drawing.Point(150, 320)
         $addButton.Size = New-Object System.Drawing.Size(100, 30)
         $addButton.Text = "Add"
+        $addButton.BackColor = [System.Drawing.Color]::FromArgb(39,174,96)
+        $addButton.ForeColor = [System.Drawing.Color]::White
+        $addButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+        $addButton.FlatAppearance.BorderSize = 0
         $addButton.Add_Click({
             $workOrderNumber = if ([string]::IsNullOrWhiteSpace($textBoxWorkOrder.Text)) { "Need W/O #" } else { $textBoxWorkOrder.Text }
             $item = New-Object System.Windows.Forms.ListViewItem($textBoxDate.Text)
@@ -2275,144 +2524,73 @@ function Setup-LaborLogTab {
             $item.SubItems.Add($textBoxTask.Text)
             $item.SubItems.Add($comboBoxMachineId.SelectedItem)
             $item.SubItems.Add($textBoxDuration.Text)
-            $item.SubItems.Add("")  # Empty parts column
+            $item.SubItems.Add("")
             $item.SubItems.Add($textBoxNotes.Text)
             $script:listViewLaborLog.Items.Add($item)
-            
+
             if ($workOrderNumber -eq "Need W/O #") {
                 $key = "$($textBoxDate.Text)_$($comboBoxMachineId.SelectedItem)_$($textBoxTask.Text)"
                 $script:unacknowledgedEntries[$key] = $true
                 Update-NotificationIcon
             }
-            
-            # Save labor logs after adding a new entry
             Save-LaborLogs -listView $script:listViewLaborLog -filePath $laborLogsFilePath
-            
             $addLaborLogForm.Close()
         })
         $addLaborLogForm.Controls.Add($addButton)
-
         $addLaborLogForm.ShowDialog()
     })
-    $laborLogPanel.Controls.Add($addLaborLogButton)
+    $buttonBar.Controls.Add($addLaborLogButton)
 
-    # Edit Labor Log Entry button
-    $editLaborLogButton = New-Object System.Windows.Forms.Button
-    $editLaborLogButton.Location = New-Object System.Drawing.Point(170, 520)
-    $editLaborLogButton.Size = New-Object System.Drawing.Size(150, 30)
-    $editLaborLogButton.Text = "Edit Labor Log Entry"
+    # Edit Labor Log Entry (unchanged internals, restyled buttons)
+    $editLaborLogButton = & $makeActionButton "Edit Labor Log Entry" ([System.Drawing.Color]::FromArgb(52,152,219))
     $editLaborLogButton.Add_Click({
         $selectedItems = $script:listViewLaborLog.SelectedItems
         if ($selectedItems.Count -gt 0) {
             $item = $selectedItems[0]
             $editLaborLogForm = New-Object System.Windows.Forms.Form
             $editLaborLogForm.Text = "Edit Labor Log Entry"
-            $editLaborLogForm.Size = New-Object System.Drawing.Size(400, 400)
-            $editLaborLogForm.StartPosition = 'CenterScreen'
+            $editLaborLogForm.Size = New-Object System.Drawing.Size(400, 420)
+            $editLaborLogForm.StartPosition = 'CenterParent'
+            $editLaborLogForm.FormBorderStyle = 'FixedDialog'
+            $editLaborLogForm.MaximizeBox = $false
+            $editLaborLogForm.MinimizeBox = $false
+            $editLaborLogForm.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+            $editLaborLogForm.Font = New-Object System.Drawing.Font("Segoe UI", 9)
 
-            Write-Log "Editing Labor Log Entry. Default values:"
-            Write-Log "Date: $($item.SubItems[0].Text)"
-            Write-Log "Work Order Number: $($item.SubItems[1].Text)"
-            Write-Log "Task: $($item.SubItems[2].Text)"
-            Write-Log "Machine ID: $($item.SubItems[3].Text)"
-            Write-Log "Duration: $($item.SubItems[4].Text)"
-            Write-Log "Notes: $($item.SubItems[5].Text)"
+            $labelDate = New-Object System.Windows.Forms.Label; $labelDate.Location = New-Object System.Drawing.Point(10, 20); $labelDate.Size = New-Object System.Drawing.Size(100, 20); $labelDate.Text = "Date:"; $editLaborLogForm.Controls.Add($labelDate)
+            $textBoxDate = New-Object System.Windows.Forms.TextBox; $textBoxDate.Location = New-Object System.Drawing.Point(120, 20); $textBoxDate.Size = New-Object System.Drawing.Size(250, 20); $textBoxDate.Text = $item.SubItems[0].Text; $editLaborLogForm.Controls.Add($textBoxDate)
 
-            # Date
-            $labelDate = New-Object System.Windows.Forms.Label
-            $labelDate.Location = New-Object System.Drawing.Point(10, 20)
-            $labelDate.Size = New-Object System.Drawing.Size(100, 20)
-            $labelDate.Text = "Date:"
-            $editLaborLogForm.Controls.Add($labelDate)
+            $labelWorkOrder = New-Object System.Windows.Forms.Label; $labelWorkOrder.Location = New-Object System.Drawing.Point(10, 50); $labelWorkOrder.Size = New-Object System.Drawing.Size(100, 20); $labelWorkOrder.Text = "Work Order #:"; $editLaborLogForm.Controls.Add($labelWorkOrder)
+            $textBoxWorkOrder = New-Object System.Windows.Forms.TextBox; $textBoxWorkOrder.Location = New-Object System.Drawing.Point(120, 50); $textBoxWorkOrder.Size = New-Object System.Drawing.Size(250, 20); $textBoxWorkOrder.Text = $item.SubItems[1].Text; $editLaborLogForm.Controls.Add($textBoxWorkOrder)
 
-            $textBoxDate = New-Object System.Windows.Forms.TextBox
-            $textBoxDate.Location = New-Object System.Drawing.Point(120, 20)
-            $textBoxDate.Size = New-Object System.Drawing.Size(250, 20)
-            $textBoxDate.Text = $item.SubItems[0].Text
-            $editLaborLogForm.Controls.Add($textBoxDate)
+            $labelTask = New-Object System.Windows.Forms.Label; $labelTask.Location = New-Object System.Drawing.Point(10, 80); $labelTask.Size = New-Object System.Drawing.Size(100, 20); $labelTask.Text = "Task:"; $editLaborLogForm.Controls.Add($labelTask)
+            $textBoxTask = New-Object System.Windows.Forms.TextBox; $textBoxTask.Location = New-Object System.Drawing.Point(120, 80); $textBoxTask.Size = New-Object System.Drawing.Size(250, 60); $textBoxTask.Multiline = $true; $textBoxTask.Text = $item.SubItems[2].Text; $editLaborLogForm.Controls.Add($textBoxTask)
 
-            # Work Order Number
-            $labelWorkOrder = New-Object System.Windows.Forms.Label
-            $labelWorkOrder.Location = New-Object System.Drawing.Point(10, 50)
-            $labelWorkOrder.Size = New-Object System.Drawing.Size(100, 20)
-            $labelWorkOrder.Text = "Work Order #:"
-            $editLaborLogForm.Controls.Add($labelWorkOrder)
+            $labelMachineId = New-Object System.Windows.Forms.Label; $labelMachineId.Location = New-Object System.Drawing.Point(10, 150); $labelMachineId.Size = New-Object System.Drawing.Size(100, 20); $labelMachineId.Text = "Machine ID:"; $editLaborLogForm.Controls.Add($labelMachineId)
+            $comboBoxMachineId = New-Object System.Windows.Forms.ComboBox; $comboBoxMachineId.Location = New-Object System.Drawing.Point(120, 150); $comboBoxMachineId.Size = New-Object System.Drawing.Size(250, 20); $editLaborLogForm.Controls.Add($comboBoxMachineId); Load-ComboBoxData -comboBox $comboBoxMachineId -csvName "Machines"; $comboBoxMachineId.Text = $item.SubItems[3].Text
 
-            $textBoxWorkOrder = New-Object System.Windows.Forms.TextBox
-            $textBoxWorkOrder.Location = New-Object System.Drawing.Point(120, 50)
-            $textBoxWorkOrder.Size = New-Object System.Drawing.Size(250, 20)
-            $textBoxWorkOrder.Text = $item.SubItems[1].Text
-            $editLaborLogForm.Controls.Add($textBoxWorkOrder)
+            $labelDuration = New-Object System.Windows.Forms.Label; $labelDuration.Location = New-Object System.Drawing.Point(10, 180); $labelDuration.Size = New-Object System.Drawing.Size(100, 20); $labelDuration.Text = "Duration:"; $editLaborLogForm.Controls.Add($labelDuration)
+            $textBoxDuration = New-Object System.Windows.Forms.TextBox; $textBoxDuration.Location = New-Object System.Drawing.Point(120, 180); $textBoxDuration.Size = New-Object System.Drawing.Size(250, 20); $textBoxDuration.Text = $item.SubItems[4].Text; $editLaborLogForm.Controls.Add($textBoxDuration)
 
-            # Task
-            $labelTask = New-Object System.Windows.Forms.Label
-            $labelTask.Location = New-Object System.Drawing.Point(10, 80)
-            $labelTask.Size = New-Object System.Drawing.Size(100, 20)
-            $labelTask.Text = "Task:"
-            $editLaborLogForm.Controls.Add($labelTask)
-
-            $textBoxTask = New-Object System.Windows.Forms.TextBox
-            $textBoxTask.Location = New-Object System.Drawing.Point(120, 80)
-            $textBoxTask.Size = New-Object System.Drawing.Size(250, 60)
-            $textBoxTask.Multiline = $true
-            $textBoxTask.Text = $item.SubItems[2].Text
-            $editLaborLogForm.Controls.Add($textBoxTask)
-
-            # Machine ID
-            $labelMachineId = New-Object System.Windows.Forms.Label
-            $labelMachineId.Location = New-Object System.Drawing.Point(10, 150)
-            $labelMachineId.Size = New-Object System.Drawing.Size(100, 20)
-            $labelMachineId.Text = "Machine ID:"
-            $editLaborLogForm.Controls.Add($labelMachineId)
-
-            $comboBoxMachineId = New-Object System.Windows.Forms.ComboBox
-            $comboBoxMachineId.Location = New-Object System.Drawing.Point(120, 150)
-            $comboBoxMachineId.Size = New-Object System.Drawing.Size(250, 20)
-            $editLaborLogForm.Controls.Add($comboBoxMachineId)
-            Load-ComboBoxData -comboBox $comboBoxMachineId -csvName "Machines"
-            $comboBoxMachineId.Text = $item.SubItems[3].Text
-
-            # Duration
-            $labelDuration = New-Object System.Windows.Forms.Label
-            $labelDuration.Location = New-Object System.Drawing.Point(10, 180)
-            $labelDuration.Size = New-Object System.Drawing.Size(100, 20)
-            $labelDuration.Text = "Duration:"
-            $editLaborLogForm.Controls.Add($labelDuration)
-
-            $textBoxDuration = New-Object System.Windows.Forms.TextBox
-            $textBoxDuration.Location = New-Object System.Drawing.Point(120, 180)
-            $textBoxDuration.Size = New-Object System.Drawing.Size(250, 20)
-            $textBoxDuration.Text = $item.SubItems[4].Text
-            $editLaborLogForm.Controls.Add($textBoxDuration)
-
-            # Notes
-            $labelNotes = New-Object System.Windows.Forms.Label
-            $labelNotes.Location = New-Object System.Drawing.Point(10, 210)
-            $labelNotes.Size = New-Object System.Drawing.Size(100, 20)
-            $labelNotes.Text = "Notes:"
-            $editLaborLogForm.Controls.Add($labelNotes)
-
-            $textBoxNotes = New-Object System.Windows.Forms.TextBox
-            $textBoxNotes.Location = New-Object System.Drawing.Point(120, 210)
-            $textBoxNotes.Size = New-Object System.Drawing.Size(250, 60)
-            $textBoxNotes.Multiline = $true
-            $textBoxNotes.Text = $item.SubItems[5].Text
-            $editLaborLogForm.Controls.Add($textBoxNotes)
+            $labelNotes = New-Object System.Windows.Forms.Label; $labelNotes.Location = New-Object System.Drawing.Point(10, 210); $labelNotes.Size = New-Object System.Drawing.Size(100, 20); $labelNotes.Text = "Notes:"; $editLaborLogForm.Controls.Add($labelNotes)
+            $textBoxNotes = New-Object System.Windows.Forms.TextBox; $textBoxNotes.Location = New-Object System.Drawing.Point(120, 210); $textBoxNotes.Size = New-Object System.Drawing.Size(250, 60); $textBoxNotes.Multiline = $true; $textBoxNotes.Text = $item.SubItems[6].Text; $editLaborLogForm.Controls.Add($textBoxNotes)
 
             $saveButton = New-Object System.Windows.Forms.Button
-            $saveButton.Location = New-Object System.Drawing.Point(150, 300)
+            $saveButton.Location = New-Object System.Drawing.Point(150, 320)
             $saveButton.Size = New-Object System.Drawing.Size(100, 30)
             $saveButton.Text = "Save"
+            $saveButton.BackColor = [System.Drawing.Color]::FromArgb(39,174,96)
+            $saveButton.ForeColor = [System.Drawing.Color]::White
+            $saveButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+            $saveButton.FlatAppearance.BorderSize = 0
             $saveButton.Add_Click({
-                # Update item with new values
                 $item.SubItems[0].Text = $textBoxDate.Text
                 $item.SubItems[1].Text = $textBoxWorkOrder.Text
                 $item.SubItems[2].Text = $textBoxTask.Text
                 $item.SubItems[3].Text = $comboBoxMachineId.Text
                 $item.SubItems[4].Text = $textBoxDuration.Text
-                $item.SubItems[5].Text = $textBoxNotes.Text
+                $item.SubItems[6].Text = $textBoxNotes.Text
 
-                # Handle acknowledgment and save logs
                 $key = "$($textBoxDate.Text)_$($comboBoxMachineId.Text)_$($textBoxTask.Text)"
                 if ($textBoxWorkOrder.Text -eq "Need W/O #") {
                     $script:unacknowledgedEntries[$key] = $true
@@ -2420,55 +2598,40 @@ function Setup-LaborLogTab {
                     $script:unacknowledgedEntries.Remove($key)
                 }
                 Update-NotificationIcon
-
-                # Save labor logs after editing an entry
                 Save-LaborLogs -listView $script:listViewLaborLog -filePath $laborLogsFilePath
-
                 $editLaborLogForm.Close()
             })
             $editLaborLogForm.Controls.Add($saveButton)
-
             $editLaborLogForm.ShowDialog()
         } else {
             [System.Windows.Forms.MessageBox]::Show("Please select an entry to edit.", "Warning", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-            Write-Log "Attempted to edit Labor Log Entry without selection"
         }
     })
-    $laborLogPanel.Controls.Add($editLaborLogButton)
+    $buttonBar.Controls.Add($editLaborLogButton)
 
-    # Add Parts to Work Order Button
-    $addPartsButton = New-Object System.Windows.Forms.Button
-    $addPartsButton.Location = New-Object System.Drawing.Point(490, 520)
-    $addPartsButton.Size = New-Object System.Drawing.Size(150, 30)
-    $addPartsButton.Text = "Add Parts to Work Order"
-    $addPartsButton.Add_Click({
-        $selectedItems = $script:listViewLaborLog.SelectedItems
-        if ($selectedItems.Count -gt 0) {
-            $workOrderItem = $selectedItems[0]
-            $workOrderNumber = $workOrderItem.SubItems[1].Text
-
-            # Call the function to add parts to the selected work order
-            Add-PartsToWorkOrder -workOrderNumber $workOrderNumber
-        } else {
-            [System.Windows.Forms.MessageBox]::Show("Please select a work order to add parts.", "Warning", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-        }
-    })
-    $laborLogPanel.Controls.Add($addPartsButton)
-
-    # Add a Refresh button to manually reload the labor logs
-    $refreshButton = New-Object System.Windows.Forms.Button
-    $refreshButton.Location = New-Object System.Drawing.Point(330, 520)
-    $refreshButton.Size = New-Object System.Drawing.Size(150, 30)
-    $refreshButton.Text = "Refresh Labor Logs"
+    # Refresh button
+    $refreshButton = & $makeActionButton "Refresh Labor Logs" ([System.Drawing.Color]::FromArgb(52,152,219))
     $refreshButton.Add_Click({
         $script:listViewLaborLog.Items.Clear()
         Load-LaborLogs -listView $script:listViewLaborLog -filePath $laborLogsFilePath
         Process-HistoricalLogs
         Write-Log "Labor Logs manually refreshed"
     })
-    $laborLogPanel.Controls.Add($refreshButton)
+    $buttonBar.Controls.Add($refreshButton)
 
-    
+    # Add Parts to Work Order
+    $addPartsButton = & $makeActionButton "Add Parts to Work Order" ([System.Drawing.Color]::FromArgb(39,174,96))
+    $addPartsButton.Add_Click({
+        $selectedItems = $script:listViewLaborLog.SelectedItems
+        if ($selectedItems.Count -gt 0) {
+            $workOrderItem = $selectedItems[0]
+            $workOrderNumber = $workOrderItem.SubItems[1].Text
+            Add-PartsToWorkOrder -workOrderNumber $workOrderNumber
+        } else {
+            [System.Windows.Forms.MessageBox]::Show("Please select a work order to add parts.", "Warning", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
+        }
+    })
+    $buttonBar.Controls.Add($addPartsButton)
 
     Write-Log "Labor Log tab setup completed."
 }
@@ -2481,150 +2644,224 @@ function Setup-SearchTab {
 
     $searchPanel = New-Object System.Windows.Forms.Panel
     $searchPanel.Dock = 'Fill'
+    $searchPanel.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $searchPanel.Padding = New-Object System.Windows.Forms.Padding(12)
     $parentTab.Controls.Add($searchPanel)
 
-    # Create controls with script scope
-    $script:textBoxNSN = New-Object System.Windows.Forms.TextBox
-    $script:textBoxOEM = New-Object System.Windows.Forms.TextBox
-    $script:textBoxDescription = New-Object System.Windows.Forms.TextBox
-    $script:listViewAvailability = New-Object System.Windows.Forms.ListView
-    $script:listViewSameDayAvailability = New-Object System.Windows.Forms.ListView
-    $script:listViewCrossRef = New-Object System.Windows.Forms.ListView
+    # ---- Bottom bar (Dock=Bottom) ----
+    $bottomBar = New-Object System.Windows.Forms.FlowLayoutPanel
+    $bottomBar.Dock = 'Bottom'
+    $bottomBar.Height = 52
+    $bottomBar.FlowDirection = [System.Windows.Forms.FlowDirection]::LeftToRight
+    $bottomBar.WrapContents = $false
+    $bottomBar.Padding = New-Object System.Windows.Forms.Padding(0, 8, 0, 0)
+    $bottomBar.BackColor = [System.Drawing.Color]::Transparent
+    $searchPanel.Controls.Add($bottomBar)
 
-    # Set up NSN controls
+    # ---- Top search controls (Dock=Top) ----
+    $topPanel = New-Object System.Windows.Forms.Panel
+    $topPanel.Dock = 'Top'
+    $topPanel.Height = 130
+    $topPanel.BackColor = [System.Drawing.Color]::White
+    $topPanel.Padding = New-Object System.Windows.Forms.Padding(10)
+    $searchPanel.Controls.Add($topPanel)
+
+    # NSN
     $labelNSN = New-Object System.Windows.Forms.Label
     $labelNSN.Text = "NSN:"
-    $labelNSN.Location = New-Object System.Drawing.Point(20, 20)
-    $labelNSN.Size = New-Object System.Drawing.Size(100, 20)
-    $searchPanel.Controls.Add($labelNSN)
+    $labelNSN.Location = New-Object System.Drawing.Point(15, 18)
+    $labelNSN.Size = New-Object System.Drawing.Size(90, 22)
+    $labelNSN.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $labelNSN.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $topPanel.Controls.Add($labelNSN)
 
-    $script:textBoxNSN.Location = New-Object System.Drawing.Point(130, 20)
-    $script:textBoxNSN.Size = New-Object System.Drawing.Size(200, 20)
-    $searchPanel.Controls.Add($script:textBoxNSN)
+    $script:textBoxNSN = New-Object System.Windows.Forms.TextBox
+    $script:textBoxNSN.Location = New-Object System.Drawing.Point(110, 15)
+    $script:textBoxNSN.Size = New-Object System.Drawing.Size(250, 25)
+    $script:textBoxNSN.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+    $topPanel.Controls.Add($script:textBoxNSN)
 
-    # Set up OEM controls
+    # OEM
     $labelOEM = New-Object System.Windows.Forms.Label
     $labelOEM.Text = "OEM:"
-    $labelOEM.Location = New-Object System.Drawing.Point(20, 60)
-    $labelOEM.Size = New-Object System.Drawing.Size(100, 20)
-    $searchPanel.Controls.Add($labelOEM)
+    $labelOEM.Location = New-Object System.Drawing.Point(15, 52)
+    $labelOEM.Size = New-Object System.Drawing.Size(90, 22)
+    $labelOEM.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $labelOEM.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $topPanel.Controls.Add($labelOEM)
 
-    $script:textBoxOEM.Location = New-Object System.Drawing.Point(130, 60)
-    $script:textBoxOEM.Size = New-Object System.Drawing.Size(200, 20)
-    $searchPanel.Controls.Add($script:textBoxOEM)
+    $script:textBoxOEM = New-Object System.Windows.Forms.TextBox
+    $script:textBoxOEM.Location = New-Object System.Drawing.Point(110, 49)
+    $script:textBoxOEM.Size = New-Object System.Drawing.Size(250, 25)
+    $script:textBoxOEM.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+    $topPanel.Controls.Add($script:textBoxOEM)
 
-    # Set up Description controls
+    # Description
     $labelDescription = New-Object System.Windows.Forms.Label
     $labelDescription.Text = "Description:"
-    $labelDescription.Location = New-Object System.Drawing.Point(20, 100)
-    $labelDescription.Size = New-Object System.Drawing.Size(100, 20)
-    $searchPanel.Controls.Add($labelDescription)
+    $labelDescription.Location = New-Object System.Drawing.Point(15, 86)
+    $labelDescription.Size = New-Object System.Drawing.Size(90, 22)
+    $labelDescription.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $labelDescription.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $topPanel.Controls.Add($labelDescription)
 
-    $script:textBoxDescription.Location = New-Object System.Drawing.Point(130, 100)
-    $script:textBoxDescription.Size = New-Object System.Drawing.Size(200, 20)
-    $searchPanel.Controls.Add($script:textBoxDescription)
+    $script:textBoxDescription = New-Object System.Windows.Forms.TextBox
+    $script:textBoxDescription.Location = New-Object System.Drawing.Point(110, 83)
+    $script:textBoxDescription.Size = New-Object System.Drawing.Size(250, 25)
+    $script:textBoxDescription.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+    $topPanel.Controls.Add($script:textBoxDescription)
 
-    # Create a tooltip
+    # Search button
+    $searchButton = New-Object System.Windows.Forms.Button
+    $searchButton.Text = "Search"
+    $searchButton.Location = New-Object System.Drawing.Point(380, 47)
+    $searchButton.Size = New-Object System.Drawing.Size(120, 36)
+    $searchButton.BackColor = [System.Drawing.Color]::FromArgb(52,152,219)
+    $searchButton.ForeColor = [System.Drawing.Color]::White
+    $searchButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $searchButton.FlatAppearance.BorderSize = 0
+    $searchButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $searchButton.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $topPanel.Controls.Add($searchButton)
+
+    # Tooltips
     $tooltip = New-Object System.Windows.Forms.ToolTip
-
-    # Set up tooltips for search textboxes
     $tooltip.SetToolTip($script:textBoxNSN, "Use * as a wildcard. E.g., 1234*567")
     $tooltip.SetToolTip($script:textBoxOEM, "Use * as a wildcard. E.g., ABC*123")
     $tooltip.SetToolTip($script:textBoxDescription, "Use * as a wildcard in your description search.")
 
-    # Set up Search button
-    $searchButton = New-Object System.Windows.Forms.Button
-    $searchButton.Text = "Search"
-    $searchButton.Location = New-Object System.Drawing.Point(350, 60)
-    $searchButton.Size = New-Object System.Drawing.Size(75, 30)
-    $searchPanel.Controls.Add($searchButton)
+    # ---- Middle: 3 stacked list views via TableLayoutPanel (Dock=Fill) ----
+    $listContainer = New-Object System.Windows.Forms.TableLayoutPanel
+    $listContainer.Dock = 'Fill'
+    $listContainer.ColumnCount = 1
+    $listContainer.RowCount = 3
+    $listContainer.Padding = New-Object System.Windows.Forms.Padding(0, 10, 0, 10)
+    $listContainer.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Percent, 33.0))) | Out-Null
+    $listContainer.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Percent, 33.0))) | Out-Null
+    $listContainer.RowStyles.Add((New-Object System.Windows.Forms.RowStyle([System.Windows.Forms.SizeType]::Percent, 34.0))) | Out-Null
+    $searchPanel.Controls.Add($listContainer)
+    $listContainer.BringToFront()
 
-    # Set up Availability ListView
+    # Availability
+    $availPanel = New-Object System.Windows.Forms.Panel
+    $availPanel.Dock = 'Fill'
+    $availPanel.Padding = New-Object System.Windows.Forms.Padding(0, 0, 0, 6)
+
     $labelAvailability = New-Object System.Windows.Forms.Label
     $labelAvailability.Text = "Availability"
-    $labelAvailability.Location = New-Object System.Drawing.Point(20, 130)
-    $labelAvailability.Size = New-Object System.Drawing.Size(100, 20)
-    $searchPanel.Controls.Add($labelAvailability)
+    $labelAvailability.Dock = 'Top'
+    $labelAvailability.Height = 22
+    $labelAvailability.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $labelAvailability.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $availPanel.Controls.Add($labelAvailability)
 
-    $script:listViewAvailability.Location = New-Object System.Drawing.Point(20, 160)
-    $script:listViewAvailability.Size = New-Object System.Drawing.Size(1100, 150)
-    $script:listViewAvailability.View = [System.Windows.Forms.View]::Details
-    $script:listViewAvailability.FullRowSelect = $true
+    $script:listViewAvailability = New-Object System.Windows.Forms.ListView
+    $script:listViewAvailability.Dock = 'Fill'
     $script:listViewAvailability.CheckBoxes = $true
-    $script:listViewAvailability.Columns.Add("Part (NSN)", 100)
-    $script:listViewAvailability.Columns.Add("Description", 200)
-    $script:listViewAvailability.Columns.Add("QTY", 50)
-    $script:listViewAvailability.Columns.Add("13 Period Usage", 100)
-    $script:listViewAvailability.Columns.Add("Location", 100)
-    $script:listViewAvailability.Columns.Add("OEM 1", 100)
-    $script:listViewAvailability.Columns.Add("OEM 2", 100)
-    $script:listViewAvailability.Columns.Add("OEM 3", 100)
-    $script:listViewAvailability.Columns.Add("Changed Part (NSN)", 100)
-    $searchPanel.Controls.Add($script:listViewAvailability)
+    $script:listViewAvailability.Columns.Add("Part (NSN)", 110)          | Out-Null
+    $script:listViewAvailability.Columns.Add("Description", 220)         | Out-Null
+    $script:listViewAvailability.Columns.Add("QTY", 55)                  | Out-Null
+    $script:listViewAvailability.Columns.Add("13 Period Usage", 110)     | Out-Null
+    $script:listViewAvailability.Columns.Add("Location", 110)            | Out-Null
+    $script:listViewAvailability.Columns.Add("OEM 1", 110)               | Out-Null
+    $script:listViewAvailability.Columns.Add("OEM 2", 110)               | Out-Null
+    $script:listViewAvailability.Columns.Add("OEM 3", 110)               | Out-Null
+    $script:listViewAvailability.Columns.Add("Changed Part (NSN)", 130)  | Out-Null
+    Set-ListViewStyle -ListView $script:listViewAvailability
+    $availPanel.Controls.Add($script:listViewAvailability)
+    $script:listViewAvailability.BringToFront()
+    $listContainer.Controls.Add($availPanel, 0, 0)
 
-    # Set up Same Day Availability ListView
+    # Same Day
+    $sameDayPanel = New-Object System.Windows.Forms.Panel
+    $sameDayPanel.Dock = 'Fill'
+    $sameDayPanel.Padding = New-Object System.Windows.Forms.Padding(0, 0, 0, 6)
+
     $labelSameDayAvailability = New-Object System.Windows.Forms.Label
     $labelSameDayAvailability.Text = "Same Day Parts Availability"
-    $labelSameDayAvailability.Location = New-Object System.Drawing.Point(20, 320)
-    $labelSameDayAvailability.Size = New-Object System.Drawing.Size(200, 20)
-    $searchPanel.Controls.Add($labelSameDayAvailability)
+    $labelSameDayAvailability.Dock = 'Top'
+    $labelSameDayAvailability.Height = 22
+    $labelSameDayAvailability.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $labelSameDayAvailability.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $sameDayPanel.Controls.Add($labelSameDayAvailability)
 
-    $script:listViewSameDayAvailability.Location = New-Object System.Drawing.Point(20, 350)
-    $script:listViewSameDayAvailability.Size = New-Object System.Drawing.Size(1100, 150)
-    $script:listViewSameDayAvailability.View = [System.Windows.Forms.View]::Details
-    $script:listViewSameDayAvailability.FullRowSelect = $true
+    $script:listViewSameDayAvailability = New-Object System.Windows.Forms.ListView
+    $script:listViewSameDayAvailability.Dock = 'Fill'
     $script:listViewSameDayAvailability.CheckBoxes = $true
-    $script:listViewSameDayAvailability.Columns.Add("Part (NSN)", 100)
-    $script:listViewSameDayAvailability.Columns.Add("Description", 200)
-    $script:listViewSameDayAvailability.Columns.Add("QTY", 50)
-    $script:listViewSameDayAvailability.Columns.Add("13 Period Usage", 100)
-    $script:listViewSameDayAvailability.Columns.Add("Location", 100)
-    $script:listViewSameDayAvailability.Columns.Add("OEM 1", 100)
-    $script:listViewSameDayAvailability.Columns.Add("OEM 2", 100)
-    $script:listViewSameDayAvailability.Columns.Add("OEM 3", 100)
-    $script:listViewSameDayAvailability.Columns.Add("Site Name", 100)
-    $searchPanel.Controls.Add($script:listViewSameDayAvailability)
+    $script:listViewSameDayAvailability.Columns.Add("Part (NSN)", 110)          | Out-Null
+    $script:listViewSameDayAvailability.Columns.Add("Description", 220)         | Out-Null
+    $script:listViewSameDayAvailability.Columns.Add("QTY", 55)                  | Out-Null
+    $script:listViewSameDayAvailability.Columns.Add("13 Period Usage", 110)     | Out-Null
+    $script:listViewSameDayAvailability.Columns.Add("Location", 110)            | Out-Null
+    $script:listViewSameDayAvailability.Columns.Add("OEM 1", 110)               | Out-Null
+    $script:listViewSameDayAvailability.Columns.Add("OEM 2", 110)               | Out-Null
+    $script:listViewSameDayAvailability.Columns.Add("OEM 3", 110)               | Out-Null
+    $script:listViewSameDayAvailability.Columns.Add("Site Name", 130)           | Out-Null
+    Set-ListViewStyle -ListView $script:listViewSameDayAvailability
+    $sameDayPanel.Controls.Add($script:listViewSameDayAvailability)
+    $script:listViewSameDayAvailability.BringToFront()
+    $listContainer.Controls.Add($sameDayPanel, 0, 1)
 
-    # Set up Cross Reference ListView
+    # Cross Reference
+    $crossRefPanel = New-Object System.Windows.Forms.Panel
+    $crossRefPanel.Dock = 'Fill'
+    $crossRefPanel.Padding = New-Object System.Windows.Forms.Padding(0, 0, 0, 6)
+
     $labelCrossRef = New-Object System.Windows.Forms.Label
     $labelCrossRef.Text = "Cross Reference"
-    $labelCrossRef.Location = New-Object System.Drawing.Point(20, 510)
-    $labelCrossRef.Size = New-Object System.Drawing.Size(100, 20)
-    $searchPanel.Controls.Add($labelCrossRef)
+    $labelCrossRef.Dock = 'Top'
+    $labelCrossRef.Height = 22
+    $labelCrossRef.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $labelCrossRef.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $crossRefPanel.Controls.Add($labelCrossRef)
 
-    $script:listViewCrossRef.Location = New-Object System.Drawing.Point(20, 540)
-    $script:listViewCrossRef.Size = New-Object System.Drawing.Size(1100, 150)
-    $script:listViewCrossRef.View = [System.Windows.Forms.View]::Details
-    $script:listViewCrossRef.FullRowSelect = $true
+    $script:listViewCrossRef = New-Object System.Windows.Forms.ListView
+    $script:listViewCrossRef.Dock = 'Fill'
     $script:listViewCrossRef.CheckBoxes = $true
-    $script:listViewCrossRef.Columns.Add("Handbook", 100)
-    $script:listViewCrossRef.Columns.Add("Section Name", 150)
-    $script:listViewCrossRef.Columns.Add("NO.", 50)
-    $script:listViewCrossRef.Columns.Add("PART DESCRIPTION", 200)
-    $script:listViewCrossRef.Columns.Add("REF.", 100)
-    $script:listViewCrossRef.Columns.Add("STOCK NO.", 100)
-    $script:listViewCrossRef.Columns.Add("PART NO.", 100)
-    $script:listViewCrossRef.Columns.Add("CAGE", 50)
-    $script:listViewCrossRef.Columns.Add("Location", 100)
-    $script:listViewCrossRef.Columns.Add("QTY", 50)
-    $searchPanel.Controls.Add($script:listViewCrossRef)
+    $script:listViewCrossRef.Columns.Add("Handbook", 110)         | Out-Null
+    $script:listViewCrossRef.Columns.Add("Section Name", 160)     | Out-Null
+    $script:listViewCrossRef.Columns.Add("NO.", 50)               | Out-Null
+    $script:listViewCrossRef.Columns.Add("PART DESCRIPTION", 220) | Out-Null
+    $script:listViewCrossRef.Columns.Add("REF.", 100)             | Out-Null
+    $script:listViewCrossRef.Columns.Add("STOCK NO.", 110)        | Out-Null
+    $script:listViewCrossRef.Columns.Add("PART NO.", 110)         | Out-Null
+    $script:listViewCrossRef.Columns.Add("CAGE", 60)              | Out-Null
+    $script:listViewCrossRef.Columns.Add("Location", 110)         | Out-Null
+    $script:listViewCrossRef.Columns.Add("QTY", 55)               | Out-Null
+    Set-ListViewStyle -ListView $script:listViewCrossRef
+    $crossRefPanel.Controls.Add($script:listViewCrossRef)
+    $script:listViewCrossRef.BringToFront()
+    $listContainer.Controls.Add($crossRefPanel, 0, 2)
 
-    # Set up "Open Figures" button
+    # ---- Bottom buttons ----
     $script:openFiguresButton = New-Object System.Windows.Forms.Button
     $script:openFiguresButton.Text = "Open Figures"
-    $script:openFiguresButton.Location = New-Object System.Drawing.Point(20, 700)
-    $script:openFiguresButton.Size = New-Object System.Drawing.Size(120, 30)
-    $searchPanel.Controls.Add($script:openFiguresButton)
+    $script:openFiguresButton.Size = New-Object System.Drawing.Size(140, 36)
+    $script:openFiguresButton.BackColor = [System.Drawing.Color]::FromArgb(52,152,219)
+    $script:openFiguresButton.ForeColor = [System.Drawing.Color]::White
+    $script:openFiguresButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $script:openFiguresButton.FlatAppearance.BorderSize = 0
+    $script:openFiguresButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $script:openFiguresButton.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $script:openFiguresButton.Margin = New-Object System.Windows.Forms.Padding(0,0,8,0)
+    $bottomBar.Controls.Add($script:openFiguresButton)
 
-    # Set up "Take Part(s) Out" button
     $script:takePartOutButton = New-Object System.Windows.Forms.Button
     $script:takePartOutButton.Text = "Take Part(s) Out"
-    $script:takePartOutButton.Location = New-Object System.Drawing.Point(150, 700)
-    $script:takePartOutButton.Size = New-Object System.Drawing.Size(120, 30)
+    $script:takePartOutButton.Size = New-Object System.Drawing.Size(140, 36)
+    $script:takePartOutButton.BackColor = [System.Drawing.Color]::FromArgb(39,174,96)
+    $script:takePartOutButton.ForeColor = [System.Drawing.Color]::White
+    $script:takePartOutButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $script:takePartOutButton.FlatAppearance.BorderSize = 0
+    $script:takePartOutButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $script:takePartOutButton.Cursor = [System.Windows.Forms.Cursors]::Hand
     $script:takePartOutButton.Enabled = $false
-    $searchPanel.Controls.Add($script:takePartOutButton)
+    $bottomBar.Controls.Add($script:takePartOutButton)
 
-    # Event handlers
+    # ---------- Event handlers ----------
+    $takePartOutButton = $script:takePartOutButton
+    $openFiguresButton = $script:openFiguresButton
+
     $takePartOutButton.Add_Click({
         $selectedParts = $script:listViewAvailability.CheckedItems + $script:listViewSameDayAvailability.CheckedItems | ForEach-Object { $_.SubItems[0].Text }
         if ($selectedParts) {
@@ -2641,7 +2878,7 @@ function Setup-SearchTab {
         if ($checkedItems.Count -gt 0) {
             foreach ($item in $checkedItems) {
                 $handbook = $item.SubItems[0].Text
-                $ref = $item.SubItems[4].Text  # REF. is the 5th column (index 4)
+                $ref = $item.SubItems[4].Text
 
                 if ($handbook -and $ref) {
                     $bookProp = $config.Books.PSObject.Properties[$handbook]
@@ -2651,7 +2888,7 @@ function Setup-SearchTab {
                         $bookDir = Join-Path $config.PartsBooksDirectory $handbook
                     }
                     $htmlFilePath = Join-Path $bookDir "HTML and CSV Files\$ref.html"
-                    
+
                     if (Test-Path $htmlFilePath) {
                         Start-Process $htmlFilePath
                         Write-Log "Opened figure: $htmlFilePath"
@@ -2667,333 +2904,328 @@ function Setup-SearchTab {
     })
 
     $script:listViewAvailability.Add_ItemChecked({
-        $takePartOutButton.Enabled = ($script:listViewAvailability.CheckedItems.Count -gt 0 -or $script:listViewSameDayAvailability.CheckedItems.Count -gt 0)
+        $script:takePartOutButton.Enabled = ($script:listViewAvailability.CheckedItems.Count -gt 0 -or $script:listViewSameDayAvailability.CheckedItems.Count -gt 0)
     })
 
     $script:listViewSameDayAvailability.Add_ItemChecked({
-        $takePartOutButton.Enabled = ($script:listViewAvailability.CheckedItems.Count -gt 0 -or $script:listViewSameDayAvailability.CheckedItems.Count -gt 0)
+        $script:takePartOutButton.Enabled = ($script:listViewAvailability.CheckedItems.Count -gt 0 -or $script:listViewSameDayAvailability.CheckedItems.Count -gt 0)
     })
 
     $script:listViewCrossRef.Add_ItemChecked({
-        $openFiguresButton.Enabled = ($script:listViewCrossRef.CheckedItems.Count -gt 0)
+        $script:openFiguresButton.Enabled = ($script:listViewCrossRef.CheckedItems.Count -gt 0)
     })
 
-	$searchButton.Add_Click({
-		Write-Log "Performing part search..."
+    # ---------------- Search logic (unchanged) ----------------
+    $searchButton.Add_Click({
+        Write-Log "Performing part search..."
 
-		$nsnSearch         = $script:textBoxNSN.Text.Trim()
-		$oemSearch         = $script:textBoxOEM.Text.Trim()
-		$descriptionSearch = $script:textBoxDescription.Text.Trim()
-		Write-Log "Search criteria - NSN: $nsnSearch, OEM: $oemSearch, Description: $descriptionSearch"
+        $nsnSearch         = $script:textBoxNSN.Text.Trim()
+        $oemSearch         = $script:textBoxOEM.Text.Trim()
+        $descriptionSearch = $script:textBoxDescription.Text.Trim()
+        Write-Log "Search criteria - NSN: $nsnSearch, OEM: $oemSearch, Description: $descriptionSearch"
 
-		# --- NSN pattern (keep * for wildcards) ---
-		$nsnActive  = $false
-		$nsnNoMatch = $false
-		$nsnPattern = $null
-		if (-not [string]::IsNullOrWhiteSpace($nsnSearch)) {
-			$nsnCleaned = $nsnSearch -replace '[^0-9*]', ''
-			if ([string]::IsNullOrEmpty($nsnCleaned) -or $nsnCleaned -eq '*') {
-				$nsnNoMatch = $true
-			} else {
-				$nsnPattern = ([regex]::Escape($nsnCleaned)) -replace '\\\*', '.*'
-				$nsnActive  = $true
-			}
-		}
+        # NSN pattern
+        $nsnActive  = $false
+        $nsnNoMatch = $false
+        $nsnPattern = $null
+        if (-not [string]::IsNullOrWhiteSpace($nsnSearch)) {
+            $nsnCleaned = $nsnSearch -replace '[^0-9*]', ''
+            if ([string]::IsNullOrEmpty($nsnCleaned) -or $nsnCleaned -eq '*') {
+                $nsnNoMatch = $true
+            } else {
+                $nsnPattern = ([regex]::Escape($nsnCleaned)) -replace '\\\*', '.*'
+                $nsnActive  = $true
+            }
+        }
 
-		# --- OEM pattern (keep * for wildcards) ---
-		$oemActive  = $false
-		$oemNoMatch = $false
-		$oemPattern = $null
-		if (-not [string]::IsNullOrWhiteSpace($oemSearch)) {
-			$oemCleaned = ($oemSearch -replace '[^A-Za-z0-9*]', '').ToUpper()
-			if ([string]::IsNullOrEmpty($oemCleaned) -or $oemCleaned -eq '*') {
-				$oemNoMatch = $true
-			} else {
-				$oemPattern = ([regex]::Escape($oemCleaned)) -replace '\\\*', '.*'
-				$oemActive  = $true
-			}
-		}
+        # OEM pattern
+        $oemActive  = $false
+        $oemNoMatch = $false
+        $oemPattern = $null
+        if (-not [string]::IsNullOrWhiteSpace($oemSearch)) {
+            $oemCleaned = ($oemSearch -replace '[^A-Za-z0-9*]', '').ToUpper()
+            if ([string]::IsNullOrEmpty($oemCleaned) -or $oemCleaned -eq '*') {
+                $oemNoMatch = $true
+            } else {
+                $oemPattern = ([regex]::Escape($oemCleaned)) -replace '\\\*', '.*'
+                $oemActive  = $true
+            }
+        }
 
-		# --- Description tokens ---
-		$descTokens = @()
-		if (-not [string]::IsNullOrWhiteSpace($descriptionSearch)) {
-			$descTokens = @(
-				($descriptionSearch -replace '[^A-Za-z0-9]', ' ').ToLower() -split '\s+' |
-				Where-Object { $_ -ne '' }
-			)
-		}
-		$descActive = $descTokens.Count -gt 0
+        # Description tokens
+        $descTokens = @()
+        if (-not [string]::IsNullOrWhiteSpace($descriptionSearch)) {
+            $descTokens = @(
+                ($descriptionSearch -replace '[^A-Za-z0-9]', ' ').ToLower() -split '\s+' |
+                Where-Object { $_ -ne '' }
+            )
+        }
+        $descActive = $descTokens.Count -gt 0
 
-		Write-Log "Patterns: NSN='$nsnPattern' active=$nsnActive noMatch=$nsnNoMatch ; OEM='$oemPattern' active=$oemActive noMatch=$oemNoMatch ; DescTokens=$($descTokens -join ',')"
+        Write-Log "Patterns: NSN='$nsnPattern' active=$nsnActive noMatch=$nsnNoMatch ; OEM='$oemPattern' active=$oemActive noMatch=$oemNoMatch ; DescTokens=$($descTokens -join ',')"
 
-		# =========================================================
-		# 1) AVAILABILITY
-		# =========================================================
-		$csvFiles = Get-ChildItem -Path $config.PartsRoomDirectory -Filter "*.csv" -File
-		if ($csvFiles.Count -eq 0) {
-			[System.Windows.Forms.MessageBox]::Show("No CSV files found in $($config.PartsRoomDirectory).", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-			Write-Log "No CSV files found in $($config.PartsRoomDirectory)."
-			return
-		} elseif ($csvFiles.Count -gt 1) {
-			[System.Windows.Forms.MessageBox]::Show("Multiple CSV files found in $($config.PartsRoomDirectory). Please ensure only one CSV file is present.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-			Write-Log "Multiple CSV files found in $($config.PartsRoomDirectory)."
-			return
-		} else {
-			$csvFilePath = $csvFiles[0].FullName
-			Write-Log "Using CSV file: $csvFilePath"
-		}
+        # ---- 1) AVAILABILITY ----
+        $csvFiles = Get-ChildItem -Path $config.PartsRoomDirectory -Filter "*.csv" -File
+        if ($csvFiles.Count -eq 0) {
+            [System.Windows.Forms.MessageBox]::Show("No CSV files found in $($config.PartsRoomDirectory).", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+            Write-Log "No CSV files found in $($config.PartsRoomDirectory)."
+            return
+        } elseif ($csvFiles.Count -gt 1) {
+            [System.Windows.Forms.MessageBox]::Show("Multiple CSV files found in $($config.PartsRoomDirectory). Please ensure only one CSV file is present.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+            Write-Log "Multiple CSV files found in $($config.PartsRoomDirectory)."
+            return
+        } else {
+            $csvFilePath = $csvFiles[0].FullName
+            Write-Log "Using CSV file: $csvFilePath"
+        }
 
-		try {
-			$data = @(Import-Csv -Path $csvFilePath)
-			Write-Log "CSV file loaded successfully. Row count: $($data.Count)"
-		} catch {
-			[System.Windows.Forms.MessageBox]::Show("Failed to read CSV file. Error: $_", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-			Write-Log "Failed to read CSV file. Error: $_"
-			return
-		}
+        try {
+            $data = @(Import-Csv -Path $csvFilePath)
+            Write-Log "CSV file loaded successfully. Row count: $($data.Count)"
+        } catch {
+            [System.Windows.Forms.MessageBox]::Show("Failed to read CSV file. Error: $_", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+            Write-Log "Failed to read CSV file. Error: $_"
+            return
+        }
 
-		if ($nsnNoMatch -or $oemNoMatch) {
-			$filteredData = @()
-		} else {
-			$filteredData = @($data | Where-Object {
-				$nsnOk = $true
-				if ($nsnActive) {
-					$rowNSN = ([string]$_.'Part (NSN)') -replace '[^0-9]', ''
-					$nsnOk = $rowNSN -match $nsnPattern
-				}
-				$oemOk = $true
-				if ($oemActive) {
-					$oemOk = $false
-					foreach ($f in 'OEM 1','OEM 2','OEM 3') {
-						$rowOem = ([string]$_.$f -replace '[^A-Za-z0-9]', '').ToUpper()
-						if ($rowOem -and $rowOem -match $oemPattern) { $oemOk = $true; break }
-					}
-				}
-				$descOk = $true
-				if ($descActive) {
-					$rowDesc = (([string]$_.Description -replace '[^A-Za-z0-9]', ' ').ToLower() -replace '\s+', ' ').Trim()
-					foreach ($token in $descTokens) {
-						if (-not $rowDesc.Contains($token)) { $descOk = $false; break }
-					}
-				}
-				$nsnOk -and $oemOk -and $descOk
-			})
-		}
-		if ($null -eq $filteredData) { $filteredData = @() }
-		Write-Log "Found $($filteredData.Count) matching records in Availability."
+        if ($nsnNoMatch -or $oemNoMatch) {
+            $filteredData = @()
+        } else {
+            $filteredData = @($data | Where-Object {
+                $nsnOk = $true
+                if ($nsnActive) {
+                    $rowNSN = ([string]$_.'Part (NSN)') -replace '[^0-9]', ''
+                    $nsnOk = $rowNSN -match $nsnPattern
+                }
+                $oemOk = $true
+                if ($oemActive) {
+                    $oemOk = $false
+                    foreach ($f in 'OEM 1','OEM 2','OEM 3') {
+                        $rowOem = ([string]$_.$f -replace '[^A-Za-z0-9]', '').ToUpper()
+                        if ($rowOem -and $rowOem -match $oemPattern) { $oemOk = $true; break }
+                    }
+                }
+                $descOk = $true
+                if ($descActive) {
+                    $rowDesc = (([string]$_.Description -replace '[^A-Za-z0-9]', ' ').ToLower() -replace '\s+', ' ').Trim()
+                    foreach ($token in $descTokens) {
+                        if (-not $rowDesc.Contains($token)) { $descOk = $false; break }
+                    }
+                }
+                $nsnOk -and $oemOk -and $descOk
+            })
+        }
+        if ($null -eq $filteredData) { $filteredData = @() }
+        Write-Log "Found $($filteredData.Count) matching records in Availability."
 
-		$script:listViewAvailability.Items.Clear()
-		foreach ($row in $filteredData) {
-			$item = New-Object System.Windows.Forms.ListViewItem([string]$row.'Part (NSN)')
-			$item.SubItems.Add([string]$row.Description)
-			$item.SubItems.Add([string]$row.QTY)
-			$item.SubItems.Add([string]$row.'13 Period Usage')
-			$item.SubItems.Add([string]$row.Location)
-			$item.SubItems.Add([string]$row.'OEM 1')
-			$item.SubItems.Add([string]$row.'OEM 2')
-			$item.SubItems.Add([string]$row.'OEM 3')
-			if ($row.PSObject.Properties.Name -contains 'Changed Part (NSN)') {
-				$item.SubItems.Add([string]$row.'Changed Part (NSN)')
-			} else {
-				$item.SubItems.Add("")
-			}
-			$script:listViewAvailability.Items.Add($item) | Out-Null
-		}
+        $script:listViewAvailability.Items.Clear()
+        foreach ($row in $filteredData) {
+            $item = New-Object System.Windows.Forms.ListViewItem([string]$row.'Part (NSN)')
+            $item.SubItems.Add([string]$row.Description)
+            $item.SubItems.Add([string]$row.QTY)
+            $item.SubItems.Add([string]$row.'13 Period Usage')
+            $item.SubItems.Add([string]$row.Location)
+            $item.SubItems.Add([string]$row.'OEM 1')
+            $item.SubItems.Add([string]$row.'OEM 2')
+            $item.SubItems.Add([string]$row.'OEM 3')
+            if ($row.PSObject.Properties.Name -contains 'Changed Part (NSN)') {
+                $item.SubItems.Add([string]$row.'Changed Part (NSN)')
+            } else {
+                $item.SubItems.Add("")
+            }
+            $script:listViewAvailability.Items.Add($item) | Out-Null
+        }
 
-		# =========================================================
-		# 2) SAME DAY AVAILABILITY
-		# =========================================================
-		$sameDayPartsDir = Join-Path $config.PartsRoomDirectory "Same Day Parts Room"
-		if (Test-Path $sameDayPartsDir) {
-			$sameDayCsvFiles = Get-ChildItem -Path $sameDayPartsDir -Filter "*.csv" -File
-			Write-Log "Found $($sameDayCsvFiles.Count) CSV files in Same Day Parts Room."
+        # ---- 2) SAME DAY ----
+        $sameDayPartsDir = Join-Path $config.PartsRoomDirectory "Same Day Parts Room"
+        if (Test-Path $sameDayPartsDir) {
+            $sameDayCsvFiles = Get-ChildItem -Path $sameDayPartsDir -Filter "*.csv" -File
+            Write-Log "Found $($sameDayCsvFiles.Count) CSV files in Same Day Parts Room."
 
-			$sameDayData = @()
-			foreach ($csvFile in $sameDayCsvFiles) {
-				$siteName = [IO.Path]::GetFileNameWithoutExtension($csvFile.Name)
-				try {
-					$csvData = Import-Csv -Path $csvFile.FullName
-					foreach ($row in $csvData) {
-						$row | Add-Member -NotePropertyName 'SiteName' -NotePropertyValue $siteName -Force
-						$sameDayData += $row
-					}
-				} catch {
-					Write-Log "Failed to read CSV file $($csvFile.FullName). Error: $_"
-				}
-			}
+            $sameDayData = @()
+            foreach ($csvFile in $sameDayCsvFiles) {
+                $siteName = [IO.Path]::GetFileNameWithoutExtension($csvFile.Name)
+                try {
+                    $csvData = Import-Csv -Path $csvFile.FullName
+                    foreach ($row in $csvData) {
+                        $row | Add-Member -NotePropertyName 'SiteName' -NotePropertyValue $siteName -Force
+                        $sameDayData += $row
+                    }
+                } catch {
+                    Write-Log "Failed to read CSV file $($csvFile.FullName). Error: $_"
+                }
+            }
 
-			if ($nsnNoMatch -or $oemNoMatch) {
-				$filteredSameDayData = @()
-			} else {
-				$filteredSameDayData = @($sameDayData | Where-Object {
-					$nsnOk = $true
-					if ($nsnActive) {
-						$rowNSN = ([string]$_.'Part (NSN)') -replace '[^0-9]', ''
-						$nsnOk = $rowNSN -match $nsnPattern
-					}
-					$oemOk = $true
-					if ($oemActive) {
-						$oemOk = $false
-						foreach ($f in 'OEM 1','OEM 2','OEM 3') {
-							$rowOem = ([string]$_.$f -replace '[^A-Za-z0-9]', '').ToUpper()
-							if ($rowOem -and $rowOem -match $oemPattern) { $oemOk = $true; break }
-						}
-					}
-					$descOk = $true
-					if ($descActive) {
-						$rowDesc = (([string]$_.Description -replace '[^A-Za-z0-9]', ' ').ToLower() -replace '\s+', ' ').Trim()
-						foreach ($token in $descTokens) {
-							if (-not $rowDesc.Contains($token)) { $descOk = $false; break }
-						}
-					}
-					$nsnOk -and $oemOk -and $descOk
-				})
-			}
-			if ($null -eq $filteredSameDayData) { $filteredSameDayData = @() }
-			Write-Log "Found $($filteredSameDayData.Count) matching records in Same Day Parts Availability."
+            if ($nsnNoMatch -or $oemNoMatch) {
+                $filteredSameDayData = @()
+            } else {
+                $filteredSameDayData = @($sameDayData | Where-Object {
+                    $nsnOk = $true
+                    if ($nsnActive) {
+                        $rowNSN = ([string]$_.'Part (NSN)') -replace '[^0-9]', ''
+                        $nsnOk = $rowNSN -match $nsnPattern
+                    }
+                    $oemOk = $true
+                    if ($oemActive) {
+                        $oemOk = $false
+                        foreach ($f in 'OEM 1','OEM 2','OEM 3') {
+                            $rowOem = ([string]$_.$f -replace '[^A-Za-z0-9]', '').ToUpper()
+                            if ($rowOem -and $rowOem -match $oemPattern) { $oemOk = $true; break }
+                        }
+                    }
+                    $descOk = $true
+                    if ($descActive) {
+                        $rowDesc = (([string]$_.Description -replace '[^A-Za-z0-9]', ' ').ToLower() -replace '\s+', ' ').Trim()
+                        foreach ($token in $descTokens) {
+                            if (-not $rowDesc.Contains($token)) { $descOk = $false; break }
+                        }
+                    }
+                    $nsnOk -and $oemOk -and $descOk
+                })
+            }
+            if ($null -eq $filteredSameDayData) { $filteredSameDayData = @() }
+            Write-Log "Found $($filteredSameDayData.Count) matching records in Same Day Parts Availability."
 
-			$script:listViewSameDayAvailability.Items.Clear()
-			foreach ($row in $filteredSameDayData) {
-			$item = New-Object System.Windows.Forms.ListViewItem([string]$row.'Part (NSN)')
-			$item.SubItems.Add([string]$row.Description)
-			$item.SubItems.Add([string]$row.QTY)
-			$item.SubItems.Add([string]$row.'13 Period Usage')
-			$item.SubItems.Add([string]$row.Location)
-			$item.SubItems.Add([string]$row.'OEM 1')
-			$item.SubItems.Add([string]$row.'OEM 2')
-			$item.SubItems.Add([string]$row.'OEM 3')
-			$item.SubItems.Add([string]$row.SiteName)
-			$script:listViewSameDayAvailability.Items.Add($item) | Out-Null
-			}
-		} else {
-			Write-Log "Same Day Parts Room directory not found at $sameDayPartsDir"
-		}
+            $script:listViewSameDayAvailability.Items.Clear()
+            foreach ($row in $filteredSameDayData) {
+                $item = New-Object System.Windows.Forms.ListViewItem([string]$row.'Part (NSN)')
+                $item.SubItems.Add([string]$row.Description)
+                $item.SubItems.Add([string]$row.QTY)
+                $item.SubItems.Add([string]$row.'13 Period Usage')
+                $item.SubItems.Add([string]$row.Location)
+                $item.SubItems.Add([string]$row.'OEM 1')
+                $item.SubItems.Add([string]$row.'OEM 2')
+                $item.SubItems.Add([string]$row.'OEM 3')
+                $item.SubItems.Add([string]$row.SiteName)
+                $script:listViewSameDayAvailability.Items.Add($item) | Out-Null
+            }
+        } else {
+            Write-Log "Same Day Parts Room directory not found at $sameDayPartsDir"
+        }
 
-		# =========================================================
-		# 3) CROSS REFERENCE
-		# =========================================================
-		$crossRefResults = @()
-		if ($config.Books) {
-			foreach ($book in $config.Books.PSObject.Properties) {
-				$bookName = $book.Name
-				$volumesCsvPath = $book.Value.VolumesToUrlCsvPath
-				if ($volumesCsvPath) {
-					$bookDir = Split-Path -Path $volumesCsvPath -Parent
-				} else {
-					$bookDir = Join-Path $config.PartsBooksDirectory $bookName
-				}
+        # ---- 3) CROSS REFERENCE ----
+        $crossRefResults = @()
+        if ($config.Books) {
+            foreach ($book in $config.Books.PSObject.Properties) {
+                $bookName = $book.Name
+                $volumesCsvPath = $book.Value.VolumesToUrlCsvPath
+                if ($volumesCsvPath) {
+                    $bookDir = Split-Path -Path $volumesCsvPath -Parent
+                } else {
+                    $bookDir = Join-Path $config.PartsBooksDirectory $bookName
+                }
 
-				$combinedSectionsDir = Join-Path $bookDir "CombinedSections"
-				$sectionNamesFile    = Join-Path $bookDir "SectionNames.txt"
+                $combinedSectionsDir = Join-Path $bookDir "CombinedSections"
+                $sectionNamesFile    = Join-Path $bookDir "SectionNames.txt"
 
-				$sectionNameMapping = @{}
-				if (Test-Path $sectionNamesFile) {
-					$sectionNames = Get-Content -Path $sectionNamesFile
-					foreach ($line in $sectionNames) {
-						if ($line -match '^Section\s+(\d+)\s+(.*)$') {
-							$sectionNumber   = $Matches[1]
-							$sectionFullName = $line.Trim()
-							$sectionNameMapping["Section $sectionNumber"] = $sectionFullName
-						}
-					}
-					Write-Log "Loaded $($sectionNameMapping.Count) section names for $bookName"
-				} else {
-					Write-Log "SectionNames.txt not found for $bookName"
-				}
+                $sectionNameMapping = @{}
+                if (Test-Path $sectionNamesFile) {
+                    $sectionNames = Get-Content -Path $sectionNamesFile
+                    foreach ($line in $sectionNames) {
+                        if ($line -match '^Section\s+(\d+)\s+(.*)$') {
+                            $sectionNumber   = $Matches[1]
+                            $sectionFullName = $line.Trim()
+                            $sectionNameMapping["Section $sectionNumber"] = $sectionFullName
+                        }
+                    }
+                    Write-Log "Loaded $($sectionNameMapping.Count) section names for $bookName"
+                } else {
+                    Write-Log "SectionNames.txt not found for $bookName"
+                }
 
-				if (-not (Test-Path $combinedSectionsDir)) {
-					Write-Log "CombinedSections directory not found for $bookName"
-					continue
-				}
+                if (-not (Test-Path $combinedSectionsDir)) {
+                    Write-Log "CombinedSections directory not found for $bookName"
+                    continue
+                }
 
-				$sectionCsvFiles = Get-ChildItem -Path $combinedSectionsDir -Filter "*.csv" -File
-				Write-Log "Found $($sectionCsvFiles.Count) CSV files in $bookName"
+                $sectionCsvFiles = Get-ChildItem -Path $combinedSectionsDir -Filter "*.csv" -File
+                Write-Log "Found $($sectionCsvFiles.Count) CSV files in $bookName"
 
-				foreach ($csvFile in $sectionCsvFiles) {
-					$sectionFileName = [IO.Path]::GetFileNameWithoutExtension($csvFile.Name)
-					$csvFilePath = $csvFile.FullName
+                foreach ($csvFile in $sectionCsvFiles) {
+                    $sectionFileName = [IO.Path]::GetFileNameWithoutExtension($csvFile.Name)
+                    $csvFilePath = $csvFile.FullName
 
-					if ($sectionFileName -match '^Section\s+(\d+)$') {
-						$sectionNumber = $Matches[1]
-						if ($sectionNameMapping.ContainsKey("Section $sectionNumber")) {
-							$sectionName = $sectionNameMapping["Section $sectionNumber"]
-						} else {
-							$sectionName = "Section $sectionNumber"
-						}
-					} else {
-						$sectionName = $sectionFileName
-					}
+                    if ($sectionFileName -match '^Section\s+(\d+)$') {
+                        $sectionNumber = $Matches[1]
+                        if ($sectionNameMapping.ContainsKey("Section $sectionNumber")) {
+                            $sectionName = $sectionNameMapping["Section $sectionNumber"]
+                        } else {
+                            $sectionName = "Section $sectionNumber"
+                        }
+                    } else {
+                        $sectionName = $sectionFileName
+                    }
 
-					try {
-						$sectionData = Import-Csv -Path $csvFilePath
-						Write-Log "Processed $($sectionData.Count) rows from $($csvFile.Name)"
-					} catch {
-						Write-Log "Failed to read CSV file $csvFilePath. Error: $_"
-						continue
-					}
+                    try {
+                        $sectionData = Import-Csv -Path $csvFilePath
+                        Write-Log "Processed $($sectionData.Count) rows from $($csvFile.Name)"
+                    } catch {
+                        Write-Log "Failed to read CSV file $csvFilePath. Error: $_"
+                        continue
+                    }
 
-					if ($nsnNoMatch -or $oemNoMatch) {
-						$filteredSectionData = @()
-					} else {
-						$filteredSectionData = @($sectionData | Where-Object {
-							$nsnOk = $true
-							if ($nsnActive) {
-								$rowStock = ([string]$_.'STOCK NO.') -replace '[^0-9]', ''
-								$nsnOk = $rowStock -match $nsnPattern
-							}
-							$oemOk = $true
-							if ($oemActive) {
-								$rowPart = ([string]$_.'PART NO.' -replace '[^A-Za-z0-9]', '').ToUpper()
-								$oemOk = ($rowPart -and ($rowPart -match $oemPattern))
-							}
-							$descOk = $true
-							if ($descActive) {
-								$rowDesc = (([string]$_.'PART DESCRIPTION' -replace '[^A-Za-z0-9]', ' ').ToLower() -replace '\s+', ' ').Trim()
-								foreach ($token in $descTokens) {
-									if (-not $rowDesc.Contains($token)) { $descOk = $false; break }
-								}
-							}
-							$nsnOk -and $oemOk -and $descOk
-						})
-					}
+                    if ($nsnNoMatch -or $oemNoMatch) {
+                        $filteredSectionData = @()
+                    } else {
+                        $filteredSectionData = @($sectionData | Where-Object {
+                            $nsnOk = $true
+                            if ($nsnActive) {
+                                $rowStock = ([string]$_.'STOCK NO.') -replace '[^0-9]', ''
+                                $nsnOk = $rowStock -match $nsnPattern
+                            }
+                            $oemOk = $true
+                            if ($oemActive) {
+                                $rowPart = ([string]$_.'PART NO.' -replace '[^A-Za-z0-9]', '').ToUpper()
+                                $oemOk = ($rowPart -and ($rowPart -match $oemPattern))
+                            }
+                            $descOk = $true
+                            if ($descActive) {
+                                $rowDesc = (([string]$_.'PART DESCRIPTION' -replace '[^A-Za-z0-9]', ' ').ToLower() -replace '\s+', ' ').Trim()
+                                foreach ($token in $descTokens) {
+                                    if (-not $rowDesc.Contains($token)) { $descOk = $false; break }
+                                }
+                            }
+                            $nsnOk -and $oemOk -and $descOk
+                        })
+                    }
 
-					foreach ($item in $filteredSectionData) {
-						$item | Add-Member -NotePropertyName 'Handbook'     -NotePropertyValue $bookName    -Force
-						$item | Add-Member -NotePropertyName 'Section Name' -NotePropertyValue $sectionName -Force
-						$crossRefResults += $item
-					}
-				}
-			}
-		} else {
-			Write-Log "No books defined in configuration."
-		}
+                    foreach ($item in $filteredSectionData) {
+                        $item | Add-Member -NotePropertyName 'Handbook'     -NotePropertyValue $bookName    -Force
+                        $item | Add-Member -NotePropertyName 'Section Name' -NotePropertyValue $sectionName -Force
+                        $crossRefResults += $item
+                    }
+                }
+            }
+        } else {
+            Write-Log "No books defined in configuration."
+        }
 
-		Write-Log "Found $($crossRefResults.Count) matching records in Cross Reference."
+        Write-Log "Found $($crossRefResults.Count) matching records in Cross Reference."
 
-		$script:listViewCrossRef.Items.Clear()
-		if ($crossRefResults.Count -gt 0) {
-			$columns = @('Handbook', 'Section Name', 'NO.', 'PART DESCRIPTION', 'REF.', 'STOCK NO.', 'PART NO.', 'CAGE', 'Location', 'QTY')
-			foreach ($row in $crossRefResults) {
-				$item = New-Object System.Windows.Forms.ListViewItem($row.Handbook)
-				foreach ($column in $columns[1..($columns.Count - 1)]) {
-					$value = if ($row.PSObject.Properties.Name -contains $column) { $row.$column } else { "" }
-					if ($column -eq 'REF.' -and $value -is [string]) {
-						$value = $value -replace '\.csv$', ''
-					}
-					$item.SubItems.Add($value)
-				}
-				$script:listViewCrossRef.Items.Add($item) | Out-Null
-			}
-			$script:listViewCrossRef.AutoResizeColumns([System.Windows.Forms.ColumnHeaderAutoResizeStyle]::HeaderSize)
-			Write-Log "Added $($crossRefResults.Count) items to Cross Reference ListView."
-		} else {
-			[System.Windows.Forms.MessageBox]::Show("No matching records found in Cross Reference.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-			Write-Log "No matching records found in Cross Reference."
-		}
+        $script:listViewCrossRef.Items.Clear()
+        if ($crossRefResults.Count -gt 0) {
+            $columns = @('Handbook', 'Section Name', 'NO.', 'PART DESCRIPTION', 'REF.', 'STOCK NO.', 'PART NO.', 'CAGE', 'Location', 'QTY')
+            foreach ($row in $crossRefResults) {
+                $item = New-Object System.Windows.Forms.ListViewItem($row.Handbook)
+                foreach ($column in $columns[1..($columns.Count - 1)]) {
+                    $value = if ($row.PSObject.Properties.Name -contains $column) { $row.$column } else { "" }
+                    if ($column -eq 'REF.' -and $value -is [string]) {
+                        $value = $value -replace '\.csv$', ''
+                    }
+                    $item.SubItems.Add($value)
+                }
+                $script:listViewCrossRef.Items.Add($item) | Out-Null
+            }
+            $script:listViewCrossRef.AutoResizeColumns([System.Windows.Forms.ColumnHeaderAutoResizeStyle]::HeaderSize)
+            Write-Log "Added $($crossRefResults.Count) items to Cross Reference ListView."
+        } else {
+            [System.Windows.Forms.MessageBox]::Show("No matching records found in Cross Reference.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
+            Write-Log "No matching records found in Cross Reference."
+        }
 
-		Write-Log "Search complete."
-	})
-	Write-Log "Search tab setup completed."
+        Write-Log "Search complete."
+    })
+    Write-Log "Search tab setup completed."
 }
 
 # Combo box loader
@@ -3114,11 +3346,10 @@ function Update-PartsBooks {
     $progressLabel.Text = "Loading source data..."
     $progressForm.Controls.Add($progressLabel)
 
-    $progressBar = New-Object System.Windows.Forms.ProgressBar
-    $progressBar.Location = New-Object System.Drawing.Point(10, 50)
-    $progressBar.Size = New-Object System.Drawing.Size(370, 20)
-    $progressBar.Style = [System.Windows.Forms.ProgressBarStyle]::Blocks
-    $progressForm.Controls.Add($progressBar)
+	$progressBar = New-Object ModernProgressBar
+	$progressBar.Location = New-Object System.Drawing.Point(10, 50)
+	$progressBar.Size = New-Object System.Drawing.Size(370, 26)
+	$progressForm.Controls.Add($progressBar)
 
     $bookLabel = New-Object System.Windows.Forms.Label
     $bookLabel.Location = New-Object System.Drawing.Point(10, 80)
@@ -3618,11 +3849,11 @@ function Update-PartsRoom {
         $progressLabel.Text = "Downloading data for $selectedSiteName..."
         $progressForm.Controls.Add($progressLabel)
         
-        $progressBar = New-Object System.Windows.Forms.ProgressBar
-        $progressBar.Location = New-Object System.Drawing.Point(10, 50)
-        $progressBar.Size = New-Object System.Drawing.Size(370, 20)
-        $progressBar.Style = [System.Windows.Forms.ProgressBarStyle]::Marquee
-        $progressForm.Controls.Add($progressBar)
+		$progressBar = New-Object ModernProgressBar
+		$progressBar.Location = New-Object System.Drawing.Point(10, 50)
+		$progressBar.Size = New-Object System.Drawing.Size(370, 26)
+		$progressBar.Style = [System.Windows.Forms.ProgressBarStyle]::Marquee
+		$progressForm.Controls.Add($progressBar)
         
         # Show the progress form
         $progressForm.Show()
@@ -4489,16 +4720,23 @@ if ($configUpdated) {
 function Show-MainForm {
     $form = New-Object System.Windows.Forms.Form
     $form.Text = 'Parts Management System'
-    $form.Size = New-Object System.Drawing.Size(900, 800)
+    $form.Size = New-Object System.Drawing.Size(1280, 900)
+    $form.MinimumSize = New-Object System.Drawing.Size(1000, 700)
     $form.StartPosition = 'CenterScreen'
+    $form.BackColor = [System.Drawing.Color]::FromArgb(236,240,241)
+    $form.Font = New-Object System.Drawing.Font("Segoe UI", 9)
 
     $tabControl = New-Object System.Windows.Forms.TabControl
     $tabControl.Dock = 'Fill'
+    $tabControl.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Regular)
+    $tabControl.Padding = New-Object System.Drawing.Point(16, 6)
     $form.Controls.Add($tabControl)
 
-    # Parts Books Tab
+    # ---- Parts Books Tab ----
     $partsBookTab = New-Object System.Windows.Forms.TabPage
     $partsBookTab.Text = "Parts Books"
+    $partsBookTab.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $partsBookTab.Padding = New-Object System.Windows.Forms.Padding(12)
     $tabControl.TabPages.Add($partsBookTab)
 
     $partsBookPanel = New-Object System.Windows.Forms.FlowLayoutPanel
@@ -4506,28 +4744,30 @@ function Show-MainForm {
     $partsBookPanel.FlowDirection = 'TopDown'
     $partsBookPanel.WrapContents = $false
     $partsBookPanel.AutoScroll = $true
+    $partsBookPanel.BackColor = [System.Drawing.Color]::Transparent
     $partsBookTab.Controls.Add($partsBookPanel)
 
-    # Call Logs Tab
+    # ---- Call Logs Tab ----
     $callLogsTab = New-Object System.Windows.Forms.TabPage
     $callLogsTab.Text = "Call Logs"
+    $callLogsTab.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $callLogsTab.Padding = New-Object System.Windows.Forms.Padding(12)
     $tabControl.TabPages.Add($callLogsTab)
 
-    # Set up Call Logs tab
     Setup-CallLogsTab -parentTab $callLogsTab
 
-    # Labor Log Tab
+    # ---- Labor Log Tab ----
     $laborLogTab = New-Object System.Windows.Forms.TabPage
     $laborLogTab.Text = "Labor Log"
+    $laborLogTab.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $laborLogTab.Padding = New-Object System.Windows.Forms.Padding(12)
     $tabControl.TabPages.Add($laborLogTab)
 
-    # Set up Labor Log tab
     Setup-LaborLogTab -parentTab $laborLogTab -tabControl $tabControl
 
-    # Process historical logs
     Process-HistoricalLogs
 
-    # Add form closing event to save logs
+    # Form closing handler
     $form.Add_FormClosing({
         $script:listViewCallLogs = $callLogsTab.Controls | Where-Object { $_ -is [System.Windows.Forms.ListView] }
         if ($script:listViewCallLogs) {
@@ -4540,7 +4780,7 @@ function Show-MainForm {
         }
     })
 
-    # Add Open Parts Room button
+    # ---- Open Parts Room ----
     $openPartsRoomButton = New-Button "Open Parts Room" {
         $partsRoomFilePath = Get-ChildItem -Path $config.PartsRoomDirectory -Filter "*.xlsx" | Select-Object -First 1 -ExpandProperty FullName
         if (Test-Path $partsRoomFilePath) {
@@ -4548,10 +4788,10 @@ function Show-MainForm {
         } else {
             [System.Windows.Forms.MessageBox]::Show("Parts Room file not found.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
         }
-    }
+    } -Style 'Primary'
     $partsBookPanel.Controls.Add($openPartsRoomButton)
 
-    # Add Create Parts Book button
+    # ---- Create Parts Book ----
     $createPartsBookButton = New-Button "Create Parts Book" {
         Write-Log "Creating Parts Book..."
         $scriptPath = Join-Path $PSScriptRoot "Parts-Books-Creator.ps1"
@@ -4563,10 +4803,10 @@ function Show-MainForm {
             [System.Windows.Forms.MessageBox]::Show("Parts Books Creator script not found at $scriptPath.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
             Write-Log "Parts Books Creator script not found at $scriptPath."
         }
-    }
+    } -Style 'Primary'
     $partsBookPanel.Controls.Add($createPartsBookButton)
 
-    # Add Parts Books buttons
+    # ---- Excel parts books ----
     $excelFiles = Get-ExcelFiles
     foreach ($file in $excelFiles) {
         $button = New-Button $file.Name -Action {
@@ -4577,13 +4817,15 @@ function Show-MainForm {
             } else {
                 [System.Windows.Forms.MessageBox]::Show("File not found: $filePath", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
             }
-        } -Tag $file.Path
+        } -Tag $file.Path -Style 'Ghost'
         $partsBookPanel.Controls.Add($button)
     }
 
-    # Actions Tab
+    # ---- Actions Tab ----
     $actionsTab = New-Object System.Windows.Forms.TabPage
     $actionsTab.Text = "Actions"
+    $actionsTab.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $actionsTab.Padding = New-Object System.Windows.Forms.Padding(12)
     $tabControl.TabPages.Add($actionsTab)
 
     $actionsPanel = New-Object System.Windows.Forms.FlowLayoutPanel
@@ -4591,44 +4833,44 @@ function Show-MainForm {
     $actionsPanel.FlowDirection = 'TopDown'
     $actionsPanel.WrapContents = $false
     $actionsPanel.AutoScroll = $true
+    $actionsPanel.BackColor = [System.Drawing.Color]::Transparent
     $actionsTab.Controls.Add($actionsPanel)
 
-    # Define action buttons
+    # Search tab needs to exist before "Search for a Part" action can switch to it
+    $searchTab = New-Object System.Windows.Forms.TabPage
+    $searchTab.Text = "Search"
+    $searchTab.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $searchTab.Padding = New-Object System.Windows.Forms.Padding(12)
+    $tabControl.TabPages.Add($searchTab)
+    Setup-SearchTab -parentTab $searchTab -config $config
+
+    # Style per action
     $actionButtons = @(
-        @{Text="Update Files"; Action={ Update-AllFiles }}
-        @{Text="Update Parts Books"; Action={ Update-PartsBooks }}
-        @{Text="Update Parts Room"; Action={ Update-PartsRoom }}
-        @{Text="Take a Part Out"; Action={ Take-PartOut }}
-        @{Text="Search for a Part"; Action={ $tabControl.SelectedTab = $searchTab }}
-        @{Text="Request a Part to be Ordered"; Action={ Request-PartOrder }}
-        @{Text="Request a Work Order"; Action={ Request-WorkOrder }}
-        @{Text="Make an MTSC Ticket"; Action={ Make-MTSCTicket }}
-        @{Text="Search Knowledge Base"; Action={ Search-KnowledgeBase }}
-        @{Text="Add Parts Book"; Action={ Add-PartsBookFromCatalog -config $config }}
-        @{Text="Remove Parts Book"; Action={ Remove-PartsBook -config $config }}
-        @{Text="Add Same Day Parts Room"; Action={ Add-SameDayPartsRoom }}
-        @{Text="Remove Same Day Parts Room"; Action={ Remove-SameDayPartsRoom -config $config }}
-        @{Text="Add 1-Day Parts Room"; Action={ [System.Windows.Forms.MessageBox]::Show("Not yet implemented.") }}
-        @{Text="Add 2-Day Parts Room"; Action={ [System.Windows.Forms.MessageBox]::Show("Not yet implemented.") }}
+        @{Text="Update Files";                   Action={ Update-AllFiles };                                      Style='Success' }
+        @{Text="Update Parts Books";             Action={ Update-PartsBooks };                                    Style='Primary' }
+        @{Text="Update Parts Room";              Action={ Update-PartsRoom };                                     Style='Primary' }
+        @{Text="Take a Part Out";                Action={ Take-PartOut };                                         Style='Primary' }
+        @{Text="Search for a Part";              Action={ $tabControl.SelectedTab = $searchTab };                 Style='Primary' }
+        @{Text="Request a Part to be Ordered";   Action={ Request-PartOrder };                                    Style='Secondary' }
+        @{Text="Request a Work Order";           Action={ Request-WorkOrder };                                    Style='Secondary' }
+        @{Text="Make an MTSC Ticket";            Action={ Make-MTSCTicket };                                      Style='Secondary' }
+        @{Text="Search Knowledge Base";          Action={ Search-KnowledgeBase };                                 Style='Secondary' }
+        @{Text="Add Parts Book";                 Action={ Add-PartsBookFromCatalog -config $config };             Style='Success' }
+        @{Text="Remove Parts Book";              Action={ Remove-PartsBook -config $config };                     Style='Danger' }
+        @{Text="Add Same Day Parts Room";        Action={ Add-SameDayPartsRoom };                                 Style='Success' }
+        @{Text="Remove Same Day Parts Room";     Action={ Remove-SameDayPartsRoom -config $config };              Style='Danger' }
+        @{Text="Add 1-Day Parts Room";           Action={ [System.Windows.Forms.MessageBox]::Show("Not yet implemented.") }; Style='Ghost' }
+        @{Text="Add 2-Day Parts Room";           Action={ [System.Windows.Forms.MessageBox]::Show("Not yet implemented.") }; Style='Ghost' }
     )
 
-		foreach ($actionButton in $actionButtons) {
-			$button = New-Button $actionButton.Text $actionButton.Action
-			$actionsPanel.Controls.Add($button)
-		}
+    foreach ($actionButton in $actionButtons) {
+        $button = New-Button $actionButton.Text $actionButton.Action -Style $actionButton.Style
+        $actionsPanel.Controls.Add($button)
+    }
 
-
-		# Search Tab
-		$searchTab = New-Object System.Windows.Forms.TabPage
-		$searchTab.Text = "Search"
-		$tabControl.TabPages.Add($searchTab)
-
-		# Call the function to set up the search interface within the searchTab
-		Setup-SearchTab -parentTab $searchTab -config $config
-
-		Write-Log "UI setup completed"
-		$form.ShowDialog()
-	}
+    Write-Log "UI setup completed"
+    $form.ShowDialog()
+}
 
 
 # Main execution
