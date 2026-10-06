@@ -65,7 +65,8 @@ public class ModernProgressBar : Control
         SetStyle(ControlStyles.AllPaintingInWmPaint
                | ControlStyles.OptimizedDoubleBuffer
                | ControlStyles.UserPaint
-               | ControlStyles.ResizeRedraw, true);
+               | ControlStyles.ResizeRedraw
+               | ControlStyles.SupportsTransparentBackColor, true);
         Height = 26;
         BackColor = Color.Transparent;
 
@@ -250,6 +251,13 @@ $script:actionsTab = $null                # Actions tab
 $script:configPath = $null
 #>
 
+# Make sure this dictionary always exists before anything tries to read it
+if ($null -eq $script:workOrderParts) { $script:workOrderParts = @{} }
+if ($null -eq $script:unacknowledgedEntries) { $script:unacknowledgedEntries = @{} }
+if ($null -eq $script:processedCallLogs) { $script:processedCallLogs = @{} }
+if ($null -eq $script:pmSuppressEvents)      { $script:pmSuppressEvents = $false }
+if ($null -eq $script:pmTotalSelectedHours)  { $script:pmTotalSelectedHours = 0.0 }
+
 ################################################################################
 #                            Core Utilities                                    #
 ################################################################################
@@ -267,7 +275,6 @@ function Write-Log {
 
 #Initialize the config
 function Initialize-Config {
-    $configPath = $script:configPath
     if (Test-Path $configPath) {
         $config = Get-Content -Path $configPath | ConvertFrom-Json
         if (-not ($config.PSObject.Properties.Name -contains 'SameDayPartsRooms')) {
@@ -293,7 +300,7 @@ function Initialize-Config {
     return $config
 }
 
-$config = Initialize-Config -configPath $configPath
+$config = Initialize-Config
 $laborLogsFilePath = $config.PrerequisiteFiles.LaborLogs
 if (-not $laborLogsFilePath) {
     $laborLogsFilePath = Join-Path $config.LaborDirectory "LaborLogs.csv"
@@ -327,25 +334,23 @@ function New-Button {
     $button.UseVisualStyleBackColor = $false
 
     switch ($Style) {
-        'Primary'   { $button.BackColor = [System.Drawing.Color]::FromArgb(52,152,219);  $button.ForeColor = [System.Drawing.Color]::White }
-        'Success'   { $button.BackColor = [System.Drawing.Color]::FromArgb(39,174,96);   $button.ForeColor = [System.Drawing.Color]::White }
-        'Danger'    { $button.BackColor = [System.Drawing.Color]::FromArgb(231,76,60);   $button.ForeColor = [System.Drawing.Color]::White }
-        'Secondary' { $button.BackColor = [System.Drawing.Color]::FromArgb(189,195,199); $button.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80) }
-        'Ghost'     { $button.BackColor = [System.Drawing.Color]::FromArgb(236,240,241); $button.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80) }
+        'Primary'   { $base = [System.Drawing.Color]::FromArgb(52,152,219);  $button.ForeColor = [System.Drawing.Color]::White }
+        'Success'   { $base = [System.Drawing.Color]::FromArgb(39,174,96);   $button.ForeColor = [System.Drawing.Color]::White }
+        'Danger'    { $base = [System.Drawing.Color]::FromArgb(231,76,60);   $button.ForeColor = [System.Drawing.Color]::White }
+        'Secondary' { $base = [System.Drawing.Color]::FromArgb(189,195,199); $button.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80) }
+        'Ghost'     { $base = [System.Drawing.Color]::FromArgb(236,240,241); $button.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80) }
     }
+    $button.BackColor = $base
 
-    # Hover feedback (lighten/darken)
-    $baseColor = $button.BackColor
-    $button.Add_MouseEnter({
-        $c = $this.BackColor
-        $this.BackColor = [System.Drawing.Color]::FromArgb(
-            [Math]::Min(255, $c.R + 20),
-            [Math]::Min(255, $c.G + 20),
-            [Math]::Min(255, $c.B + 20))
-    })
-    $button.Add_MouseLeave({
-        $this.BackColor = $baseColor
-    })
+    # Native flat-button hover/pressed states — no event-handler closures needed
+    $button.FlatAppearance.MouseOverBackColor = [System.Drawing.Color]::FromArgb(
+        [Math]::Min(255, $base.R + 25),
+        [Math]::Min(255, $base.G + 25),
+        [Math]::Min(255, $base.B + 25))
+    $button.FlatAppearance.MouseDownBackColor = [System.Drawing.Color]::FromArgb(
+        [Math]::Max(0, $base.R - 25),
+        [Math]::Max(0, $base.G - 25),
+        [Math]::Max(0, $base.B - 25))
 
     if ($Tag -ne $null) { $button.Tag = $Tag }
     $button.Add_Click($action)
@@ -423,60 +428,82 @@ function Search-Parts {
         [string]$NSN,
         [string]$Description
     )
-    
+
     $results = @()
-    
-    # 1. Search Local Parts Room
-    $partsRoomCsv = Join-Path $config.PartsRoomDirectory "*.csv" 
-    $localParts = Get-ChildItem -Path $partsRoomCsv | ForEach-Object {
-        $parts = Import-Csv -Path $_.FullName
-        
-        # Filter based on search criteria
-        $parts | Where-Object {
-            ($NSN -eq "" -or $_.'Part (NSN)' -like "*$NSN*") -and
-            ($Description -eq "" -or $_.Description -like "*$Description*") -and
-            ([int]$_.QTY -gt 0)  # Only show parts with stock
-        } | ForEach-Object {
-            [PSCustomObject]@{
-                PartNumber = $_.'Part (NSN)'
-                Description = $_.Description
-                Quantity = [int]$_.QTY
-                Location = $_.Location
-                OEMNumber = $_.'OEM 1'
+
+    # --- NSN pattern (digits + * wildcard, same rules as main search) ---
+    $nsnPattern = $null
+    if (-not [string]::IsNullOrWhiteSpace($NSN)) {
+        $nsnCleaned = $NSN -replace '[^0-9*]', ''
+        if (-not [string]::IsNullOrEmpty($nsnCleaned) -and $nsnCleaned -ne '*') {
+            $nsnPattern = ([regex]::Escape($nsnCleaned)) -replace '\\\*', '.*'
+        }
+    }
+
+    # --- Description tokens (all must be present) ---
+    $descTokens = @()
+    if (-not [string]::IsNullOrWhiteSpace($Description)) {
+        $descTokens = @(
+            ($Description -replace '[^A-Za-z0-9]', ' ').ToLower() -split '\s+' |
+            Where-Object { $_ -ne '' }
+        )
+    }
+
+    # --- Row match helper (renamed to avoid the $-hyphen parse trap) ---
+    $rowTester = {
+        param($row)
+        $nsnOk = $true
+        if ($nsnPattern) {
+            $rowNSN = ([string]$row.'Part (NSN)') -replace '[^0-9]', ''
+            $nsnOk = $rowNSN -match $nsnPattern
+        }
+        $descOk = $true
+        if ($descTokens.Count -gt 0) {
+            $rowDesc = (([string]$row.Description -replace '[^A-Za-z0-9]', ' ').ToLower() -replace '\s+', ' ').Trim()
+            foreach ($t in $descTokens) {
+                if (-not $rowDesc.Contains($t)) { $descOk = $false; break }
+            }
+        }
+        $nsnOk -and $descOk
+    }
+
+    # 1. Local Parts Room
+    $localFiles = Get-ChildItem -Path (Join-Path $config.PartsRoomDirectory "*.csv") -File
+    foreach ($f in $localFiles) {
+        foreach ($row in (Import-Csv -Path $f.FullName)) {
+            if ([int]$row.QTY -le 0) { continue }
+            if (-not (& $rowTester $row)) { continue }
+            $results += [PSCustomObject]@{
+                PartNumber = $row.'Part (NSN)'
+                Description = $row.Description
+                Quantity = [int]$row.QTY
+                Location = $row.Location
+                OEMNumber = $row.'OEM 1'
                 Source = "Local Parts Room"
             }
         }
     }
-    
-    $results += $localParts
-    
-    # 2. Search Same Day Parts Room (similar pattern to above)
+
+    # 2. Same Day Parts Room
     $sameDayDir = Join-Path $config.PartsRoomDirectory "Same Day Parts Room"
     if (Test-Path $sameDayDir) {
-        $sameDayParts = Get-ChildItem -Path "$sameDayDir\*.csv" | ForEach-Object {
-            $siteName = [System.IO.Path]::GetFileNameWithoutExtension($_.Name)
-            $parts = Import-Csv -Path $_.FullName
-            
-            # Filter based on search criteria
-            $parts | Where-Object {
-                ($NSN -eq "" -or $_.'Part (NSN)' -like "*$NSN*") -and
-                ($Description -eq "" -or $_.Description -like "*$Description*") -and
-                ([int]$_.QTY -gt 0)  # Only show parts with stock
-            } | ForEach-Object {
-                [PSCustomObject]@{
-                    PartNumber = $_.'Part (NSN)'
-                    Description = $_.Description
-                    Quantity = [int]$_.QTY
-                    Location = $_.Location
-                    OEMNumber = $_.'OEM 1'
+        foreach ($f in (Get-ChildItem -Path (Join-Path $sameDayDir "*.csv") -File)) {
+            $siteName = [System.IO.Path]::GetFileNameWithoutExtension($f.Name)
+            foreach ($row in (Import-Csv -Path $f.FullName)) {
+                if ([int]$row.QTY -le 0) { continue }
+                if (-not (& $rowTester $row)) { continue }
+                $results += [PSCustomObject]@{
+                    PartNumber = $row.'Part (NSN)'
+                    Description = $row.Description
+                    Quantity = [int]$row.QTY
+                    Location = $row.Location
+                    OEMNumber = $row.'OEM 1'
                     Source = "$siteName (Same Day)"
                 }
             }
         }
-        
-        $results += $sameDayParts
     }
-    
+
     return $results
 }
 
@@ -1226,39 +1253,6 @@ function Save-Logs {
     }
 }
 
-# Function to save logs to a CSV file
-function Save-CallLogs {
-    param($listView, $filePath)
-    
-    try {
-        $logs = @()
-        foreach ($item in $listView.Items) {
-            $log = [PSCustomObject]@{
-                Date = $item.SubItems[0].Text
-                Machine = $item.SubItems[1].Text
-                Cause = $item.SubItems[2].Text
-                Action = $item.SubItems[3].Text
-                Noun = $item.SubItems[4].Text
-                'Time Down' = $item.SubItems[5].Text
-                'Time Up' = $item.SubItems[6].Text
-                Notes = $item.SubItems[7].Text
-            }
-            $logs += $log
-            Write-Log "Saving log entry: Date=$($log.Date), Machine=$($log.Machine), Time Down=$($log.'Time Down'), Time Up=$($log.'Time Up')"
-        }
-        
-        $logs | Export-Csv -Path $filePath -NoTypeInformation -Encoding UTF8
-        Write-Log "Call logs saved to $filePath"
-        
-        # Verify the saved content
-        $savedContent = Get-Content -Path $filePath -Raw
-        Write-Log "Saved CSV content: $savedContent"
-    }
-    catch {
-        Write-Log "Error saving call logs: $_"
-    }
-}
-
 function Save-LaborLogs {
     param($listView, $filePath)
     
@@ -1322,82 +1316,77 @@ function Load-LaborLogs {
         [System.Windows.Forms.ListView]$listView,
         [string]$filePath
     )
-    
+
     Write-Log "=== START Load-LaborLogs ==="
     Write-Log "Loading labor logs from: $filePath"
-    
+
     if (-not (Test-Path $filePath)) {
         Write-Log "ERROR: Labor logs file not found at: $filePath"
         return
     }
-    
+
     try {
-        # Import the labor logs CSV
         $laborLogs = Import-Csv -Path $filePath
         Write-Log "Successfully loaded labor logs. Entry count: $($laborLogs.Count)"
-        
-        # Initialize the workOrderParts dictionary if it doesn't exist
+
         if ($null -eq $script:workOrderParts) {
             Write-Log "Initializing workOrderParts dictionary"
             $script:workOrderParts = @{}
         }
-        
-        # Clear the ListView before loading new data
+
         $listView.Items.Clear()
-        
-        # Process each labor log entry
+
         foreach ($log in $laborLogs) {
             $workOrderNumber = $log.'Work Order'
             Write-Log "Processing work order: $workOrderNumber"
-            
-            # Create a new ListView item for the log entry
+
+            # Column order: 0 Date, 1 W/O, 2 Description, 3 Machine, 4 Duration, 5 Parts, 6 Notes
             $item = New-Object System.Windows.Forms.ListViewItem($log.Date)
-            $item.SubItems.Add($workOrderNumber)
-            $item.SubItems.Add($log.Description)
-            $item.SubItems.Add($log.Machine)
-            $item.SubItems.Add($log.Duration)
-            $item.SubItems.Add($log.Notes)
-            
-            # Handle the Parts column
-            if ($log.PSObject.Properties.Name -contains 'Parts' -and -not [string]::IsNullOrWhiteSpace($log.Parts)) {
+            $item.SubItems.Add($workOrderNumber)  | Out-Null   # 1
+            $item.SubItems.Add($log.Description)  | Out-Null   # 2
+            $item.SubItems.Add($log.Machine)      | Out-Null   # 3
+            $item.SubItems.Add($log.Duration)     | Out-Null   # 4
+
+            # --- Parts (index 5) ---
+            if ($log.PSObject.Properties.Name -contains 'Parts' -and
+                -not [string]::IsNullOrWhiteSpace($log.Parts)) {
                 Write-Log "Work order has parts data: $($log.Parts)"
-                
                 try {
-                    # Deserialize the JSON parts data
                     $parts = $log.Parts | ConvertFrom-Json
-                    Write-Log "Successfully parsed JSON parts data. Part count: $($parts.Count)"
-                    
-                    # Store the parts in the workOrderParts dictionary
+                    Write-Log "Parsed JSON parts data. Part count: $($parts.Count)"
                     $script:workOrderParts[$workOrderNumber] = $parts
-                    
-                    # Create a formatted string for display in the ListView
-                    $partsDisplay = ($parts | ForEach-Object { 
-                        "$($_.PartNumber) - $($_.PartNo) - Qty:$($_.Quantity)" 
+
+                    $partsDisplay = ($parts | ForEach-Object {
+                        "$($_.PartNumber) - $($_.PartNo) - Qty:$($_.Quantity)"
                     }) -join ", "
-                    
-                    Write-Log "Parts display string: $partsDisplay"
-                    $item.SubItems.Add($partsDisplay)
+                    $item.SubItems.Add($partsDisplay) | Out-Null
                 } catch {
                     Write-Log "ERROR parsing Parts JSON for work order ${workOrderNumber}: $($_.Exception.Message)"
-                    $item.SubItems.Add("Invalid Parts Data")  # Add a placeholder for invalid data
+                    $item.SubItems.Add("Invalid Parts Data") | Out-Null
                 }
             } else {
                 Write-Log "Work order has no parts data"
-                $item.SubItems.Add("")  # Add an empty column if no parts data exists
+                $item.SubItems.Add("") | Out-Null
             }
-            
-            # Add the item to the ListView
-            $listView.Items.Add($item)
+
+            # --- Notes (index 6) ---
+            $item.SubItems.Add($log.Notes) | Out-Null
+
+            $listView.Items.Add($item) | Out-Null
             Write-Log "Added item to list view for work order: $workOrderNumber"
         }
-        
+
         Write-Log "Finished loading labor logs. List view now has $($listView.Items.Count) items"
         Write-Log "=== END Load-LaborLogs ==="
     }
     catch {
         Write-Log "ERROR in Load-LaborLogs: $($_.Exception.Message)"
         Write-Log "Stack trace: $($_.ScriptStackTrace)"
-        [System.Windows.Forms.MessageBox]::Show("Error loading labor logs: $($_.Exception.Message)", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
+        [System.Windows.Forms.MessageBox]::Show(
+            "Error loading labor logs: $($_.Exception.Message)",
+            "Error",
+            [System.Windows.Forms.MessageBoxButtons]::OK,
+            [System.Windows.Forms.MessageBoxIcon]::Error)
     }
 }
 
@@ -1445,27 +1434,21 @@ function Process-HistoricalLogs {
 function Add-LaborLogEntryFromCallLog {
     param ($log)
     try {
-        if ($null -eq $script:listViewLaborLog) {
-            Write-Log "Error: Labor Log ListView is not initialized. Cannot add entry."
-            return
-        }
-
         $duration = Get-TimeDifference -startTime $log.'Time Down' -endTime $log.'Time Up'
         $durationHours = [Math]::Round($duration / 60, 2)
-       
+
         $workOrderNumber = "Need W/O #-$(New-Guid)"
         $item = New-Object System.Windows.Forms.ListViewItem($log.Date)
-        $item.SubItems.Add($workOrderNumber)
-        $item.SubItems.Add("$($log.Cause) / $($log.Action) / $($log.Noun)")
-        $item.SubItems.Add($log.Machine)
-        $item.SubItems.Add($durationHours.ToString("F2"))
-        $item.SubItems.Add("")  # Add empty parts column
-        $item.SubItems.Add($log.Notes)  # Now notes are at index 6
-        
-        $script:listViewLaborLog.Items.Add($item)
+        $item.SubItems.Add($workOrderNumber)                                                  | Out-Null
+        $item.SubItems.Add("$($log.Cause) / $($log.Action) / $($log.Noun)")                   | Out-Null
+        $item.SubItems.Add($log.Machine)                                                      | Out-Null
+        $item.SubItems.Add($durationHours.ToString("F2"))                                     | Out-Null
+        $item.SubItems.Add("")                                                                | Out-Null
+        $item.SubItems.Add($log.Notes)                                                        | Out-Null
+
+        $script:listViewLaborLog.Items.Add($item)                                             | Out-Null
         Write-Log "Added Labor Log entry: Date=$($log.Date), Machine=$($log.Machine), Duration=$durationHours hours"
-        
-        # Save labor logs after adding a new entry
+
         Save-LaborLogs -listView $script:listViewLaborLog -filePath $global:laborLogsFilePath
     } catch {
         Write-Log "Error adding Labor Log entry: $_"
@@ -1656,13 +1639,13 @@ function Add-PartsToWorkOrder {
         # Populate results
         foreach ($part in $results) {
             $item = New-Object System.Windows.Forms.ListViewItem($part.PartNumber)
-            $item.SubItems.Add($part.Description)
-            $item.SubItems.Add($part.Quantity)
-            $item.SubItems.Add($part.Location)
-            $item.SubItems.Add($part.OEMNumber)
-            $item.SubItems.Add($part.Source)
+            $item.SubItems.Add($part.Description) | Out-Null
+            $item.SubItems.Add($part.Quantity) | Out-Null
+            $item.SubItems.Add($part.Location) | Out-Null
+            $item.SubItems.Add($part.OEMNumber) | Out-Null
+            $item.SubItems.Add($part.Source) | Out-Null
             $item.Tag = $part  # Store the full part object for later use
-            $resultsListView.Items.Add($item)
+            $resultsListView.Items.Add($item) | Out-Null
         }
     })
     
@@ -1676,10 +1659,10 @@ function Add-PartsToWorkOrder {
             if ($qty -gt 0) {
                 # Add to selected parts list
                 $newItem = New-Object System.Windows.Forms.ListViewItem($partObj.PartNumber)
-                $newItem.SubItems.Add($partObj.Description)
-                $newItem.SubItems.Add($qty)
-                $newItem.SubItems.Add($partObj.Source)
-                $newItem.SubItems.Add($partObj.Location)
+                $newItem.SubItems.Add($partObj.Description) | Out-Null
+                $newItem.SubItems.Add($qty) | Out-Null
+                $newItem.SubItems.Add($partObj.Source) | Out-Null
+                $newItem.SubItems.Add($partObj.Location) | Out-Null
                 $newItem.Tag = [PSCustomObject]@{
                     PartNumber = $partObj.PartNumber
                     Description = $partObj.Description
@@ -1688,7 +1671,7 @@ function Add-PartsToWorkOrder {
                     Location = $partObj.Location
                     OEMNumber = $partObj.OEMNumber
                 }
-                $selectedListView.Items.Add($newItem)
+                $selectedListView.Items.Add($newItem) | Out-Null
             }
         }
     })
@@ -1857,7 +1840,6 @@ function Save-PartsToWorkOrder {
         [System.Windows.Forms.MessageBox]::Show("Parts added successfully to $WorkOrderNumber", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
         
         Write-Log "=== END Save-PartsToWorkOrder ==="
-        $form.Close()  # Close the form after saving
         return $true
     }
     catch {
@@ -1931,6 +1913,3094 @@ function Search-KnowledgeBase {
 #                       UI Setup and Components                                #
 ################################################################################
 
+function ConvertFrom-eDacWorksheet {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$HtmlPath,
+        [Parameter(Mandatory)][string]$TargetDate
+    )
+
+    if (-not (Test-Path $HtmlPath)) { throw "eDAC HTML not found: $HtmlPath" }
+
+    $htmlDoc = $null
+    try {
+        $htmlDoc = New-Object -ComObject "HTMLFile"
+        $content = Get-Content -Path $HtmlPath -Raw
+        try   { $htmlDoc.IHTMLDocument2_write($content) }
+        catch {
+            $bytes = [System.Text.Encoding]::Unicode.GetBytes($content)
+            $htmlDoc.write($bytes)
+        }
+
+        $rows = $htmlDoc.getElementsByTagName("tr")
+        $edacList = @()
+
+        $inTargetSection = $false
+        $lastWasDataRow  = $false
+
+        for ($i = 0; $i -lt $rows.length; $i++) {
+            $row  = $rows.item($i)
+            $text = ($row.innerText -replace '\s+', ' ').Trim()
+            if ([string]::IsNullOrWhiteSpace($text)) { $lastWasDataRow = $false; continue }
+
+            if ($text -match 'Scheduled Date\s*:') {
+                $inTargetSection = $text.Contains($TargetDate)
+                $lastWasDataRow  = $false
+                continue
+            }
+            if (-not $inTargetSection) { continue }
+
+            if ($text -match 'PM Description\s*:\s*(.+)') {
+                if ($lastWasDataRow -and $edacList.Count -gt 0) {
+                    $edacList[$edacList.Count - 1].PmDescription = $matches[1].Trim()
+                }
+                $lastWasDataRow = $false
+                continue
+            }
+
+            $cells = $row.getElementsByTagName("td")
+            if ($null -eq $cells -or $cells.length -lt 10) { $lastWasDataRow = $false; continue }
+
+            $rowType = $cells.item(0).innerText.Trim()
+            if ($rowType -notin @('W','A','B')) { $lastWasDataRow = $false; continue }
+
+            $acronymCl = $cells.item(3).innerText.Trim()
+            $acronym   = $acronymCl
+            $classCode = ''
+            if ($acronymCl -match '^([^-]+)-(.+)$') {
+                $acronym   = $matches[1].Trim()
+                $classCode = $matches[2].Trim()
+            }
+
+            $estText = $cells.item(10).innerText.Trim()
+            $estHrs  = 0.0
+            if ($estText -match '[\d.]+') { $estHrs = [double]$matches[0] }
+
+            $desc    = $cells.item(9).innerText.Trim()
+            $checkNo = ''
+            if ($desc -match 'Checklist No\.:\s*(\d+)') { $checkNo = $matches[1] }
+
+            $edacList += [PSCustomObject]@{
+                RowType       = $rowType
+                WorkOrderNo   = $cells.item(1).innerText.Trim()
+                WorkCode      = $cells.item(2).innerText.Trim()
+                Acronym       = $acronym
+                ClassCode     = $classCode
+                Equipment     = $cells.item(4).innerText.Trim()
+                Route         = $cells.item(5).innerText.Trim()
+                Frequency     = $cells.item(6).innerText.Trim()
+                Priority      = $cells.item(7).innerText.Trim()
+                DueDate       = $cells.item(8).innerText.Trim()
+                Description   = $desc
+                ChecklistNo   = $checkNo
+                EstimatedHrs  = $estHrs
+                PmDescription = ''
+            }
+            $lastWasDataRow = $true
+        }
+
+        return $edacList
+    }
+    finally {
+        if ($null -ne $htmlDoc) {
+            [System.Runtime.Interopservices.Marshal]::ReleaseComObject($htmlDoc) | Out-Null
+            [System.GC]::Collect()
+            [System.GC]::WaitForPendingFinalizers()
+        }
+    }
+}
+
+function Get-SafeCellText {
+    param($Cells, [int]$Index)
+    if ($null -eq $Cells)         { return '' }
+    if ($Index -ge $Cells.length) { return '' }
+    $cell = $Cells.item($Index)
+    if ($null -eq $cell)          { return '' }
+    $t = $cell.innerText
+    if ($null -eq $t)             { return '' }
+    return $t.Trim()
+}
+
+function Get-SafeCellHtml {
+    param($Cells, [int]$Index)
+    if ($null -eq $Cells)         { return '' }
+    if ($Index -ge $Cells.length) { return '' }
+    $cell = $Cells.item($Index)
+    if ($null -eq $cell)          { return '' }
+    $h = $cell.innerHTML
+    if ($null -eq $h)             { return '' }
+    return $h
+}
+
+function ConvertFrom-PmChecklist {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$HtmlPath)
+
+    if (-not (Test-Path $HtmlPath)) { throw "PM Checklist HTML not found: $HtmlPath" }
+
+    $htmlDoc = $null
+    try {
+        $htmlDoc = New-Object -ComObject "HTMLFile"
+        $content = Get-Content -Path $HtmlPath -Raw
+        try   { $htmlDoc.IHTMLDocument2_write($content) }
+        catch {
+            $bytes = [System.Text.Encoding]::Unicode.GetBytes($content)
+            $htmlDoc.write($bytes)
+        }
+
+        $allRows   = $htmlDoc.getElementsByTagName("tr")
+        $allTables = $htmlDoc.getElementsByTagName("table")
+
+        # ---------- Identification ----------
+        $acronym       = ''
+        $workCode      = ''
+        $classCode     = ''
+        $idNumber      = ''
+        $type          = ''
+        $equipmentNo   = ''
+        $siteName      = ''
+        $checklistDate = ''
+        $checklistNo   = ''
+        $skills        = ''
+        $generatedOn   = ''
+
+        for ($i = 0; $i -lt $allRows.length; $i++) {
+            $tr   = $allRows.item($i)
+            $text = ($tr.innerText -replace '\s+', ' ').Trim()
+
+            if ($text -match 'Equipment Acronym') {
+                $next  = $allRows.item($i + 1)
+                $cells = $next.getElementsByTagName("th")
+                if ($cells.length -eq 0) { $cells = $next.getElementsByTagName("td") }
+                if ($cells.length -ge 5) {
+                    $workCode  = $cells.item(0).innerText.Trim()
+                    $acronym   = $cells.item(1).innerText.Trim()
+                    $classCode = $cells.item(2).innerText.Trim()
+                    $idNumber  = $cells.item(3).innerText.Trim()
+                    $type      = $cells.item(4).innerText.Trim()
+                }
+            }
+
+            if ($text -match 'Site Name') {
+                $next  = $allRows.item($i + 1)
+                $cells = $next.getElementsByTagName("th")
+                if ($cells.length -eq 0) { $cells = $next.getElementsByTagName("td") }
+                if ($cells.length -ge 3) {
+                    $equipmentNo   = $cells.item(0).innerText.Trim()
+                    $siteName      = $cells.item(1).innerText.Trim()
+                    $checklistDate = $cells.item(2).innerText.Trim()
+                }
+            }
+
+            if ($text -match 'Checklist No\.\s*:\s*(\d+)') { $checklistNo = $matches[1] }
+            if ($text -match 'Skill\(s\)\s*:\s*([^,]+)')  { $skills = $matches[1].Trim() }
+            if ($text -match 'Time\s*:\s*([^)]+?)\s*\)')  { $generatedOn = $matches[1].Trim() }
+        }
+
+        # ---------- Totals ----------
+        $estOpen     = 0.0
+        $estDueToday = 0.0
+        for ($i = 0; $i -lt $allRows.length; $i++) {
+            $t = $allRows.item($i).innerText
+            if ($t -match 'for All Open Tasks:\s*([\d.]+)')  { $estOpen     = [double]$matches[1] }
+            if ($t -match 'for Tasks Due Today:\s*([\d.]+)') { $estDueToday = [double]$matches[1] }
+        }
+
+        # ---------- Locate task tables ----------
+        $pmTaskTables = @()
+        for ($t = 0; $t -lt $allTables.length; $t++) {
+            $table = $allTables.item($t)
+            $trows = $table.getElementsByTagName("tr")
+            if ($trows.length -lt 2) { continue }
+            $headerText = ($trows.item(0).innerText -replace '\s+', ' ')
+            if ($headerText -match 'Item No' -and $headerText -match 'Task Statement and Instruction') {
+                $pmTaskTables += $table
+            }
+        }
+
+        
+
+        # ---------- Parse task rows ----------
+        $pmTasks = @()
+        $tableIdx = 0
+        foreach ($table in $pmTaskTables) {
+            if ($tableIdx -eq 0) { $powerState = 'Power Off' } else { $powerState = 'Power On' }
+            $tableIdx++
+
+            $trows = $table.getElementsByTagName("tr")
+
+            for ($r = 1; $r -lt $trows.length; $r++) {
+                $cells = $trows.item($r).getElementsByTagName("td")
+                if ($null -eq $cells -or $cells.length -lt 7) { continue }
+
+                $itemNo = Get-SafeCellText -Cells $cells -Index 0
+                if ([string]::IsNullOrWhiteSpace($itemNo)) { continue }
+
+                $componentText = Get-SafeCellText -Cells $cells -Index 1
+                $estText       = Get-SafeCellText -Cells $cells -Index 2
+                $skillText     = Get-SafeCellText -Cells $cells -Index 3
+                $bypassText    = Get-SafeCellText -Cells $cells -Index 4
+                $dueDateText   = Get-SafeCellText -Cells $cells -Index 5
+
+                $estMin = 0
+                if ($estText -match '[\d.]+') { $estMin = [int][double]$matches[0] }
+
+                $rawHtml = Get-SafeCellHtml -Cells $cells -Index 6
+                $cleanText = $rawHtml -replace '(?i)<br\s*/?>', "`n"
+                $cleanText = $cleanText -replace '(?i)</(p|li|ol|ul|div|h\d)>', "`n"
+                $cleanText = $cleanText -replace '(?s)<[^>]+>', ''
+                $cleanText = [System.Net.WebUtility]::HtmlDecode($cleanText)
+                $cleanText = $cleanText -replace '[ \t]+', ' '
+                $cleanText = ($cleanText -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }) -join "`n"
+
+                $taskObject = [PSCustomObject]@{
+                    PowerState      = $powerState
+                    ItemNo          = $itemNo
+                    Component       = $componentText
+                    EstTimeMin      = $estMin
+                    MinSkillLevel   = $skillText
+                    BypassCode      = $bypassText
+                    DueDate         = $dueDateText
+                    InstructionText = $cleanText
+                    InstructionHtml = $rawHtml
+                }
+
+                $pmTasks += $taskObject
+            }
+        }
+
+        return [PSCustomObject]@{
+            Meta = [PSCustomObject]@{
+                ChecklistNo      = $checklistNo
+                Skills           = $skills
+                GeneratedOn      = $generatedOn
+                WorkCode         = $workCode
+                Acronym          = $acronym
+                ClassCode        = $classCode
+                IdNumber         = $idNumber
+                Type             = $type
+                EquipmentNo      = $equipmentNo
+                SiteName         = $siteName
+                ChecklistDate    = $checklistDate
+                EstOpenHours     = $estOpen
+                EstDueTodayHours = $estDueToday
+            }
+            Tasks = $pmTasks
+        }
+    }
+    finally {
+        if ($null -ne $htmlDoc) {
+            [System.Runtime.Interopservices.Marshal]::ReleaseComObject($htmlDoc) | Out-Null
+            [System.GC]::Collect()
+            [System.GC]::WaitForPendingFinalizers()
+        }
+    }
+}
+
+# ============================================================
+# Work Tracking — data layer
+# ============================================================
+
+function Format-MachineId {
+    # Canonicalizes "dbcs-49", "DBCS_0049", "DBCS 49" -> "DBCS 49".
+    # Bare digits "49" -> "MNO 49".  Returns $null on unparseable input.
+    param([string]$Raw)
+
+    if ([string]::IsNullOrWhiteSpace($Raw)) { return $null }
+    $t = $Raw.Trim()
+
+    if ($t -match '^([A-Za-z]+)[\s\-_]*0*(\d+)$') {
+        $acr = $matches[1].ToUpper()
+        $mno = [int]$matches[2]
+        return [PSCustomObject]@{
+            Acronym   = $acr
+            Mno       = $mno.ToString()
+            Canonical = "$acr $mno"
+            IsNamed   = $true
+        }
+    }
+
+    if ($t -match '^0*(\d+)$') {
+        $mno = [int]$matches[1]
+        return [PSCustomObject]@{
+            Acronym   = ''
+            Mno       = $mno.ToString()
+            Canonical = "MNO $mno"
+            IsNamed   = $false
+        }
+    }
+
+    return $null
+}
+
+function Register-MachineIfNew {
+    # Appends <Acronym,Mno> to Machines.csv if that exact pair isn't already
+    # present.  Same MNO with a *different* acronym is allowed — e.g.
+    # ASD 47 and DBCS 47 can both exist.
+    param(
+        [string]$Acronym,
+        [string]$Mno
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Acronym) -or [string]::IsNullOrWhiteSpace($Mno)) { return }
+
+    $mnoInt = 0
+    if (-not [int]::TryParse($Mno, [ref]$mnoInt)) { return }
+
+    $path = Join-Path $script:config.DropdownCsvsDirectory "Machines.csv"
+    $existing = @()
+    if (Test-Path $path) {
+        try { $existing = @(Import-Csv -Path $path) } catch { $existing = @() }
+    } else {
+        "Machine Acronym,Machine Number" | Out-File -FilePath $path -Encoding utf8
+    }
+
+    $acrUpper = $Acronym.Trim().ToUpper()
+
+    foreach ($row in $existing) {
+        $rowMno = 0
+        if (-not [int]::TryParse($row.'Machine Number', [ref]$rowMno)) { continue }
+        if ($rowMno -ne $mnoInt) { continue }
+
+        $rowAcr = "$($row.'Machine Acronym')".Trim().ToUpper()
+        if ($rowAcr -eq $acrUpper) {
+            return   # exact (Acronym, MNO) pair already registered
+        }
+        # else: same MNO, different acronym — fall through and add
+    }
+
+    "$acrUpper,$mnoInt" | Out-File -FilePath $path -Append -Encoding utf8
+    Write-Log "Registered new machine: $acrUpper $mnoInt"
+}
+
+function Get-JobsFilePath {
+    $rel = $script:config.WorkTracking.JobsFile
+    if ([string]::IsNullOrWhiteSpace($rel)) { throw "WorkTracking.JobsFile is not set in config." }
+    if ([System.IO.Path]::IsPathRooted($rel)) { return $rel }
+    return Join-Path $script:config.RootDirectory $rel
+}
+
+function Get-Jobs {
+    $path = Get-JobsFilePath
+    if (-not (Test-Path $path)) { return ,@() }
+    try {
+        $raw = Get-Content -Path $path -Raw -Encoding UTF8
+        if ([string]::IsNullOrWhiteSpace($raw)) { return ,@() }
+
+        $data = $raw | ConvertFrom-Json
+        if ($null -eq $data) { return ,@() }
+
+        # Flatten any nested arrays from earlier bad saves.
+        $flat = New-Object System.Collections.ArrayList
+        $stack = New-Object System.Collections.Stack
+        $stack.Push($data)
+        while ($stack.Count -gt 0) {
+            $item = $stack.Pop()
+            if ($null -eq $item) { continue }
+            if ($item -is [System.Array]) {
+                for ($i = $item.Count - 1; $i -ge 0; $i--) { $stack.Push($item[$i]) }
+            } else {
+                [void]$flat.Add($item)
+            }
+        }
+
+        Write-Log "Get-Jobs: read $($flat.Count) job(s) from $path"
+        return ,$flat.ToArray()
+    } catch {
+        Write-Log "Error reading jobs: $($_.Exception.Message)"
+        return ,@()
+    }
+}
+
+function Save-Jobs {
+    param([array]$Jobs)
+
+    $path = Get-JobsFilePath
+    $dir  = Split-Path -Path $path -Parent
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+
+    $tmp = "$path.tmp"
+    try {
+        # Flatten input — guarantees we never write a nested array
+        $flat = New-Object System.Collections.ArrayList
+        if ($null -ne $Jobs) {
+            $stack = New-Object System.Collections.Stack
+            $stack.Push($Jobs)
+            while ($stack.Count -gt 0) {
+                $item = $stack.Pop()
+                if ($null -eq $item) { continue }
+                if ($item -is [System.Array]) {
+                    for ($i = $item.Count - 1; $i -ge 0; $i--) { $stack.Push($item[$i]) }
+                } else {
+                    [void]$flat.Add($item)
+                }
+            }
+        }
+
+        $arr = $flat.ToArray()
+        Write-Log "Save-Jobs: writing $($arr.Count) job(s) to $path"
+
+        $json = if ($arr.Count -eq 0) { "[]" } else {
+            $j = ConvertTo-Json -InputObject $arr -Depth 12
+            if (-not $j.TrimStart().StartsWith('[')) { $j = "[$j]" }
+            $j
+        }
+
+        $json | Set-Content -Path $tmp -Encoding UTF8
+        Move-Item -Path $tmp -Destination $path -Force
+        return $true
+    } catch {
+        Write-Log "Error saving jobs: $($_.Exception.Message)"
+        if (Test-Path $tmp) { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
+        return $false
+    }
+}
+
+# ============================================================
+# Work Tracking — PM Checklist archive + import
+# ============================================================
+
+function Get-PmArchiveRoot {
+    $rel = $script:config.WorkTracking.PmChecklistsDirectory
+    if ([string]::IsNullOrWhiteSpace($rel)) { throw "WorkTracking.PmChecklistsDirectory not set." }
+    if ([System.IO.Path]::IsPathRooted($rel)) { return $rel }
+    return Join-Path $script:config.RootDirectory $rel
+}
+
+function Get-PmArchiveDir {
+    # Flat archive: <Root>/Work Tracking/PM Checklists/  (no date subfolder)
+    $root = Get-PmArchiveRoot
+    if (-not (Test-Path $root)) {
+        New-Item -ItemType Directory -Path $root -Force | Out-Null
+    }
+    return $root
+}
+
+function Import-PmChecklist {
+    # Parses pasted HTML, archives raw HTML + parsed JSON flat, returns
+    # a summary object.  Throws on parse failure.
+    param([string]$Html)
+
+    if ([string]::IsNullOrWhiteSpace($Html)) { throw "No HTML provided." }
+
+    # Parse via a temp file (the existing parser is file-based)
+    $temp = Join-Path ([System.IO.Path]::GetTempPath()) ("pm_import_" + [guid]::NewGuid().ToString() + ".html")
+    try {
+        [System.IO.File]::WriteAllText($temp, $Html, [System.Text.Encoding]::UTF8)
+        $parsed = ConvertFrom-PmChecklist -HtmlPath $temp
+    } finally {
+        if (Test-Path $temp) { Remove-Item $temp -Force -ErrorAction SilentlyContinue }
+    }
+
+    # Determine the checklist date for the filename — prefer parsed, fall
+    # back to today if the parse didn't yield a usable value.
+    $dateStamp = (Get-Date).ToString("yyyy-MM-dd")
+    if (-not [string]::IsNullOrWhiteSpace($parsed.Meta.ChecklistDate)) {
+        try { $dateStamp = ([DateTime]$parsed.Meta.ChecklistDate).ToString("yyyy-MM-dd") } catch {}
+    }
+
+    $archiveDir = Get-PmArchiveDir   # flat
+
+    # Safe filename components
+    $acr = if ($parsed.Meta.Acronym)     { ($parsed.Meta.Acronym     -replace '[^\w]', '') } else { 'UNKNOWN' }
+    $mno = if ($parsed.Meta.EquipmentNo) { ($parsed.Meta.EquipmentNo -replace '[^\w]', '') } else { '0' }
+    $cn  = if ($parsed.Meta.ChecklistNo) { ($parsed.Meta.ChecklistNo -replace '[^\w]', '') } else { '0' }
+
+    $baseName = "${acr}_${mno}_${cn}_${dateStamp}"
+
+    $htmlPath = Join-Path $archiveDir "$baseName.html"
+    $jsonPath = Join-Path $archiveDir "$baseName.json"
+
+    [System.IO.File]::WriteAllText($htmlPath, $Html, [System.Text.Encoding]::UTF8)
+    $parsed | ConvertTo-Json -Depth 12 | Set-Content -Path $jsonPath -Encoding UTF8
+
+    Write-Log "Imported PM Checklist: $baseName -> $archiveDir"
+
+    return [PSCustomObject]@{
+        MachineId     = "$($parsed.Meta.Acronym) $($parsed.Meta.EquipmentNo)"
+        Acronym       = $parsed.Meta.Acronym
+        Mno           = $parsed.Meta.EquipmentNo
+        ChecklistNo   = $parsed.Meta.ChecklistNo
+        ChecklistDate = $parsed.Meta.ChecklistDate
+        DateStamp     = $dateStamp
+        GeneratedOn   = $parsed.Meta.GeneratedOn
+        Skills        = $parsed.Meta.Skills
+        EstOpen       = $parsed.Meta.EstOpenHours
+        EstDueToday   = $parsed.Meta.EstDueTodayHours
+        TaskCount     = @($parsed.Tasks).Count
+        HtmlPath      = $htmlPath
+        JsonPath      = $jsonPath
+        Parsed        = $parsed
+    }
+}
+
+function Load-PmMachines {
+    # Scans the flat archive for all *.json, returns everything sorted by
+    # checklist date desc (newest first).  Each entry carries a real
+    # [DateTime] sortable field plus the raw Meta from the parsed file.
+    $dir = Get-PmArchiveDir
+    if (-not (Test-Path $dir)) { return ,@() }
+
+    $machines = @()
+    foreach ($jsonFile in @(Get-ChildItem -Path $dir -Filter "*.json" -File)) {
+        try {
+            $data = Get-Content -Path $jsonFile.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
+
+            $dt = [DateTime]::MinValue
+            if (-not [string]::IsNullOrWhiteSpace($data.Meta.ChecklistDate)) {
+                try { $dt = [DateTime]$data.Meta.ChecklistDate } catch {}
+            }
+
+            $machines += [PSCustomObject]@{
+                MachineId     = "$($data.Meta.Acronym) $($data.Meta.EquipmentNo)"
+                Acronym       = $data.Meta.Acronym
+                Mno           = $data.Meta.EquipmentNo
+                ChecklistNo   = $data.Meta.ChecklistNo
+                ChecklistDate = $data.Meta.ChecklistDate
+                DateStamp     = if ($dt -ne [DateTime]::MinValue) { $dt.ToString("yyyy-MM-dd") } else { '' }
+                SortDate      = $dt
+                GeneratedOn   = $data.Meta.GeneratedOn
+                Skills        = $data.Meta.Skills
+                EstOpen       = $data.Meta.EstOpenHours
+                EstDueToday   = $data.Meta.EstDueTodayHours
+                TaskCount     = @($data.Tasks).Count
+                HtmlPath      = ($jsonFile.FullName -replace '\.json$', '.html')
+                JsonPath      = $jsonFile.FullName
+                Parsed        = $data
+            }
+        } catch {
+            Write-Log "Error loading PM machine from $($jsonFile.Name): $($_.Exception.Message)"
+        }
+    }
+
+    return ,@($machines | Sort-Object -Property SortDate -Descending)
+}
+
+function Get-PmSessionPath {
+    param([string]$JsonPath)
+    return ($JsonPath -replace '\.json$', '.session.json')
+}
+
+function Get-PmSession {
+    param($Machine)
+    $path = Get-PmSessionPath -JsonPath $Machine.JsonPath
+    $empty = @{ Selections = @{} }
+    if (-not (Test-Path $path)) { return $empty }
+    try {
+        $raw = Get-Content -Path $path -Raw -Encoding UTF8
+        if ([string]::IsNullOrWhiteSpace($raw)) { return $empty }
+        $data = $raw | ConvertFrom-Json
+        $selections = @{}
+        if ($data.Selections) {
+            foreach ($prop in $data.Selections.PSObject.Properties) {
+                $entry = $prop.Value
+                $selections[$prop.Name] = @{
+                    Selected      = [bool]$entry.Selected
+                    CustomTimeMin = if ($null -ne $entry.CustomTimeMin) { [int]$entry.CustomTimeMin } else { $null }
+                }
+            }
+        }
+        return @{ Selections = $selections }
+    } catch {
+        Write-Log "Get-PmSession: read error: $($_.Exception.Message)"
+        return $empty
+    }
+}
+
+function Save-PmSession {
+    param($Machine)
+    if (-not $Machine -or -not $Machine.State) { return }
+    $path = Get-PmSessionPath -JsonPath $Machine.JsonPath
+
+    $selObj = [ordered]@{}
+    foreach ($key in $Machine.State.Keys) {
+        $e = $Machine.State[$key]
+        $selObj[$key] = [PSCustomObject]@{
+            Selected      = [bool]$e.Selected
+            CustomTimeMin = if ($null -ne $e.CustomTimeMin) { [int]$e.CustomTimeMin } else { $null }
+        }
+    }
+
+    $payload = [PSCustomObject]@{
+        machineId     = $Machine.MachineId
+        checklistDate = $Machine.ChecklistDate
+        checklistNo   = $Machine.ChecklistNo
+        updatedAt     = (Get-Date).ToString("o")
+        selections    = $selObj
+    }
+
+    try { $payload | ConvertTo-Json -Depth 6 | Set-Content -Path $path -Encoding UTF8 }
+    catch { Write-Log "Save-PmSession: error: $($_.Exception.Message)" }
+}
+
+function Update-PmSelectedHoursTotal {
+    # Counts selected tasks for machines whose checklist date == today.
+    # Feeds the Work Budget panel.
+    $today = (Get-Date).Date
+    $total = 0.0
+    foreach ($m in @($script:pmMachines)) {
+        if (-not $m.State) { continue }
+        if ($m.SortDate.Date -ne $today) { continue }
+        foreach ($task in @($m.Parsed.Tasks)) {
+            $e = $m.State[$task.ItemNo]
+            if (-not $e -or -not $e.Selected) { continue }
+            $min = if ($null -ne $e.CustomTimeMin) { [int]$e.CustomTimeMin } else { [int]$task.EstTimeMin }
+            $total += ($min / 60.0)
+        }
+    }
+    $script:pmTotalSelectedHours = [Math]::Round($total, 2)
+
+    if (Get-Command Refresh-WorkBudget -ErrorAction SilentlyContinue) {
+        try { Refresh-WorkBudget } catch { }
+    }
+    if ($script:pmGrandTotalLabel) {
+        $count = 0
+        foreach ($m in @($script:pmMachines)) {
+            if (-not $m.State -or $m.SortDate.Date -ne $today) { continue }
+            foreach ($t in @($m.Parsed.Tasks)) {
+                $e = $m.State[$t.ItemNo]
+                if ($e -and $e.Selected) { $count++ }
+            }
+        }
+        $script:pmGrandTotalLabel.Text = "Today: $count task$(if ($count -ne 1) { 's' }) / $($script:pmTotalSelectedHours) h"
+    }
+}
+
+function Show-PmTaskEditor {
+    param($Machine, $Task)
+
+    $state = $Machine.State[$Task.ItemNo]
+    if (-not $state) { $state = @{ Selected = $false; CustomTimeMin = $null } }
+    $defaultTime = if ($null -ne $state.CustomTimeMin) { [int]$state.CustomTimeMin } else { [int]$Task.EstTimeMin }
+
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = "$($Task.ItemNo) — $($Task.Component)"
+    $form.Size = New-Object System.Drawing.Size(940, 720)
+    $form.MinimumSize = New-Object System.Drawing.Size(720, 500)
+    $form.StartPosition = 'CenterParent'
+    $form.FormBorderStyle = 'Sizable'
+    $form.MaximizeBox = $false
+    $form.MinimizeBox = $false
+    $form.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $form.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+
+    $btnBar = New-Object System.Windows.Forms.Panel
+    $btnBar.Dock = 'Bottom'
+    $btnBar.Height = 52
+    $form.Controls.Add($btnBar)
+
+    $cancelBtn = New-Object System.Windows.Forms.Button
+    $cancelBtn.Text = "Cancel"
+    $cancelBtn.Size = New-Object System.Drawing.Size(90, 32)
+    $cancelBtn.Location = New-Object System.Drawing.Point(($form.ClientSize.Width - 200), 10)
+    $cancelBtn.Anchor = 'Top,Right'
+    $cancelBtn.FlatStyle = 'Flat'
+    $cancelBtn.FlatAppearance.BorderSize = 0
+    $cancelBtn.BackColor = [System.Drawing.Color]::FromArgb(189,195,199)
+    $cancelBtn.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $cancelBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $cancelBtn.Cursor = 'Hand'
+    $cancelBtn.Add_Click({ $form.Tag = $null; $form.Close() })
+    $btnBar.Controls.Add($cancelBtn)
+
+    $okBtn = New-Object System.Windows.Forms.Button
+    $okBtn.Text = "Save"
+    $okBtn.Size = New-Object System.Drawing.Size(100, 32)
+    $okBtn.Location = New-Object System.Drawing.Point(($form.ClientSize.Width - 104), 10)
+    $okBtn.Anchor = 'Top,Right'
+    $okBtn.FlatStyle = 'Flat'
+    $okBtn.FlatAppearance.BorderSize = 0
+    $okBtn.BackColor = [System.Drawing.Color]::FromArgb(39,174,96)
+    $okBtn.ForeColor = [System.Drawing.Color]::White
+    $okBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $okBtn.Cursor = 'Hand'
+    $okBtn.Add_Click({
+        $form.Tag = [PSCustomObject]@{
+            Selected      = [bool]$chkDone.Checked
+            CustomTimeMin = if ($chkOverride.Checked) { [int]$numTime.Value } else { $null }
+        }
+        $form.Close()
+    })
+    $btnBar.Controls.Add($okBtn)
+
+    # Top: metadata block
+    $top = New-Object System.Windows.Forms.Panel
+    $top.Dock = 'Top'
+    $top.Height = 160
+    $top.BackColor = [System.Drawing.Color]::White
+    $top.Padding = New-Object System.Windows.Forms.Padding(14)
+    $form.Controls.Add($top)
+
+    $meta = New-Object System.Windows.Forms.Label
+    $meta.Dock = 'Fill'
+    $meta.Font = New-Object System.Drawing.Font("Consolas", 9)
+    $meta.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $meta.Text = @(
+        "Machine:      $($Machine.MachineId)"
+        "Item No:      $($Task.ItemNo)"
+        "Component:    $($Task.Component)"
+        "Power State:  $($Task.PowerState)"
+        "Min Skill:    $($Task.MinSkillLevel)"
+        "Due Date:     $($Task.DueDate)"
+        "Est. Time:    $($Task.EstTimeMin) min"
+    ) -join "`r`n"
+    $top.Controls.Add($meta)
+
+    # Middle: edit controls
+    $mid = New-Object System.Windows.Forms.Panel
+    $mid.Dock = 'Top'
+    $mid.Height = 56
+    $mid.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $form.Controls.Add($mid)
+
+    $chkDone = New-Object System.Windows.Forms.CheckBox
+    $chkDone.Text = "Completed"
+    $chkDone.Location = New-Object System.Drawing.Point(14, 16)
+    $chkDone.Size = New-Object System.Drawing.Size(120, 24)
+    $chkDone.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+    $chkDone.Checked = [bool]$state.Selected
+    $mid.Controls.Add($chkDone)
+
+    $chkOverride = New-Object System.Windows.Forms.CheckBox
+    $chkOverride.Text = "Override est. time:"
+    $chkOverride.Location = New-Object System.Drawing.Point(180, 16)
+    $chkOverride.Size = New-Object System.Drawing.Size(160, 24)
+    $chkOverride.Checked = ($null -ne $state.CustomTimeMin)
+    $mid.Controls.Add($chkOverride)
+
+    $numTime = New-Object System.Windows.Forms.NumericUpDown
+    $numTime.Location = New-Object System.Drawing.Point(346, 17)
+    $numTime.Size = New-Object System.Drawing.Size(80, 24)
+    $numTime.Minimum = 0
+    $numTime.Maximum = 9999
+    $numTime.Value = [Math]::Min(9999, [Math]::Max(0, $defaultTime))
+    $numTime.Enabled = $chkOverride.Checked
+    $mid.Controls.Add($numTime)
+
+    $lblMin = New-Object System.Windows.Forms.Label
+    $lblMin.Text = "min"
+    $lblMin.Location = New-Object System.Drawing.Point(432, 20)
+    $lblMin.Size = New-Object System.Drawing.Size(30, 22)
+    $mid.Controls.Add($lblMin)
+
+    $chkOverride.Add_CheckedChanged({ $numTime.Enabled = $chkOverride.Checked })
+
+    # Instructions
+    $lblInst = New-Object System.Windows.Forms.Label
+    $lblInst.Text = "Task Statement and Instruction"
+    $lblInst.Dock = 'Top'
+    $lblInst.Height = 24
+    $lblInst.Padding = New-Object System.Windows.Forms.Padding(14, 4, 0, 0)
+    $lblInst.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $lblInst.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $form.Controls.Add($lblInst)
+
+    $txtInst = New-Object System.Windows.Forms.TextBox
+    $txtInst.Multiline = $true
+    $txtInst.ReadOnly = $true
+    $txtInst.ScrollBars = 'Both'
+    $txtInst.WordWrap = $true
+    $txtInst.Dock = 'Fill'
+    $txtInst.Font = New-Object System.Drawing.Font("Consolas", 9)
+    $txtInst.BackColor = [System.Drawing.Color]::White
+    $txtInst.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $txtInst.Text = "$($Task.InstructionText)"
+    $form.Controls.Add($txtInst)
+    $txtInst.BringToFront()
+
+    $form.AcceptButton = $okBtn
+    $form.CancelButton = $cancelBtn
+
+    $form.ShowDialog() | Out-Null
+    return $form.Tag
+}
+
+function Get-PmTaskRowColor {
+    # Returns a [System.Drawing.Color] for the row, or $null to leave default.
+    #  overdue + Power Off -> orange
+    #  overdue + Power On  -> green
+    #  future  (either)    -> yellow
+    param($Task, [DateTime]$Today)
+
+    if ([string]::IsNullOrWhiteSpace($Task.DueDate)) { return $null }
+
+    $due = [DateTime]::MinValue
+    try { $due = [DateTime]$Task.DueDate } catch { return $null }
+
+    $overdue   = $due.Date -le $Today.Date
+    $isPowerOn = ($Task.PowerState -eq 'Power On')
+
+    if ($overdue) {
+        if ($isPowerOn) { return [System.Drawing.Color]::FromArgb(200, 235, 200) }   # green
+        else            { return [System.Drawing.Color]::FromArgb(255, 205, 155) }   # orange
+    } else {
+        return [System.Drawing.Color]::FromArgb(255, 245, 190)                        # yellow
+    }
+}
+
+function Set-PmTaskRowColors {
+    param($Item, $RowColor, [bool]$TimeIsOverridden)
+
+    if ($null -ne $RowColor) {
+        $Item.UseItemStyleForSubItems = $false
+        foreach ($sub in $Item.SubItems) { $sub.BackColor = $RowColor }
+    }
+    if ($TimeIsOverridden) {
+        $Item.UseItemStyleForSubItems = $false
+        $Item.SubItems[6].ForeColor = [System.Drawing.Color]::FromArgb(52,152,219)
+        $Item.SubItems[6].Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    }
+}
+
+function Sync-PmArchive {
+    # Parses non-canonical HTML in the archive, renames to the canonical
+    # schema, writes the companion .json.  Canonical files with a matching
+    # .json are skipped.  Duplicates are collapsed onto the canonical name.
+    # Returns a small summary object.
+    $dir = Get-PmArchiveDir
+    if (-not (Test-Path $dir)) { return [PSCustomObject]@{ Processed = 0; Removed = 0 } }
+
+    $processed = 0
+    $schemaPattern = '^([A-Za-z0-9]+)_([A-Za-z0-9]+)_([A-Za-z0-9]+)_(\d{4}-\d{2}-\d{2})\.html$'
+
+    # --- Phase 1: parse any HTML that isn't yet canonically named ---
+    foreach ($htmlFile in @(Get-ChildItem -Path $dir -Filter "*.html" -File)) {
+        $companionJson = Join-Path $dir ($htmlFile.BaseName + ".json")
+        $isCanonical = ($htmlFile.Name -match $schemaPattern) -and (Test-Path $companionJson)
+        if ($isCanonical) { continue }
+
+        try {
+            Write-Log "Sync-PmArchive: parsing $($htmlFile.Name)"
+            $parsed = ConvertFrom-PmChecklist -HtmlPath $htmlFile.FullName
+
+            $dateStamp = (Get-Date).ToString("yyyy-MM-dd")
+            if (-not [string]::IsNullOrWhiteSpace($parsed.Meta.ChecklistDate)) {
+                try { $dateStamp = ([DateTime]$parsed.Meta.ChecklistDate).ToString("yyyy-MM-dd") } catch {}
+            }
+            $acr = if ($parsed.Meta.Acronym)     { ($parsed.Meta.Acronym     -replace '[^\w]', '') } else { 'UNKNOWN' }
+            $mno = if ($parsed.Meta.EquipmentNo) { ($parsed.Meta.EquipmentNo -replace '[^\w]', '') } else { '0' }
+            $cn  = if ($parsed.Meta.ChecklistNo) { ($parsed.Meta.ChecklistNo -replace '[^\w]', '') } else { '0' }
+            $baseName = "${acr}_${mno}_${cn}_${dateStamp}"
+
+            $targetHtml = Join-Path $dir "$baseName.html"
+            $targetJson = Join-Path $dir "$baseName.json"
+
+            if ($htmlFile.FullName -ne $targetHtml) {
+                # Overwrite — no timestamp suffixes, ever.
+                if (Test-Path $targetHtml) { Remove-Item -Path $targetHtml -Force }
+                Move-Item -Path $htmlFile.FullName -Destination $targetHtml -Force
+            }
+            $parsed | ConvertTo-Json -Depth 12 | Set-Content -Path $targetJson -Encoding UTF8
+            Write-Log "Sync-PmArchive: imported -> $baseName"
+            $processed++
+        } catch {
+            Write-Log "Sync-PmArchive: FAILED on $($htmlFile.Name): $($_.Exception.Message)"
+        }
+    }
+
+    # --- Phase 2: collapse duplicate JSONs that share a logical identity ---
+    $removed = 0
+    $groups = @{}
+
+    foreach ($jf in @(Get-ChildItem -Path $dir -Filter "*.json" -File)) {
+        try {
+            $data = Get-Content -Path $jf.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
+            $acr = ($data.Meta.Acronym     -replace '[^\w]', '')
+            $mno = ($data.Meta.EquipmentNo -replace '[^\w]', '')
+            $cn  = ($data.Meta.ChecklistNo -replace '[^\w]', '')
+            $dateStamp = (Get-Date).ToString("yyyy-MM-dd")
+            if (-not [string]::IsNullOrWhiteSpace($data.Meta.ChecklistDate)) {
+                try { $dateStamp = ([DateTime]$data.Meta.ChecklistDate).ToString("yyyy-MM-dd") } catch {}
+            }
+            $key = "${acr}_${mno}_${cn}_${dateStamp}"
+            if (-not $groups.ContainsKey($key)) { $groups[$key] = @() }
+            $groups[$key] += $jf
+        } catch {
+            # Unparseable JSON — mark for deletion
+            if (-not $groups.ContainsKey('__orphan__')) { $groups['__orphan__'] = @() }
+            $groups['__orphan__'] += $jf
+        }
+    }
+
+    foreach ($key in $groups.Keys) {
+        $files = @($groups[$key] | Sort-Object -Property LastWriteTime -Descending)
+
+        if ($key -eq '__orphan__') {
+            foreach ($f in $files) {
+                Remove-Item -Path $f.FullName -Force -ErrorAction SilentlyContinue
+                $removed++
+            }
+            continue
+        }
+
+        $canonicalJson = Join-Path $dir "$key.json"
+        $canonicalHtml = Join-Path $dir "$key.html"
+
+        # Pick the newest JSON; if it isn't at the canonical path, move it there
+        $newest = $files[0]
+        if ($newest.FullName -ne $canonicalJson) {
+            if (Test-Path $canonicalJson) { Remove-Item -Path $canonicalJson -Force }
+            Move-Item -Path $newest.FullName -Destination $canonicalJson -Force
+        }
+
+        # Delete every other JSON in the group
+        foreach ($f in $files | Select-Object -Skip 1) {
+            Remove-Item -Path $f.FullName -Force -ErrorAction SilentlyContinue
+            $removed++
+        }
+
+        # Do the same for HTMLs that share this base name (with or without suffix)
+        $htmlCandidates = @(Get-ChildItem -Path $dir -Filter "$key*.html" -File |
+                            Sort-Object -Property LastWriteTime -Descending)
+        if ($htmlCandidates.Count -gt 0) {
+            $newestHtml = $htmlCandidates[0]
+            if ($newestHtml.FullName -ne $canonicalHtml) {
+                if (Test-Path $canonicalHtml) { Remove-Item -Path $canonicalHtml -Force }
+                Move-Item -Path $newestHtml.FullName -Destination $canonicalHtml -Force
+            }
+            foreach ($f in $htmlCandidates | Select-Object -Skip 1) {
+                Remove-Item -Path $f.FullName -Force -ErrorAction SilentlyContinue
+                $removed++
+            }
+        }
+    }
+
+    Write-Log "Sync-PmArchive: processed=$processed removed=$removed"
+    return [PSCustomObject]@{ Processed = $processed; Removed = $removed }
+}
+
+function Open-PmArchivedHtml {
+    param([string]$Path)
+    if (-not (Test-Path $Path)) {
+        [System.Windows.Forms.MessageBox]::Show("Archived HTML not found:`n$Path", "Missing File", "OK", "Warning")
+        return
+    }
+    Start-Process $Path
+}
+
+# ============================================================
+# Work Tracking — Breaks + Work Budget
+# ============================================================
+
+# Initialised once; the PM Checklist sub-tab will later set this.
+if ($null -eq $script:pmTotalSelectedHours) { $script:pmTotalSelectedHours = 0.0 }
+
+$script:breakTypes = @(
+    'Lunch',
+    'Wash-up',
+    'Startup',
+    'Paid Break',
+    'End-of-Day Wash-up',
+    'Paperwork',
+    'Other'
+)
+
+function Get-BreaksFilePath {
+    $jobsPath = Get-JobsFilePath
+    $dir = Split-Path $jobsPath -Parent
+    return (Join-Path $dir "Breaks.json")
+}
+
+function Get-Breaks {
+    $path = Get-BreaksFilePath
+    if (-not (Test-Path $path)) { return ,@() }
+    try {
+        $raw = Get-Content -Path $path -Raw -Encoding UTF8
+        if ([string]::IsNullOrWhiteSpace($raw)) { return ,@() }
+        $data = $raw | ConvertFrom-Json
+        if ($null -eq $data) { return ,@() }
+        return ,@($data)
+    } catch {
+        Write-Log "Error reading breaks: $($_.Exception.Message)"
+        return ,@()
+    }
+}
+
+function Save-Breaks {
+    param([array]$Breaks)
+
+    $path = Get-BreaksFilePath
+    $dir  = Split-Path $path -Parent
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+
+    $tmp = "$path.tmp"
+    try {
+        $arr = if ($null -eq $Breaks) { @() } else { @($Breaks) }
+        $json = if ($arr.Count -eq 0) { "[]" } else {
+            $j = ConvertTo-Json -InputObject $arr -Depth 8
+            if (-not $j.TrimStart().StartsWith('[')) { $j = "[$j]" }
+            $j
+        }
+        $json | Set-Content -Path $tmp -Encoding UTF8
+        Move-Item -Path $tmp -Destination $path -Force
+        Write-Log "Save-Breaks: wrote $($arr.Count) break(s)"
+        return $true
+    } catch {
+        Write-Log "Error saving breaks: $($_.Exception.Message)"
+        if (Test-Path $tmp) { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
+        return $false
+    }
+}
+
+function Get-TodaysBreaks {
+    $today = (Get-Date).ToString("yyyy-MM-dd")
+    $all = Get-Breaks
+    return @($all | Where-Object { "$($_.date)" -eq $today })
+}
+
+function Get-TodaysJobHours {
+    $today = (Get-Date).ToString("yyyy-MM-dd")
+    $total = 0.0
+    foreach ($job in @(Get-Jobs)) {
+        if ($null -eq $job) { continue }
+        $jd = ''
+        if ($job.createdAt) {
+            try { $jd = ([DateTime]$job.createdAt).ToString("yyyy-MM-dd") }
+            catch { $jd = "$($job.createdAt)".Split('T')[0] }
+        }
+        if ($jd -ne $today) { continue }
+        $h = Get-JobHours $job
+        if ($null -ne $h) { $total += $h }
+    }
+    return [Math]::Round($total, 2)
+}
+
+function Refresh-BreaksList {
+    if (-not $script:breaksListView) { return }
+    $script:breaksListView.BeginUpdate()
+    try {
+        $script:breaksListView.Items.Clear()
+        foreach ($b in @(Get-TodaysBreaks)) {
+            $it = New-Object System.Windows.Forms.ListViewItem("$($b.type)")
+            $it.SubItems.Add("$($b.startTime)")   | Out-Null
+            $it.SubItems.Add("$($b.durationMin)") | Out-Null
+            $it.SubItems.Add("$($b.notes)")       | Out-Null
+            $it.Tag = $b
+            $script:breaksListView.Items.Add($it) | Out-Null
+        }
+    } finally {
+        $script:breaksListView.EndUpdate()
+    }
+}
+
+function Refresh-WorkBudget {
+    if (-not $script:wtBudgetLabel) { return }
+
+    $wb = $script:config.WorkTracking.WorkBudget
+    if (-not $wb) {
+        $script:wtBudgetLabel.Text = "WorkBudget not configured."
+        return
+    }
+
+    # --- Scheduled non-work (skip any component set to 0) ---
+    $components = [ordered]@{
+        'Lunch'             = [double]$wb.LunchMinutes
+        'Wash-up (lunch)'   = [double]$wb.WashupMinutes
+        'Startup'           = [double]$wb.StartupMinutes
+        'Paid Break 1'      = if (@($wb.PaidBreaksMinutes).Count -ge 1) { [double]$wb.PaidBreaksMinutes[0] } else { 0 }
+        'Paid Break 2'      = if (@($wb.PaidBreaksMinutes).Count -ge 2) { [double]$wb.PaidBreaksMinutes[1] } else { 0 }
+        'Wash-up (end)'     = [double]$wb.EndOfDayWashupMinutes
+        'Paperwork'         = [double]$wb.PaperworkMinutes
+    }
+
+    $nonWorkMin = 0
+    foreach ($v in $components.Values) { $nonWorkMin += $v }
+    $nonWorkH = $nonWorkMin / 60.0
+
+    $target   = [double]$wb.WorkTargetHours
+    $dayTotal = $target + $nonWorkH
+
+    # --- Actuals for today ---
+    $breakMin = 0
+    foreach ($b in @(Get-TodaysBreaks)) { $breakMin += [int]$b.durationMin }
+    $breakHrs = [Math]::Round($breakMin / 60.0, 2)
+
+    $jobHours  = Get-TodaysJobHours
+    $pmHours   = [double]$script:pmTotalSelectedHours
+    $work      = [Math]::Round($jobHours + $pmHours, 2)
+    $over      = [Math]::Round($work - $target, 2)
+    $remaining = [Math]::Round($target - $work, 2)
+
+    # --- Build text ---
+    $lines = @()
+    $lines += "Work Budget — $(Get-Date -Format 'yyyy-MM-dd')"
+    $lines += ""
+    $lines += "Scheduled non-work"
+    foreach ($pair in $components.GetEnumerator()) {
+        if ($pair.Value -le 0) {
+            $lines += ("  {0,-18} {1,6}" -f $pair.Key, "  --")
+        } else {
+            $lines += ("  {0,-18} {1,6:F2} h" -f $pair.Key, ($pair.Value / 60.0))
+        }
+    }
+    $lines += ("  {0,-18} {1,6:F2} h" -f "  Subtotal", $nonWorkH)
+    $lines += ("  {0,-18} {1,6:F2} h" -f "  Work target", $target)
+    $lines += ("  {0,-18} {1,6:F2} h" -f "  = Day total", $dayTotal)
+    $lines += ""
+    $lines += "Today so far"
+    $lines += ("  PM tasks           {0,6:F2} h" -f $pmHours)
+    $lines += ("  Reactive/WO        {0,6:F2} h" -f $jobHours)
+    $lines += ("  Work total         {0,6:F2} h" -f $work)
+    $lines += ("  Breaks logged      {0,6:F2} h" -f $breakHrs)
+    $lines += "  -------------------------"
+    if ($over -gt 0) {
+        $lines += ("  OVER BY            {0,6:F2} h" -f $over)
+    } else {
+        $lines += ("  Remaining          {0,6:F2} h" -f $remaining)
+    }
+
+    # --- Grievance hint ---
+    $grievance = $false
+    if ($over -gt 0) {
+        $grievance = $true
+        $lines += ""
+        $lines += "  ! Work has exceeded your $($target.ToString('F2'))h target."
+        $lines += "    If non-work time was skipped to complete this"
+        $lines += "    work, it may be grievance-worthy per your local"
+        $lines += "    agreement. Note the skipped components and notify"
+        $lines += "    your steward."
+    }
+
+    # --- Highlight over-day-length case (distinct from over-target) ---
+    $grandTotal = $work + $breakHrs
+    if ($grandTotal -gt $dayTotal) {
+        $lines += ""
+        $lines += ("  ! Total time {0:F2}h exceeds day length {1:F2}h." -f $grandTotal, $dayTotal)
+    }
+
+    $script:wtBudgetLabel.Text = ($lines -join "`r`n")
+    if ($grievance) {
+        $script:wtBudgetLabel.ForeColor = [System.Drawing.Color]::FromArgb(179,38,30)
+    } else {
+        $script:wtBudgetLabel.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    }
+}
+
+function Show-BreakEditor {
+    param($Break = $null)
+
+    if ($null -eq $Break) {
+        $Break = [PSCustomObject]@{
+            id = [guid]::NewGuid().ToString()
+            date = (Get-Date).ToString("yyyy-MM-dd")
+            startTime = (Get-Date).ToString("HH:mm")
+            durationMin = 15
+            type = 'Paid Break'
+            notes = ''
+        }
+    }
+
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = "Break"
+    $form.Size = New-Object System.Drawing.Size(420, 300)
+    $form.StartPosition = 'CenterParent'
+    $form.FormBorderStyle = 'FixedDialog'
+    $form.MaximizeBox = $false
+    $form.MinimizeBox = $false
+    $form.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $form.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+
+    $mkLabel = {
+        param($t, $y)
+        $l = New-Object System.Windows.Forms.Label
+        $l.Text = $t
+        $l.Location = New-Object System.Drawing.Point(16, $y)
+        $l.Size = New-Object System.Drawing.Size(100, 24)
+        $l.TextAlign = [System.Drawing.ContentAlignment]::MiddleRight
+        $l.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+        $l.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+        return $l
+    }
+
+    $form.Controls.Add((& $mkLabel "Type:" 20))
+    $cmbType = New-Object System.Windows.Forms.ComboBox
+    $cmbType.Location = New-Object System.Drawing.Point(124, 20)
+    $cmbType.Size = New-Object System.Drawing.Size(260, 24)
+    $cmbType.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
+    foreach ($t in $script:breakTypes) { [void]$cmbType.Items.Add($t) }
+    if ($cmbType.Items.Contains($Break.type)) { $cmbType.SelectedItem = $Break.type } else { $cmbType.SelectedIndex = 0 }
+    $form.Controls.Add($cmbType)
+
+    $form.Controls.Add((& $mkLabel "Start:" 60))
+    $dtpStart = New-Object System.Windows.Forms.DateTimePicker
+    $dtpStart.Format = [System.Windows.Forms.DateTimePickerFormat]::Custom
+    $dtpStart.CustomFormat = "HH:mm"
+    $dtpStart.ShowUpDown = $true
+    $dtpStart.Location = New-Object System.Drawing.Point(124, 60)
+    $dtpStart.Size = New-Object System.Drawing.Size(90, 24)
+    try { $dtpStart.Value = [DateTime]::ParseExact($Break.startTime, 'HH:mm', [System.Globalization.CultureInfo]::InvariantCulture) }
+    catch { $dtpStart.Value = Get-Date }
+    $form.Controls.Add($dtpStart)
+
+    $btnNow = New-Object System.Windows.Forms.Button
+    $btnNow.Text = "Now"
+    $btnNow.Location = New-Object System.Drawing.Point(220, 60)
+    $btnNow.Size = New-Object System.Drawing.Size(56, 24)
+    $btnNow.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $btnNow.FlatAppearance.BorderSize = 0
+    $btnNow.BackColor = [System.Drawing.Color]::FromArgb(52,152,219)
+    $btnNow.ForeColor = [System.Drawing.Color]::White
+    $btnNow.Font = New-Object System.Drawing.Font("Segoe UI", 8, [System.Drawing.FontStyle]::Bold)
+    $btnNow.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $btnNow.Add_Click({ $dtpStart.Value = Get-Date }.GetNewClosure())
+    $form.Controls.Add($btnNow)
+
+    $form.Controls.Add((& $mkLabel "Duration (min):" 100))
+    $numDur = New-Object System.Windows.Forms.NumericUpDown
+    $numDur.Location = New-Object System.Drawing.Point(124, 100)
+    $numDur.Size = New-Object System.Drawing.Size(90, 24)
+    $numDur.Minimum = 1
+    $numDur.Maximum = 480
+    $numDur.Value = if ([int]$Break.durationMin -gt 0) { [int]$Break.durationMin } else { 15 }
+    $form.Controls.Add($numDur)
+
+    $form.Controls.Add((& $mkLabel "Notes:" 140))
+    $txtNotes = New-Object System.Windows.Forms.TextBox
+    $txtNotes.Location = New-Object System.Drawing.Point(124, 140)
+    $txtNotes.Size = New-Object System.Drawing.Size(260, 60)
+    $txtNotes.Multiline = $true
+    $txtNotes.Text = "$($Break.notes)"
+    $form.Controls.Add($txtNotes)
+
+    $cancelBtn = New-Object System.Windows.Forms.Button
+    $cancelBtn.Text = "Cancel"
+    $cancelBtn.Location = New-Object System.Drawing.Point(180, 220)
+    $cancelBtn.Size = New-Object System.Drawing.Size(90, 30)
+    $cancelBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $cancelBtn.FlatAppearance.BorderSize = 0
+    $cancelBtn.BackColor = [System.Drawing.Color]::FromArgb(189,195,199)
+    $cancelBtn.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $cancelBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $cancelBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $cancelBtn.Add_Click({ $form.Tag = $null; $form.Close() })
+    $form.Controls.Add($cancelBtn)
+
+    $saveBtn = New-Object System.Windows.Forms.Button
+    $saveBtn.Text = "Save"
+    $saveBtn.Location = New-Object System.Drawing.Point(280, 220)
+    $saveBtn.Size = New-Object System.Drawing.Size(100, 30)
+    $saveBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $saveBtn.FlatAppearance.BorderSize = 0
+    $saveBtn.BackColor = [System.Drawing.Color]::FromArgb(39,174,96)
+    $saveBtn.ForeColor = [System.Drawing.Color]::White
+    $saveBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $saveBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $saveBtn.Add_Click({
+        $form.Tag = [PSCustomObject]@{
+            id          = $Break.id
+            date        = $Break.date
+            startTime   = $dtpStart.Value.ToString('HH:mm')
+            durationMin = [int]$numDur.Value
+            type        = "$($cmbType.SelectedItem)"
+            notes       = $txtNotes.Text.Trim()
+        }
+        $form.Close()
+    })
+    $form.Controls.Add($saveBtn)
+
+    $form.AcceptButton = $saveBtn
+    $form.CancelButton = $cancelBtn
+
+    $form.ShowDialog() | Out-Null
+    return $form.Tag
+}
+
+# ============================================================
+# Work Tracking — Job Log sub-tab
+# ============================================================
+
+function Get-JobHours {
+    param($Job)
+    if ($null -eq $Job) { return $null }
+
+    if ($null -ne $Job.hoursOverride -and "$($Job.hoursOverride)" -ne '') {
+        $h = 0.0
+        if ([double]::TryParse("$($Job.hoursOverride)", [ref]$h)) { return $h }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($Job.startTime) -or
+        [string]::IsNullOrWhiteSpace($Job.endTime)) { return $null }
+
+    try {
+        $s = [DateTime]::ParseExact($Job.startTime, 'HH:mm', [System.Globalization.CultureInfo]::InvariantCulture)
+        $e = [DateTime]::ParseExact($Job.endTime,   'HH:mm', [System.Globalization.CultureInfo]::InvariantCulture)
+        if ($e -lt $s) { $e = $e.AddDays(1) }
+        return [Math]::Round(($e - $s).TotalHours, 2)
+    } catch { return $null }
+}
+
+function Refresh-JobLogList {
+    if (-not $script:jobLogListView) { return }
+
+    $script:wtJobs = Get-Jobs
+    $jobs = $script:wtJobs
+    if ($null -eq $jobs) { $jobs = @() }
+
+    $script:jobLogListView.BeginUpdate()
+    try {
+        $script:jobLogListView.Items.Clear()
+
+        foreach ($job in $jobs) {
+            $kindText = if ($job.kind -eq 'workorder') { 'WORK ORDER' } else { 'REACTIVE' }
+
+            $dateText = ''
+            if ($job.createdAt) {
+                try { $dateText = ([DateTime]$job.createdAt).ToString("yyyy-MM-dd") }
+                catch { $dateText = "$($job.createdAt)".Split('T')[0] }
+            }
+
+            $hrsText = ''
+            $h = Get-JobHours $job
+            if ($null -ne $h) { $hrsText = $h.ToString("F2") }
+
+            $partsCount = 0
+            if ($job.parts) { $partsCount = @($job.parts).Count }
+
+            $statusText = if ($job.sentToHistorian) { 'SENT' } else { 'DRAFT' }
+
+            $item = New-Object System.Windows.Forms.ListViewItem($kindText)
+            $item.SubItems.Add("$($job.machineId)")   | Out-Null
+            $item.SubItems.Add($dateText)             | Out-Null
+            $item.SubItems.Add("$($job.startTime)")   | Out-Null
+            $item.SubItems.Add("$($job.endTime)")     | Out-Null
+            $item.SubItems.Add($hrsText)              | Out-Null
+            $item.SubItems.Add("$($job.workOrderNo)") | Out-Null
+            $item.SubItems.Add("$partsCount")         | Out-Null
+            $item.SubItems.Add("$($job.description)") | Out-Null
+            $item.SubItems.Add($statusText)           | Out-Null
+            $item.Tag = $job
+            $script:jobLogListView.Items.Add($item) | Out-Null
+        }
+    } finally {
+        $script:jobLogListView.EndUpdate()
+    }
+
+    if ($script:jobLogStatusLabel) {
+        $total = @($jobs).Count
+        $drafts = @($jobs | Where-Object { -not $_.sentToHistorian }).Count
+        $script:jobLogStatusLabel.Text = "$total job$(if ($total -ne 1) { 's' }) — $drafts draft$(if ($drafts -ne 1) { 's' })"
+    }
+}
+
+function Setup-JobLogSubTab {
+    param($parentTab)
+
+    $parentTab.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $parentTab.Padding = New-Object System.Windows.Forms.Padding(0)
+
+    $root = New-Object System.Windows.Forms.Panel
+    $root.Dock = 'Fill'
+    $root.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $root.Padding = New-Object System.Windows.Forms.Padding(12)
+    $parentTab.Controls.Add($root)
+
+    # Status bar (bottom-most)
+    $statusBar = New-Object System.Windows.Forms.Panel
+    $statusBar.Dock = 'Bottom'
+    $statusBar.Height = 26
+    $statusBar.BackColor = [System.Drawing.Color]::FromArgb(236,240,241)
+    $statusBar.Padding = New-Object System.Windows.Forms.Padding(8, 3, 8, 3)
+    $root.Controls.Add($statusBar)
+
+    $script:jobLogStatusLabel = New-Object System.Windows.Forms.Label
+    $script:jobLogStatusLabel.Dock = 'Fill'
+    $script:jobLogStatusLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+    $script:jobLogStatusLabel.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+    $script:jobLogStatusLabel.ForeColor = [System.Drawing.Color]::FromArgb(90,100,115)
+    $script:jobLogStatusLabel.Text = "0 jobs"
+    $statusBar.Controls.Add($script:jobLogStatusLabel)
+
+    # Splitter: job list on top, breaks/budget on bottom
+    $script:jobLogSplitInitialized = $false
+    $split = New-Object System.Windows.Forms.SplitContainer
+    $split.Dock = 'Fill'
+    $split.Orientation = [System.Windows.Forms.Orientation]::Horizontal
+    $split.SplitterWidth = 4
+    $split.Panel1MinSize = 220
+    $split.Panel2MinSize = 240
+    $split.BackColor = [System.Drawing.Color]::FromArgb(220,225,232)
+    $root.Controls.Add($split)
+    $split.BringToFront()
+
+    $split.Add_SizeChanged({
+        if (-not $script:jobLogSplitInitialized -and $this.Height -gt 100) {
+            $this.SplitterDistance = [int]($this.Height * 0.58)
+            $script:jobLogSplitInitialized = $true
+        }
+    })
+
+    # ---- Top panel: toolbar + job list ----
+    $topPanel = $split.Panel1
+    $topPanel.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+
+    $toolbar = New-Object System.Windows.Forms.FlowLayoutPanel
+    $toolbar.Dock = 'Top'
+    $toolbar.Height = 52
+    $toolbar.FlowDirection = [System.Windows.Forms.FlowDirection]::LeftToRight
+    $toolbar.WrapContents = $false
+    $toolbar.BackColor = [System.Drawing.Color]::Transparent
+    $toolbar.Padding = New-Object System.Windows.Forms.Padding(0, 8, 0, 0)
+    $topPanel.Controls.Add($toolbar)
+
+    $newReactiveBtn = New-Button "+ New Reactive Call" {
+        $result = Show-JobEditor -Job $null -Kind 'reactive'
+        if ($null -ne $result -and $result.Action -eq 'save') {
+            $jobs = Get-Jobs
+            if ($null -eq $jobs) { $jobs = @() }
+            $jobs += $result.Job
+            Save-Jobs -Jobs $jobs | Out-Null
+            Refresh-JobLogList
+            Refresh-WorkBudget
+        }
+    } -Style 'Primary' -Width 180 -Height 32 -TextAlign MiddleCenter
+    $newReactiveBtn.Margin = New-Object System.Windows.Forms.Padding(0,0,6,0)
+    $toolbar.Controls.Add($newReactiveBtn)
+
+    $newWoBtn = New-Button "+ New Work Order" {
+        $result = Show-JobEditor -Job $null -Kind 'workorder'
+        if ($null -ne $result -and $result.Action -eq 'save') {
+            $jobs = Get-Jobs
+            if ($null -eq $jobs) { $jobs = @() }
+            $jobs += $result.Job
+            Save-Jobs -Jobs $jobs | Out-Null
+            Refresh-JobLogList
+            Refresh-WorkBudget
+        }
+    } -Style 'Primary' -Width 170 -Height 32 -TextAlign MiddleCenter
+    $newWoBtn.Margin = New-Object System.Windows.Forms.Padding(0,0,6,0)
+    $toolbar.Controls.Add($newWoBtn)
+
+    $refreshBtn = New-Button "Refresh" {
+        Refresh-JobLogList
+        Refresh-BreaksList
+        Refresh-WorkBudget
+    } -Style 'Ghost' -Width 100 -Height 32 -TextAlign MiddleCenter
+    $refreshBtn.Margin = New-Object System.Windows.Forms.Padding(0,0,6,0)
+    $toolbar.Controls.Add($refreshBtn)
+
+    $sendAllBtn = New-Button "Send all ready" {
+        [System.Windows.Forms.MessageBox]::Show("Historian wiring coming later.", "Job Log", "OK", "Information")
+    } -Style 'Success' -Width 150 -Height 32 -TextAlign MiddleCenter
+    $sendAllBtn.Margin = New-Object System.Windows.Forms.Padding(0,0,6,0)
+    $toolbar.Controls.Add($sendAllBtn)
+
+    $script:jobLogListView = New-Object System.Windows.Forms.ListView
+    $script:jobLogListView.Dock = 'Fill'
+    $script:jobLogListView.Columns.Add("Kind", 90)         | Out-Null
+    $script:jobLogListView.Columns.Add("Machine", 110)     | Out-Null
+    $script:jobLogListView.Columns.Add("Date", 100)        | Out-Null
+    $script:jobLogListView.Columns.Add("Start", 60)        | Out-Null
+    $script:jobLogListView.Columns.Add("End", 60)          | Out-Null
+    $script:jobLogListView.Columns.Add("Hrs", 50)          | Out-Null
+    $script:jobLogListView.Columns.Add("WO#", 110)         | Out-Null
+    $script:jobLogListView.Columns.Add("Parts", 50)        | Out-Null
+    $script:jobLogListView.Columns.Add("Description", 320) | Out-Null
+    $script:jobLogListView.Columns.Add("Status", 70)       | Out-Null
+    Set-ListViewStyle -ListView $script:jobLogListView
+    $topPanel.Controls.Add($script:jobLogListView)
+    $script:jobLogListView.BringToFront()
+
+    # ---- Bottom panel: budget (left) + breaks (right) ----
+    $bottomPanel = $split.Panel2
+    $bottomPanel.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+
+    $bottomGrid = New-Object System.Windows.Forms.TableLayoutPanel
+    $bottomGrid.Dock = 'Fill'
+    $bottomGrid.ColumnCount = 2
+    $bottomGrid.RowCount = 1
+    $bottomGrid.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 300))) | Out-Null
+    $bottomGrid.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100.0))) | Out-Null
+    $bottomPanel.Controls.Add($bottomGrid)
+
+    # Left: Work Budget
+    $gbBudget = New-Object System.Windows.Forms.GroupBox
+    $gbBudget.Text = "Work Budget (Today)"
+    $gbBudget.Dock = 'Fill'
+    $gbBudget.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $gbBudget.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $gbBudget.Margin = New-Object System.Windows.Forms.Padding(0, 0, 6, 0)
+
+    $script:wtBudgetLabel = New-Object System.Windows.Forms.Label
+    $script:wtBudgetLabel.Dock = 'Fill'
+    $script:wtBudgetLabel.Font = New-Object System.Drawing.Font("Consolas", 9)
+    $script:wtBudgetLabel.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $script:wtBudgetLabel.Padding = New-Object System.Windows.Forms.Padding(8, 4, 8, 4)
+    $script:wtBudgetLabel.Text = "Loading..."
+    $gbBudget.Controls.Add($script:wtBudgetLabel)
+
+    $bottomGrid.Controls.Add($gbBudget, 0, 0)
+
+    # Right: Breaks
+    $gbBreaks = New-Object System.Windows.Forms.GroupBox
+    $gbBreaks.Text = "Breaks & Non-Work Time (Today)"
+    $gbBreaks.Dock = 'Fill'
+    $gbBreaks.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $gbBreaks.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $gbBreaks.Margin = New-Object System.Windows.Forms.Padding(0)
+
+    $breaksToolbar = New-Object System.Windows.Forms.FlowLayoutPanel
+    $breaksToolbar.Dock = 'Bottom'
+    $breaksToolbar.Height = 36
+    $breaksToolbar.FlowDirection = [System.Windows.Forms.FlowDirection]::LeftToRight
+    $breaksToolbar.Padding = New-Object System.Windows.Forms.Padding(6, 4, 6, 4)
+    $breaksToolbar.BackColor = [System.Drawing.Color]::Transparent
+    $gbBreaks.Controls.Add($breaksToolbar)
+
+    $addBreakBtn = New-Object System.Windows.Forms.Button
+    $addBreakBtn.Text = "+ Add Break"
+    $addBreakBtn.Size = New-Object System.Drawing.Size(110, 26)
+    $addBreakBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $addBreakBtn.FlatAppearance.BorderSize = 0
+    $addBreakBtn.BackColor = [System.Drawing.Color]::FromArgb(52,152,219)
+    $addBreakBtn.ForeColor = [System.Drawing.Color]::White
+    $addBreakBtn.Font = New-Object System.Drawing.Font("Segoe UI", 8, [System.Drawing.FontStyle]::Bold)
+    $addBreakBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $addBreakBtn.Margin = New-Object System.Windows.Forms.Padding(0, 0, 6, 0)
+    $breaksToolbar.Controls.Add($addBreakBtn)
+
+    $rmBreakBtn = New-Object System.Windows.Forms.Button
+    $rmBreakBtn.Text = "Remove"
+    $rmBreakBtn.Size = New-Object System.Drawing.Size(90, 26)
+    $rmBreakBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $rmBreakBtn.FlatAppearance.BorderSize = 0
+    $rmBreakBtn.BackColor = [System.Drawing.Color]::FromArgb(231,76,60)
+    $rmBreakBtn.ForeColor = [System.Drawing.Color]::White
+    $rmBreakBtn.Font = New-Object System.Drawing.Font("Segoe UI", 8, [System.Drawing.FontStyle]::Bold)
+    $rmBreakBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $breaksToolbar.Controls.Add($rmBreakBtn)
+
+    $script:breaksListView = New-Object System.Windows.Forms.ListView
+    $script:breaksListView.Dock = 'Fill'
+    $script:breaksListView.Columns.Add("Type", 130) | Out-Null
+    $script:breaksListView.Columns.Add("Start", 60) | Out-Null
+    $script:breaksListView.Columns.Add("Min", 50)   | Out-Null
+    $script:breaksListView.Columns.Add("Notes", 260) | Out-Null
+    Set-ListViewStyle -ListView $script:breaksListView
+    $gbBreaks.Controls.Add($script:breaksListView)
+    $script:breaksListView.BringToFront()
+
+    $bottomGrid.Controls.Add($gbBreaks, 1, 0)
+
+    # ---- Break editor wiring ----
+    $addBreakBtn.Add_Click({
+        $result = Show-BreakEditor
+        if ($null -eq $result) { return }
+        $all = Get-Breaks
+        if ($null -eq $all) { $all = @() }
+        $all += $result
+        Save-Breaks -Breaks $all | Out-Null
+        Refresh-BreaksList
+        Refresh-WorkBudget
+    })
+
+    $rmBreakBtn.Add_Click({
+        $sel = $script:breaksListView.SelectedItems
+        if ($sel.Count -eq 0) {
+            [System.Windows.Forms.MessageBox]::Show("Select a break to remove.", "Breaks", "OK", "Information")
+            return
+        }
+        $breakId = $sel[0].Tag.id
+        $answer = [System.Windows.Forms.MessageBox]::Show(
+            "Remove this break?", "Confirm",
+            [System.Windows.Forms.MessageBoxButtons]::YesNo,
+            [System.Windows.Forms.MessageBoxIcon]::Question)
+        if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
+
+        $all = Get-Breaks
+        $kept = @($all | Where-Object { $_.id -ne $breakId })
+        Save-Breaks -Breaks $kept | Out-Null
+        Refresh-BreaksList
+        Refresh-WorkBudget
+    })
+
+    # Double-click job list — edit
+    $script:jobLogListView.Add_DoubleClick({
+        $sel = $script:jobLogListView.SelectedItems
+        if ($sel.Count -eq 0) { return }
+
+        $original = $sel[0].Tag
+        $result = Show-JobEditor -Job $original -Kind $original.kind
+        if ($null -eq $result) { return }
+
+        $jobs = Get-Jobs
+        if ($null -eq $jobs) { $jobs = @() }
+
+        if ($result.Action -eq 'delete') {
+            $jobs = @($jobs | Where-Object { $_.id -ne $original.id })
+        } elseif ($result.Action -eq 'save') {
+            $found = $false
+            for ($i = 0; $i -lt $jobs.Count; $i++) {
+                if ($jobs[$i].id -eq $original.id) {
+                    $jobs[$i] = $result.Job
+                    $found = $true
+                    break
+                }
+            }
+            if (-not $found) { $jobs += $result.Job }
+        }
+
+        Save-Jobs -Jobs $jobs | Out-Null
+        Refresh-JobLogList
+        Refresh-WorkBudget
+    })
+
+    # Initial loads
+    Refresh-JobLogList
+    Refresh-BreaksList
+    Refresh-WorkBudget
+
+    Write-Log "Job Log sub-tab setup completed."
+}
+
+function Show-PmChecklistPasteDialog {
+    # Modal with a large paste box.  Returns the pasted HTML string, or $null.
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = "Import PM Checklist"
+    $form.Size = New-Object System.Drawing.Size(900, 700)
+    $form.MinimumSize = New-Object System.Drawing.Size(700, 500)
+    $form.StartPosition = 'CenterParent'
+    $form.FormBorderStyle = 'Sizable'
+    $form.MaximizeBox = $false
+    $form.MinimizeBox = $false
+    $form.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $form.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+
+    $lblHead = New-Object System.Windows.Forms.Label
+    $lblHead.Text = "Paste the raw HTML from the PM Checklist popup (Ctrl-U in the popup, Ctrl-A, Ctrl-C)."
+    $lblHead.Dock = 'Top'
+    $lblHead.Height = 28
+    $lblHead.Padding = New-Object System.Windows.Forms.Padding(12, 8, 12, 0)
+    $lblHead.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+    $lblHead.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $form.Controls.Add($lblHead)
+
+    $btnBar = New-Object System.Windows.Forms.Panel
+    $btnBar.Dock = 'Bottom'
+    $btnBar.Height = 52
+    $form.Controls.Add($btnBar)
+
+    $cancelBtn = New-Object System.Windows.Forms.Button
+    $cancelBtn.Text = "Cancel"
+    $cancelBtn.Location = New-Object System.Drawing.Point(680, 10)
+    $cancelBtn.Size = New-Object System.Drawing.Size(90, 32)
+    $cancelBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $cancelBtn.FlatAppearance.BorderSize = 0
+    $cancelBtn.BackColor = [System.Drawing.Color]::FromArgb(189,195,199)
+    $cancelBtn.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $cancelBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $cancelBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $cancelBtn.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
+    $cancelBtn.Add_Click({ $form.Tag = $null; $form.Close() })
+    $btnBar.Controls.Add($cancelBtn)
+
+    $okBtn = New-Object System.Windows.Forms.Button
+    $okBtn.Text = "Import"
+    $okBtn.Location = New-Object System.Drawing.Point(780, 10)
+    $okBtn.Size = New-Object System.Drawing.Size(100, 32)
+    $okBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $okBtn.FlatAppearance.BorderSize = 0
+    $okBtn.BackColor = [System.Drawing.Color]::FromArgb(39,174,96)
+    $okBtn.ForeColor = [System.Drawing.Color]::White
+    $okBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $okBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $okBtn.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
+    $okBtn.Add_Click({
+        if ([string]::IsNullOrWhiteSpace($txtPaste.Text)) { return }
+        $form.Tag = $txtPaste.Text
+        $form.Close()
+    })
+    $btnBar.Controls.Add($okBtn)
+
+    $txtPaste = New-Object System.Windows.Forms.TextBox
+    $txtPaste.Multiline = $true
+    $txtPaste.Dock = 'Fill'
+    $txtPaste.ScrollBars = [System.Windows.Forms.ScrollBars]::Both
+    $txtPaste.WordWrap = $false
+    $txtPaste.Font = New-Object System.Drawing.Font("Consolas", 8)
+    $txtPaste.AcceptsReturn = $true
+    $txtPaste.AcceptsTab = $true
+    $txtPaste.Padding = New-Object System.Windows.Forms.Padding(8)
+    $form.Controls.Add($txtPaste)
+    $txtPaste.BringToFront()
+
+    # Do NOT set AcceptButton — Enter must insert newlines
+    $form.CancelButton = $cancelBtn
+
+    $form.ShowDialog() | Out-Null
+    return $form.Tag
+}
+
+function Refresh-PmMachineTabs {
+    if (-not $script:pmMachineTabs) { return }
+    if (-not $script:pmDatePicker)   { return }
+
+    $script:pmSuppressEvents = $true
+    $script:pmMachineTabs.TabPages.Clear()
+
+    $selected = $script:pmDatePicker.Value.Date
+    $all = @($script:pmMachines)
+    $shown = @()
+    foreach ($m in $all) {
+        if ($m.SortDate.Date -eq $selected) { $shown += $m }
+    }
+
+    if ($shown.Count -eq 0) {
+        $emptyTab = New-Object System.Windows.Forms.TabPage
+        $emptyTab.Text = "(none)"
+        $emptyTab.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+        $dateStr = $selected.ToString("yyyy-MM-dd")
+        $hint = if ($all.Count -gt 0) {
+            "No PM Checklists for $dateStr.`r`n`r`n$($all.Count) archived checklist(s) exist on other dates.`r`nTry a different date, click 'Scan Archive', or '+ Import PM Checklist'."
+        } else {
+            "No PM Checklists for $dateStr.`r`n`r`nClick 'Scan Archive' to look for HTML files,`r`nor '+ Import PM Checklist' to paste one in."
+        }
+        $msg = New-Object System.Windows.Forms.Label
+        $msg.Text = $hint
+        $msg.Dock = 'Fill'
+        $msg.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+        $msg.Font = New-Object System.Drawing.Font("Segoe UI", 11, [System.Drawing.FontStyle]::Italic)
+        $msg.ForeColor = [System.Drawing.Color]::FromArgb(120,130,145)
+        $emptyTab.Controls.Add($msg)
+        $script:pmMachineTabs.TabPages.Add($emptyTab) | Out-Null
+        $script:pmSuppressEvents = $false
+        Update-PmSelectedHoursTotal
+        return
+    }
+
+    foreach ($m in $shown) {
+        # Load session on first render
+        if (-not $m.State) {
+            $sess = Get-PmSession -Machine $m
+            $m | Add-Member -NotePropertyName State -NotePropertyValue $sess.Selections -Force
+        }
+
+        $tab = New-Object System.Windows.Forms.TabPage
+        $tab.Text = "$($m.MachineId)  ($($m.TaskCount))"
+        $tab.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+        $tab.Padding = New-Object System.Windows.Forms.Padding(12)
+
+        # Top metadata
+        $meta = New-Object System.Windows.Forms.Label
+        $meta.Dock = 'Top'
+        $meta.Height = 120
+        $meta.Font = New-Object System.Drawing.Font("Consolas", 9)
+        $meta.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+        $meta.Text = @(
+            "Machine:        $($m.MachineId)"
+            "Checklist No:   $($m.ChecklistNo)"
+            "Checklist Date: $($m.ChecklistDate)"
+            "Generated On:   $($m.GeneratedOn)"
+            "Skills:         $($m.Skills)"
+            "Tasks:          $($m.TaskCount)"
+            "Est Open:       $($m.EstOpen) h"
+            "Est Due Today:  $($m.EstDueToday) h"
+        ) -join "`r`n"
+        $tab.Controls.Add($meta)
+
+        $openBtn = New-Object System.Windows.Forms.Button
+        $openBtn.Text = "Open Original HTML"
+        $openBtn.Size = New-Object System.Drawing.Size(160, 30)
+        $openBtn.FlatStyle = 'Flat'
+        $openBtn.FlatAppearance.BorderSize = 0
+        $openBtn.BackColor = [System.Drawing.Color]::FromArgb(52,152,219)
+        $openBtn.ForeColor = [System.Drawing.Color]::White
+        $openBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+        $openBtn.Cursor = 'Hand'
+        $openBtn.Location = New-Object System.Drawing.Point(12, 128)
+        $script:__pm_openPath = $m.HtmlPath
+        $openBtn.Add_Click({ Open-PmArchivedHtml -Path $script:__pm_openPath })
+        $tab.Controls.Add($openBtn)
+
+        # Totals line at bottom
+        $totals = New-Object System.Windows.Forms.Label
+        $totals.Dock = 'Bottom'
+        $totals.Height = 28
+        $totals.Padding = New-Object System.Windows.Forms.Padding(6, 4, 0, 0)
+        $totals.Font = New-Object System.Drawing.Font("Consolas", 9, [System.Drawing.FontStyle]::Bold)
+        $totals.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+        $totals.Text = ""
+        $tab.Controls.Add($totals)
+        $script:__pm_cur_totalsLabel = $totals
+
+        # Task ListView
+        $lv = New-Object System.Windows.Forms.ListView
+        $lv.Location = New-Object System.Drawing.Point(12, 168)
+        $lv.Size = New-Object System.Drawing.Size(900, 380)
+        $lv.Anchor = 'Top,Left,Right,Bottom'
+        $lv.CheckBoxes = $true
+        $lv.Columns.Add("", 30)          | Out-Null
+        $lv.Columns.Add("Item", 70)      | Out-Null
+        $lv.Columns.Add("Component", 240)| Out-Null
+        $lv.Columns.Add("Power", 70)     | Out-Null
+        $lv.Columns.Add("Skill", 60)     | Out-Null
+        $lv.Columns.Add("Est", 50)       | Out-Null
+        $lv.Columns.Add("Time", 60)      | Out-Null
+        $lv.Columns.Add("Due", 90)       | Out-Null
+        Set-ListViewStyle -ListView $lv
+        $lv.Tag = $m          # for event handlers
+        $lv.Tag = $m
+
+        $doneCount = 0
+        $selectedMinutes = 0
+
+        foreach ($task in @($m.Parsed.Tasks)) {
+            $e = $m.State[$task.ItemNo]
+            $isDone = if ($e) { [bool]$e.Selected } else { $false }
+            $displayMin = if ($e -and $null -ne $e.CustomTimeMin) { [int]$e.CustomTimeMin } else { [int]$task.EstTimeMin }
+            $isOverridden = ($e -and $null -ne $e.CustomTimeMin)
+
+            if ($isDone) {
+                $doneCount++
+                $selectedMinutes += $displayMin
+            }
+
+            $it = New-Object System.Windows.Forms.ListViewItem("")
+            $it.Checked = $isDone
+            $it.SubItems.Add("$($task.ItemNo)")        | Out-Null
+            $it.SubItems.Add("$($task.Component)")     | Out-Null
+            $it.SubItems.Add("$($task.PowerState)")    | Out-Null
+            $it.SubItems.Add("$($task.MinSkillLevel)") | Out-Null
+            $it.SubItems.Add("$($task.EstTimeMin)")    | Out-Null
+            $it.SubItems.Add("$displayMin")            | Out-Null
+            $it.SubItems.Add("$($task.DueDate)")       | Out-Null
+            $it.Tag = $task
+
+            $rowColor = Get-PmTaskRowColor -Task $task -Today (Get-Date).Date
+            Set-PmTaskRowColors -Item $it -RowColor $rowColor -TimeIsOverridden $isOverridden
+
+            $lv.Items.Add($it) | Out-Null
+        }
+
+        $totals.Text = "Done: $doneCount of $($m.TaskCount)  •  $([Math]::Round($selectedMinutes/60.0, 2)) h"
+
+
+
+        $script:__pm_curMachine = $m
+        $lv.Add_ItemChecked({
+            param($sender, $e)
+            if ($script:pmSuppressEvents) { return }
+
+            $machine = $script:__pm_curMachine
+            if (-not $machine -or -not $machine.State) {
+                Write-Log "PM checkbox: no machine bound, ignoring."
+                return
+            }
+
+            $item = $e.Item
+            if (-not $item) {
+                Write-Log "PM checkbox: null e.Item, ignoring."
+                return
+            }
+            $task = $item.Tag
+            if (-not $task) {
+                Write-Log "PM checkbox: null item.Tag, ignoring."
+                return
+            }
+
+            $existing = $machine.State[$task.ItemNo]
+            $custom = if ($existing) { $existing.CustomTimeMin } else { $null }
+            $machine.State[$task.ItemNo] = @{ Selected = [bool]$item.Checked; CustomTimeMin = $custom }
+
+            Write-Log "PM checkbox: $($machine.MachineId) $($task.ItemNo) selected=$($item.Checked) customMin=$custom"
+
+            Save-PmSession -Machine $machine
+
+            $d = 0; $mins = 0
+            foreach ($t in @($machine.Parsed.Tasks)) {
+                $ee = $machine.State[$t.ItemNo]
+                if ($ee -and $ee.Selected) {
+                    $d++
+                    $mins += if ($null -ne $ee.CustomTimeMin) { [int]$ee.CustomTimeMin } else { [int]$t.EstTimeMin }
+                }
+            }
+            $tl = $sender.Parent.Controls | Where-Object { $_ -is [System.Windows.Forms.Label] -and $_.Dock -eq 'Bottom' }
+            if ($tl) { $tl.Text = "Done: $d of $($machine.TaskCount)  •  $([Math]::Round($mins/60.0, 2)) h" }
+
+            Update-PmSelectedHoursTotal
+        })
+
+        # Wire double-click editor
+        $lv.Add_DoubleClick({
+            param($sender, $e)
+            if ($script:pmSuppressEvents) { return }
+
+            $machine = $script:__pm_curMachine
+            $sel = $sender.SelectedItems
+            if ($sel.Count -eq 0) { return }
+            $item = $sel[0]
+            $task = $item.Tag
+            if (-not $task) { return }
+
+            $result = Show-PmTaskEditor -Machine $machine -Task $task
+            if ($null -eq $result) { return }
+
+            $machine.State[$task.ItemNo] = @{
+                Selected      = [bool]$result.Selected
+                CustomTimeMin = $result.CustomTimeMin
+            }
+            Save-PmSession -Machine $machine
+
+            # Update the row in place
+            $item.Checked = [bool]$result.Selected
+            $displayMin = if ($null -ne $result.CustomTimeMin) { [int]$result.CustomTimeMin } else { [int]$task.EstTimeMin }
+            $item.SubItems[6].Text = "$displayMin"
+
+            # Reapply row colors + override styling
+            $rowColor = Get-PmTaskRowColor -Task $task -Today (Get-Date).Date
+            Set-PmTaskRowColors -Item $item -RowColor $rowColor -TimeIsOverridden ($null -ne $result.CustomTimeMin)
+
+            # Refresh per-machine totals
+            $d = 0; $mins = 0
+            foreach ($t in @($machine.Parsed.Tasks)) {
+                $ee = $machine.State[$t.ItemNo]
+                if ($ee -and $ee.Selected) {
+                    $d++
+                    $mins += if ($null -ne $ee.CustomTimeMin) { [int]$ee.CustomTimeMin } else { [int]$t.EstTimeMin }
+                }
+            }
+            $tl = $sender.Parent.Controls | Where-Object { $_ -is [System.Windows.Forms.Label] -and $_.Dock -eq 'Bottom' }
+            if ($tl) { $tl.Text = "Done: $d of $($machine.TaskCount)  •  $([Math]::Round($mins/60.0, 2)) h" }
+
+            Update-PmSelectedHoursTotal
+        })
+
+        $tab.Controls.Add($lv)
+        $script:pmMachineTabs.TabPages.Add($tab) | Out-Null
+    }
+
+    $script:pmSuppressEvents = $false
+    Update-PmSelectedHoursTotal
+}
+
+function Setup-PmChecklistSubTab {
+    param($parentTab)
+
+    $parentTab.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $parentTab.Padding = New-Object System.Windows.Forms.Padding(0)
+
+    $root = New-Object System.Windows.Forms.Panel
+    $root.Dock = 'Fill'
+    $root.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $root.Padding = New-Object System.Windows.Forms.Padding(12)
+    $parentTab.Controls.Add($root)
+
+    $toolbar = New-Object System.Windows.Forms.FlowLayoutPanel
+    $toolbar.Dock = 'Top'
+    $toolbar.Height = 52
+    $toolbar.FlowDirection = [System.Windows.Forms.FlowDirection]::LeftToRight
+    $toolbar.WrapContents = $false
+    $toolbar.BackColor = [System.Drawing.Color]::Transparent
+    $toolbar.Padding = New-Object System.Windows.Forms.Padding(0, 8, 0, 0)
+    $root.Controls.Add($toolbar)
+
+    # Import (paste)
+    $importBtn = New-Button "+ Import PM Checklist" {
+        $html = Show-PmChecklistPasteDialog
+        if ($null -eq $html) { return }
+        try {
+            $summary = Import-PmChecklist -Html $html
+
+            # Ensure the date picker matches the imported checklist's date
+            $importDate = (Get-Date).Date
+            if (-not [string]::IsNullOrWhiteSpace($summary.DateStamp)) {
+                try { $importDate = [DateTime]$summary.DateStamp } catch {}
+            }
+            if ($script:pmDatePicker) { $script:pmDatePicker.Value = $importDate }
+
+            $script:pmMachines = Load-PmMachines
+            Refresh-PmMachineTabs
+
+            [System.Windows.Forms.MessageBox]::Show(
+                "Imported $($summary.MachineId)  ($($summary.DateStamp))`r`n$($summary.TaskCount) tasks`r`nArchived to:`r`n$($summary.HtmlPath)",
+                "Import Complete", "OK", "Information")
+        } catch {
+            Write-Log "Import failed: $($_.Exception.Message)"
+            [System.Windows.Forms.MessageBox]::Show("Import failed:`r`n$($_.Exception.Message)", "Error", "OK", "Error")
+        }
+    } -Style 'Primary' -Width 200 -Height 32 -TextAlign MiddleCenter
+    $importBtn.Margin = New-Object System.Windows.Forms.Padding(0,0,6,0)
+    $toolbar.Controls.Add($importBtn)
+
+    # Scan archive for new raw HTML files
+    $scanBtn = New-Button "Scan Archive" {
+        try {
+            $result = Sync-PmArchive
+            $script:pmMachines = Load-PmMachines
+            Refresh-PmMachineTabs
+            $parts = @()
+            if ($result.Processed -gt 0) { $parts += "$($result.Processed) new file$(if ($result.Processed -ne 1) { 's' }) imported" }
+            if ($result.Removed   -gt 0) { $parts += "$($result.Removed) duplicate$(if ($result.Removed -ne 1) { 's' }) removed" }
+            if ($parts.Count -eq 0)      { $parts += "Archive is clean" }
+            [System.Windows.Forms.MessageBox]::Show(($parts -join ". ") + ".", "Scan Complete", "OK", "Information")
+        } catch {
+            Write-Log "Scan failed: $($_.Exception.Message)"
+            [System.Windows.Forms.MessageBox]::Show("Scan failed:`r`n$($_.Exception.Message)", "Error", "OK", "Error")
+        }
+    } -Style 'Success' -Width 140 -Height 32 -TextAlign MiddleCenter
+    $scanBtn.Margin = New-Object System.Windows.Forms.Padding(0,0,6,0)
+    $toolbar.Controls.Add($scanBtn)
+
+    # Reload (re-reads JSONs from disk without scanning for new files)
+    $reloadBtn = New-Button "Reload" {
+        $script:pmMachines = Load-PmMachines
+        Refresh-PmMachineTabs
+        Write-Log "PM Checklist: reloaded $($script:pmMachines.Count) machine(s)."
+    } -Style 'Ghost' -Width 90 -Height 32 -TextAlign MiddleCenter
+    $reloadBtn.Margin = New-Object System.Windows.Forms.Padding(0,0,6,0)
+    $toolbar.Controls.Add($reloadBtn)
+
+    # Date picker
+    $lblDate = New-Object System.Windows.Forms.Label
+    $lblDate.Text = "Date:"
+    $lblDate.Size = New-Object System.Drawing.Size(44, 32)
+    $lblDate.TextAlign = [System.Drawing.ContentAlignment]::MiddleRight
+    $lblDate.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $lblDate.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $lblDate.Margin = New-Object System.Windows.Forms.Padding(0,0,4,0)
+    $toolbar.Controls.Add($lblDate)
+
+    $script:pmDatePicker = New-Object System.Windows.Forms.DateTimePicker
+    $script:pmDatePicker.Format = [System.Windows.Forms.DateTimePickerFormat]::Short
+    $script:pmDatePicker.Size = New-Object System.Drawing.Size(120, 26)
+    $script:pmDatePicker.Value = (Get-Date).Date
+    $script:pmDatePicker.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+    $script:pmDatePicker.Margin = New-Object System.Windows.Forms.Padding(0,4,6,0)
+    $script:pmDatePicker.Add_ValueChanged({ Refresh-PmMachineTabs })
+    $toolbar.Controls.Add($script:pmDatePicker)
+
+    $todayBtn = New-Button "Today" {
+        $script:pmDatePicker.Value = (Get-Date).Date
+    } -Style 'Ghost' -Width 70 -Height 32 -TextAlign MiddleCenter
+    $todayBtn.Margin = New-Object System.Windows.Forms.Padding(0,0,6,0)
+    $toolbar.Controls.Add($todayBtn)
+
+    # Open archive folder
+    $openFolderBtn = New-Button "Open Archive Folder" {
+        $dir = Get-PmArchiveDir
+        Start-Process $dir
+    } -Style 'Ghost' -Width 170 -Height 32 -TextAlign MiddleCenter
+    $openFolderBtn.Margin = New-Object System.Windows.Forms.Padding(0,0,6,0)
+    $toolbar.Controls.Add($openFolderBtn)
+
+    $script:pmGrandTotalLabel = New-Object System.Windows.Forms.Label
+    $script:pmGrandTotalLabel.Text = "Today: 0 tasks / 0 h"
+    $script:pmGrandTotalLabel.Size = New-Object System.Drawing.Size(200, 32)
+    $script:pmGrandTotalLabel.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+    $script:pmGrandTotalLabel.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $script:pmGrandTotalLabel.ForeColor = [System.Drawing.Color]::FromArgb(52,152,219)
+    $toolbar.Controls.Add($script:pmGrandTotalLabel)
+
+    # Machine tabs
+    $script:pmMachineTabs = New-Object System.Windows.Forms.TabControl
+    $script:pmMachineTabs.Dock = 'Fill'
+    $script:pmMachineTabs.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+    $root.Controls.Add($script:pmMachineTabs)
+    $script:pmMachineTabs.BringToFront()
+
+    # Initial state: sync first, then load, then render today
+    try {
+        [void](Sync-PmArchive)
+    } catch {
+        Write-Log "Startup sync failed: $($_.Exception.Message)"
+    }
+    $script:pmMachines = Load-PmMachines
+    Refresh-PmMachineTabs
+
+    Write-Log "PM Checklist sub-tab setup completed."
+}
+
+function New-JobObject {
+    param([string]$Kind)
+    return [PSCustomObject]@{
+        id              = [guid]::NewGuid().ToString()
+        kind            = $Kind
+        machineId       = ''
+        startTime       = ''
+        endTime         = ''
+        hoursOverride   = $null
+        description     = ''
+        workOrderNo     = ''
+        parts           = @()
+        createdAt       = (Get-Date).ToString("o")
+        sentToHistorian = $false
+        sentAt          = $null
+    }
+}
+
+function Test-JobFields {
+    # Returns a string[] of validation errors (empty array = valid).
+    param($Job)
+
+    $errs = @()
+    if ($null -eq $Job) { return @('No job to validate.') }
+
+    $m = Format-MachineId "$($Job.machineId)"
+    if ($null -eq $m) { $errs += 'Machine ID must look like "DBCS 49".' }
+
+    if ([string]::IsNullOrWhiteSpace($Job.startTime)) { $errs += 'Start time is required.' }
+    if ([string]::IsNullOrWhiteSpace($Job.endTime))   { $errs += 'End time is required.' }
+
+    $h = Get-JobHours $Job
+    if ($null -ne $h -and $h -le 0) { $errs += 'End time must be after start time.' }
+
+    $needsDetail = ($null -ne $h -and $h -gt 0.5) -or (@($Job.parts).Count -gt 0)
+    if ($needsDetail) {
+        if ([string]::IsNullOrWhiteSpace($Job.description)) { $errs += 'Description required (>30 min or parts used).' }
+        if ([string]::IsNullOrWhiteSpace($Job.workOrderNo)) { $errs += 'Work order # required (>30 min or parts used).' }
+    }
+
+    return ,$errs
+}
+
+function Show-JobEditor {
+    # Returns:
+    #   $null                              - cancelled
+    #   [PSCustomObject]@{Action='save';   Job=$job} - save this job
+    #   [PSCustomObject]@{Action='delete'; Job=$job} - delete this job
+    param(
+        [PSCustomObject]$Job,
+        [string]$Kind
+    )
+
+    if ($null -eq $Job) { $Job = New-JobObject -Kind $Kind }
+
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = if ($Job.kind -eq 'workorder') { 'Work Order' } else { 'Reactive Call' }
+    $form.Size = New-Object System.Drawing.Size(720, 620)
+    $form.MinimumSize = New-Object System.Drawing.Size(720, 620)
+    $form.StartPosition = 'CenterParent'
+    $form.FormBorderStyle = 'Sizable'
+    $form.MaximizeBox = $false
+    $form.MinimizeBox = $false
+    $form.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $form.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+
+    # ---------- bottom button bar ----------
+    $btnBar = New-Object System.Windows.Forms.Panel
+    $btnBar.Dock = 'Bottom'
+    $btnBar.Height = 52
+    $btnBar.BackColor = [System.Drawing.Color]::Transparent
+    $btnBar.Padding = New-Object System.Windows.Forms.Padding(12, 8, 12, 12)
+    $form.Controls.Add($btnBar)
+
+    $deleteBtn = New-Object System.Windows.Forms.Button
+    $deleteBtn.Text = "Delete"
+    $deleteBtn.Location = New-Object System.Drawing.Point(12, 10)
+    $deleteBtn.Size = New-Object System.Drawing.Size(90, 32)
+    $deleteBtn.BackColor = [System.Drawing.Color]::FromArgb(231,76,60)
+    $deleteBtn.ForeColor = [System.Drawing.Color]::White
+    $deleteBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $deleteBtn.FlatAppearance.BorderSize = 0
+    $deleteBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $deleteBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    if (-not [string]::IsNullOrWhiteSpace($Job.id) -and (Get-Jobs | Where-Object { $_.id -eq $Job.id })) {
+        $btnBar.Controls.Add($deleteBtn)
+    }
+
+    $cancelBtn = New-Object System.Windows.Forms.Button
+    $cancelBtn.Text = "Cancel"
+    $cancelBtn.Location = New-Object System.Drawing.Point(480, 10)
+    $cancelBtn.Size = New-Object System.Drawing.Size(100, 32)
+    $cancelBtn.BackColor = [System.Drawing.Color]::FromArgb(189,195,199)
+    $cancelBtn.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $cancelBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $cancelBtn.FlatAppearance.BorderSize = 0
+    $cancelBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $cancelBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $cancelBtn.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
+    $btnBar.Controls.Add($cancelBtn)
+
+    $saveBtn = New-Object System.Windows.Forms.Button
+    $saveBtn.Text = "Save"
+    $saveBtn.Location = New-Object System.Drawing.Point(590, 10)
+    $saveBtn.Size = New-Object System.Drawing.Size(110, 32)
+    $saveBtn.BackColor = [System.Drawing.Color]::FromArgb(39,174,96)
+    $saveBtn.ForeColor = [System.Drawing.Color]::White
+    $saveBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $saveBtn.FlatAppearance.BorderSize = 0
+    $saveBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $saveBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $saveBtn.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
+    $btnBar.Controls.Add($saveBtn)
+
+    # ---------- top fields panel ----------
+    $top = New-Object System.Windows.Forms.Panel
+    $top.Dock = 'Top'
+    $top.Height = 340
+    $top.BackColor = [System.Drawing.Color]::White
+    $top.Padding = New-Object System.Windows.Forms.Padding(16)
+    $form.Controls.Add($top)
+    $top.BringToFront()
+
+    $mklabel = {
+        param($text, $y)
+        $l = New-Object System.Windows.Forms.Label
+        $l.Text = $text
+        $l.Location = New-Object System.Drawing.Point(16, ($y + 4))
+        $l.Size = New-Object System.Drawing.Size(120, 22)
+        $l.TextAlign = [System.Drawing.ContentAlignment]::MiddleRight
+        $l.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+        $l.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+        return $l
+    }
+
+    # Machine ID
+    $top.Controls.Add((& $mklabel "Machine ID:" 20))
+    $txtMachine = New-Object System.Windows.Forms.TextBox
+    $txtMachine.Location = New-Object System.Drawing.Point(144, 20)
+    $txtMachine.Size = New-Object System.Drawing.Size(180, 24)
+    $txtMachine.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+    $txtMachine.Text = "$($Job.machineId)"
+    $top.Controls.Add($txtMachine)
+
+    $lblParsed = New-Object System.Windows.Forms.Label
+    $lblParsed.Location = New-Object System.Drawing.Point(334, 24)
+    $lblParsed.Size = New-Object System.Drawing.Size(320, 22)
+    $lblParsed.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Italic)
+    $lblParsed.ForeColor = [System.Drawing.Color]::FromArgb(120,130,145)
+    $top.Controls.Add($lblParsed)
+
+    # Start / End
+    $top.Controls.Add((& $mklabel "Start:" 60))
+    $dtpStart = New-Object System.Windows.Forms.DateTimePicker
+    $dtpStart.Format = [System.Windows.Forms.DateTimePickerFormat]::Custom
+    $dtpStart.CustomFormat = "HH:mm"
+    $dtpStart.ShowUpDown = $true
+    $dtpStart.Location = New-Object System.Drawing.Point(144, 60)
+    $dtpStart.Size = New-Object System.Drawing.Size(90, 24)
+    $top.Controls.Add($dtpStart)
+
+    $btnStartNow = New-Object System.Windows.Forms.Button
+    $btnStartNow.Text = "Now"
+    $btnStartNow.Location = New-Object System.Drawing.Point(240, 60)
+    $btnStartNow.Size = New-Object System.Drawing.Size(50, 24)
+    $btnStartNow.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $btnStartNow.FlatAppearance.BorderSize = 0
+    $btnStartNow.BackColor = [System.Drawing.Color]::FromArgb(52,152,219)
+    $btnStartNow.ForeColor = [System.Drawing.Color]::White
+    $btnStartNow.Font = New-Object System.Drawing.Font("Segoe UI", 8, [System.Drawing.FontStyle]::Bold)
+    $btnStartNow.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $top.Controls.Add($btnStartNow)
+
+    $top.Controls.Add((& $mklabel "End:" 100))
+    $dtpEnd = New-Object System.Windows.Forms.DateTimePicker
+    $dtpEnd.Format = [System.Windows.Forms.DateTimePickerFormat]::Custom
+    $dtpEnd.CustomFormat = "HH:mm"
+    $dtpEnd.ShowUpDown = $true
+    $dtpEnd.Location = New-Object System.Drawing.Point(144, 100)
+    $dtpEnd.Size = New-Object System.Drawing.Size(90, 24)
+    $top.Controls.Add($dtpEnd)
+
+    $btnEndNow = New-Object System.Windows.Forms.Button
+    $btnEndNow.Text = "Now"
+    $btnEndNow.Location = New-Object System.Drawing.Point(240, 100)
+    $btnEndNow.Size = New-Object System.Drawing.Size(50, 24)
+    $btnEndNow.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $btnEndNow.FlatAppearance.BorderSize = 0
+    $btnEndNow.BackColor = [System.Drawing.Color]::FromArgb(52,152,219)
+    $btnEndNow.ForeColor = [System.Drawing.Color]::White
+    $btnEndNow.Font = New-Object System.Drawing.Font("Segoe UI", 8, [System.Drawing.FontStyle]::Bold)
+    $btnEndNow.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $top.Controls.Add($btnEndNow)
+
+    # Hours (calculated, read-only)
+    $top.Controls.Add((& $mklabel "Hours:" 140))
+    $lblHours = New-Object System.Windows.Forms.Label
+    $lblHours.Location = New-Object System.Drawing.Point(144, 144)
+    $lblHours.Size = New-Object System.Drawing.Size(180, 22)
+    $lblHours.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+    $lblHours.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $lblHours.Text = "--"
+    $top.Controls.Add($lblHours)
+
+    # Work Order #
+    $top.Controls.Add((& $mklabel "Work Order #:" 180))
+    $txtWo = New-Object System.Windows.Forms.TextBox
+    $txtWo.Location = New-Object System.Drawing.Point(144, 180)
+    $txtWo.Size = New-Object System.Drawing.Size(180, 24)
+    $txtWo.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+    $txtWo.Text = "$($Job.workOrderNo)"
+    $top.Controls.Add($txtWo)
+
+    $lblWoHint = New-Object System.Windows.Forms.Label
+    $lblWoHint.Text = "required if >30 min or parts used"
+    $lblWoHint.Location = New-Object System.Drawing.Point(334, 184)
+    $lblWoHint.Size = New-Object System.Drawing.Size(340, 22)
+    $lblWoHint.Font = New-Object System.Drawing.Font("Segoe UI", 8, [System.Drawing.FontStyle]::Italic)
+    $lblWoHint.ForeColor = [System.Drawing.Color]::FromArgb(160,170,185)
+    $top.Controls.Add($lblWoHint)
+
+    # Description
+    $top.Controls.Add((& $mklabel "Description:" 220))
+    $txtDesc = New-Object System.Windows.Forms.TextBox
+    $txtDesc.Location = New-Object System.Drawing.Point(144, 220)
+    $txtDesc.Size = New-Object System.Drawing.Size(530, 88)
+    $txtDesc.Multiline = $true
+    $txtDesc.ScrollBars = [System.Windows.Forms.ScrollBars]::Vertical
+    $txtDesc.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+    $txtDesc.Text = "$($Job.description)"
+    $top.Controls.Add($txtDesc)
+
+    # ---------- parts panel ----------
+    $mid = New-Object System.Windows.Forms.Panel
+    $mid.Dock = 'Fill'
+    $mid.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $mid.Padding = New-Object System.Windows.Forms.Padding(16, 8, 16, 8)
+    $form.Controls.Add($mid)
+    $mid.BringToFront()
+
+    $lblPartsHead = New-Object System.Windows.Forms.Label
+    $lblPartsHead.Text = "Parts Used"
+    $lblPartsHead.Dock = 'Top'
+    $lblPartsHead.Height = 22
+    $lblPartsHead.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $lblPartsHead.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $mid.Controls.Add($lblPartsHead)
+
+    $partsToolbar = New-Object System.Windows.Forms.FlowLayoutPanel
+    $partsToolbar.Dock = 'Bottom'
+    $partsToolbar.Height = 34
+    $partsToolbar.FlowDirection = [System.Windows.Forms.FlowDirection]::LeftToRight
+    $partsToolbar.Padding = New-Object System.Windows.Forms.Padding(0, 4, 0, 0)
+    $mid.Controls.Add($partsToolbar)
+
+    $addPartBtn = New-Object System.Windows.Forms.Button
+    $addPartBtn.Text = "+ Add Part"
+    $addPartBtn.Size = New-Object System.Drawing.Size(110, 26)
+    $addPartBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $addPartBtn.FlatAppearance.BorderSize = 0
+    $addPartBtn.BackColor = [System.Drawing.Color]::FromArgb(52,152,219)
+    $addPartBtn.ForeColor = [System.Drawing.Color]::White
+    $addPartBtn.Font = New-Object System.Drawing.Font("Segoe UI", 8, [System.Drawing.FontStyle]::Bold)
+    $addPartBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $addPartBtn.Margin = New-Object System.Windows.Forms.Padding(0,0,6,0)
+    $partsToolbar.Controls.Add($addPartBtn)
+
+    $rmPartBtn = New-Object System.Windows.Forms.Button
+    $rmPartBtn.Text = "Remove"
+    $rmPartBtn.Size = New-Object System.Drawing.Size(90, 26)
+    $rmPartBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $rmPartBtn.FlatAppearance.BorderSize = 0
+    $rmPartBtn.BackColor = [System.Drawing.Color]::FromArgb(189,195,199)
+    $rmPartBtn.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $rmPartBtn.Font = New-Object System.Drawing.Font("Segoe UI", 8, [System.Drawing.FontStyle]::Bold)
+    $rmPartBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $partsToolbar.Controls.Add($rmPartBtn)
+
+    $lvParts = New-Object System.Windows.Forms.ListView
+    $lvParts.Dock = 'Fill'
+    $lvParts.Columns.Add("Part Number", 140) | Out-Null
+    $lvParts.Columns.Add("Description", 260) | Out-Null
+    $lvParts.Columns.Add("Qty", 50)          | Out-Null
+    $lvParts.Columns.Add("OEM", 120)         | Out-Null
+    $lvParts.Columns.Add("Source", 140)      | Out-Null
+    Set-ListViewStyle -ListView $lvParts
+    $mid.Controls.Add($lvParts)
+    $lvParts.BringToFront()
+
+    # ---------- validation label ----------
+    $lblVal = New-Object System.Windows.Forms.Label
+    $lblVal.Location = New-Object System.Drawing.Point(120, 16)
+    $lblVal.Size = New-Object System.Drawing.Size(340, 24)
+    $lblVal.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $lblVal.ForeColor = [System.Drawing.Color]::FromArgb(179,38,30)
+    $btnBar.Controls.Add($lblVal)
+
+    # ---------- internal state ----------
+    # ---------- internal state ----------
+    $script:__je_parts = @()
+    foreach ($p in @($Job.parts)) { $script:__je_parts += $p }
+
+    $renderParts = {
+        $lvParts.Items.Clear()
+        foreach ($p in $script:__je_parts) {
+            $it = New-Object System.Windows.Forms.ListViewItem("$($p.PartNumber)")
+            $it.SubItems.Add("$($p.Description)") | Out-Null
+            $it.SubItems.Add("$($p.Quantity)")    | Out-Null
+            $it.SubItems.Add("$($p.OEMNumber)")   | Out-Null
+            $it.SubItems.Add("$($p.Source)")      | Out-Null
+            $lvParts.Items.Add($it) | Out-Null
+        }
+    }
+
+    $recalcHours = {
+        $tmp = [PSCustomObject]@{
+            startTime = $dtpStart.Value.ToString('HH:mm')
+            endTime   = $dtpEnd.Value.ToString('HH:mm')
+            hoursOverride = $null
+        }
+        $h = Get-JobHours $tmp
+        if ($null -ne $h) { $lblHours.Text = "$($h.ToString('F2')) hrs" } else { $lblHours.Text = "--" }
+    }
+
+    $updateParsed = {
+        $m = Format-MachineId $txtMachine.Text
+        if ($null -eq $m) {
+            $lblParsed.Text = ''
+            $lblParsed.ForeColor = [System.Drawing.Color]::FromArgb(160,170,185)
+        } elseif ($m.IsNamed) {
+            $lblParsed.Text = "-> $($m.Canonical)"
+            $lblParsed.ForeColor = [System.Drawing.Color]::FromArgb(52,152,219)
+        } else {
+            $lblParsed.Text = "-> $($m.Canonical)  (unnamed MNO)"
+            $lblParsed.ForeColor = [System.Drawing.Color]::FromArgb(230,126,34)
+        }
+    }
+
+    # prime datetime pickers from the job (fall back to "now")
+    $nowHHmm = Get-Date -Format 'HH:mm'
+    $startStr = if (-not [string]::IsNullOrWhiteSpace($Job.startTime)) { $Job.startTime } else { $nowHHmm }
+    $endStr   = if (-not [string]::IsNullOrWhiteSpace($Job.endTime))   { $Job.endTime }   else { $nowHHmm }
+    try {
+        $dtpStart.Value = [DateTime]::ParseExact($startStr, 'HH:mm', [System.Globalization.CultureInfo]::InvariantCulture)
+    } catch {}
+    try {
+        $dtpEnd.Value = [DateTime]::ParseExact($endStr, 'HH:mm', [System.Globalization.CultureInfo]::InvariantCulture)
+    } catch {}
+
+    & $renderParts
+    & $recalcHours
+    & $updateParsed
+
+    # ---------- events ----------
+    $btnStartNow.Add_Click({ $dtpStart.Value = Get-Date }.GetNewClosure())
+    $btnEndNow.Add_Click({ $dtpEnd.Value = Get-Date }.GetNewClosure())
+    $dtpStart.Add_ValueChanged({ & $recalcHours })
+    $dtpEnd.Add_ValueChanged({ & $recalcHours })
+    $txtMachine.Add_TextChanged({ & $updateParsed })
+
+    $addPartBtn.Add_Click({
+        $picked = Show-PartPicker -InitialParts @()
+        if ($null -eq $picked) { return }
+        foreach ($p in @($picked)) { $script:__je_parts += $p }
+        & $renderParts
+    })
+
+    $rmPartBtn.Add_Click({
+        if ($lvParts.SelectedIndices.Count -eq 0) {
+            [System.Windows.Forms.MessageBox]::Show("Select a part to remove.", "Job Editor", "OK", "Information")
+            return
+        }
+        $idx = $lvParts.SelectedIndices[0]
+        $newList = @()
+        for ($i = 0; $i -lt $script:__je_parts.Count; $i++) {
+            if ($i -ne $idx) { $newList += $script:__je_parts[$i] }
+        }
+        $script:__je_parts = $newList
+        & $renderParts
+    })
+
+    $cancelBtn.Add_Click({
+        $form.Tag = $null
+        $form.Close()
+    })
+
+    $deleteBtn.Add_Click({
+        $answer = [System.Windows.Forms.MessageBox]::Show(
+            "Delete this job? This cannot be undone.",
+            "Confirm Delete",
+            [System.Windows.Forms.MessageBoxButtons]::YesNo,
+            [System.Windows.Forms.MessageBoxIcon]::Warning)
+        if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
+        $form.Tag = [PSCustomObject]@{ Action = 'delete'; Job = $Job }
+        $form.Close()
+    })
+
+    $saveBtn.Add_Click({
+        $candidate = [PSCustomObject]@{
+            id              = $Job.id
+            kind            = $Job.kind
+            machineId       = $txtMachine.Text.Trim()
+            startTime       = $dtpStart.Value.ToString('HH:mm')
+            endTime         = $dtpEnd.Value.ToString('HH:mm')
+            hoursOverride   = $Job.hoursOverride
+            description     = $txtDesc.Text.Trim()
+            workOrderNo     = $txtWo.Text.Trim()
+            parts           = $script:__je_parts
+            createdAt       = $Job.createdAt
+            sentToHistorian = $Job.sentToHistorian
+            sentAt          = $Job.sentAt
+        }
+
+        $errs = Test-JobFields -Job $candidate
+        if ($errs.Count -gt 0) {
+            $lblVal.Text = "! " + $errs[0]
+            return
+        }
+        $lblVal.Text = ''
+
+        $m = Format-MachineId $candidate.machineId
+        $candidate.machineId = $m.Canonical
+        if ($m.IsNamed) { Register-MachineIfNew -Acronym $m.Acronym -Mno $m.Mno }
+
+        $form.Tag = [PSCustomObject]@{ Action = 'save'; Job = $candidate }
+        $form.Close()
+    })
+
+    $form.AcceptButton = $saveBtn
+    $form.CancelButton = $cancelBtn
+
+    $form.ShowDialog() | Out-Null
+    return $form.Tag
+}
+
+function Show-PartPicker {
+    # Modal dialog. Search parts, pick rows, enter quantities, return an
+    # array of part objects.  Returns $null on cancel, empty array on OK
+    # with nothing chosen.
+    param(
+        [array]$InitialParts = @()
+    )
+
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = "Add Parts"
+    $form.Size = New-Object System.Drawing.Size(880, 700)
+    $form.MinimumSize = New-Object System.Drawing.Size(880, 700)
+    $form.StartPosition = 'CenterParent'
+    $form.FormBorderStyle = 'FixedDialog'
+    $form.MaximizeBox = $false
+    $form.MinimizeBox = $false
+    $form.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $form.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+
+    # ---------- bottom bar ----------
+    $btnBar = New-Object System.Windows.Forms.Panel
+    $btnBar.Dock = 'Bottom'
+    $btnBar.Height = 52
+    $btnBar.BackColor = [System.Drawing.Color]::Transparent
+    $form.Controls.Add($btnBar)
+
+    $cancelBtn = New-Object System.Windows.Forms.Button
+    $cancelBtn.Text = "Cancel"
+    $cancelBtn.Location = New-Object System.Drawing.Point(650, 10)
+    $cancelBtn.Size = New-Object System.Drawing.Size(100, 32)
+    $cancelBtn.BackColor = [System.Drawing.Color]::FromArgb(189,195,199)
+    $cancelBtn.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $cancelBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $cancelBtn.FlatAppearance.BorderSize = 0
+    $cancelBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $cancelBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $btnBar.Controls.Add($cancelBtn)
+
+    $okBtn = New-Object System.Windows.Forms.Button
+    $okBtn.Text = "OK"
+    $okBtn.Location = New-Object System.Drawing.Point(760, 10)
+    $okBtn.Size = New-Object System.Drawing.Size(100, 32)
+    $okBtn.BackColor = [System.Drawing.Color]::FromArgb(39,174,96)
+    $okBtn.ForeColor = [System.Drawing.Color]::White
+    $okBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $okBtn.FlatAppearance.BorderSize = 0
+    $okBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $okBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $btnBar.Controls.Add($okBtn)
+
+    # ---------- search panel ----------
+    $searchPanel = New-Object System.Windows.Forms.Panel
+    $searchPanel.Location = New-Object System.Drawing.Point(10, 10)
+    $searchPanel.Size = New-Object System.Drawing.Size(850, 70)
+    $searchPanel.BackColor = [System.Drawing.Color]::White
+    $form.Controls.Add($searchPanel)
+
+    $lblNSN = New-Object System.Windows.Forms.Label
+    $lblNSN.Text = "Part/NSN:"
+    $lblNSN.Location = New-Object System.Drawing.Point(14, 14)
+    $lblNSN.Size = New-Object System.Drawing.Size(80, 22)
+    $lblNSN.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $searchPanel.Controls.Add($lblNSN)
+
+    $txtNSN = New-Object System.Windows.Forms.TextBox
+    $txtNSN.Location = New-Object System.Drawing.Point(96, 12)
+    $txtNSN.Size = New-Object System.Drawing.Size(180, 24)
+    $searchPanel.Controls.Add($txtNSN)
+
+    $lblDesc = New-Object System.Windows.Forms.Label
+    $lblDesc.Text = "Description:"
+    $lblDesc.Location = New-Object System.Drawing.Point(290, 14)
+    $lblDesc.Size = New-Object System.Drawing.Size(84, 22)
+    $lblDesc.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $searchPanel.Controls.Add($lblDesc)
+
+    $txtDesc = New-Object System.Windows.Forms.TextBox
+    $txtDesc.Location = New-Object System.Drawing.Point(376, 12)
+    $txtDesc.Size = New-Object System.Drawing.Size(260, 24)
+    $searchPanel.Controls.Add($txtDesc)
+
+    $searchBtn = New-Object System.Windows.Forms.Button
+    $searchBtn.Text = "Search"
+    $searchBtn.Location = New-Object System.Drawing.Point(650, 10)
+    $searchBtn.Size = New-Object System.Drawing.Size(110, 28)
+    $searchBtn.BackColor = [System.Drawing.Color]::FromArgb(52,152,219)
+    $searchBtn.ForeColor = [System.Drawing.Color]::White
+    $searchBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $searchBtn.FlatAppearance.BorderSize = 0
+    $searchBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $searchBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $searchPanel.Controls.Add($searchBtn)
+
+    # ---------- results ----------
+    $lblResults = New-Object System.Windows.Forms.Label
+    $lblResults.Text = "Search Results"
+    $lblResults.Location = New-Object System.Drawing.Point(14, 88)
+    $lblResults.Size = New-Object System.Drawing.Size(200, 20)
+    $lblResults.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $lblResults.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $form.Controls.Add($lblResults)
+
+    $lvResults = New-Object System.Windows.Forms.ListView
+    $lvResults.Location = New-Object System.Drawing.Point(14, 110)
+    $lvResults.Size = New-Object System.Drawing.Size(846, 220)
+    $lvResults.CheckBoxes = $true
+    $lvResults.Columns.Add("Part Number", 130) | Out-Null
+    $lvResults.Columns.Add("Description", 260) | Out-Null
+    $lvResults.Columns.Add("Qty", 55)          | Out-Null
+    $lvResults.Columns.Add("Location", 110)    | Out-Null
+    $lvResults.Columns.Add("OEM", 120)         | Out-Null
+    $lvResults.Columns.Add("Source", 150)      | Out-Null
+    Set-ListViewStyle -ListView $lvResults
+    $form.Controls.Add($lvResults)
+
+    # ---------- move buttons ----------
+    $addSelBtn = New-Object System.Windows.Forms.Button
+    $addSelBtn.Text = "Add Selected  v"
+    $addSelBtn.Location = New-Object System.Drawing.Point(14, 338)
+    $addSelBtn.Size = New-Object System.Drawing.Size(150, 30)
+    $addSelBtn.BackColor = [System.Drawing.Color]::FromArgb(52,152,219)
+    $addSelBtn.ForeColor = [System.Drawing.Color]::White
+    $addSelBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $addSelBtn.FlatAppearance.BorderSize = 0
+    $addSelBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $addSelBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $form.Controls.Add($addSelBtn)
+
+    # ---------- chosen list ----------
+    $lblChosen = New-Object System.Windows.Forms.Label
+    $lblChosen.Text = "Selected Parts"
+    $lblChosen.Location = New-Object System.Drawing.Point(14, 378)
+    $lblChosen.Size = New-Object System.Drawing.Size(200, 20)
+    $lblChosen.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $lblChosen.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $form.Controls.Add($lblChosen)
+
+    $lvChosen = New-Object System.Windows.Forms.ListView
+    $lvChosen.Location = New-Object System.Drawing.Point(14, 400)
+    $lvChosen.Size = New-Object System.Drawing.Size(846, 200)
+    $lvChosen.Columns.Add("Part Number", 130) | Out-Null
+    $lvChosen.Columns.Add("Description", 260) | Out-Null
+    $lvChosen.Columns.Add("Qty", 55)          | Out-Null
+    $lvChosen.Columns.Add("Location", 110)    | Out-Null
+    $lvChosen.Columns.Add("OEM", 120)         | Out-Null
+    $lvChosen.Columns.Add("Source", 150)      | Out-Null
+    Set-ListViewStyle -ListView $lvChosen
+    $form.Controls.Add($lvChosen)
+
+    $rmChosenBtn = New-Object System.Windows.Forms.Button
+    $rmChosenBtn.Text = "Remove"
+    $rmChosenBtn.Location = New-Object System.Drawing.Point(170, 338)
+    $rmChosenBtn.Size = New-Object System.Drawing.Size(100, 30)
+    $rmChosenBtn.BackColor = [System.Drawing.Color]::FromArgb(231,76,60)
+    $rmChosenBtn.ForeColor = [System.Drawing.Color]::White
+    $rmChosenBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $rmChosenBtn.FlatAppearance.BorderSize = 0
+    $rmChosenBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $rmChosenBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $form.Controls.Add($rmChosenBtn)
+
+    # ---------- state ----------
+    $script:__pp_chosen = @()
+    foreach ($p in @($InitialParts)) { $script:__pp_chosen += $p }
+
+    $renderChosen = {
+        $lvChosen.Items.Clear()
+        foreach ($p in $script:__pp_chosen) {
+            $it = New-Object System.Windows.Forms.ListViewItem("$($p.PartNumber)")
+            $it.SubItems.Add("$($p.Description)") | Out-Null
+            $it.SubItems.Add("$($p.Quantity)")    | Out-Null
+            $it.SubItems.Add("$($p.Location)")    | Out-Null
+            $it.SubItems.Add("$($p.OEMNumber)")   | Out-Null
+            $it.SubItems.Add("$($p.Source)")      | Out-Null
+            $lvChosen.Items.Add($it) | Out-Null
+        }
+    }
+
+    & $renderChosen
+
+    # ---------- events ----------
+    $searchBtn.Add_Click({
+        $lvResults.Items.Clear()
+        $nsn = $txtNSN.Text.Trim()
+        $dsc = $txtDesc.Text.Trim()
+        try {
+            $found = Search-Parts -NSN $nsn -Description $dsc
+        } catch {
+            [System.Windows.Forms.MessageBox]::Show("Search failed: $($_.Exception.Message)", "Error", "OK", "Error")
+            return
+        }
+        foreach ($part in @($found)) {
+            $it = New-Object System.Windows.Forms.ListViewItem("$($part.PartNumber)")
+            $it.SubItems.Add("$($part.Description)") | Out-Null
+            $it.SubItems.Add("$($part.Quantity)")    | Out-Null
+            $it.SubItems.Add("$($part.Location)")    | Out-Null
+            $it.SubItems.Add("$($part.OEMNumber)")   | Out-Null
+            $it.SubItems.Add("$($part.Source)")      | Out-Null
+            $it.Tag = $part
+            $lvResults.Items.Add($it) | Out-Null
+        }
+    })
+
+    $addSelBtn.Add_Click({
+        foreach ($it in $lvResults.CheckedItems) {
+            $p = $it.Tag
+            if ($null -eq $p) { continue }
+            $qty = Get-PartQuantity -PartNumber $p.PartNumber -MaxQty ([int]$p.Quantity)
+            if ($qty -le 0) { continue }
+
+            $chosenPart = [PSCustomObject]@{
+                PartNumber = $p.PartNumber
+                Description = $p.Description
+                Quantity   = $qty
+                OEMNumber  = $p.OEMNumber
+                Source     = $p.Source
+                Location   = $p.Location
+            }
+            $script:__pp_chosen += $chosenPart
+        }
+        & $renderChosen
+    })
+
+    $rmChosenBtn.Add_Click({
+        if ($lvChosen.SelectedIndices.Count -eq 0) { return }
+        $idx = $lvChosen.SelectedIndices[0]
+        $newList = @()
+        for ($i = 0; $i -lt $script:__pp_chosen.Count; $i++) {
+            if ($i -ne $idx) { $newList += $script:__pp_chosen[$i] }
+        }
+        $script:__pp_chosen = $newList
+        & $renderChosen
+    })
+
+    $cancelBtn.Add_Click({
+        $form.Tag = $null
+        $form.Close()
+    })
+
+    $okBtn.Add_Click({
+        $form.Tag = $script:__pp_chosen
+        $form.Close()
+    })
+
+    $form.AcceptButton = $okBtn
+    $form.CancelButton = $cancelBtn
+
+    $form.ShowDialog() | Out-Null
+    return $form.Tag
+}
+
+# ============================================================
+# Work Tracking mega-tab
+# ============================================================
+
+function New-SubTab {
+    param(
+        [string]$Title,
+        [string]$PlaceholderText = "Coming soon."
+    )
+    $tab = New-Object System.Windows.Forms.TabPage
+    $tab.Text = $Title
+    $tab.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $tab.Padding = New-Object System.Windows.Forms.Padding(12)
+
+    $lbl = New-Object System.Windows.Forms.Label
+    $lbl.Text = $PlaceholderText
+    $lbl.Dock = 'Fill'
+    $lbl.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
+    $lbl.Font = New-Object System.Drawing.Font("Segoe UI", 11, [System.Drawing.FontStyle]::Italic)
+    $lbl.ForeColor = [System.Drawing.Color]::FromArgb(120,130,145)
+    $tab.Controls.Add($lbl)
+
+    return $tab
+}
+
+function Setup-WorkTrackingTab {
+    param($parentTab)
+
+    $parentTab.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $parentTab.Padding = New-Object System.Windows.Forms.Padding(6)
+
+    $subTabs = New-Object System.Windows.Forms.TabControl
+    $subTabs.Dock = 'Fill'
+    $subTabs.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+    $subTabs.Padding = New-Object System.Drawing.Point(14, 4)
+    $parentTab.Controls.Add($subTabs)
+
+    $jobLogTab = New-Object System.Windows.Forms.TabPage
+    $jobLogTab.Text = "Job Log"
+    $subTabs.TabPages.Add($jobLogTab)
+    Setup-JobLogSubTab -parentTab $jobLogTab
+    $pmChecklistTab = New-Object System.Windows.Forms.TabPage
+    $pmChecklistTab.Text = "PM Checklist"
+    $subTabs.TabPages.Add($pmChecklistTab)
+    Setup-PmChecklistSubTab -parentTab $pmChecklistTab
+
+    $subTabs.TabPages.Add((New-SubTab -Title "Weekly Worksheet" -PlaceholderText "Weekly Worksheet — fetch eDAC, edit actual times, sync")) | Out-Null
+    $subTabs.TabPages.Add((New-SubTab -Title "Historian"        -PlaceholderText "Historian — browse sent events, generate ASCII reports")) | Out-Null
+}
+
+# ============================================================
+# Settings tab
+# ============================================================
+
+function New-SettingRow {
+    param(
+        [System.Windows.Forms.Control]$Parent,
+        [int]$Top,
+        [string]$LabelText,
+        [System.Windows.Forms.Control]$InputControl
+    )
+
+    $lbl = New-Object System.Windows.Forms.Label
+    $lbl.Text = $LabelText
+    $lbl.Location = New-Object System.Drawing.Point(12, ($Top + 4))
+    $lbl.Size = New-Object System.Drawing.Size(240, 22)
+    $lbl.TextAlign = [System.Drawing.ContentAlignment]::MiddleRight
+    $lbl.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+    $lbl.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $Parent.Controls.Add($lbl)
+
+    $InputControl.Location = New-Object System.Drawing.Point(260, $Top)
+    $Parent.Controls.Add($InputControl)
+}
+
+function Load-WtSettingsValues {
+    $c = $script:wtSettings
+    $wt = $script:config.WorkTracking
+
+    $c.TechNameBox.Text  = if ($wt.TechnicianName) { $wt.TechnicianName } else { '' }
+    $c.EmailBox.Text     = if ($script:config.SupervisorEmail) { $script:config.SupervisorEmail } else { '' }
+    $c.EdacUrlBox.Text   = if ($wt.eDacUrl) { $wt.eDacUrl } else { '' }
+    $c.ThresholdBox.Value = if ($wt.ReactiveToWorkOrderMinutes) { [int]$wt.ReactiveToWorkOrderMinutes } else { 15 }
+
+    $wb = $wt.WorkBudget
+    if ($wb) {
+        $c.DayLenBox.Value  = if ($wb.DayLengthHours) { [decimal]$wb.DayLengthHours } else { 8.5 }
+        $c.LunchBox.Value   = if ($wb.LunchMinutes)   { [decimal]$wb.LunchMinutes }   else { 30 }
+        $c.WashupBox.Value  = if ($wb.WashupMinutes)  { [decimal]$wb.WashupMinutes }  else { 15 }
+        $c.StartupBox.Value = if ($wb.StartupMinutes) { [decimal]$wb.StartupMinutes } else { 15 }
+        $pbm = @($wb.PaidBreaksMinutes)
+        $c.Break1Box.Value  = if ($pbm.Count -ge 1 -and $pbm[0]) { [decimal]$pbm[0] } else { 15 }
+        $c.Break2Box.Value  = if ($pbm.Count -ge 2 -and $pbm[1]) { [decimal]$pbm[1] } else { 15 }
+        $c.EndWashBox.Value = if ($wb.EndOfDayWashupMinutes) { [decimal]$wb.EndOfDayWashupMinutes } else { 15 }
+        $c.PaperBox.Value   = if ($wb.PaperworkMinutes)      { [decimal]$wb.PaperworkMinutes }      else { 15 }
+        $c.TargetBox.Value  = if ($wb.WorkTargetHours)       { [decimal]$wb.WorkTargetHours }       else { 6.5 }
+    }
+}
+
+function Setup-SettingsTab {
+    param($parentTab)
+
+    Write-Log "Setting up Settings tab..."
+
+    $parentTab.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $parentTab.Padding = New-Object System.Windows.Forms.Padding(0)
+
+    $root = New-Object System.Windows.Forms.Panel
+    $root.Dock = 'Fill'
+    $root.AutoScroll = $true
+    $root.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $root.Padding = New-Object System.Windows.Forms.Padding(16)
+    $parentTab.Controls.Add($root)
+
+    # --- Bottom save bar ---
+    $saveBar = New-Object System.Windows.Forms.FlowLayoutPanel
+    $saveBar.Dock = 'Bottom'
+    $saveBar.Height = 52
+    $saveBar.FlowDirection = [System.Windows.Forms.FlowDirection]::LeftToRight
+    $saveBar.Padding = New-Object System.Windows.Forms.Padding(0, 8, 0, 0)
+    $saveBar.BackColor = [System.Drawing.Color]::Transparent
+    $root.Controls.Add($saveBar)
+
+    $saveBtn = New-Object System.Windows.Forms.Button
+    $saveBtn.Text = "Save Settings"
+    $saveBtn.Size = New-Object System.Drawing.Size(160, 36)
+    $saveBtn.BackColor = [System.Drawing.Color]::FromArgb(39,174,96)
+    $saveBtn.ForeColor = [System.Drawing.Color]::White
+    $saveBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $saveBtn.FlatAppearance.BorderSize = 0
+    $saveBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $saveBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $saveBtn.Margin = New-Object System.Windows.Forms.Padding(0,0,8,0)
+    $saveBar.Controls.Add($saveBtn)
+
+    $reloadBtn = New-Object System.Windows.Forms.Button
+    $reloadBtn.Text = "Reload from File"
+    $reloadBtn.Size = New-Object System.Drawing.Size(160, 36)
+    $reloadBtn.BackColor = [System.Drawing.Color]::FromArgb(189,195,199)
+    $reloadBtn.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $reloadBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $reloadBtn.FlatAppearance.BorderSize = 0
+    $reloadBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $reloadBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $reloadBtn.Margin = New-Object System.Windows.Forms.Padding(0,0,8,0)
+    $saveBar.Controls.Add($reloadBtn)
+
+    # --- Body: FlowLayoutPanel of GroupBoxes ---
+    $body = New-Object System.Windows.Forms.FlowLayoutPanel
+    $body.Dock = 'Fill'
+    $body.FlowDirection = [System.Windows.Forms.FlowDirection]::TopDown
+    $body.WrapContents = $false
+    $body.AutoScroll = $true
+    $body.BackColor = [System.Drawing.Color]::Transparent
+    $body.Padding = New-Object System.Windows.Forms.Padding(0, 0, 0, 60)
+    $root.Controls.Add($body)
+    $body.BringToFront()
+
+    # --- Identity group ---
+    $gIdentity = New-Object System.Windows.Forms.GroupBox
+    $gIdentity.Text = "Identity"
+    $gIdentity.Width = 720
+    $gIdentity.Height = 110
+    $gIdentity.Padding = New-Object System.Windows.Forms.Padding(12)
+    $gIdentity.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $gIdentity.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $gIdentity.Margin = New-Object System.Windows.Forms.Padding(0, 0, 0, 12)
+    $body.Controls.Add($gIdentity)
+
+    $techNameBox = New-Object System.Windows.Forms.TextBox
+    $techNameBox.Size = New-Object System.Drawing.Size(440, 24)
+    New-SettingRow -Parent $gIdentity -Top 28 -LabelText "Technician Name:" -InputControl $techNameBox
+
+    $emailBox = New-Object System.Windows.Forms.TextBox
+    $emailBox.Size = New-Object System.Drawing.Size(440, 24)
+    New-SettingRow -Parent $gIdentity -Top 62 -LabelText "Supervisor Email:" -InputControl $emailBox
+
+    # --- Work Tracking group ---
+    $gWorkTrack = New-Object System.Windows.Forms.GroupBox
+    $gWorkTrack.Text = "Work Tracking"
+    $gWorkTrack.Width = 720
+    $gWorkTrack.Height = 110
+    $gWorkTrack.Padding = New-Object System.Windows.Forms.Padding(12)
+    $gWorkTrack.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $gWorkTrack.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $gWorkTrack.Margin = New-Object System.Windows.Forms.Padding(0, 0, 0, 12)
+    $body.Controls.Add($gWorkTrack)
+
+    $edacUrlBox = New-Object System.Windows.Forms.TextBox
+    $edacUrlBox.Size = New-Object System.Drawing.Size(440, 24)
+    New-SettingRow -Parent $gWorkTrack -Top 28 -LabelText "eDAC Worksheet URL:" -InputControl $edacUrlBox
+
+    $thresholdBox = New-Object System.Windows.Forms.NumericUpDown
+    $thresholdBox.Size = New-Object System.Drawing.Size(100, 24)
+    $thresholdBox.Minimum = 1
+    $thresholdBox.Maximum = 600
+    New-SettingRow -Parent $gWorkTrack -Top 62 -LabelText "Reactive -> WO threshold (min):" -InputControl $thresholdBox
+
+    # --- Work Budget group ---
+    $gBudget = New-Object System.Windows.Forms.GroupBox
+    $gBudget.Text = "Work Budget"
+    $gBudget.Width = 720
+    $gBudget.Height = 40 + (9 * 34)
+    $gBudget.Padding = New-Object System.Windows.Forms.Padding(12)
+    $gBudget.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $gBudget.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $gBudget.Margin = New-Object System.Windows.Forms.Padding(0, 0, 0, 12)
+    $body.Controls.Add($gBudget)
+
+    $newNum = {
+        param([decimal]$Min, [decimal]$Max, [decimal]$Inc = 1, [int]$Decimals = 0)
+        $n = New-Object System.Windows.Forms.NumericUpDown
+        $n.Size = New-Object System.Drawing.Size(100, 24)
+        $n.Minimum = $Min
+        $n.Maximum = $Max
+        $n.Increment = $Inc
+        $n.DecimalPlaces = $Decimals
+        return $n
+    }
+
+    $dayLenBox  = & $newNum 1 24 0.25 2
+    $lunchBox   = & $newNum 0 120
+    $washupBox  = & $newNum 0 60
+    $startupBox = & $newNum 0 60
+    $break1Box  = & $newNum 0 60
+    $break2Box  = & $newNum 0 60
+    $endWashBox = & $newNum 0 60
+    $paperBox   = & $newNum 0 60
+    $targetBox  = & $newNum 0 24 0.25 2
+
+    New-SettingRow -Parent $gBudget -Top  28 -LabelText "Day Length (hours):"              -InputControl $dayLenBox
+    New-SettingRow -Parent $gBudget -Top  62 -LabelText "Lunch (min, 0=skip):"             -InputControl $lunchBox
+    New-SettingRow -Parent $gBudget -Top  96 -LabelText "Wash-up at Lunch (min):"          -InputControl $washupBox
+    New-SettingRow -Parent $gBudget -Top 130 -LabelText "Startup (min):"                   -InputControl $startupBox
+    New-SettingRow -Parent $gBudget -Top 164 -LabelText "Paid Break 1 (min):"              -InputControl $break1Box
+    New-SettingRow -Parent $gBudget -Top 198 -LabelText "Paid Break 2 (min):"              -InputControl $break2Box
+    New-SettingRow -Parent $gBudget -Top 232 -LabelText "Wash-up End-of-Day (min):"        -InputControl $endWashBox
+    New-SettingRow -Parent $gBudget -Top 266 -LabelText "Paperwork (min):"                 -InputControl $paperBox
+    New-SettingRow -Parent $gBudget -Top 300 -LabelText "Work Target (hours):"             -InputControl $targetBox
+
+    # --- Store control references in script scope so handlers can find them ---
+    $script:wtSettings = @{
+        TechNameBox  = $techNameBox
+        EmailBox     = $emailBox
+        EdacUrlBox   = $edacUrlBox
+        ThresholdBox = $thresholdBox
+        DayLenBox    = $dayLenBox
+        LunchBox     = $lunchBox
+        WashupBox    = $washupBox
+        StartupBox   = $startupBox
+        Break1Box    = $break1Box
+        Break2Box    = $break2Box
+        EndWashBox   = $endWashBox
+        PaperBox     = $paperBox
+        TargetBox    = $targetBox
+    }
+
+    # --- Load helpers ---
+    Load-WtSettingsValues
+
+    # --- Save handler ---
+    $saveBtn.Add_Click({
+        try {
+            $c = $script:wtSettings
+            $cfg = $script:config
+            if (-not $cfg.WorkTracking) { throw "WorkTracking section missing from config." }
+
+            $cfg.WorkTracking.TechnicianName             = $c.TechNameBox.Text.Trim()
+            $cfg.SupervisorEmail                         = $c.EmailBox.Text.Trim()
+            $cfg.WorkTracking.eDacUrl                    = $c.EdacUrlBox.Text.Trim()
+            $cfg.WorkTracking.ReactiveToWorkOrderMinutes = [int]$c.ThresholdBox.Value
+
+            $cfg.WorkTracking.WorkBudget.DayLengthHours        = [double]$c.DayLenBox.Value
+            $cfg.WorkTracking.WorkBudget.LunchMinutes          = [int]$c.LunchBox.Value
+            $cfg.WorkTracking.WorkBudget.WashupMinutes         = [int]$c.WashupBox.Value
+            $cfg.WorkTracking.WorkBudget.StartupMinutes        = [int]$c.StartupBox.Value
+            $cfg.WorkTracking.WorkBudget.PaidBreaksMinutes     = @([int]$c.Break1Box.Value, [int]$c.Break2Box.Value)
+            $cfg.WorkTracking.WorkBudget.EndOfDayWashupMinutes = [int]$c.EndWashBox.Value
+            $cfg.WorkTracking.WorkBudget.PaperworkMinutes      = [int]$c.PaperBox.Value
+            $cfg.WorkTracking.WorkBudget.WorkTargetHours       = [double]$c.TargetBox.Value
+
+            $cfg | ConvertTo-Json -Depth 12 | Set-Content -Path $script:configPath -Encoding UTF8
+            $script:config = $cfg
+            Write-Log "Settings saved."
+            [System.Windows.Forms.MessageBox]::Show("Settings saved.", "Settings", "OK", "Information")
+        } catch {
+            Write-Log "Error saving settings: $($_.Exception.Message)"
+            [System.Windows.Forms.MessageBox]::Show("Error saving settings: $($_.Exception.Message)", "Error", "OK", "Error")
+        }
+    })
+
+    $reloadBtn.Add_Click({
+        try {
+            $script:config = Get-Content -Path $script:configPath -Raw | ConvertFrom-Json
+            Load-WtSettingsValues
+            Write-Log "Settings reloaded from file."
+            [System.Windows.Forms.MessageBox]::Show("Settings reloaded.", "Settings", "OK", "Information")
+        } catch {
+            Write-Log "Error reloading settings: $($_.Exception.Message)"
+            [System.Windows.Forms.MessageBox]::Show("Error reloading settings: $($_.Exception.Message)", "Error", "OK", "Error")
+        }
+    })
+
+    Write-Log "Settings tab setup completed."
+}
+
 # Function to set up the Call Logs tab
 function Setup-CallLogsTab {
     param($parentTab)
@@ -1973,8 +5043,6 @@ function Setup-CallLogsTab {
     # Load existing call logs
     Load-Logs -listView $script:listViewCallLogs -filePath $callLogsFilePath
 
-    # Ensure Labor Logs CSV exists and process historical logs
-    Process-HistoricalLogs
 
     # ---------- Add New Call Log button (unchanged sub-form logic) ----------
     $addCallLogButton = New-Object System.Windows.Forms.Button
@@ -2584,22 +5652,23 @@ function Setup-LaborLogTab {
             $saveButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
             $saveButton.FlatAppearance.BorderSize = 0
             $saveButton.Add_Click({
-                $item.SubItems[0].Text = $textBoxDate.Text
-                $item.SubItems[1].Text = $textBoxWorkOrder.Text
-                $item.SubItems[2].Text = $textBoxTask.Text
-                $item.SubItems[3].Text = $comboBoxMachineId.Text
-                $item.SubItems[4].Text = $textBoxDuration.Text
-                $item.SubItems[6].Text = $textBoxNotes.Text
+                $partsToAdd = @()
 
-                $key = "$($textBoxDate.Text)_$($comboBoxMachineId.Text)_$($textBoxTask.Text)"
-                if ($textBoxWorkOrder.Text -eq "Need W/O #") {
-                    $script:unacknowledgedEntries[$key] = $true
-                } else {
-                    $script:unacknowledgedEntries.Remove($key)
+                foreach ($item in $selectedListView.Items) {
+                    $partsToAdd += $item.Tag
                 }
-                Update-NotificationIcon
-                Save-LaborLogs -listView $script:listViewLaborLog -filePath $laborLogsFilePath
-                $editLaborLogForm.Close()
+
+                if ($partsToAdd.Count -gt 0) {
+                    if (Save-PartsToWorkOrder -WorkOrderNumber $workOrderNumber -Parts $partsToAdd) {
+                        $form.Close()
+                    }
+                } else {
+                    [System.Windows.Forms.MessageBox]::Show(
+                        "No parts selected to add to the work order.",
+                        "Warning",
+                        [System.Windows.Forms.MessageBoxButtons]::OK,
+                        [System.Windows.Forms.MessageBoxIcon]::Warning)
+                }
             })
             $editLaborLogForm.Controls.Add($saveButton)
             $editLaborLogForm.ShowDialog()
@@ -4747,6 +7816,12 @@ function Show-MainForm {
     $partsBookPanel.BackColor = [System.Drawing.Color]::Transparent
     $partsBookTab.Controls.Add($partsBookPanel)
 
+    # ---- Work Tracking Tab ----
+    $workTrackingTab = New-Object System.Windows.Forms.TabPage
+    $workTrackingTab.Text = "Work Tracking"
+    $tabControl.TabPages.Add($workTrackingTab)
+    Setup-WorkTrackingTab -parentTab $workTrackingTab
+
     # ---- Call Logs Tab ----
     $callLogsTab = New-Object System.Windows.Forms.TabPage
     $callLogsTab.Text = "Call Logs"
@@ -4771,7 +7846,7 @@ function Show-MainForm {
     $form.Add_FormClosing({
         $script:listViewCallLogs = $callLogsTab.Controls | Where-Object { $_ -is [System.Windows.Forms.ListView] }
         if ($script:listViewCallLogs) {
-            Save-CallLogs -listView $script:listViewCallLogs -filePath $callLogsFilePath
+            Save-Logs -listView $script:listViewCallLogs -filePath $callLogsFilePath
         }
 
         $listViewLaborLog = $laborLogTab.Controls | Where-Object { $_ -is [System.Windows.Forms.ListView] }
@@ -4843,6 +7918,14 @@ function Show-MainForm {
     $searchTab.Padding = New-Object System.Windows.Forms.Padding(12)
     $tabControl.TabPages.Add($searchTab)
     Setup-SearchTab -parentTab $searchTab -config $config
+
+    # ---- Settings Tab ----
+    $settingsTab = New-Object System.Windows.Forms.TabPage
+    $settingsTab.Text = "Settings"
+    $settingsTab.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $settingsTab.Padding = New-Object System.Windows.Forms.Padding(12)
+    $tabControl.TabPages.Add($settingsTab)
+    Setup-SettingsTab -parentTab $settingsTab
 
     # Style per action
     $actionButtons = @(
