@@ -210,47 +210,6 @@ public class ModernProgressBar : Control
 #                           Global Variables                                   #
 ################################################################################
 
-<# 
-# Configuration variables
-$global:config = $null                    # Configuration object
-$global:configPath = $null                # Path to configuration file
-
-# File paths
-$script:laborLogsFilePath = $null         # Path to labor logs file
-$script:callLogsFilePath = $null          # Path to call logs file
-$script:logPath = "UI.log"                # Path to UI log file
-
-# State tracking
-$script:unacknowledgedEntries = @{}       # Unacknowledged entry tracking
-$script:processedCallLogs = @{}           # Processed call logs tracking
-$script:workOrderParts = @{}              # Parts for work orders
-$script:machinesUpdated = $false          # Flag for machines list update
-
-# Labor and Call Logs UI elements
-$script:listViewLaborLog = New-Object System.Windows.Forms.ListView  # Labor logs
-$script:listViewCallLogs = $null          # Call logs list view
-$script:notificationIcon = $null          # Notification icon
-
-# Search UI elements
-$script:textBoxNSN = $null                # NSN search text box
-$script:textBoxOEM = $null                # OEM search text box
-$script:textBoxDescription = $null        # Description search text box
-$script:listViewAvailability = $null      # Availability results
-$script:listViewSameDayAvailability = $null  # Same-day availability
-$script:listViewCrossRef = $null          # Cross-reference results
-$script:openFiguresButton = $null         # Open figures button
-$script:takePartOutButton = $null         # Take part out button
-
-# Tab controls
-$script:tabControl = $null                # Main tab control
-$script:partsBookTab = $null              # Parts book tab
-$script:callLogsTab = $null               # Call logs tab
-$script:laborLogTab = $null               # Labor log tab
-$script:searchTab = $null                 # Search tab
-$script:actionsTab = $null                # Actions tab 
-$script:configPath = $null
-#>
-
 # Make sure this dictionary always exists before anything tries to read it
 if ($null -eq $script:pmSuppressEvents)      { $script:pmSuppressEvents = $false }
 if ($null -eq $script:pmTotalSelectedHours)  { $script:pmTotalSelectedHours = 0.0 }
@@ -259,7 +218,7 @@ if ($null -eq $script:pmTotalSelectedHours)  { $script:pmTotalSelectedHours = 0.
 #                            Core Utilities                                    #
 ################################################################################
 
-$script:configPath = Join-Path $PSScriptRoot "Config.json"
+$script:configPath = Join-Path $PSScriptRoot 'PartsMgmt\Config.json'
 
 #UI Log
 function Write-Log {
@@ -268,6 +227,56 @@ function Write-Log {
     Write-Host "$timestamp - $message"
     # Optionally, you can also write to a log file:
     "$timestamp - $message" | Out-File -Append -FilePath "UI.log"
+}
+
+function New-DefaultConfigObject {
+    # Returns a fresh config object for the given root.
+    param([string]$Root, [string]$ScriptsDir)
+
+    if ([string]::IsNullOrWhiteSpace($Root))       { throw "Root is required." }
+    if ([string]::IsNullOrWhiteSpace($ScriptsDir)) { $ScriptsDir = $PSScriptRoot }
+
+    $dd  = Join-Path $Root 'Dropdown CSVs'
+    $pr  = Join-Path $Root 'Parts Room'
+    $pb  = Join-Path $Root 'Parts Books'
+    $wt  = Join-Path $Root 'Work Tracking'
+
+    return [ordered]@{
+        RootDirectory         = $Root
+        DropdownCsvsDirectory = $dd
+        PartsRoomDirectory    = $pr
+        PartsBooksDirectory   = $pb
+
+        Books                 = @{}
+        SameDayPartsRooms     = @()
+
+        PrerequisiteFiles     = [ordered]@{
+            Machines  = Join-Path $dd 'Machines.csv'
+        }
+
+        SupervisorEmail       = 'default@example.com'
+
+        WorkTracking          = [ordered]@{
+            JobsFile                   = 'Work Tracking/Jobs.json'
+            HistorianFile              = 'Work Tracking/Historian.jsonl'
+            WeeklyWorksheetsDirectory  = 'Work Tracking/Weekly Worksheets'
+            PmChecklistsDirectory      = 'Work Tracking/PM Checklists'
+            ReportsDirectory           = 'Work Tracking/Reports'
+            eDacUrl                    = ''
+            ReactiveToWorkOrderMinutes = 15
+            TechnicianName             = ''
+            WorkBudget                 = [ordered]@{
+                DayLengthHours        = 8.5
+                LunchMinutes          = 30
+                WashupMinutes         = 15
+                StartupMinutes        = 15
+                PaidBreaksMinutes     = @(15, 15)
+                EndOfDayWashupMinutes = 15
+                PaperworkMinutes      = 15
+                WorkTargetHours       = 6.5
+            }
+        }
+    }
 }
 
 #Initialize the config
@@ -282,27 +291,25 @@ function Initialize-Config {
             $config | Add-Member -NotePropertyName 'Books' -NotePropertyValue @{}
             Write-Log "Backfilled missing Books key."
         }
+        if (-not ($config.PSObject.Properties.Name -contains 'WorkTracking')) {
+            $defaults = New-DefaultConfigObject -Root $config.RootDirectory -ScriptsDir $PSScriptRoot
+            $config | Add-Member -NotePropertyName 'WorkTracking' -NotePropertyValue $defaults.WorkTracking
+            Write-Log "Backfilled missing WorkTracking key."
+        }
+        if (-not ($config.PSObject.Properties.Name -contains 'SupervisorEmail')) {
+            $config | Add-Member -NotePropertyName 'SupervisorEmail' -NotePropertyValue 'default@example.com'
+            Write-Log "Backfilled missing SupervisorEmail key."
+        }
         Write-Log "Config loaded successfully"
     } else {
         Write-Log "Config file not found. Using default configuration."
-        $config = @{
-            RootDirectory = $PSScriptRoot
-            LaborDirectory = Join-Path $PSScriptRoot "Labor"
-            CallLogsDirectory = Join-Path $PSScriptRoot "Call Logs"
-            PartsRoomDirectory = Join-Path $PSScriptRoot "Parts Room"
-            DropdownCsvsDirectory = Join-Path $PSScriptRoot "Dropdown CSVs"
-            PartsBooksDirectory = Join-Path $PSScriptRoot "Parts Books"
-        }
+        $config = New-DefaultConfigObject -Root $PSScriptRoot -ScriptsDir $PSScriptRoot
     }
+
     return $config
 }
 
 $config = Initialize-Config
-$laborLogsFilePath = $config.PrerequisiteFiles.LaborLogs
-if (-not $laborLogsFilePath) {
-    $laborLogsFilePath = Join-Path $config.LaborDirectory "LaborLogs.csv"
-    Write-Log "Labor logs file path was not in config, set to: $laborLogsFilePath"
-}
 
 # Helper function to create buttons with optional color styles
 function New-Button {
@@ -581,6 +588,7 @@ function Create-ExcelFromCsv {
 	
 	$excel = $null
 	$workbook = $null
+	$progressForm = $null
 	
     try {
         Write-Log "Starting to create Excel file from CSV for $siteName..."
@@ -830,6 +838,1082 @@ function Create-ExcelFromCsv {
         [System.GC]::Collect()
         [System.GC]::WaitForPendingFinalizers()
     }
+}
+
+# ============================================================
+# Parts Book figure → CSV
+# ============================================================
+
+function Convert-HtmlFigureToCsv {
+    param(
+        [string]$HtmlPath,
+        [string]$CsvPath = $null
+    )
+
+    if (-not (Test-Path $HtmlPath)) { throw "HTML file not found: $HtmlPath" }
+    if ([string]::IsNullOrWhiteSpace($CsvPath)) {
+        $CsvPath = [System.IO.Path]::ChangeExtension($HtmlPath, '.csv')
+    }
+
+    $htmlContent = Get-Content -Path $HtmlPath -Raw -ErrorAction Stop
+
+    $htmlDoc = $null
+    try {
+        $htmlDoc = New-Object -ComObject "HTMLFile"
+        try   { $htmlDoc.IHTMLDocument2_write($htmlContent) }
+        catch {
+            $bytes = [System.Text.Encoding]::UTF8.GetBytes($htmlContent)
+            $htmlDoc.write($bytes)
+        }
+
+        $dataTable = $null
+        foreach ($t in $htmlDoc.getElementsByTagName("TABLE")) {
+            try {
+                $bc = $t.getAttribute("bordercolor")
+                if ($t.border -eq "1" -and $t.cols -eq "5" -and ($bc -in @("#808080","808080"))) {
+                    $dataTable = $t
+                    break
+                }
+            } catch { }
+        }
+        if ($null -eq $dataTable) { throw "Data table not found in $HtmlPath" }
+
+        $rows = New-Object System.Collections.Generic.List[string]
+        $rows.Add('"NO.","PART DESCRIPTION","REF.","STOCK NO.","PART NO.","CAGE"')
+
+        $written = 0
+        for ($i = 2; $i -lt $dataTable.rows.length; $i++) {
+            $row   = $dataTable.rows[$i]
+            $cells = @($row.cells)
+            $clean = $cells | ForEach-Object {
+                '"' + ($_.innerText.Trim() -replace '\s+', ' ' -replace '&nbsp;', '') + '"'
+            }
+            if (($clean -join '') -ne '""""""""""') {
+                $rows.Add($clean -join ',')
+                $written++
+            }
+        }
+
+        $csvDir = Split-Path -Path $CsvPath -Parent
+        if (-not (Test-Path $csvDir)) { New-Item -ItemType Directory -Path $csvDir -Force | Out-Null }
+        $rows | Out-File -LiteralPath $CsvPath -Encoding UTF8
+
+        Write-Log "Convert-HtmlFigureToCsv: $($written) row(s) -> $CsvPath"
+        return $written
+    } finally {
+        if ($null -ne $htmlDoc) {
+            [System.Runtime.Interopservices.Marshal]::ReleaseComObject($htmlDoc) | Out-Null
+            [System.GC]::Collect()
+            [System.GC]::WaitForPendingFinalizers()
+        }
+    }
+}
+
+function Convert-FigureFolderToCsv {
+    param(
+        [string]$HtmlDir,
+        [switch]$Overwrite
+    )
+
+    if (-not (Test-Path $HtmlDir)) { throw "Folder not found: $HtmlDir" }
+
+    $converted = 0; $skipped = 0; $failed = 0; $errors = @()
+
+    $files = @(Get-ChildItem -Path $HtmlDir -Filter "*.html" -File |
+        Sort-Object -Property @{
+            Expression = { if ($_.BaseName -match 'Figure (\d+)-(\d+)') { [int]$matches[1] * 10000 + [int]$matches[2] } else { 0 } }
+        })
+
+    foreach ($f in $files) {
+        $csv = [System.IO.Path]::ChangeExtension($f.FullName, '.csv')
+        if ((Test-Path $csv) -and -not $Overwrite) { $skipped++; continue }
+        try {
+            Convert-HtmlFigureToCsv -HtmlPath $f.FullName -CsvPath $csv | Out-Null
+            $converted++
+        } catch {
+            $failed++
+            $errors += "$($f.Name): $($_.Exception.Message)"
+        }
+    }
+
+    return [PSCustomObject]@{
+        Converted = $converted
+        Skipped   = $skipped
+        Failed    = $failed
+        Errors    = $errors
+    }
+}
+
+function Show-FigureConvertDialog {
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = 'Convert Figure HTML to CSV'
+    $form.Size = New-Object System.Drawing.Size(600, 340)
+    $form.StartPosition = 'CenterParent'
+    $form.FormBorderStyle = 'FixedDialog'
+    $form.MaximizeBox = $false
+    $form.MinimizeBox = $false
+    $form.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $form.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+
+    $lblIntro = New-Object System.Windows.Forms.Label
+    $lblIntro.Text = "Converts figure HTML files from a parts book into CSVs. The CSVs are written alongside the HTMLs."
+    $lblIntro.Location = New-Object System.Drawing.Point(14, 14)
+    $lblIntro.Size = New-Object System.Drawing.Size(560, 40)
+    $lblIntro.ForeColor = [System.Drawing.Color]::FromArgb(90,100,115)
+    $form.Controls.Add($lblIntro)
+
+    $lblDir = New-Object System.Windows.Forms.Label
+    $lblDir.Text = "Figure folder:"
+    $lblDir.Location = New-Object System.Drawing.Point(14, 70)
+    $lblDir.Size = New-Object System.Drawing.Size(100, 24)
+    $lblDir.TextAlign = 'MiddleRight'
+    $lblDir.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $form.Controls.Add($lblDir)
+
+    $txtDir = New-Object System.Windows.Forms.TextBox
+    $txtDir.Location = New-Object System.Drawing.Point(120, 70)
+    $txtDir.Size = New-Object System.Drawing.Size(360, 24)
+    $form.Controls.Add($txtDir)
+
+    $btnBrowse = New-Object System.Windows.Forms.Button
+    $btnBrowse.Text = "Browse..."
+    $btnBrowse.Location = New-Object System.Drawing.Point(486, 70)
+    $btnBrowse.Size = New-Object System.Drawing.Size(90, 24)
+    $btnBrowse.FlatStyle = 'Flat'
+    $btnBrowse.FlatAppearance.BorderSize = 0
+    $btnBrowse.BackColor = [System.Drawing.Color]::FromArgb(189,195,199)
+    $btnBrowse.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $btnBrowse.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $btnBrowse.Cursor = 'Hand'
+    $btnBrowse.Add_Click({
+        $dlg = New-Object System.Windows.Forms.FolderBrowserDialog
+        $dlg.Description = "Pick the folder containing figure HTML files"
+        if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+            $txtDir.Text = $dlg.SelectedPath
+        }
+    })
+    $form.Controls.Add($btnBrowse)
+
+    $chkOverwrite = New-Object System.Windows.Forms.CheckBox
+    $chkOverwrite.Text = "Overwrite existing CSVs"
+    $chkOverwrite.Location = New-Object System.Drawing.Point(120, 102)
+    $chkOverwrite.Size = New-Object System.Drawing.Size(200, 24)
+    $chkOverwrite.Checked = $false
+    $form.Controls.Add($chkOverwrite)
+
+    $txtResult = New-Object System.Windows.Forms.TextBox
+    $txtResult.Multiline = $true
+    $txtResult.ReadOnly = $true
+    $txtResult.ScrollBars = 'Vertical'
+    $txtResult.Location = New-Object System.Drawing.Point(14, 136)
+    $txtResult.Size = New-Object System.Drawing.Size(560, 130)
+    $txtResult.Font = New-Object System.Drawing.Font("Consolas", 9)
+    $txtResult.BackColor = [System.Drawing.Color]::White
+    $txtResult.Text = "(no run yet)"
+    $form.Controls.Add($txtResult)
+
+    $btnRun = New-Object System.Windows.Forms.Button
+    $btnRun.Text = "Convert Folder"
+    $btnRun.Location = New-Object System.Drawing.Point(14, 276)
+    $btnRun.Size = New-Object System.Drawing.Size(140, 30)
+    $btnRun.FlatStyle = 'Flat'
+    $btnRun.FlatAppearance.BorderSize = 0
+    $btnRun.BackColor = [System.Drawing.Color]::FromArgb(52,152,219)
+    $btnRun.ForeColor = [System.Drawing.Color]::White
+    $btnRun.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $btnRun.Cursor = 'Hand'
+    $btnRun.Add_Click({
+        $dir = $txtDir.Text.Trim()
+        if ([string]::IsNullOrWhiteSpace($dir) -or -not (Test-Path $dir)) {
+            $txtResult.Text = "Pick a valid folder first."
+            return
+        }
+        try {
+            $r = Convert-FigureFolderToCsv -HtmlDir $dir -Overwrite:$chkOverwrite.Checked
+            $msg = "Converted: $($r.Converted)`r`nSkipped:   $($r.Skipped)`r`nFailed:    $($r.Failed)"
+            if ($r.Errors.Count -gt 0) {
+                $msg += "`r`n`r`nErrors:`r`n" + (($r.Errors | Select-Object -First 5) -join "`r`n")
+                if ($r.Errors.Count -gt 5) { $msg += "`r`n... ($($r.Errors.Count - 5) more, see UI.log)" }
+            }
+            $txtResult.Text = $msg
+        } catch {
+            $txtResult.Text = "Failed: $($_.Exception.Message)"
+        }
+    })
+    $form.Controls.Add($btnRun)
+
+    $btnClose = New-Object System.Windows.Forms.Button
+    $btnClose.Text = "Close"
+    $btnClose.Location = New-Object System.Drawing.Point(474, 276)
+    $btnClose.Size = New-Object System.Drawing.Size(100, 30)
+    $btnClose.FlatStyle = 'Flat'
+    $btnClose.FlatAppearance.BorderSize = 0
+    $btnClose.BackColor = [System.Drawing.Color]::FromArgb(189,195,199)
+    $btnClose.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $btnClose.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $btnClose.Cursor = 'Hand'
+    $btnClose.Add_Click({ $form.Close() })
+    $form.Controls.Add($btnClose)
+
+    $form.CancelButton = $btnClose
+    $form.ShowDialog() | Out-Null
+}
+
+# ============================================================
+# Parts Book Creator — helpers
+# ============================================================
+
+function Get-BookKey {
+    param([string]$FullName)
+    return ($FullName -replace '[^\w\s-]', '' -replace '\s+', ' ').Trim()
+}
+
+function Sanitize-BookFolderName {
+    param([string]$Name)
+    $invalid = [System.IO.Path]::GetInvalidFileNameChars() + [System.IO.Path]::GetInvalidPathChars()
+    foreach ($c in $invalid) { $Name = $Name -replace [regex]::Escape($c), '-' }
+    return $Name
+}
+
+function New-PartsBookProgressForm {
+    param([string]$Title = 'Processing Parts Books')
+
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = $Title
+    $form.Size = New-Object System.Drawing.Size(520, 200)
+    $form.StartPosition = 'CenterParent'
+    $form.FormBorderStyle = 'FixedDialog'
+    $form.MaximizeBox = $false
+    $form.MinimizeBox = $false
+    $form.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $form.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+
+    $bar = New-Object ModernProgressBar
+    $bar.Location = New-Object System.Drawing.Point(12, 12)
+    $bar.Size = New-Object System.Drawing.Size(480, 26)
+    $form.Controls.Add($bar)
+
+    $label = New-Object System.Windows.Forms.Label
+    $label.Location = New-Object System.Drawing.Point(12, 46)
+    $label.Size = New-Object System.Drawing.Size(480, 44)
+    $label.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $form.Controls.Add($label)
+
+    $bookLabel = New-Object System.Windows.Forms.Label
+    $bookLabel.Location = New-Object System.Drawing.Point(12, 94)
+    $bookLabel.Size = New-Object System.Drawing.Size(480, 22)
+    $bookLabel.ForeColor = [System.Drawing.Color]::FromArgb(90,100,115)
+    $bookLabel.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Italic)
+    $form.Controls.Add($bookLabel)
+
+    return [PSCustomObject]@{ Form = $form; Bar = $bar; Label = $label; BookLabel = $bookLabel }
+}
+
+function Update-PartsBookProgress {
+    param($Handle, [string]$Message, $Percent, [string]$Book = '')
+
+    if (-not $Handle) { return }
+    $pct = 0
+    try {
+        if ($Percent -is [array]) { if ($Percent.Count -gt 0) { $pct = [int][double]$Percent[0] } }
+        elseif ($null -ne $Percent -and "$Percent" -ne '') { $pct = [int][double]$Percent }
+    } catch { $pct = 0 }
+    if ($pct -lt 0) { $pct = 0 }; if ($pct -gt 100) { $pct = 100 }
+
+    $Handle.Bar.Value = $pct
+    $Handle.Label.Text = $Message
+    if ($Book) { $Handle.BookLabel.Text = "Current book: $Book" }
+    $Handle.Form.Refresh()
+    [System.Windows.Forms.Application]::DoEvents()
+}
+
+function Get-PartsBookTreeHtml {
+    param([string]$BookName)
+
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = "Paste Parts Book Tree HTML — $BookName"
+    $form.Size = New-Object System.Drawing.Size(900, 700)
+    $form.MinimumSize = New-Object System.Drawing.Size(700, 500)
+    $form.StartPosition = 'CenterParent'
+    $form.FormBorderStyle = 'Sizable'
+    $form.MaximizeBox = $false
+    $form.MinimizeBox = $false
+    $form.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $form.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+
+    $lblHead = New-Object System.Windows.Forms.Label
+    $lblHead.Text = "In the browser window that opened: View Page Source (Ctrl+U), Ctrl+A, Ctrl+C, paste below."
+    $lblHead.Dock = 'Top'
+    $lblHead.Height = 28
+    $lblHead.Padding = New-Object System.Windows.Forms.Padding(12, 8, 12, 0)
+    $lblHead.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $form.Controls.Add($lblHead)
+
+    $btnBar = New-Object System.Windows.Forms.Panel
+    $btnBar.Dock = 'Bottom'
+    $btnBar.Height = 52
+    $form.Controls.Add($btnBar)
+
+    $cancelBtn = New-Object System.Windows.Forms.Button
+    $cancelBtn.Text = "Cancel"
+    $cancelBtn.Location = New-Object System.Drawing.Point(680, 10)
+    $cancelBtn.Size = New-Object System.Drawing.Size(90, 32)
+    $cancelBtn.Anchor = 'Top,Right'
+    $cancelBtn.FlatStyle = 'Flat'
+    $cancelBtn.FlatAppearance.BorderSize = 0
+    $cancelBtn.BackColor = [System.Drawing.Color]::FromArgb(189,195,199)
+    $cancelBtn.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $cancelBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $cancelBtn.Cursor = 'Hand'
+    $cancelBtn.Add_Click({ $form.Tag = $null; $form.Close() })
+    $btnBar.Controls.Add($cancelBtn)
+
+    $okBtn = New-Object System.Windows.Forms.Button
+    $okBtn.Text = "Accept"
+    $okBtn.Location = New-Object System.Drawing.Point(780, 10)
+    $okBtn.Size = New-Object System.Drawing.Size(100, 32)
+    $okBtn.Anchor = 'Top,Right'
+    $okBtn.FlatStyle = 'Flat'
+    $okBtn.FlatAppearance.BorderSize = 0
+    $okBtn.BackColor = [System.Drawing.Color]::FromArgb(39,174,96)
+    $okBtn.ForeColor = [System.Drawing.Color]::White
+    $okBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $okBtn.Cursor = 'Hand'
+    $okBtn.Add_Click({
+        if ([string]::IsNullOrWhiteSpace($txtPaste.Text)) { return }
+        $form.Tag = $txtPaste.Text
+        $form.Close()
+    })
+    $btnBar.Controls.Add($okBtn)
+
+    $txtPaste = New-Object System.Windows.Forms.TextBox
+    $txtPaste.Multiline = $true
+    $txtPaste.MaxLength = 0
+    $txtPaste.Dock = 'Fill'
+    $txtPaste.ScrollBars = 'Both'
+    $txtPaste.WordWrap = $false
+    $txtPaste.Font = New-Object System.Drawing.Font("Consolas", 8)
+    $txtPaste.AcceptsReturn = $true
+    $txtPaste.Padding = New-Object System.Windows.Forms.Padding(8)
+    $form.Controls.Add($txtPaste)
+    $txtPaste.BringToFront()
+
+    $form.CancelButton = $cancelBtn
+    $form.ShowDialog() | Out-Null
+    return $form.Tag
+}
+
+function ConvertFrom-PartsBookTree {
+    param(
+        [string]$HtmlContent,
+        $Row,
+        [string]$DirectoryPath
+    )
+
+    if ([string]::IsNullOrWhiteSpace($HtmlContent)) { throw "Empty HTML." }
+    if (-not (Test-Path $DirectoryPath)) { New-Item -ItemType Directory -Path $DirectoryPath -Force | Out-Null }
+
+    $htmlDoc = $null
+    try {
+        $htmlDoc = New-Object -ComObject "HTMLFile"
+        try   { $htmlDoc.IHTMLDocument2_write($HtmlContent) }
+        catch {
+            $bytes = [System.Text.Encoding]::Unicode.GetBytes($HtmlContent)
+            $htmlDoc.write($bytes)
+        }
+
+        $msBookNo = "$($Row.'MS Book No')"
+        $volume   = "$($Row.Volume)"
+
+        if ([string]::IsNullOrWhiteSpace($msBookNo) -or [string]::IsNullOrWhiteSpace($volume)) {
+            $titleEl = $htmlDoc.getElementById("book_title")
+            if ($titleEl -and $titleEl.innerText -match "MS(\d+)\s+VOLUME\s+([A-Z])") {
+                $msBookNo = $matches[1]; $volume = $matches[2]
+            }
+        }
+        if ([string]::IsNullOrWhiteSpace($msBookNo) -or [string]::IsNullOrWhiteSpace($volume)) {
+            throw "Could not determine MS Book No / Volume for this book."
+        }
+
+        $volumesToUrlPath  = Join-Path $DirectoryPath "Volumes-to-URL.csv"
+        $sectionNamesPath  = Join-Path $DirectoryPath "SectionNames.txt"
+
+        "Figure No.,Name,Section No.,MS Book No,Volume,URL" |
+            Out-File -FilePath $volumesToUrlPath -Encoding UTF8
+
+        $container = $htmlDoc.getElementById("Ryan_fault")
+        if (-not $container) {
+            foreach ($d in $htmlDoc.getElementsByTagName("div")) {
+                try {
+                    $s = $d.getAttribute("style")
+                    if ($s -and $s -like "*height:100%*overflow-y:scroll*") { $container = $d; break }
+                } catch { }
+            }
+        }
+        if (-not $container) { throw "Could not find phbk content container." }
+
+        $treeUl = $null
+        foreach ($u in $container.getElementsByTagName("ul")) {
+            try {
+                if ($u.id -eq "phbk_tree" -or $u.className -eq "treeview") { $treeUl = $u; break }
+            } catch { }
+        }
+        if (-not $treeUl) { throw "Could not find phbk_tree." }
+
+        # Collect sections, then sort numerically ascending
+        $sectionData = @()
+        foreach ($secLi in @($treeUl.getElementsByTagName("li") | Where-Object { $_.getAttribute("sno") })) {
+            $sectionNo = $secLi.getAttribute("sno")
+            $secSpan   = $secLi.getElementsByTagName("span") | Where-Object { $_.className -ne "go_fig" } | Select-Object -First 1
+            if (-not $secSpan) { continue }
+
+            $secText  = $secSpan.innerText -replace '^Section \d+\s+', ''
+            $secName  = "Section $sectionNo $secText"
+            $figList  = $secLi.getElementsByTagName("ul") | Select-Object -First 1
+
+            $figures = @()
+            if ($figList) {
+                foreach ($figLi in @($figList.getElementsByTagName("li") | Where-Object { $_.getAttribute("figno") })) {
+                    $figno = $figLi.getAttribute("figno")
+                    if (-not $figno) { continue }
+                    $figSpan = $figLi.getElementsByTagName("span") | Where-Object { $_.className -eq "go_fig" } | Select-Object -First 1
+                    if (-not $figSpan) { continue }
+                    $figures += [PSCustomObject]@{
+                        Figno = $figno
+                        Name  = ($figSpan.innerText -replace "^\d+-\d+\s+", "")
+                    }
+                }
+            }
+
+            $sectionData += [PSCustomObject]@{
+                Number  = [int]$sectionNo
+                Name    = $secName
+                Figures = $figures
+            }
+        }
+
+        $sectionData = @($sectionData | Sort-Object -Property Number)
+
+        $sectionNames = @()
+        $figCount     = 0
+
+        foreach ($sec in $sectionData) {
+            $sectionNames += $sec.Name
+
+            # Sort figures numerically within the section too
+            $orderedFigs = @($sec.Figures | Sort-Object -Property @{
+                Expression = { if ($_.Figno -match '-(\d+)$') { [int]$matches[1] } else { 0 } }
+            })
+
+            foreach ($fig in $orderedFigs) {
+                $url = "https://www1.mtsc.usps.gov/apps/phbk/content/printfigandtable.php?msbookno=$msBookNo&volno=$volume&secno=$($sec.Number)&figno=$($fig.Figno)&viewerflag=d&layout=L11"
+                "$($fig.Figno),`"$($fig.Name)`",$($sec.Number),$msBookNo,$volume,$url" |
+                    Out-File -FilePath $volumesToUrlPath -Encoding UTF8 -Append
+                $figCount++
+            }
+        }
+
+        $sectionNames | Out-File -FilePath $sectionNamesPath -Encoding UTF8
+
+        return [PSCustomObject]@{
+            VolumesToUrlPath = $volumesToUrlPath
+            SectionNamesPath = $sectionNamesPath
+            FigureCount      = $figCount
+            MsBookNo         = $msBookNo
+            Volume           = $volume
+        }
+    } finally {
+        if ($htmlDoc) {
+            [System.Runtime.Interopservices.Marshal]::ReleaseComObject($htmlDoc) | Out-Null
+            [System.GC]::Collect()
+            [System.GC]::WaitForPendingFinalizers()
+        }
+    }
+}
+
+function ConvertFrom-PartsBookTreeFallback {
+    param([string]$HtmlContent, $Row, [string]$DirectoryPath)
+
+    $msBookNo = "$($Row.'MS Book No')"
+    $volume   = "$($Row.Volume)"
+
+    $volumesToUrlPath = Join-Path $DirectoryPath "Volumes-to-URL.csv"
+    $sectionNamesPath = Join-Path $DirectoryPath "SectionNames.txt"
+
+    "Figure No.,Name,Section No.,MS Book No,Volume,URL" |
+        Out-File -FilePath $volumesToUrlPath -Encoding UTF8
+
+    $sectionNames = @()
+    $figCount = 0
+
+    $secRx = '<li[^>]*sno="(\d+)"[^>]*><div[^>]*></div><span[^>]*>(.*?)</span>'
+    $secMatches = [regex]::Matches($HtmlContent, $secRx)
+
+    $parsed = @()
+    foreach ($sm in $secMatches) {
+        $parsed += [PSCustomObject]@{
+            Number = [int]$sm.Groups[1].Value
+            Text   = $sm.Groups[2].Value
+        }
+    }
+    $parsed = @($parsed | Sort-Object -Property Number)
+
+    foreach ($sec in $parsed) {
+        $sectionNo = $sec.Number
+        $secText   = $sec.Text -replace '^Section \d+\s+', ''
+        $sectionNames += "Section $sectionNo $secText"
+
+        $figRx = '<li[^>]*figno="' + $sectionNo + '-(\d+)"[^>]*><span\s+class="go_fig">(.*?)</span>'
+        $figMatches = [regex]::Matches($HtmlContent, $figRx)
+        $figMatches = @($figMatches | Sort-Object -Property @{ Expression = { [int]$_.Groups[1].Value } })
+
+        foreach ($fm in $figMatches) {
+            $figno = "$sectionNo-$($fm.Groups[1].Value)"
+            $cleanFigName = ($fm.Groups[2].Value -replace "^\d+-\d+\s+", "")
+            $url = "https://www1.mtsc.usps.gov/apps/phbk/content/printfigandtable.php?msbookno=$msBookNo&volno=$volume&secno=$sectionNo&figno=$figno&viewerflag=d&layout=L11"
+            "$figno,`"$cleanFigName`",$sectionNo,$msBookNo,$volume,$url" |
+                Out-File -FilePath $volumesToUrlPath -Encoding UTF8 -Append
+            $figCount++
+        }
+    }
+
+    $sectionNames | Out-File -FilePath $sectionNamesPath -Encoding UTF8
+
+    return [PSCustomObject]@{
+        VolumesToUrlPath = $volumesToUrlPath
+        SectionNamesPath = $sectionNamesPath
+        FigureCount      = $figCount
+        MsBookNo         = $msBookNo
+        Volume           = $volume
+    }
+}
+
+function Export-PartsBookFigures {
+    param(
+        $VolumesToUrlData,
+        [string]$DirectoryPath,
+        [string]$BookName,
+        $ProgressHandle
+    )
+
+    $htmlCsvDir = Join-Path $DirectoryPath "HTML and CSV Files"
+    if (-not (Test-Path $htmlCsvDir)) { New-Item -ItemType Directory -Path $htmlCsvDir -Force | Out-Null }
+
+    # Sort numerically: section first, then figure within section
+    $rows = @(ConvertTo-FlatArray -Source $VolumesToUrlData) |
+        Sort-Object -Property @{
+            Expression = {
+                $fn = "$($_.'Figure No.')"
+                if ($fn -match '^(\d+)-(\d+)$') { [int]$matches[1] * 10000 + [int]$matches[2] }
+                else { 0 }
+            }
+        }
+
+    $total = $rows.Count
+    if ($total -eq 0) { return 0 }
+
+    $done = 0
+    foreach ($row in $rows) {
+        $done++
+        Update-PartsBookProgress -Handle $ProgressHandle `
+            -Message "Downloading figure $done of $total" `
+            -Percent ([double]$done / $total * 100) `
+            -Book $BookName
+
+        $figno = "$($row.'Figure No.')" -replace '[^\w\d-]', '_'
+        $url   = "$($row.URL)"
+        if ([string]::IsNullOrWhiteSpace($url)) { continue }
+
+        $htmlPath = Join-Path $htmlCsvDir "Figure $figno.html"
+        try {
+            $resp = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 30
+            if ($resp.StatusCode -eq 200) {
+                Set-Content -Path $htmlPath -Value $resp.Content -Encoding UTF8
+                Convert-HtmlFigureToCsv -HtmlPath $htmlPath | Out-Null
+            }
+        } catch {
+            Write-Log "Export-PartsBookFigures: failed $figno : $($_.Exception.Message)"
+        }
+    }
+    return $done
+}
+
+function Merge-PartsBookSections {
+    param(
+        [string]$SourceDir,
+        [string]$SiteCsvPath,
+        [string]$PartsBookName
+    )
+
+    $combinedDir = Join-Path $SourceDir "CombinedSections"
+    if (-not (Test-Path $combinedDir)) { New-Item -ItemType Directory -Path $combinedDir -Force | Out-Null }
+
+    $csvFiles = @(Get-ChildItem -Path (Join-Path $SourceDir "HTML and CSV Files") -Filter "Figure *.csv" -ErrorAction SilentlyContinue)
+
+    # Numeric ascending group sort (Section 2, 3, ..., 9, 10, ..., 20)
+    $groups = @(
+        $csvFiles |
+            Group-Object { $_.BaseName -replace 'Figure (\d+)-\d+', '$1' } |
+            Sort-Object -Property @{ Expression = { [int]$_.Name } }
+    )
+
+    $siteData = $null
+    if ($SiteCsvPath -and (Test-Path $SiteCsvPath)) {
+        $siteData = Import-Csv -Path $SiteCsvPath
+        if ($siteData.Count -gt 0) {
+            if (-not $siteData[0].PSObject.Properties['Changed Part (NSN)']) {
+                $siteData | ForEach-Object { $_ | Add-Member -NotePropertyName 'Changed Part (NSN)' -NotePropertyValue '' -Force }
+            }
+            $bookCol = $PartsBookName -replace '[^\w\s-]', '' -replace '\s+', ' '
+            if (-not $siteData[0].PSObject.Properties[$bookCol]) {
+                $siteData | ForEach-Object { $_ | Add-Member -NotePropertyName $bookCol -NotePropertyValue '' -Force }
+            }
+        }
+    }
+
+    foreach ($group in $groups) {
+        $figNum = $group.Name
+        $sectionFile = Join-Path $combinedDir "Section $figNum.csv"
+        $allRows = @()
+
+        # Numeric ascending within a section (2-1, 2-2, ..., 2-10)
+        $orderedFiles = @($group.Group | Sort-Object -Property @{
+            Expression = { if ($_.BaseName -match 'Figure \d+-(\d+)') { [int]$matches[1] } else { 0 } }
+        })
+
+        foreach ($file in $orderedFiles) {
+            try { $csvContent = @(Import-Csv -Path $file.FullName) } catch { continue }
+            if ($csvContent.Count -eq 0) { continue }
+
+            if (-not $csvContent[0].PSObject.Properties['Location']) {
+                $csvContent | ForEach-Object { $_ | Add-Member -NotePropertyName 'Location' -NotePropertyValue '' -Force }
+            }
+            if (-not $csvContent[0].PSObject.Properties['QTY']) {
+                $csvContent | ForEach-Object { $_ | Add-Member -NotePropertyName 'QTY' -NotePropertyValue '' -Force }
+            }
+
+            foreach ($row in $csvContent) {
+                if ($row.'STOCK NO.' -eq "" -and $row.'PART NO.' -eq "" -and $row.'CAGE' -eq "" -and $row.'Location' -eq "") { continue }
+                if (-not $row.'REF.') { $row.'REF.' = $file.Name }
+
+                if ($siteData) {
+                    $stockNo = $row.'STOCK NO.'
+                    $partNo  = $row.'PART NO.'
+
+                    $match = $siteData | Where-Object { $_.'Part (NSN)' -eq $stockNo } | Select-Object -First 1
+                    if ($match) {
+                        $row.'Location' = $match.'Location'
+                        $row.'QTY'      = $match.'QTY'
+                        $idx = $siteData.IndexOf($match)
+                        $bookCol = $PartsBookName -replace '[^\w\s-]', '' -replace '\s+', ' '
+                        $figRef = "Figure " + ($row.'REF.' -replace '^Figure\s+', '' -replace '\.csv$', '')
+                        $existing = "$($siteData[$idx].$bookCol)"
+                        if ([string]::IsNullOrEmpty($existing)) { $siteData[$idx].$bookCol = $figRef }
+                        elseif ($existing -notmatch [regex]::Escape($figRef)) { $siteData[$idx].$bookCol = "$existing | $figRef" }
+                    } else {
+                        $oemMatch = $siteData | Where-Object { $_.'OEM 1' -eq $partNo -or $_.'OEM 2' -eq $partNo -or $_.'OEM 3' -eq $partNo } | Select-Object -First 1
+                        if ($oemMatch) {
+                            $idx = $siteData.IndexOf($oemMatch)
+                            $prev = $oemMatch.'Part (NSN)'
+                            if ($row.'STOCK NO.' -eq "NSL" -or [string]::IsNullOrEmpty($row.'STOCK NO.')) {
+                                $siteData[$idx].'Changed Part (NSN)' = 'No standard NSN'
+                            } else {
+                                $siteData[$idx].'Changed Part (NSN)' = $prev
+                                $siteData[$idx].'Part (NSN)' = $row.'STOCK NO.'
+                            }
+                            $row.'Location' = $siteData[$idx].'Location'
+                            $row.'QTY'      = $siteData[$idx].'QTY'
+                            $bookCol = $PartsBookName -replace '[^\w\s-]', '' -replace '\s+', ' '
+                            $figRef = "Figure " + ($row.'REF.' -replace '^Figure\s+', '' -replace '\.csv$', '')
+                            $existing = "$($siteData[$idx].$bookCol)"
+                            if ([string]::IsNullOrEmpty($existing)) { $siteData[$idx].$bookCol = $figRef }
+                            elseif ($existing -notmatch [regex]::Escape($figRef)) { $siteData[$idx].$bookCol = "$existing | $figRef" }
+                        } else {
+                            $row.'Location' = 'Not Stocked Locally'
+                        }
+                    }
+                } else {
+                    $row.'Location' = 'Site data not available'
+                }
+
+                $allRows += $row
+            }
+        }
+
+        $allRows | Export-Csv -Path $sectionFile -NoTypeInformation
+    }
+
+    if ($siteData -and (Test-Path $SiteCsvPath)) {
+        $siteData | Export-Csv -Path $SiteCsvPath -NoTypeInformation
+        Write-Log "Merge-PartsBookSections: updated $SiteCsvPath"
+    }
+
+    return $combinedDir
+}
+
+function New-PartsBookExcel {
+    param(
+        [string]$SourceDir,
+        [string]$CombinedCsvDir,
+        [string]$BookName,
+        $ProgressHandle
+    )
+
+    $excelPath = Join-Path $SourceDir "$((Split-Path $SourceDir -Leaf)).xlsx"
+    $excel = $null; $workbook = $null
+    try {
+        $excel = New-Object -ComObject Excel.Application
+        $excel.Visible = $false
+        $excel.DisplayAlerts = $false
+        $workbook = $excel.Workbooks.Add()
+
+        while ($workbook.Sheets.Count -gt 1) { $workbook.Sheets.Item(1).Delete() }
+
+        $sectionCsvFiles = @(Get-ChildItem -Path $CombinedCsvDir -Filter "Section *.csv" -ErrorAction SilentlyContinue)
+        if ($sectionCsvFiles.Count -eq 0) { throw "No section CSVs in $CombinedCsvDir" }
+
+        # Numeric ascending (Section 2, 3, ..., 20)
+        $sectionCsvFiles = @($sectionCsvFiles | Sort-Object -Property @{
+            Expression = { if ($_.BaseName -match '^Section (\d+)$') { [int]$matches[1] } else { 0 } }
+        })
+
+        $total = [int]$sectionCsvFiles.Count
+        $i = 0
+
+        foreach ($file in $sectionCsvFiles) {
+            $i++
+            Update-PartsBookProgress -Handle $ProgressHandle `
+                -Message "Building worksheet $i of $total : $($file.BaseName)" `
+                -Percent ([double]$i / $total * 100) `
+                -Book $BookName
+
+            $csvContent = @(Import-Csv -Path $file.FullName)
+            $ws = $workbook.Sheets.Add()
+            $ws.Name = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
+
+            $headers = @('NO.','STOCK NO.','PART DESCRIPTION','PART NO.','REF.','QTY','LOCATION','CAGE')
+            for ($c = 0; $c -lt $headers.Count; $c++) { $ws.Cells.Item(1, $c + 1) = $headers[$c] }
+
+            $rowCount = $csvContent.Count
+            if ($rowCount -gt 0) {
+                $arr = New-Object 'object[,]' $rowCount, $headers.Count
+                for ($r = 0; $r -lt $rowCount; $r++) {
+                    for ($c = 0; $c -lt $headers.Count; $c++) {
+                        $arr[$r, $c] = $csvContent[$r].$($headers[$c])
+                    }
+                }
+                $rng = $ws.Range($ws.Cells.Item(2, 1), $ws.Cells.Item($rowCount + 1, $headers.Count))
+                $rng.Value2 = $arr
+            }
+
+            $used = $ws.UsedRange
+            if ($ws.ListObjects.Count -gt 0) { $ws.ListObjects.Item(1).Unlist() }
+            $lo = $ws.ListObjects.Add(
+                [Microsoft.Office.Interop.Excel.XlListObjectSourceType]::xlSrcRange,
+                $used, $null,
+                [Microsoft.Office.Interop.Excel.XlYesNoGuess]::xlYes)
+            $lo.Name = "$($ws.Name)Table"
+            $lo.TableStyle = "TableStyleMedium2"
+
+            foreach ($col in $lo.ListColumns) {
+                $col.Range.EntireColumn.AutoFit() | Out-Null
+                $col.Range.VerticalAlignment = -4108
+                if ($col.Name -eq 'PART DESCRIPTION') {
+                    $col.Range.Cells(1,1).HorizontalAlignment = -4108
+                    $col.Range.Offset(1,0).HorizontalAlignment = -4131
+                } else {
+                    $col.Range.HorizontalAlignment = -4108
+                }
+            }
+
+            $refIdx = -1
+            for ($c = 0; $c -lt $headers.Count; $c++) { if ($headers[$c] -eq 'REF.') { $refIdx = $c + 1; break } }
+            if ($refIdx -gt 0 -and $rowCount -gt 0) {
+                for ($r = 2; $r -le $rowCount + 1; $r++) {
+                    $v = $ws.Cells.Item($r, $refIdx).Value2
+                    if ($v -and "$v" -match 'Figure \d+-\d+') {
+                        $figName = "$v"
+                        $htmlPath = Join-Path $SourceDir "HTML and CSV Files\$figName.html"
+                        if (Test-Path $htmlPath) {
+                            $cell = $ws.Cells.Item($r, $refIdx)
+                            $ws.Hyperlinks.Add($cell, $htmlPath, "", "", $figName) | Out-Null
+                        }
+                    }
+                }
+            }
+        }
+
+        Update-PartsBookProgress -Handle $ProgressHandle -Message "Saving workbook..." -Percent 95 -Book $BookName
+        $workbook.SaveAs($excelPath, [Microsoft.Office.Interop.Excel.XlFileFormat]::xlOpenXMLWorkbook)
+        return $excelPath
+    } finally {
+        if ($workbook) { try { $workbook.Close($false) } catch { } }
+        if ($excel) {
+            try { $excel.Quit() } catch { }
+            try { [System.Runtime.Interopservices.Marshal]::ReleaseComObject($excel) | Out-Null } catch { }
+        }
+        [System.GC]::Collect()
+        [System.GC]::WaitForPendingFinalizers()
+    }
+}
+
+function Rename-PartsBookWorksheets {
+    param([string]$ExcelFilePath, [hashtable]$SectionNameMap)
+
+    $excel = $null; $wb = $null
+    try {
+        $excel = New-Object -ComObject Excel.Application
+        $excel.Visible = $false
+        $excel.DisplayAlerts = $false
+        $wb = $excel.Workbooks.Open($ExcelFilePath)
+
+        foreach ($sheet in @($wb.Sheets)) {
+            $cur = $sheet.Name
+            if ($cur -eq 'Sheet1') { $sheet.Delete(); continue }
+
+            $target = $null
+            if ($SectionNameMap.ContainsKey($cur)) { $target = $SectionNameMap[$cur] }
+            elseif ($cur -match '^Section (\d+)') {
+                $prefix = "Section $($matches[1])"
+                foreach ($k in $SectionNameMap.Keys) {
+                    if ($k -match "^$prefix") { $target = $SectionNameMap[$k]; break }
+                }
+            }
+
+            if ($target) {
+                $safe = $target.Substring(0, [Math]::Min(31, $target.Length)) -replace '[:\\/?*\[\]]', ''
+                if (-not [string]::IsNullOrWhiteSpace($safe)) { $sheet.Name = $safe }
+            }
+        }
+
+        $wb.Save()
+    } finally {
+        if ($wb) { try { $wb.Close($false) } catch { } }
+        if ($excel) {
+            try { $excel.Quit() } catch { }
+            try { [System.Runtime.Interopservices.Marshal]::ReleaseComObject($excel) | Out-Null } catch { }
+        }
+        [System.GC]::Collect()
+        [System.GC]::WaitForPendingFinalizers()
+    }
+}
+
+function Get-ConfigBooks {
+    $books = @{}
+    if (-not $script:config -or -not ($script:config.PSObject.Properties.Name -contains 'Books')) { return $books }
+    $b = $script:config.Books
+    if ($null -eq $b) { return $books }
+    foreach ($prop in @($b.PSObject.Properties)) { $books[$prop.Name] = $prop.Value }
+    return $books
+}
+
+function Save-ConfigBooks {
+    param([hashtable]$NewBooks)
+
+    if (-not ($script:config.PSObject.Properties.Name -contains 'Books') -or $null -eq $script:config.Books) {
+        $script:config | Add-Member -NotePropertyName 'Books' -NotePropertyValue @{} -Force
+    }
+    foreach ($k in $NewBooks.Keys) {
+        if ($script:config.Books.PSObject.Properties[$k]) {
+            $script:config.Books.$k = $NewBooks[$k]
+        } else {
+            $script:config.Books | Add-Member -NotePropertyName $k -NotePropertyValue $NewBooks[$k] -Force
+        }
+    }
+    $script:config | ConvertTo-Json -Depth 12 | Set-Content -Path $script:configPath -Encoding UTF8
+}
+
+function Show-PartsBookCreatorDialog {
+
+    $parsedCsvPath = Join-Path $script:config.DropdownCsvsDirectory "Parsed-Parts-Volumes.csv"
+    if (-not (Test-Path $parsedCsvPath) -or (Get-Item $parsedCsvPath).Length -eq 0) {
+        $choice = [System.Windows.Forms.MessageBox]::Show(
+            "Parsed-Parts-Volumes.csv is missing or empty.`r`n`r`nGenerate it now?",
+            "Parts Book Creator",
+            [System.Windows.Forms.MessageBoxButtons]::YesNo,
+            [System.Windows.Forms.MessageBoxIcon]::Question)
+        if ($choice -ne [System.Windows.Forms.DialogResult]::Yes) { return }
+        if (-not (Show-PartsVolumesWizard)) { return }
+    }
+
+    $csvData = Import-Csv $parsedCsvPath
+    if ($csvData.Count -eq 0) {
+        [System.Windows.Forms.MessageBox]::Show("Parsed-Parts-Volumes.csv contains no rows.", "Parts Book Creator", "OK", "Warning")
+        return
+    }
+
+    $existingBooks = Get-ConfigBooks
+
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = "Create Parts Books"
+    $form.Size = New-Object System.Drawing.Size(800, 600)
+    $form.StartPosition = 'CenterParent'
+    $form.FormBorderStyle = 'Sizable'
+    $form.MinimizeBox = $false
+    $form.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $form.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+
+    $lblHead = New-Object System.Windows.Forms.Label
+    $lblHead.Text = "Check the books you want to build, then click Process Selected."
+    $lblHead.Dock = 'Top'
+    $lblHead.Height = 26
+    $lblHead.Padding = New-Object System.Windows.Forms.Padding(12, 8, 12, 0)
+    $lblHead.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $form.Controls.Add($lblHead)
+
+    $btnBar = New-Object System.Windows.Forms.Panel
+    $btnBar.Dock = 'Bottom'
+    $btnBar.Height = 52
+    $form.Controls.Add($btnBar)
+
+    $closeBtn = New-Object System.Windows.Forms.Button
+    $closeBtn.Text = "Close"
+    $closeBtn.Size = New-Object System.Drawing.Size(100, 32)
+    $closeBtn.Location = New-Object System.Drawing.Point(680, 10)
+    $closeBtn.Anchor = 'Top,Right'
+    $closeBtn.FlatStyle = 'Flat'
+    $closeBtn.FlatAppearance.BorderSize = 0
+    $closeBtn.BackColor = [System.Drawing.Color]::FromArgb(189,195,199)
+    $closeBtn.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $closeBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $closeBtn.Cursor = 'Hand'
+    $closeBtn.Add_Click({ $form.Close() })
+    $btnBar.Controls.Add($closeBtn)
+
+    $processBtn = New-Object System.Windows.Forms.Button
+    $processBtn.Text = "Process Selected"
+    $processBtn.Size = New-Object System.Drawing.Size(160, 32)
+    $processBtn.Location = New-Object System.Drawing.Point(510, 10)
+    $processBtn.Anchor = 'Top,Right'
+    $processBtn.FlatStyle = 'Flat'
+    $processBtn.FlatAppearance.BorderSize = 0
+    $processBtn.BackColor = [System.Drawing.Color]::FromArgb(39,174,96)
+    $processBtn.ForeColor = [System.Drawing.Color]::White
+    $processBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $processBtn.Cursor = 'Hand'
+    $btnBar.Controls.Add($processBtn)
+
+    $lv = New-Object System.Windows.Forms.ListView
+    $lv.Dock = 'Fill'
+    $lv.CheckBoxes = $true
+    $lv.Columns.Add("Full Name", 420)  | Out-Null
+    $lv.Columns.Add("MS Book No", 100) | Out-Null
+    $lv.Columns.Add("Volume", 80)      | Out-Null
+    $lv.Columns.Add("Status", 130)     | Out-Null
+    Set-ListViewStyle -ListView $lv
+    $form.Controls.Add($lv)
+    $lv.BringToFront()
+
+    foreach ($row in $csvData) {
+        $key = Get-BookKey $row.'Full Name'
+        $it = New-Object System.Windows.Forms.ListViewItem("$($row.'Full Name')")
+        $it.SubItems.Add("$($row.'MS Book No')") | Out-Null
+        $it.SubItems.Add("$($row.Volume)")       | Out-Null
+        if ($existingBooks.ContainsKey($key)) {
+            $it.SubItems.Add("already installed") | Out-Null
+            $it.ForeColor = [System.Drawing.Color]::FromArgb(140,150,165)
+        } else {
+            $it.SubItems.Add("") | Out-Null
+        }
+        $it.Tag = $row
+        $lv.Items.Add($it) | Out-Null
+    }
+
+    $processBtn.Add_Click({
+        $selected = @($lv.CheckedItems | Where-Object {
+            (Get-BookKey $_.Tag.'Full Name') -notin $existingBooks.Keys
+        })
+        if ($selected.Count -eq 0) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Select at least one book that isn't already installed.",
+                "Parts Book Creator", "OK", "Warning")
+            return
+        }
+
+        $form.Hide()
+
+        $progress = New-PartsBookProgressForm -Title "Creating Parts Books"
+        $progress.Form.Show()
+        $progress.Form.Refresh()
+
+        $newBooks = @{}
+        $partsRoomCsv = Get-ChildItem -Path $script:config.PartsRoomDirectory -Filter "*.csv" -File -ErrorAction SilentlyContinue |
+                        Select-Object -First 1 -ExpandProperty FullName
+
+        try {
+            $idx = 0
+            foreach ($item in $selected) {
+                $idx++
+                $row = $item.Tag
+                $bookName = "$($row.'Full Name')"
+                $safeName = Sanitize-BookFolderName $bookName
+                $bookDir = Join-Path $script:config.PartsBooksDirectory $safeName
+                if (-not (Test-Path $bookDir)) { New-Item -ItemType Directory -Path $bookDir -Force | Out-Null }
+
+                Update-PartsBookProgress -Handle $progress `
+                    -Message "Book $idx of $($selected.Count): $bookName" `
+                    -Percent ([double]($idx-1) / $selected.Count * 100) `
+                    -Book $bookName
+
+                $url = "https://www1.mtsc.usps.gov/apps/phbk/index.php?msbookno=$($row.'MS Book No')&volno=$($row.Volume)"
+                Start-Process $url
+
+                $html = Get-PartsBookTreeHtml -BookName $bookName
+                if ([string]::IsNullOrWhiteSpace($html)) {
+                    Write-Log "Parts Book Creator: skipped $bookName (no HTML pasted)"
+                    continue
+                }
+
+                try {
+                    $tree = ConvertFrom-PartsBookTree -HtmlContent $html -Row $row -DirectoryPath $bookDir
+                } catch {
+                    Write-Log "Parts Book Creator: DOM parse failed for $bookName, trying fallback: $($_.Exception.Message)"
+                    $tree = ConvertFrom-PartsBookTreeFallback -HtmlContent $html -Row $row -DirectoryPath $bookDir
+                }
+
+                $newBooks[(Get-BookKey $bookName)] = @{
+                    VolumesToUrlCsvPath = $tree.VolumesToUrlPath
+                    SectionNamesCsvPath = $tree.SectionNamesPath
+                }
+
+                $figData = Import-Csv -Path $tree.VolumesToUrlPath
+                Export-PartsBookFigures -VolumesToUrlData $figData -DirectoryPath $bookDir -BookName $bookName -ProgressHandle $progress | Out-Null
+
+                $combined = Merge-PartsBookSections -SourceDir $bookDir -SiteCsvPath $partsRoomCsv -PartsBookName $safeName
+
+                $excelPath = New-PartsBookExcel -SourceDir $bookDir -CombinedCsvDir $combined -BookName $bookName -ProgressHandle $progress
+
+                $sectionMap = @{}
+                foreach ($line in (Get-Content -Path $tree.SectionNamesPath)) {
+                    if ($line -match '^(Section \d+) (.+)$') { $sectionMap[$matches[1]] = $line }
+                }
+                Rename-PartsBookWorksheets -ExcelFilePath $excelPath -SectionNameMap $sectionMap
+            }
+
+            Save-ConfigBooks -NewBooks $newBooks
+
+            if ($partsRoomCsv) {
+                $siteName = [System.IO.Path]::GetFileNameWithoutExtension($partsRoomCsv)
+                Create-ExcelFromCsv -siteName $siteName `
+                    -csvDirectory $script:config.PartsRoomDirectory `
+                    -excelDirectory $script:config.PartsRoomDirectory
+            }
+
+            $progress.Form.Close()
+            [System.Windows.Forms.MessageBox]::Show(
+                "Created $($newBooks.Count) book(s).", "Parts Book Creator", "OK", "Information")
+        } catch {
+            $progress.Form.Close()
+            Write-Log "Parts Book Creator: fatal: $($_.Exception.Message)"
+            [System.Windows.Forms.MessageBox]::Show(
+                "Failed:`r`n$($_.Exception.Message)", "Parts Book Creator", "OK", "Error")
+        } finally {
+            $form.Close()
+        }
+    })
+
+    $form.CancelButton = $closeBtn
+    $form.ShowDialog() | Out-Null
 }
 
 # Helper function to parse HTML content into CSV data
@@ -1220,205 +2304,6 @@ function Take-PartOut {
     [System.Windows.Forms.MessageBox]::Show("Take Part Out process not implemented yet.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
 }
 
-# Add Parts to Work order
-function Add-PartsToWorkOrder {
-    param($workOrderNumber)
-    
-    $form = New-Object System.Windows.Forms.Form
-    $form.Text = "Add Parts to Work Order #$workOrderNumber"
-    $form.Size = New-Object System.Drawing.Size(800, 600)
-    $form.StartPosition = 'CenterScreen'
-    
-    # Search panel (top)
-    $searchPanel = New-Object System.Windows.Forms.Panel
-    $searchPanel.Location = New-Object System.Drawing.Point(10, 10)
-    $searchPanel.Size = New-Object System.Drawing.Size(770, 80)
-    $form.Controls.Add($searchPanel)
-    
-    # NSN search
-    $labelNSN = New-Object System.Windows.Forms.Label
-    $labelNSN.Text = "Part Number/NSN:"
-    $labelNSN.Location = New-Object System.Drawing.Point(10, 15)
-    $labelNSN.Size = New-Object System.Drawing.Size(100, 20)
-    $searchPanel.Controls.Add($labelNSN)
-    
-    $textBoxNSN = New-Object System.Windows.Forms.TextBox
-    $textBoxNSN.Location = New-Object System.Drawing.Point(110, 12)
-    $textBoxNSN.Size = New-Object System.Drawing.Size(150, 20)
-    $searchPanel.Controls.Add($textBoxNSN)
-    
-    # Description search
-    $labelDesc = New-Object System.Windows.Forms.Label
-    $labelDesc.Text = "Description:"
-    $labelDesc.Location = New-Object System.Drawing.Point(280, 15)
-    $labelDesc.Size = New-Object System.Drawing.Size(80, 20)
-    $searchPanel.Controls.Add($labelDesc)
-    
-    $textBoxDesc = New-Object System.Windows.Forms.TextBox
-    $textBoxDesc.Location = New-Object System.Drawing.Point(360, 12)
-    $textBoxDesc.Size = New-Object System.Drawing.Size(250, 20)
-    $searchPanel.Controls.Add($textBoxDesc)
-    
-    # Search button
-    $searchButton = New-Object System.Windows.Forms.Button
-    $searchButton.Text = "Search"
-    $searchButton.Location = New-Object System.Drawing.Point(630, 10)
-    $searchButton.Size = New-Object System.Drawing.Size(120, 25)
-    $searchPanel.Controls.Add($searchButton)
-    
-    # Results panel (middle)
-    $resultsPanel = New-Object System.Windows.Forms.Panel
-    $resultsPanel.Location = New-Object System.Drawing.Point(10, 100)
-    $resultsPanel.Size = New-Object System.Drawing.Size(770, 250)
-    $form.Controls.Add($resultsPanel)
-    
-    $resultsLabel = New-Object System.Windows.Forms.Label
-    $resultsLabel.Text = "Search Results:"
-    $resultsLabel.Location = New-Object System.Drawing.Point(10, 5)
-    $resultsLabel.Size = New-Object System.Drawing.Size(100, 20)
-    $resultsPanel.Controls.Add($resultsLabel)
-    
-    $resultsListView = New-Object System.Windows.Forms.ListView
-    $resultsListView.Location = New-Object System.Drawing.Point(10, 25)
-    $resultsListView.Size = New-Object System.Drawing.Size(750, 220)
-    $resultsListView.View = [System.Windows.Forms.View]::Details
-    $resultsListView.FullRowSelect = $true
-    $resultsListView.CheckBoxes = $true
-    $resultsListView.Columns.Add("Part Number", 100)
-    $resultsListView.Columns.Add("Description", 250)
-    $resultsListView.Columns.Add("QTY Available", 80)
-    $resultsListView.Columns.Add("Location", 100)
-    $resultsListView.Columns.Add("OEM Number", 100)
-    $resultsListView.Columns.Add("Source", 100)
-    $resultsPanel.Controls.Add($resultsListView)
-    
-    # Selected parts panel (bottom)
-    $selectedPartsPanel = New-Object System.Windows.Forms.Panel
-    $selectedPartsPanel.Location = New-Object System.Drawing.Point(10, 360)
-    $selectedPartsPanel.Size = New-Object System.Drawing.Size(770, 150)
-    $form.Controls.Add($selectedPartsPanel)
-    
-    $selectedLabel = New-Object System.Windows.Forms.Label
-    $selectedLabel.Text = "Selected Parts:"
-    $selectedLabel.Location = New-Object System.Drawing.Point(10, 5)
-    $selectedLabel.Size = New-Object System.Drawing.Size(100, 20)
-    $selectedPartsPanel.Controls.Add($selectedLabel)
-    
-    $selectedListView = New-Object System.Windows.Forms.ListView
-    $selectedListView.Location = New-Object System.Drawing.Point(10, 25)
-    $selectedListView.Size = New-Object System.Drawing.Size(750, 120)
-    $selectedListView.View = [System.Windows.Forms.View]::Details
-    $selectedListView.FullRowSelect = $true
-    $selectedListView.Columns.Add("Part Number", 100)
-    $selectedListView.Columns.Add("Description", 250)
-    $selectedListView.Columns.Add("Quantity", 80)
-    $selectedListView.Columns.Add("Source", 200)
-    $selectedListView.Columns.Add("Location", 100)
-    $selectedPartsPanel.Controls.Add($selectedListView)
-    
-    # Buttons panel
-    $buttonsPanel = New-Object System.Windows.Forms.Panel
-    $buttonsPanel.Location = New-Object System.Drawing.Point(10, 520)
-    $buttonsPanel.Size = New-Object System.Drawing.Size(770, 40)
-    $form.Controls.Add($buttonsPanel)
-    
-    $addSelectedButton = New-Object System.Windows.Forms.Button
-    $addSelectedButton.Text = "Add Selected Part(s)"
-    $addSelectedButton.Location = New-Object System.Drawing.Point(10, 10)
-    $addSelectedButton.Size = New-Object System.Drawing.Size(150, 25)
-    $buttonsPanel.Controls.Add($addSelectedButton)
-    
-    $removeButton = New-Object System.Windows.Forms.Button
-    $removeButton.Text = "Remove Selected"
-    $removeButton.Location = New-Object System.Drawing.Point(170, 10)
-    $removeButton.Size = New-Object System.Drawing.Size(150, 25)
-    $buttonsPanel.Controls.Add($removeButton)
-    
-    $saveButton = New-Object System.Windows.Forms.Button
-    $saveButton.Text = "Save Parts to Work Order"
-    $saveButton.Location = New-Object System.Drawing.Point(610, 10)
-    $saveButton.Size = New-Object System.Drawing.Size(150, 25)
-    $buttonsPanel.Controls.Add($saveButton)
-    
-    # Event handlers
-    $searchButton.Add_Click({
-        $nsn = $textBoxNSN.Text.Trim()
-        $desc = $textBoxDesc.Text.Trim()
-        
-        # Clear previous results
-        $resultsListView.Items.Clear()
-        
-        # Search logic - Simplified for clarity
-        $results = Search-Parts -NSN $nsn -Description $desc
-        
-        # Populate results
-        foreach ($part in $results) {
-            $item = New-Object System.Windows.Forms.ListViewItem($part.PartNumber)
-            $item.SubItems.Add($part.Description) | Out-Null
-            $item.SubItems.Add($part.Quantity) | Out-Null
-            $item.SubItems.Add($part.Location) | Out-Null
-            $item.SubItems.Add($part.OEMNumber) | Out-Null
-            $item.SubItems.Add($part.Source) | Out-Null
-            $item.Tag = $part  # Store the full part object for later use
-            $resultsListView.Items.Add($item) | Out-Null
-        }
-    })
-    
-    $addSelectedButton.Add_Click({
-        foreach ($item in $resultsListView.CheckedItems) {
-            $partObj = $item.Tag
-            
-            # Prompt for quantity
-            $qty = Get-PartQuantity -PartNumber $partObj.PartNumber -MaxQty $partObj.Quantity
-            
-            if ($qty -gt 0) {
-                # Add to selected parts list
-                $newItem = New-Object System.Windows.Forms.ListViewItem($partObj.PartNumber)
-                $newItem.SubItems.Add($partObj.Description) | Out-Null
-                $newItem.SubItems.Add($qty) | Out-Null
-                $newItem.SubItems.Add($partObj.Source) | Out-Null
-                $newItem.SubItems.Add($partObj.Location) | Out-Null
-                $newItem.Tag = [PSCustomObject]@{
-                    PartNumber = $partObj.PartNumber
-                    Description = $partObj.Description
-                    Quantity = $qty
-                    Source = $partObj.Source
-                    Location = $partObj.Location
-                    OEMNumber = $partObj.OEMNumber
-                }
-                $selectedListView.Items.Add($newItem) | Out-Null
-            }
-        }
-    })
-    
-    $removeButton.Add_Click({
-        foreach ($item in $selectedListView.SelectedItems) {
-            $selectedListView.Items.Remove($item)
-        }
-    })
-    
-    $saveButton.Add_Click({
-        $partsToAdd = @()
-        
-        foreach ($item in $selectedListView.Items) {
-            $partsToAdd += $item.Tag
-        }
-        
-        if ($partsToAdd.Count -gt 0) {
-            # Simple save function that doesn't depend on complex state
-            if (Save-PartsToWorkOrder -WorkOrderNumber $workOrderNumber -Parts $partsToAdd) {
-                # Success is already shown in Save-PartsToWorkOrder
-                $form.Close()
-            }
-        } else {
-            [System.Windows.Forms.MessageBox]::Show("No parts selected to add to the work order.", "Warning", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-        }
-    })
-    
-    # Show the form
-    $form.ShowDialog()
-}
-
 # Simple helper function to get quantity
 function Get-PartQuantity {
     param(
@@ -1478,91 +2363,6 @@ function Get-PartQuantity {
     }
     
     return 0
-}
-
-# Simple helper function to save parts to work order
-function Save-PartsToWorkOrder {
-    param(
-        [string]$WorkOrderNumber,
-        [array]$Parts
-    )
-    
-    Write-Log "=== START Save-PartsToWorkOrder ==="
-    Write-Log "Saving parts to Work Order: $WorkOrderNumber"
-    Write-Log "Number of parts to save: $($Parts.Count)"
-    
-    # 1. Initialize/update global work order parts dictionary if needed
-    if ($null -eq $script:workOrderParts) {
-        Write-Log "Initializing workOrderParts dictionary"
-        $script:workOrderParts = @{}
-    }
-    
-    # 2. Find the item in the ListView 
-    $targetItem = $null
-    $targetIndex = -1
-    
-    for ($i = 0; $i -lt $script:listViewLaborLog.Items.Count; $i++) {
-        $item = $script:listViewLaborLog.Items[$i]
-        if ($item.SubItems[1].Text -eq $WorkOrderNumber) {
-            $targetItem = $item
-            $targetIndex = $i
-            break
-        }
-    }
-    
-    if ($targetItem -eq $null) {
-        Write-Log "WARNING: Work order $WorkOrderNumber not found in ListView"
-        [System.Windows.Forms.MessageBox]::Show("Work order $WorkOrderNumber not found in labor logs", "Warning", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Warning)
-        return
-    }
-    
-    # 3. For items without a proper work order number, update with row-based identifier
-    if ($WorkOrderNumber -eq "Need W/O #") {
-        $newWorkOrderNumber = "Need W/O #-$(New-Guid)"
-        $targetItem.SubItems[1].Text = $newWorkOrderNumber
-        $WorkOrderNumber = $newWorkOrderNumber
-    }
-    
-    # 4. Add/update parts for this work order in our dictionary
-    Write-Log "Updating workOrderParts dictionary for work order: $WorkOrderNumber"
-    $script:workOrderParts[$WorkOrderNumber] = $Parts
-    
-    # 5. Load existing labor logs
-    $laborLogsPath = Join-Path $config.LaborDirectory "LaborLogs.csv"
-    Write-Log "Loading labor logs from: $laborLogsPath"
-    
-    if (-not (Test-Path $laborLogsPath)) {
-        Write-Log "ERROR: Labor logs file not found at: $laborLogsPath"
-        [System.Windows.Forms.MessageBox]::Show("Labor logs file not found at: $laborLogsPath", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-        return
-    }
-    
-    try {
-        # 6. Build a formatted parts display for the ListView
-        $partsSummary = ($Parts | ForEach-Object {
-            "$($_.PartNumber) - Qty:$($_.Quantity)"
-        }) -join ", "
-        
-        # 7. Update the parts column in the ListView (index 5 is Parts column)
-        $targetItem.SubItems[5].Text = $partsSummary
-        
-        Write-Log ("Parts display updated in ListView for {0}: {1}" -f $WorkOrderNumber, $partsSummary)
-        
-        # 8. Save all labor logs with updated work order IDs and parts
-        Save-LaborLogs -listView $script:listViewLaborLog -filePath $laborLogsPath
-        
-        # 9. Only show one success dialog
-        [System.Windows.Forms.MessageBox]::Show("Parts added successfully to $WorkOrderNumber", "Success", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-        
-        Write-Log "=== END Save-PartsToWorkOrder ==="
-        return $true
-    }
-    catch {
-        Write-Log "ERROR in Save-PartsToWorkOrder: $($_.Exception.Message)"
-        Write-Log "Stack trace: $($_.ScriptStackTrace)"
-        [System.Windows.Forms.MessageBox]::Show("Error saving parts to work order: $($_.Exception.Message)", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-        return $false
-    }
 }
 
 ################################################################################
@@ -2067,6 +2867,640 @@ function Save-Jobs {
     } catch {
         Write-Log "Error saving jobs: $($_.Exception.Message)"
         if (Test-Path $tmp) { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
+        return $false
+    }
+}
+
+# ============================================================
+# Installation management
+# ============================================================
+
+$script:installSubdirs = @(
+    'Scripts'
+    'Dropdown CSVs'
+    'Parts Room'
+    'Parts Books'
+    'Work Tracking'
+    'Work Tracking\Weekly Worksheets'
+    'Work Tracking\PM Checklists'
+    'Work Tracking\Reports'
+)
+
+$script:installCsvFiles = @(
+    'Sites.csv'
+    'Parsed-Parts-Volumes.csv'
+    'Machines.csv'
+)
+
+$script:installCsvHeaders = @{
+    'Sites.csv'                  = 'Site ID,Full Name'
+    'Parsed-Parts-Volumes.csv'   = 'Full Name,MS Book No,Volume'
+    'Machines.csv'               = 'Machine Acronym,Machine Number'
+}
+
+function New-InstallationTree {
+    # Creates the full folder tree under $Root. Returns the count created.
+    param([string]$Root)
+
+    if ([string]::IsNullOrWhiteSpace($Root)) { throw "Root is required." }
+    if (-not (Test-Path $Root)) { New-Item -ItemType Directory -Path $Root -Force | Out-Null }
+
+    $created = 0
+    foreach ($sub in $script:installSubdirs) {
+        $full = Join-Path $Root $sub
+        if (-not (Test-Path $full)) {
+            New-Item -ItemType Directory -Path $full -Force | Out-Null
+            $created++
+        }
+    }
+
+    # Same Day Parts Room lives under Parts Room
+    $sameDay = Join-Path $Root 'Parts Room\Same Day Parts Room'
+    if (-not (Test-Path $sameDay)) {
+        New-Item -ItemType Directory -Path $sameDay -Force | Out-Null
+        $created++
+    }
+
+    return $created
+}
+
+function Copy-DropdownTemplates {
+    # Copies CSVs from $SourceDir into <Root>\Dropdown CSVs\, only if missing.
+    # Creates header-only blanks for any not found in $SourceDir.
+    # Returns @{ Copied = N; Seeded = N }
+    param([string]$Root, [string]$SourceDir)
+
+    $destDir = Join-Path $Root 'Dropdown CSVs'
+    if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir -Force | Out-Null }
+
+    $copied = 0
+    $seeded = 0
+
+    foreach ($name in $script:installCsvFiles) {
+        $dest = Join-Path $destDir $name
+        if (Test-Path $dest) { continue }   # don't overwrite
+
+        $src = $null
+        if (-not [string]::IsNullOrWhiteSpace($SourceDir)) {
+            $candidate = Join-Path $SourceDir $name
+            if (Test-Path $candidate) { $src = $candidate }
+        }
+
+        if ($src) {
+            Copy-Item -Path $src -Destination $dest -Force
+            $copied++
+        } else {
+            $hdr = $script:installCsvHeaders[$name]
+            if ($hdr) { $hdr | Out-File -FilePath $dest -Encoding UTF8 }
+            $seeded++
+        }
+    }
+
+    return [PSCustomObject]@{ Copied = $copied; Seeded = $seeded }
+}
+
+function Write-DefaultConfigFile {
+    param([string]$Root, [string]$ScriptsDir)
+
+    if (-not (Test-Path $Root)) { New-Item -ItemType Directory -Path $Root -Force | Out-Null }
+
+    $cfg  = New-DefaultConfigObject -Root $Root -ScriptsDir $ScriptsDir
+    $path = Join-Path $Root 'Config.json'
+    $cfg | ConvertTo-Json -Depth 12 | Set-Content -Path $path -Encoding UTF8
+    return $path
+}
+
+function Show-InstallationWizard {
+    # Guided setup. Returns $true if config was written, $false otherwise.
+    param([string]$InitialRoot = '')
+
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = 'Installation Setup'
+    $form.Size = New-Object System.Drawing.Size(640, 480)
+    $form.StartPosition = 'CenterScreen'
+    $form.FormBorderStyle = 'FixedDialog'
+    $form.MaximizeBox = $false
+    $form.MinimizeBox = $false
+    $form.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $form.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+
+    $lblTitle = New-Object System.Windows.Forms.Label
+    $lblTitle.Text = 'Installation Setup'
+    $lblTitle.Location = New-Object System.Drawing.Point(20, 14)
+    $lblTitle.Size = New-Object System.Drawing.Size(600, 26)
+    $lblTitle.Font = New-Object System.Drawing.Font("Segoe UI", 12, [System.Drawing.FontStyle]::Bold)
+    $lblTitle.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $form.Controls.Add($lblTitle)
+
+    $lblIntro = New-Object System.Windows.Forms.Label
+    $lblIntro.Text = "This will create (or verify) the folder tree and seed the dropdown CSVs.`r`nExisting data is never overwritten."
+    $lblIntro.Location = New-Object System.Drawing.Point(20, 44)
+    $lblIntro.Size = New-Object System.Drawing.Size(600, 40)
+    $lblIntro.ForeColor = [System.Drawing.Color]::FromArgb(90,100,115)
+    $form.Controls.Add($lblIntro)
+
+    # --- Root row ---
+    $lblRoot = New-Object System.Windows.Forms.Label
+    $lblRoot.Text = "Data root:"
+    $lblRoot.Location = New-Object System.Drawing.Point(20, 100)
+    $lblRoot.Size = New-Object System.Drawing.Size(80, 24)
+    $lblRoot.TextAlign = 'MiddleRight'
+    $lblRoot.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $form.Controls.Add($lblRoot)
+
+    $txtRoot = New-Object System.Windows.Forms.TextBox
+    $txtRoot.Location = New-Object System.Drawing.Point(108, 100)
+    $txtRoot.Size = New-Object System.Drawing.Size(400, 24)
+    $txtRoot.Text = $InitialRoot
+    $form.Controls.Add($txtRoot)
+
+    $btnBrowseRoot = New-Object System.Windows.Forms.Button
+    $btnBrowseRoot.Text = "Browse..."
+    $btnBrowseRoot.Location = New-Object System.Drawing.Point(516, 100)
+    $btnBrowseRoot.Size = New-Object System.Drawing.Size(90, 24)
+    $btnBrowseRoot.FlatStyle = 'Flat'
+    $btnBrowseRoot.FlatAppearance.BorderSize = 0
+    $btnBrowseRoot.BackColor = [System.Drawing.Color]::FromArgb(189,195,199)
+    $btnBrowseRoot.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $btnBrowseRoot.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $btnBrowseRoot.Cursor = 'Hand'
+    $btnBrowseRoot.Add_Click({
+        $dlg = New-Object System.Windows.Forms.FolderBrowserDialog
+        $dlg.Description = "Select or create the data root folder"
+        if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+            $txtRoot.Text = $dlg.SelectedPath
+        }
+    })
+    $form.Controls.Add($btnBrowseRoot)
+
+    # --- Source CSVs row (optional) ---
+    $lblSrc = New-Object System.Windows.Forms.Label
+    $lblSrc.Text = "CSV source (opt):"
+    $lblSrc.Location = New-Object System.Drawing.Point(20, 136)
+    $lblSrc.Size = New-Object System.Drawing.Size(80, 24)
+    $lblSrc.TextAlign = 'MiddleRight'
+    $lblSrc.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $form.Controls.Add($lblSrc)
+
+    $txtSrc = New-Object System.Windows.Forms.TextBox
+    $txtSrc.Location = New-Object System.Drawing.Point(108, 136)
+    $txtSrc.Size = New-Object System.Drawing.Size(400, 24)
+    $txtSrc.Text = ''
+    $form.Controls.Add($txtSrc)
+
+    $btnBrowseSrc = New-Object System.Windows.Forms.Button
+    $btnBrowseSrc.Text = "Browse..."
+    $btnBrowseSrc.Location = New-Object System.Drawing.Point(516, 136)
+    $btnBrowseSrc.Size = New-Object System.Drawing.Size(90, 24)
+    $btnBrowseSrc.FlatStyle = 'Flat'
+    $btnBrowseSrc.FlatAppearance.BorderSize = 0
+    $btnBrowseSrc.BackColor = [System.Drawing.Color]::FromArgb(189,195,199)
+    $btnBrowseSrc.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $btnBrowseSrc.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $btnBrowseSrc.Cursor = 'Hand'
+    $btnBrowseSrc.Add_Click({
+        $dlg = New-Object System.Windows.Forms.FolderBrowserDialog
+        $dlg.Description = "Folder containing Sites.csv, Causes.csv, etc. (optional)"
+        if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+            $txtSrc.Text = $dlg.SelectedPath
+        }
+    })
+    $form.Controls.Add($btnBrowseSrc)
+
+    $lblHint = New-Object System.Windows.Forms.Label
+    $lblHint.Text = "If left blank, blank CSVs with headers are created. You can fill them in later."
+    $lblHint.Location = New-Object System.Drawing.Point(108, 162)
+    $lblHint.Size = New-Object System.Drawing.Size(500, 20)
+    $lblHint.Font = New-Object System.Drawing.Font("Segoe UI", 8, [System.Drawing.FontStyle]::Italic)
+    $lblHint.ForeColor = [System.Drawing.Color]::FromArgb(140,150,165)
+    $form.Controls.Add($lblHint)
+
+    # --- Summary ---
+    $lblSum = New-Object System.Windows.Forms.Label
+    $lblSum.Location = New-Object System.Drawing.Point(20, 200)
+    $lblSum.Size = New-Object System.Drawing.Size(600, 170)
+    $lblSum.Font = New-Object System.Drawing.Font("Consolas", 9)
+    $lblSum.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $lblSum.Text = ''
+    $form.Controls.Add($lblSum)
+
+    $updateSummary = {
+        $root = $txtRoot.Text.Trim()
+        if ([string]::IsNullOrWhiteSpace($root)) {
+            $lblSum.Text = "Select a data root to continue."
+            return
+        }
+        $exists = Test-Path $root
+        $files  = if ($exists) { @(Get-ChildItem -Path $root -File -Recurse -ErrorAction SilentlyContinue).Count } else { 0 }
+        $dirs   = if ($exists) { @(Get-ChildItem -Path $root -Directory -Recurse -ErrorAction SilentlyContinue).Count } else { 0 }
+
+        $src = $txtSrc.Text.Trim()
+        $srcSummary = if ($src) { "CSV source: $src" } else { "CSV source: (none - blanks will be created)" }
+
+        $lines = @()
+        $lines += "Root:         $root"
+        $lines += "Scripts dir:  $PSScriptRoot"
+        $lines += "Status:       $(if ($exists) { "folder exists ($dirs subdirs, $files files)" } else { "will be created" })"
+        $lines += $srcSummary
+        $lines += ""
+        $lines += "Will create:"
+        foreach ($s in $script:installSubdirs) { $lines += "  $s" }
+        $lines += "  Parts Room\Same Day Parts Room"
+        $lblSum.Text = ($lines -join "`r`n")
+    }
+
+    $txtRoot.Add_TextChanged($updateSummary)
+    $txtSrc.Add_TextChanged($updateSummary)
+    & $updateSummary
+
+    # --- Buttons ---
+    $btnBar = New-Object System.Windows.Forms.Panel
+    $btnBar.Dock = 'Bottom'
+    $btnBar.Height = 52
+    $form.Controls.Add($btnBar)
+
+    $cancelBtn = New-Object System.Windows.Forms.Button
+    $cancelBtn.Text = "Cancel"
+    $cancelBtn.Size = New-Object System.Drawing.Size(100, 32)
+    $cancelBtn.Location = New-Object System.Drawing.Point(($form.ClientSize.Width - 220), 10)
+    $cancelBtn.Anchor = 'Top,Right'
+    $cancelBtn.FlatStyle = 'Flat'
+    $cancelBtn.FlatAppearance.BorderSize = 0
+    $cancelBtn.BackColor = [System.Drawing.Color]::FromArgb(189,195,199)
+    $cancelBtn.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $cancelBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $cancelBtn.Cursor = 'Hand'
+    $cancelBtn.Add_Click({ $form.Tag = $false; $form.Close() })
+    $btnBar.Controls.Add($cancelBtn)
+
+    $okBtn = New-Object System.Windows.Forms.Button
+    $okBtn.Text = "Create / Verify"
+    $okBtn.Size = New-Object System.Drawing.Size(120, 32)
+    $okBtn.Location = New-Object System.Drawing.Point(($form.ClientSize.Width - 116), 10)
+    $okBtn.Anchor = 'Top,Right'
+    $okBtn.FlatStyle = 'Flat'
+    $okBtn.FlatAppearance.BorderSize = 0
+    $okBtn.BackColor = [System.Drawing.Color]::FromArgb(39,174,96)
+    $okBtn.ForeColor = [System.Drawing.Color]::White
+    $okBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $okBtn.Cursor = 'Hand'
+    $okBtn.Add_Click({
+        $root = $txtRoot.Text.Trim()
+        if ([string]::IsNullOrWhiteSpace($root)) {
+            [System.Windows.Forms.MessageBox]::Show("Pick a data root first.", "Installation Setup", "OK", "Warning")
+            return
+        }
+
+        try {
+            $dirsCreated = New-InstallationTree -Root $root
+            $csvResult   = Copy-DropdownTemplates -Root $root -SourceDir $txtSrc.Text.Trim()
+            $configPath  = Write-DefaultConfigFile -Root $root -ScriptsDir $PSScriptRoot
+
+            $msg = @()
+            $msg += "Installation ready."
+            $msg += ""
+            $msg += "Root:            $root"
+            $msg += "Folders created: $dirsCreated"
+            $msg += "CSVs copied:     $($csvResult.Copied)"
+            $msg += "CSVs seeded:     $($csvResult.Seeded)"
+            $msg += "Config written:  $configPath"
+
+            [System.Windows.Forms.MessageBox]::Show(($msg -join "`r`n"), "Installation Setup", "OK", "Information")
+
+            Write-Log "Installation wizard: root=$root, dirs=$dirsCreated, csvCopied=$($csvResult.Copied), csvSeeded=$($csvResult.Seeded)"
+
+            $form.Tag = $true
+            $form.Close()
+        } catch {
+            Write-Log "Installation wizard error: $($_.Exception.Message)"
+            [System.Windows.Forms.MessageBox]::Show("Setup failed:`r`n$($_.Exception.Message)", "Installation Setup", "OK", "Error")
+        }
+    })
+    $btnBar.Controls.Add($okBtn)
+
+    $form.AcceptButton = $okBtn
+    $form.CancelButton = $cancelBtn
+    $form.ShowDialog() | Out-Null
+    return [bool]$form.Tag
+}
+
+# ============================================================
+# Handbook Parts-Volumes creator
+# ============================================================
+
+function New-PartsVolumesCsv {
+    param(
+        [string]$Html,
+        [string]$TargetPath
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Html))        { throw "No HTML supplied." }
+    if ([string]::IsNullOrWhiteSpace($TargetPath))  { throw "No target path supplied." }
+
+    $regex = '<option\s+value="(?<msbookno>[^"]+)"\s+volno="(?<volno>[^"]+)">(?<fullname>.*?)</option>'
+    $matches = [regex]::Matches($Html, $regex)
+
+    if ($matches.Count -eq 0) {
+        throw "No <option> elements matched. Confirm you pasted the entire <select> block."
+    }
+
+    $dir = Split-Path -Path $TargetPath -Parent
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+
+    $lines = New-Object System.Collections.Generic.List[string]
+    $lines.Add("MS Book No,Volume,Full Name")
+
+    foreach ($m in $matches) {
+        $msbookno = $m.Groups['msbookno'].Value
+        $volno    = $m.Groups['volno'].Value
+        $fullname = $m.Groups['fullname'].Value.Replace('"', '""')
+        $lines.Add("$msbookno,$volno,""$fullname""")
+    }
+
+    $lines | Out-File -LiteralPath $TargetPath -Encoding UTF8
+    Write-Log "New-PartsVolumesCsv: wrote $($matches.Count) row(s) to $TargetPath"
+    return $matches.Count
+}
+
+function Show-PartsVolumesWizard {
+    $targetPath = Join-Path $script:config.DropdownCsvsDirectory 'Parsed-Parts-Volumes.csv'
+
+    if (Test-Path $targetPath) {
+        $ans = [System.Windows.Forms.MessageBox]::Show(
+            "Parsed-Parts-Volumes.csv already exists:`r`n$targetPath`r`n`r`nReplace it?",
+            "Parts Volumes List",
+            [System.Windows.Forms.MessageBoxButtons]::YesNo,
+            [System.Windows.Forms.MessageBoxIcon]::Question)
+        if ($ans -ne [System.Windows.Forms.DialogResult]::Yes) { return $false }
+    }
+
+    try {
+        Start-Process "https://www1.mtsc.usps.gov/apps/mtsc/index.php#Doc&partssearch&0&NA"
+    } catch {
+        Write-Log "Parts-Volumes wizard: could not open browser: $($_.Exception.Message)"
+    }
+
+    [System.Windows.Forms.MessageBox]::Show(
+        "In the browser window that just opened:`r`n`r`n" +
+        "  1. Navigate to the Parts Search page.`r`n" +
+        "  2. Right-click the parts-book dropdown and choose Inspect.`r`n" +
+        "  3. Copy the entire <select> element's HTML.`r`n" +
+        "  4. Paste it into the next window.",
+        "Parts Volumes List",
+        [System.Windows.Forms.MessageBoxButtons]::OK,
+        [System.Windows.Forms.MessageBoxIcon]::Information)
+
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = "Paste Parts Handbook HTML"
+    $form.Size = New-Object System.Drawing.Size(900, 700)
+    $form.MinimumSize = New-Object System.Drawing.Size(700, 500)
+    $form.StartPosition = 'CenterParent'
+    $form.FormBorderStyle = 'Sizable'
+    $form.MaximizeBox = $false
+    $form.MinimizeBox = $false
+    $form.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $form.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+
+    $lblHead = New-Object System.Windows.Forms.Label
+    $lblHead.Text = "Paste the entire <select> block from the MTSC Parts Search page."
+    $lblHead.Dock = 'Top'
+    $lblHead.Height = 28
+    $lblHead.Padding = New-Object System.Windows.Forms.Padding(12, 8, 12, 0)
+    $lblHead.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $form.Controls.Add($lblHead)
+
+    $btnBar = New-Object System.Windows.Forms.Panel
+    $btnBar.Dock = 'Bottom'
+    $btnBar.Height = 52
+    $form.Controls.Add($btnBar)
+
+    $cancelBtn = New-Object System.Windows.Forms.Button
+    $cancelBtn.Text = "Cancel"
+    $cancelBtn.Location = New-Object System.Drawing.Point(680, 10)
+    $cancelBtn.Size = New-Object System.Drawing.Size(90, 32)
+    $cancelBtn.Anchor = 'Top,Right'
+    $cancelBtn.FlatStyle = 'Flat'
+    $cancelBtn.FlatAppearance.BorderSize = 0
+    $cancelBtn.BackColor = [System.Drawing.Color]::FromArgb(189,195,199)
+    $cancelBtn.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $cancelBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $cancelBtn.Cursor = 'Hand'
+    $cancelBtn.Add_Click({ $form.Tag = $null; $form.Close() })
+    $btnBar.Controls.Add($cancelBtn)
+
+    $okBtn = New-Object System.Windows.Forms.Button
+    $okBtn.Text = "Parse & Save"
+    $okBtn.Location = New-Object System.Drawing.Point(780, 10)
+    $okBtn.Size = New-Object System.Drawing.Size(100, 32)
+    $okBtn.Anchor = 'Top,Right'
+    $okBtn.FlatStyle = 'Flat'
+    $okBtn.FlatAppearance.BorderSize = 0
+    $okBtn.BackColor = [System.Drawing.Color]::FromArgb(39,174,96)
+    $okBtn.ForeColor = [System.Drawing.Color]::White
+    $okBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $okBtn.Cursor = 'Hand'
+    $okBtn.Add_Click({
+        if ([string]::IsNullOrWhiteSpace($txtPaste.Text)) { return }
+        $form.Tag = $txtPaste.Text
+        $form.Close()
+    })
+    $btnBar.Controls.Add($okBtn)
+
+    $txtPaste = New-Object System.Windows.Forms.TextBox
+    $txtPaste.Multiline = $true
+    $txtPaste.MaxLength = 0
+    $txtPaste.Dock = 'Fill'
+    $txtPaste.ScrollBars = 'Both'
+    $txtPaste.WordWrap = $false
+    $txtPaste.Font = New-Object System.Drawing.Font("Consolas", 8)
+    $txtPaste.AcceptsReturn = $true
+    $txtPaste.Padding = New-Object System.Windows.Forms.Padding(8)
+    $form.Controls.Add($txtPaste)
+    $txtPaste.BringToFront()
+
+    $form.CancelButton = $cancelBtn
+    $form.ShowDialog() | Out-Null
+
+    $html = $form.Tag
+    if ([string]::IsNullOrWhiteSpace($html)) { return $false }
+
+    try {
+        $count = New-PartsVolumesCsv -Html $html -TargetPath $targetPath
+        [System.Windows.Forms.MessageBox]::Show(
+            "Wrote $count entries to:`r`n$targetPath",
+            "Parts Volumes List", "OK", "Information")
+        return $true
+    } catch {
+        Write-Log "Show-PartsVolumesWizard: $($_.Exception.Message)"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Failed:`r`n$($_.Exception.Message)",
+            "Parts Volumes List", "OK", "Error")
+        return $false
+    }
+}
+
+# ============================================================
+# Sites list creator
+# ============================================================
+
+function New-SitesCsv {
+    param(
+        [string]$Html,
+        [string]$TargetPath
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Html))       { throw "No HTML supplied." }
+    if ([string]::IsNullOrWhiteSpace($TargetPath)) { throw "No target path supplied." }
+
+    $regex = '<option\s+value="(?<siteid>[^"]+)"[^>]*>(?<fullname>.*?)</option>'
+    $matches = [regex]::Matches($Html, $regex, 'IgnoreCase')
+
+    if ($matches.Count -eq 0) {
+        throw "No <option> elements matched. Confirm you pasted the entire <select> block."
+    }
+
+    $dir = Split-Path -Path $TargetPath -Parent
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+
+    $lines = New-Object System.Collections.Generic.List[string]
+    $lines.Add('Site ID,Full Name')
+
+    $seen = @{}
+    $written = 0
+    foreach ($m in $matches) {
+        $siteId   = $m.Groups['siteid'].Value.Trim()
+        $fullname = $m.Groups['fullname'].Value.Trim()
+
+        if ([string]::IsNullOrWhiteSpace($siteId) -or [string]::IsNullOrWhiteSpace($fullname)) { continue }
+
+        # Skip duplicate Site IDs (keep first occurrence)
+        if ($seen.ContainsKey($siteId)) { continue }
+        $seen[$siteId] = $true
+
+        # Quote the full name; double any embedded quotes
+        $safeName = $fullname.Replace('"', '""')
+        $lines.Add("$siteId,""$safeName""")
+        $written++
+    }
+
+    $lines | Out-File -LiteralPath $TargetPath -Encoding UTF8
+    Write-Log "New-SitesCsv: wrote $written row(s) to $TargetPath"
+    return $written
+}
+
+function Show-SitesWizard {
+    $targetPath = Join-Path $script:config.DropdownCsvsDirectory 'Sites.csv'
+
+    if (Test-Path $targetPath) {
+        $ans = [System.Windows.Forms.MessageBox]::Show(
+            "Sites.csv already exists:`r`n$targetPath`r`n`r`nReplace it?",
+            "Sites List",
+            [System.Windows.Forms.MessageBoxButtons]::YesNo,
+            [System.Windows.Forms.MessageBoxIcon]::Question)
+        if ($ans -ne [System.Windows.Forms.DialogResult]::Yes) { return $false }
+    }
+
+    try {
+        Start-Process "http://emarssu3.eng.usps.gov/pemarsnp/nm_national_stock.stockroom_criteria"
+    } catch {
+        Write-Log "Sites wizard: could not open browser: $($_.Exception.Message)"
+    }
+
+    [System.Windows.Forms.MessageBox]::Show(
+        "In the browser window that just opened:`r`n`r`n" +
+        "  1. Navigate to the Site criteria page.`r`n" +
+        "  2. Right-click the sites dropdown and choose Inspect.`r`n" +
+        "  3. Copy the entire <select> element's HTML.`r`n" +
+        "  4. Paste it into the next window.",
+        "Sites List",
+        [System.Windows.Forms.MessageBoxButtons]::OK,
+        [System.Windows.Forms.MessageBoxIcon]::Information)
+
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = "Paste Sites Dropdown HTML"
+    $form.Size = New-Object System.Drawing.Size(900, 700)
+    $form.MinimumSize = New-Object System.Drawing.Size(700, 500)
+    $form.StartPosition = 'CenterParent'
+    $form.FormBorderStyle = 'Sizable'
+    $form.MaximizeBox = $false
+    $form.MinimizeBox = $false
+    $form.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $form.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+
+    $lblHead = New-Object System.Windows.Forms.Label
+    $lblHead.Text = "Paste the entire <select> block from the site criteria page."
+    $lblHead.Dock = 'Top'
+    $lblHead.Height = 28
+    $lblHead.Padding = New-Object System.Windows.Forms.Padding(12, 8, 12, 0)
+    $lblHead.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $form.Controls.Add($lblHead)
+
+    $btnBar = New-Object System.Windows.Forms.Panel
+    $btnBar.Dock = 'Bottom'
+    $btnBar.Height = 52
+    $form.Controls.Add($btnBar)
+
+    $cancelBtn = New-Object System.Windows.Forms.Button
+    $cancelBtn.Text = "Cancel"
+    $cancelBtn.Location = New-Object System.Drawing.Point(680, 10)
+    $cancelBtn.Size = New-Object System.Drawing.Size(90, 32)
+    $cancelBtn.Anchor = 'Top,Right'
+    $cancelBtn.FlatStyle = 'Flat'
+    $cancelBtn.FlatAppearance.BorderSize = 0
+    $cancelBtn.BackColor = [System.Drawing.Color]::FromArgb(189,195,199)
+    $cancelBtn.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $cancelBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $cancelBtn.Cursor = 'Hand'
+    $cancelBtn.Add_Click({ $form.Tag = $null; $form.Close() })
+    $btnBar.Controls.Add($cancelBtn)
+
+    $okBtn = New-Object System.Windows.Forms.Button
+    $okBtn.Text = "Parse & Save"
+    $okBtn.Location = New-Object System.Drawing.Point(780, 10)
+    $okBtn.Size = New-Object System.Drawing.Size(100, 32)
+    $okBtn.Anchor = 'Top,Right'
+    $okBtn.FlatStyle = 'Flat'
+    $okBtn.FlatAppearance.BorderSize = 0
+    $okBtn.BackColor = [System.Drawing.Color]::FromArgb(39,174,96)
+    $okBtn.ForeColor = [System.Drawing.Color]::White
+    $okBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $okBtn.Cursor = 'Hand'
+    $okBtn.Add_Click({
+        if ([string]::IsNullOrWhiteSpace($txtPaste.Text)) { return }
+        $form.Tag = $txtPaste.Text
+        $form.Close()
+    })
+    $btnBar.Controls.Add($okBtn)
+
+    $txtPaste = New-Object System.Windows.Forms.TextBox
+    $txtPaste.Multiline = $true
+    $txtPaste.MaxLength = 0
+    $txtPaste.Dock = 'Fill'
+    $txtPaste.ScrollBars = 'Both'
+    $txtPaste.WordWrap = $false
+    $txtPaste.Font = New-Object System.Drawing.Font("Consolas", 8)
+    $txtPaste.AcceptsReturn = $true
+    $txtPaste.Padding = New-Object System.Windows.Forms.Padding(8)
+    $form.Controls.Add($txtPaste)
+    $txtPaste.BringToFront()
+
+    $form.CancelButton = $cancelBtn
+    $form.ShowDialog() | Out-Null
+
+    $html = $form.Tag
+    if ([string]::IsNullOrWhiteSpace($html)) { return $false }
+
+    try {
+        $count = New-SitesCsv -Html $html -TargetPath $targetPath
+        [System.Windows.Forms.MessageBox]::Show(
+            "Wrote $count entries to:`r`n$targetPath",
+            "Sites List", "OK", "Information")
+        return $true
+    } catch {
+        Write-Log "Show-SitesWizard: $($_.Exception.Message)"
+        [System.Windows.Forms.MessageBox]::Show(
+            "Failed:`r`n$($_.Exception.Message)",
+            "Sites List", "OK", "Error")
         return $false
     }
 }
@@ -3710,6 +5144,28 @@ function Show-PmChecklistPasteDialog {
     return $form.Tag
 }
 
+function Update-PmMachineTabTotals {
+    param($Machine, [System.Windows.Forms.Control]$Tab)
+    if (-not $Machine -or -not $Machine.State) { return }
+
+    $d = 0; $mins = 0
+    foreach ($t in @($Machine.Parsed.Tasks)) {
+        $e = $Machine.State[$t.ItemNo]
+        if ($e -and $e.Selected) {
+            $d++
+            $mins += if ($null -ne $e.CustomTimeMin) { [int]$e.CustomTimeMin } else { [int]$t.EstTimeMin }
+        }
+    }
+    $tl = $Tab.Controls |
+          Where-Object { $_ -is [System.Windows.Forms.Label] -and $_.Dock -eq 'Bottom' } |
+          Select-Object -First 1
+    if ($tl) {
+        $tl.Text = "Done: $d of $($Machine.TaskCount)  •  $([Math]::Round($mins/60.0, 2)) h"
+    }
+
+    Update-PmSelectedHoursTotal
+}
+
 function Refresh-PmMachineTabs {
     if (-not $script:pmMachineTabs) { return }
     if (-not $script:pmDatePicker)   { return }
@@ -3787,8 +5243,7 @@ function Refresh-PmMachineTabs {
         $openBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
         $openBtn.Cursor = 'Hand'
         $openBtn.Location = New-Object System.Drawing.Point(12, 128)
-        $script:__pm_openPath = $m.HtmlPath
-        $openBtn.Add_Click({ Open-PmArchivedHtml -Path $script:__pm_openPath })
+        $openBtn.Add_Click({ Open-PmArchivedHtml -Path $m.HtmlPath }.GetNewClosure())
         $tab.Controls.Add($openBtn)
 
         # Totals line at bottom
@@ -3800,7 +5255,6 @@ function Refresh-PmMachineTabs {
         $totals.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
         $totals.Text = ""
         $tab.Controls.Add($totals)
-        $script:__pm_cur_totalsLabel = $totals
 
         # Task ListView
         $lv = New-Object System.Windows.Forms.ListView
@@ -3818,7 +5272,6 @@ function Refresh-PmMachineTabs {
         $lv.Columns.Add("Due", 90)       | Out-Null
         Set-ListViewStyle -ListView $lv
         $lv.Tag = $m          # for event handlers
-        $lv.Tag = $m
 
         $doneCount = 0
         $selectedMinutes = 0
@@ -3853,14 +5306,11 @@ function Refresh-PmMachineTabs {
 
         $totals.Text = "Done: $doneCount of $($m.TaskCount)  •  $([Math]::Round($selectedMinutes/60.0, 2)) h"
 
-
-
-        $script:__pm_curMachine = $m
         $lv.Add_ItemChecked({
             param($sender, $e)
             if ($script:pmSuppressEvents) { return }
 
-            $machine = $script:__pm_curMachine
+            $machine = $m
             if (-not $machine -or -not $machine.State) {
                 Write-Log "PM checkbox: no machine bound, ignoring."
                 return
@@ -3885,26 +5335,16 @@ function Refresh-PmMachineTabs {
 
             Save-PmSession -Machine $machine
 
-            $d = 0; $mins = 0
-            foreach ($t in @($machine.Parsed.Tasks)) {
-                $ee = $machine.State[$t.ItemNo]
-                if ($ee -and $ee.Selected) {
-                    $d++
-                    $mins += if ($null -ne $ee.CustomTimeMin) { [int]$ee.CustomTimeMin } else { [int]$t.EstTimeMin }
-                }
-            }
-            $tl = $sender.Parent.Controls | Where-Object { $_ -is [System.Windows.Forms.Label] -and $_.Dock -eq 'Bottom' }
-            if ($tl) { $tl.Text = "Done: $d of $($machine.TaskCount)  •  $([Math]::Round($mins/60.0, 2)) h" }
+            Update-PmMachineTabTotals -Machine $machine -Tab $sender.Parent
+        }.GetNewClosure())
 
-            Update-PmSelectedHoursTotal
-        })
-
-        # Wire double-click editor
         $lv.Add_DoubleClick({
             param($sender, $e)
             if ($script:pmSuppressEvents) { return }
 
-            $machine = $script:__pm_curMachine
+            $machine = $m
+            if (-not $machine -or -not $machine.State) { return }
+
             $sel = $sender.SelectedItems
             if ($sel.Count -eq 0) { return }
             $item = $sel[0]
@@ -3930,19 +5370,8 @@ function Refresh-PmMachineTabs {
             Set-PmTaskRowColors -Item $item -RowColor $rowColor -TimeIsOverridden ($null -ne $result.CustomTimeMin)
 
             # Refresh per-machine totals
-            $d = 0; $mins = 0
-            foreach ($t in @($machine.Parsed.Tasks)) {
-                $ee = $machine.State[$t.ItemNo]
-                if ($ee -and $ee.Selected) {
-                    $d++
-                    $mins += if ($null -ne $ee.CustomTimeMin) { [int]$ee.CustomTimeMin } else { [int]$t.EstTimeMin }
-                }
-            }
-            $tl = $sender.Parent.Controls | Where-Object { $_ -is [System.Windows.Forms.Label] -and $_.Dock -eq 'Bottom' }
-            if ($tl) { $tl.Text = "Done: $d of $($machine.TaskCount)  •  $([Math]::Round($mins/60.0, 2)) h" }
-
-            Update-PmSelectedHoursTotal
-        })
+            Update-PmMachineTabTotals -Machine $machine -Tab $sender.Parent
+        }.GetNewClosure())
 
         $tab.Controls.Add($lv)
         $script:pmMachineTabs.TabPages.Add($tab) | Out-Null
@@ -5358,9 +6787,6 @@ function Setup-HistorianSubTab {
         [void]$script:histKindFilter.Items.Add($k)
     }
     $script:histKindFilter.SelectedIndex = 0
-    $script:histKindFilter.SelectedIndex = 0
-    Write-Host "Kind dropdown: SelectedIndex=0, SelectedItem='$($script:histKindFilter.SelectedItem)'"
-    $script:histKindFilter.SelectedIndex = 0
     $script:histKindFilter.Add_SelectedIndexChanged({
         Refresh-HistorianMachineFilter
         Refresh-HistorianList
@@ -6755,6 +8181,83 @@ function Setup-SettingsTab {
     New-SettingRow -Parent $gBudget -Top 266 -LabelText "Paperwork (min):"                 -InputControl $paperBox
     New-SettingRow -Parent $gBudget -Top 300 -LabelText "Work Target (hours):"             -InputControl $targetBox
 
+        # --- Installation group ---
+    $gInstall = New-Object System.Windows.Forms.GroupBox
+    $gInstall.Text = "Installation"
+    $gInstall.Width = 720
+    $gInstall.Height = 150
+    $gInstall.Padding = New-Object System.Windows.Forms.Padding(12)
+    $gInstall.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $gInstall.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $gInstall.Margin = New-Object System.Windows.Forms.Padding(0, 0, 0, 12)
+    $body.Controls.Add($gInstall)
+
+    $currentRootLabel = New-Object System.Windows.Forms.Label
+    $currentRootLabel.Location = New-Object System.Drawing.Point(12, 28)
+    $currentRootLabel.Size = New-Object System.Drawing.Size(690, 22)
+    $currentRootLabel.Font = New-Object System.Drawing.Font("Consolas", 9)
+    $currentRootLabel.ForeColor = [System.Drawing.Color]::FromArgb(90,100,115)
+    $currentRootLabel.Text = "Current root: $($script:config.RootDirectory)"
+    $gInstall.Controls.Add($currentRootLabel)
+
+    $btnSetupWizard = New-Object System.Windows.Forms.Button
+    $btnSetupWizard.Text = "Run Installation Wizard"
+    $btnSetupWizard.Location = New-Object System.Drawing.Point(12, 58)
+    $btnSetupWizard.Size = New-Object System.Drawing.Size(200, 30)
+    $btnSetupWizard.FlatStyle = 'Flat'
+    $btnSetupWizard.FlatAppearance.BorderSize = 0
+    $btnSetupWizard.BackColor = [System.Drawing.Color]::FromArgb(52,152,219)
+    $btnSetupWizard.ForeColor = [System.Drawing.Color]::White
+    $btnSetupWizard.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $btnSetupWizard.Cursor = 'Hand'
+    $btnSetupWizard.Add_Click({
+        $initial = Join-Path $PSScriptRoot 'PartsMgmt'
+        $ok = Show-InstallationWizard -InitialRoot $initial
+        if ($ok) {
+            try {
+                $script:config = Get-Content -Path $script:configPath -Raw | ConvertFrom-Json
+                $currentRootLabel.Text = "Current root: $($script:config.RootDirectory)"
+                Load-WtSettingsValues
+            } catch {
+                Write-Log "Post-wizard config reload failed: $($_.Exception.Message)"
+            }
+        }
+    })
+    $gInstall.Controls.Add($btnSetupWizard)
+
+    $btnOpenRoot = New-Object System.Windows.Forms.Button
+    $btnOpenRoot.Text = "Open Root Folder"
+    $btnOpenRoot.Location = New-Object System.Drawing.Point(220, 58)
+    $btnOpenRoot.Size = New-Object System.Drawing.Size(150, 30)
+    $btnOpenRoot.FlatStyle = 'Flat'
+    $btnOpenRoot.FlatAppearance.BorderSize = 0
+    $btnOpenRoot.BackColor = [System.Drawing.Color]::FromArgb(189,195,199)
+    $btnOpenRoot.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $btnOpenRoot.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $btnOpenRoot.Cursor = 'Hand'
+    $btnOpenRoot.Add_Click({
+        $r = "$($script:config.RootDirectory)"
+        if (Test-Path $r) { Start-Process $r }
+        else { [System.Windows.Forms.MessageBox]::Show("Root folder not found: $r", "Settings", "OK", "Warning") }
+    })
+    $gInstall.Controls.Add($btnOpenRoot)
+
+    $btnOpenScripts = New-Object System.Windows.Forms.Button
+    $btnOpenScripts.Text = "Open Scripts Folder"
+    $btnOpenScripts.Location = New-Object System.Drawing.Point(380, 58)
+    $btnOpenScripts.Size = New-Object System.Drawing.Size(160, 30)
+    $btnOpenScripts.FlatStyle = 'Flat'
+    $btnOpenScripts.FlatAppearance.BorderSize = 0
+    $btnOpenScripts.BackColor = [System.Drawing.Color]::FromArgb(189,195,199)
+    $btnOpenScripts.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $btnOpenScripts.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $btnOpenScripts.Cursor = 'Hand'
+    $btnOpenScripts.Add_Click({
+        if (Test-Path $PSScriptRoot) { Start-Process $PSScriptRoot }
+    })
+    $gInstall.Controls.Add($btnOpenScripts)
+
+
     # --- Store control references in script scope so handlers can find them ---
     $script:wtSettings = @{
         TechNameBox  = $techNameBox
@@ -6818,8 +8321,48 @@ function Setup-SettingsTab {
         }
     })
 
+    $btnPartsVolumes = New-Object System.Windows.Forms.Button
+    $btnPartsVolumes.Text = "Regenerate Parts Volumes List"
+    $btnPartsVolumes.Location = New-Object System.Drawing.Point(12, 96)
+    $btnPartsVolumes.Size = New-Object System.Drawing.Size(220, 30)
+    $btnPartsVolumes.FlatStyle = 'Flat'
+    $btnPartsVolumes.FlatAppearance.BorderSize = 0
+    $btnPartsVolumes.BackColor = [System.Drawing.Color]::FromArgb(52,152,219)
+    $btnPartsVolumes.ForeColor = [System.Drawing.Color]::White
+    $btnPartsVolumes.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $btnPartsVolumes.Cursor = 'Hand'
+    $btnPartsVolumes.Add_Click({ [void](Show-PartsVolumesWizard) })
+    $gInstall.Controls.Add($btnPartsVolumes)
+
+    $btnFigureConvert = New-Object System.Windows.Forms.Button
+    $btnFigureConvert.Text = "Convert Figure HTML → CSV"
+    $btnFigureConvert.Location = New-Object System.Drawing.Point(240, 96)
+    $btnFigureConvert.Size = New-Object System.Drawing.Size(200, 30)
+    $btnFigureConvert.FlatStyle = 'Flat'
+    $btnFigureConvert.FlatAppearance.BorderSize = 0
+    $btnFigureConvert.BackColor = [System.Drawing.Color]::FromArgb(52,152,219)
+    $btnFigureConvert.ForeColor = [System.Drawing.Color]::White
+    $btnFigureConvert.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $btnFigureConvert.Cursor = 'Hand'
+    $btnFigureConvert.Add_Click({ Show-FigureConvertDialog })
+    $gInstall.Controls.Add($btnFigureConvert)
+
+    $btnSitesWizard = New-Object System.Windows.Forms.Button
+    $btnSitesWizard.Text = "Regenerate Sites List"
+    $btnSitesWizard.Location = New-Object System.Drawing.Point(240, 132)
+    $btnSitesWizard.Size = New-Object System.Drawing.Size(200, 30)
+    $btnSitesWizard.FlatStyle = 'Flat'
+    $btnSitesWizard.FlatAppearance.BorderSize = 0
+    $btnSitesWizard.BackColor = [System.Drawing.Color]::FromArgb(52,152,219)
+    $btnSitesWizard.ForeColor = [System.Drawing.Color]::White
+    $btnSitesWizard.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $btnSitesWizard.Cursor = 'Hand'
+    $btnSitesWizard.Add_Click({ [void](Show-SitesWizard) })
+    $gInstall.Controls.Add($btnSitesWizard)
+
     Write-Log "Settings tab setup completed."
 }
+
 
 # Function to set up the Search tab with enhanced debugging
 function Setup-SearchTab {
@@ -7413,52 +8956,6 @@ function Setup-SearchTab {
     Write-Log "Search tab setup completed."
 }
 
-# Combo box loader
-function Load-ComboBoxData {
-    param (
-        [System.Windows.Forms.ComboBox]$comboBox,
-        [string]$csvName
-    )
-    Write-Log "Starting Load-ComboBoxData for $csvName"
-    $csvPath = Join-Path $config.DropdownCsvsDirectory "$csvName.csv"
-    Write-Log "Attempting to load data from: $csvPath"
-    
-    if (-not (Test-Path $csvPath)) {
-        Write-Log "CSV file not found: $csvPath"
-        return
-    }
-    
-    $data = Import-Csv -Path $csvPath
-    Write-Log "Imported CSV data. Row count: $($data.Count)"
-
-    if ($null -eq $comboBox) {
-        Write-Log "Error: ComboBox is null for $csvName"
-        return
-    }
-    $comboBox.Items.Clear()
-    
-    if ($csvName -eq "Machines") {
-        Write-Log "Processing Machines data"
-        $data | ForEach-Object {
-            if (-not [string]::IsNullOrWhiteSpace($_.'Machine Acronym') -and -not [string]::IsNullOrWhiteSpace($_.'Machine Number')) {
-                $machineId = "$($_.'Machine Acronym') - $($_.'Machine Number')"
-                $comboBox.Items.Add($machineId)
-                Write-Log "Added machine to ComboBox: $machineId"
-            } else {
-                Write-Log "Skipped invalid machine entry"
-            }
-        }
-    } else {
-        $data | ForEach-Object { 
-            if (-not [string]::IsNullOrWhiteSpace($_.Value)) {
-                $comboBox.Items.Add($_.Value)
-            }
-        }
-    }
-    
-    Write-Log "Loaded $($comboBox.Items.Count) items into $csvName ComboBox"
-}
-
 # Function to get or set the supervisor email
 function Get-SupervisorEmail {
     if (-not $config.SupervisorEmail) {
@@ -7493,7 +8990,7 @@ function Get-SupervisorEmail {
             $email = $textBox.Text.Trim()
             if ($email -match "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$") {
                 $config | Add-Member -NotePropertyName SupervisorEmail -NotePropertyValue $email -Force
-                $config | ConvertTo-Json | Set-Content -Path $script:configPath
+                $config | ConvertTo-Json -Depth 12 | Set-Content -Path $script:configPath -Encoding UTF8
                 Write-Log "Supervisor email updated to: $email"
                 return $email
             } else {
@@ -8818,7 +10315,6 @@ if (-not $config.RootDirectory) {
 }
 
 # Ensure all required paths are set
-# Ensure all required paths are set
 $requiredPaths = @('RootDirectory', 'PartsRoomDirectory', 'DropdownCsvsDirectory', 'PartsBooksDirectory')
 foreach ($path in $requiredPaths) {
     if (-not $config.$path) {
@@ -8862,6 +10358,13 @@ if ($configUpdated) {
 
 # Function to create and show the main form
 function Show-MainForm {
+    if (-not (Test-Path $script:configPath)) {
+        $suggested = Join-Path $PSScriptRoot 'PartsMgmt'
+        $ok = Show-InstallationWizard -InitialRoot $suggested
+        if (-not $ok) { return }
+        $script:config = Get-Content -Path $script:configPath -Raw | ConvertFrom-Json
+    }
+
     $form = New-Object System.Windows.Forms.Form
     $form.Text = 'Parts Management System'
     $form.Size = New-Object System.Drawing.Size(1280, 900)
@@ -8910,16 +10413,8 @@ function Show-MainForm {
 
     # ---- Create Parts Book ----
     $createPartsBookButton = New-Button "Create Parts Book" {
-        Write-Log "Creating Parts Book..."
-        $scriptPath = Join-Path $PSScriptRoot "Parts-Books-Creator.ps1"
-        Write-Log "Script path: $scriptPath"
-        if (Test-Path $scriptPath) {
-            Start-Process -FilePath "powershell.exe" -ArgumentList "-File `"$scriptPath`""
-            Write-Log "Started process to execute Parts-Books-Creator.ps1"
-        } else {
-            [System.Windows.Forms.MessageBox]::Show("Parts Books Creator script not found at $scriptPath.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-            Write-Log "Parts Books Creator script not found at $scriptPath."
-        }
+        Show-PartsBookCreatorDialog
+        $form.Refresh()
     } -Style 'Primary'
     $partsBookPanel.Controls.Add($createPartsBookButton)
 
