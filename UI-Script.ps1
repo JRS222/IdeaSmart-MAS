@@ -1,4 +1,4 @@
-﻿################################################################################
+################################################################################
 #                                                                              #
 #                     Parts Management System UI                               #
 #                                                                              #
@@ -282,7 +282,7 @@ function New-DefaultConfigObject {
 #Initialize the config
 function Initialize-Config {
     if (Test-Path $configPath) {
-        $config = Get-Content -Path $configPath | ConvertFrom-Json
+        $config = Get-Content -Path $script:configPath | ConvertFrom-Json
         if (-not ($config.PSObject.Properties.Name -contains 'SameDayPartsRooms')) {
             $config | Add-Member -NotePropertyName 'SameDayPartsRooms' -NotePropertyValue @()
             Write-Log "Backfilled missing SameDayPartsRooms key."
@@ -585,241 +585,195 @@ function Create-ExcelFromCsv {
         [string]$excelDirectory,
         [string]$tableName = "My_Parts_Room"
     )
-	
-	$excel = $null
-	$workbook = $null
-	$progressForm = $null
-	
+
+    $excel = $null
+    $workbook = $null
+    $progressForm = $null
+
     try {
-        Write-Log "Starting to create Excel file from CSV for $siteName..."
-        
+
         # Add timing diagnostics
         $startTime = Get-Date
-        
+
         # Show progress form if not already visible
         $progressForm = New-Object System.Windows.Forms.Form
         $progressForm.Text = "Creating Parts Room Excel"
         $progressForm.Size = New-Object System.Drawing.Size(400, 150)
         $progressForm.StartPosition = 'CenterScreen'
-        
-		$progressBar = New-Object ModernProgressBar
-		$progressBar.Size = New-Object System.Drawing.Size(360,24)
-		$progressBar.Location = New-Object System.Drawing.Point(10,12)
-		$progressForm.Controls.Add($progressBar)
-        
+
+        $progressBar = New-Object ModernProgressBar
+        $progressBar.Size = New-Object System.Drawing.Size(360, 24)
+        $progressBar.Location = New-Object System.Drawing.Point(10, 12)
+        $progressForm.Controls.Add($progressBar)
+
         $progressLabel = New-Object System.Windows.Forms.Label
-        $progressLabel.Size = New-Object System.Drawing.Size(360,40)
-        $progressLabel.Location = New-Object System.Drawing.Point(10,40)
+        $progressLabel.Size = New-Object System.Drawing.Size(360, 40)
+        $progressLabel.Location = New-Object System.Drawing.Point(10, 44)
         $progressForm.Controls.Add($progressLabel)
-        
+
         $timeLabel = New-Object System.Windows.Forms.Label
-        $timeLabel.Size = New-Object System.Drawing.Size(360,20)
-        $timeLabel.Location = New-Object System.Drawing.Point(10,90)
+        $timeLabel.Size = New-Object System.Drawing.Size(360, 20)
+        $timeLabel.Location = New-Object System.Drawing.Point(10, 92)
         $progressForm.Controls.Add($timeLabel)
-        
+
         $progressForm.Show()
         $progressForm.Refresh()
-        
+
         $csvFilePath = Join-Path $csvDirectory "$siteName.csv"
         $excelFilePath = Join-Path $excelDirectory "$siteName.xlsx"
-        
-        $progressLabel.Text = "Loading CSV file..."
+
+        $progressLabel.Text = "Verifying CSV file..."
         $progressBar.Value = 5
         $progressForm.Refresh()
-        
+
         if (-not (Test-Path $csvFilePath)) {
             throw "CSV file not found at $csvFilePath"
         }
 
-        # Read CSV data
-        $loadStart = Get-Date
-        $csvData = Import-Csv -Path $csvFilePath
-        $loadEnd = Get-Date
-        $loadDuration = ($loadEnd - $loadStart).TotalSeconds
-        Write-Log "CSV loading completed in $loadDuration seconds"
-        $timeLabel.Text = "CSV loaded in $loadDuration seconds"
-        $progressForm.Refresh()
-        
         $progressLabel.Text = "Creating Excel application..."
         $progressBar.Value = 10
         $progressForm.Refresh()
-        
+
         # Create Excel
         $excelStart = Get-Date
         $excel = New-Object -ComObject Excel.Application
         $excel.Visible = $false
         $excel.DisplayAlerts = $false
-        
-        if (Test-Path $excelFilePath) {
-            $workbook = $excel.Workbooks.Open($excelFilePath)
-        } else {
-            $workbook = $excel.Workbooks.Add()
-        }
-        
-        $excelEnd = Get-Date
-        $excelDuration = ($excelEnd - $excelStart).TotalSeconds
+        $excelDuration = ((Get-Date) - $excelStart).TotalSeconds
         Write-Log "Excel application created in $excelDuration seconds"
         $timeLabel.Text = "Excel app created in $excelDuration seconds"
-        
-        $progressLabel.Text = "Setting up worksheet..."
-        $progressBar.Value = 15
+        $progressForm.Refresh()
+
+        # ============================================================
+        # Load the CSV directly.  This is the load-bearing change.
+        #
+        # Prior versions built a .NET 2D array and assigned it to
+        # Range.Value2 in one shot.  That works in a standalone script
+        # but throws "Unable to cast object of type 'System.Object[,]'
+        # to type 'System.String'" inside UI-Script.ps1, because
+        # PowerShell 5.1's COM adapter marshals the array as a scalar
+        # in some contexts.  We cannot reliably control that from the
+        # caller's side, so we sidestep it entirely: Excel reads the
+        # CSV file with its own native parser, no array ever crosses
+        # the PowerShell/COM boundary.
+        # ============================================================
+        $progressLabel.Text = "Loading CSV into Excel..."
+        $progressBar.Value = 30
+        $progressForm.Refresh()
+
+        $loadStart = Get-Date
+        # Open(FilePath, UpdateLinks, ReadOnly).  We pass 0 for UpdateLinks
+        # (no external links to refresh) and $false for ReadOnly (we intend
+        # to SaveAs the loaded workbook to a new path).
+        $workbook = $excel.Workbooks.Open($csvFilePath, 0, $false)
+        $loadDuration = ((Get-Date) - $loadStart).TotalSeconds
+        Write-Log "CSV loaded into Excel in $loadDuration seconds"
+        $timeLabel.Text = "CSV loaded in $loadDuration seconds"
         $progressForm.Refresh()
 
         $worksheet = $workbook.Worksheets.Item(1)
         $worksheet.Name = "Parts Data"
 
-        # Clear existing content
-        $worksheet.Cells.Clear()
-        
-        $progressLabel.Text = "Adding headers..."
-        $progressBar.Value = 20
-        $progressForm.Refresh()
+        # Row 1 holds the header row (Export-Csv wrote it).  Data starts at
+        # row 2.  We only need $headers so the "Importing data..." column
+        # cleanup can find columns by name.
+        $usedRange = $worksheet.UsedRange
+        $rowCount = [int]$usedRange.Rows.Count - 1     # minus the header
+        $colCount = [int]$usedRange.Columns.Count
+        Write-Log "Loaded sheet size: $rowCount data rows x $colCount columns"
 
-        # Add headers first
-        $headers = $csvData[0].PSObject.Properties.Name
-        for ($col = 1; $col -le $headers.Count; $col++) {
-            $worksheet.Cells.Item(1, $col).Value2 = $headers[$col-1]
+        $headers = @()
+        for ($col = 1; $col -le $colCount; $col++) {
+            $headers += "$($worksheet.Cells.Item(1, $col).Value2)"
         }
-        
-        $progressLabel.Text = "Preparing to add data rows..."
-        $progressBar.Value = 25
-        $progressForm.Refresh()
-        
-        # Optimize by using array assignment for data
-        $rowCount = $csvData.Count
-        $colCount = $headers.Count
-        
-        # Create a 2D array to hold all data
-        $dataArray = New-Object 'object[,]' $rowCount, $colCount
-        
-        $progressLabel.Text = "Filling data array..."
-        $progressBar.Value = 30
-        $progressForm.Refresh()
-        
-        # Fill the array with data
-        $arrayStart = Get-Date
-        for ($rowIdx = 0; $rowIdx -lt $rowCount; $rowIdx++) {
-            $dataRow = $csvData[$rowIdx]
-            for ($colIdx = 0; $colIdx -lt $colCount; $colIdx++) {
-                $header = $headers[$colIdx]
-                $dataArray[$rowIdx, $colIdx] = $dataRow.$header
-            }
-            
-            # Update progress every 100 rows
-            if ($rowIdx % 100 -eq 0 -or $rowIdx -eq $rowCount - 1) {
-                $percent = 30 + ($rowIdx / $rowCount * 20)  # Scale from 30% to 50%
-                $progressBar.Value = [int]$percent
-                $progressLabel.Text = "Filling data array: row $($rowIdx+1) of $rowCount"
-                $progressForm.Refresh()
-                [System.Windows.Forms.Application]::DoEvents()
-            }
-        }
-        $arrayEnd = Get-Date
-        $arrayDuration = ($arrayEnd - $arrayStart).TotalSeconds
-        Write-Log "Data array filled in $arrayDuration seconds"
-        $timeLabel.Text = "Array filled in $arrayDuration seconds"
-        
-        $progressLabel.Text = "Writing data to Excel..."
-        $progressBar.Value = 50
-        $progressForm.Refresh()
-        
-        # Get the range to fill (offset by 1 for header row)
-        $startRange = $worksheet.Cells.Item(2, 1)
-        $endRange = $worksheet.Cells.Item($rowCount + 1, $colCount)
-        $dataRange = $worksheet.Range($startRange, $endRange)
-        
-        # Fill the range in one operation
-        $rangeStart = Get-Date
-        $dataRange.Value2 = $dataArray
-        $rangeEnd = Get-Date
-        $rangeDuration = ($rangeEnd - $rangeStart).TotalSeconds
-        Write-Log "Excel range filled in $rangeDuration seconds"
-        $timeLabel.Text = "Excel range filled in $rangeDuration seconds"
-        
+
+        # ============================================================
+        # Formatting — identical to before, applied to the loaded sheet.
+        # ============================================================
+
         $progressLabel.Text = "Formatting table..."
         $progressBar.Value = 70
         $progressForm.Refresh()
 
-        # Format as table
         $formatStart = Get-Date
-        $usedRange = $worksheet.UsedRange
         if ($worksheet.ListObjects.Count -gt 0) {
             $worksheet.ListObjects.Item(1).Unlist()
         }
-        $listObject = $worksheet.ListObjects.Add([Microsoft.Office.Interop.Excel.XlListObjectSourceType]::xlSrcRange, $usedRange, $null, [Microsoft.Office.Interop.Excel.XlYesNoGuess]::xlYes)
+        $listObject = $worksheet.ListObjects.Add(
+            [Microsoft.Office.Interop.Excel.XlListObjectSourceType]::xlSrcRange,
+            $usedRange, $null,
+            [Microsoft.Office.Interop.Excel.XlYesNoGuess]::xlYes)
         $listObject.Name = $tableName
         $listObject.TableStyle = "TableStyleMedium2"
-        $formatEnd = Get-Date
-        $formatDuration = ($formatEnd - $formatStart).TotalSeconds
-        Write-Log "Table formatting completed in $formatDuration seconds"
-        $timeLabel.Text = "Table formatted in $formatDuration seconds"
-        
+        Write-Log "Table formatting completed in $(((Get-Date) - $formatStart).TotalSeconds) seconds"
+
         $progressLabel.Text = "Applying cell formatting..."
         $progressBar.Value = 80
         $progressForm.Refresh()
 
-        # Apply formatting
         $cellFormatStart = Get-Date
-        $usedRange.Cells.VerticalAlignment = -4108 # xlCenter
-        $usedRange.Cells.HorizontalAlignment = -4108 # xlCenter
-        $usedRange.Cells.WrapText = $false
-        $usedRange.Cells.Font.Name = "Courier New"
-        $usedRange.Cells.Font.Size = 12
-        $cellFormatEnd = Get-Date
-        $cellFormatDuration = ($cellFormatEnd - $cellFormatStart).TotalSeconds
-        Write-Log "Cell formatting completed in $cellFormatDuration seconds"
-        $timeLabel.Text = "Cell formatting in $cellFormatDuration seconds"
-        
+        $usedRange.Cells.VerticalAlignment   = -4108   # xlCenter
+        $usedRange.Cells.HorizontalAlignment = -4108   # xlCenter
+        $usedRange.Cells.WrapText            = $false
+        $usedRange.Cells.Font.Name           = "Courier New"
+        $usedRange.Cells.Font.Size           = 12
+        Write-Log "Cell formatting completed in $(((Get-Date) - $cellFormatStart).TotalSeconds) seconds"
+
         $progressLabel.Text = "Auto-fitting columns..."
         $progressBar.Value = 90
         $progressForm.Refresh()
 
-        # AutoFit columns
         $autoFitStart = Get-Date
         $usedRange.Columns.AutoFit() | Out-Null
-        $autoFitEnd = Get-Date
-        $autoFitDuration = ($autoFitEnd - $autoFitStart).TotalSeconds
-        Write-Log "Column auto-fit completed in $autoFitDuration seconds"
-        $timeLabel.Text = "Columns auto-fit in $autoFitDuration seconds"
+        Write-Log "Column auto-fit completed in $(((Get-Date) - $autoFitStart).TotalSeconds) seconds"
 
         # Left-align the Description column if it exists
-        $descriptionColumn = $listObject.ListColumns | Where-Object { $_.Name -eq "Description" }
-        if ($descriptionColumn) {
-            $descriptionColumn.Range.Offset(1, 0).HorizontalAlignment = -4131 # xlLeft
+        try {
+            $descriptionColumn = $listObject.ListColumns | Where-Object { $_.Name -eq "Description" }
+            if ($descriptionColumn) {
+                $descriptionColumn.Range.Offset(1, 0).HorizontalAlignment = -4131   # xlLeft
+            }
+        } catch {
+            Write-Log "Error while formatting Description column: $_"
         }
 
         # Remove any columns named "Importing data..."
-        for ($col = $headers.Count; $col -ge 1; $col--) {
-            $columnHeader = $worksheet.Cells.Item(1, $col).Value2
-            if ($columnHeader -eq "Importing data...") {
-                $column = $worksheet.Columns.Item($col)
-                $column.Delete()
-                Write-Log "Removed 'Importing data...' column"
+        try {
+            for ($col = $colCount; $col -ge 1; $col--) {
+                $columnHeader = "$($worksheet.Cells.Item(1, $col).Value2)"
+                if ($columnHeader -eq "Importing data...") {
+                    $worksheet.Columns.Item($col).Delete()
+                    Write-Log "Removed 'Importing data...' column at position $col"
+                }
             }
+        } catch {
+            Write-Log "Error while removing columns: $_"
         }
-        
+
         $progressLabel.Text = "Saving Excel file..."
         $progressBar.Value = 95
         $progressForm.Refresh()
 
-        # Save and close
+        # Save and close.  SaveAs to xlsx with an explicit format so the
+        # file lands as .xlsx regardless of any Excel default-format setting.
         $saveStart = Get-Date
         $workbook.SaveAs($excelFilePath, [Microsoft.Office.Interop.Excel.XlFileFormat]::xlOpenXMLWorkbook)
         $workbook.Close($false)
+        $workbook = $null
         $excel.Quit()
-        $saveEnd = Get-Date
-        $saveDuration = ($saveEnd - $saveStart).TotalSeconds
+        $excel = $null
+        $saveDuration = ((Get-Date) - $saveStart).TotalSeconds
         Write-Log "Excel file saved in $saveDuration seconds"
-        
+
         $endTime = Get-Date
         $totalDuration = ($endTime - $startTime).TotalSeconds
         Write-Log "Excel file created successfully at $excelFilePath in total time: $totalDuration seconds"
-        
+
         $progressBar.Value = 100
         $progressLabel.Text = "Excel file created successfully!"
         $timeLabel.Text = "Total time: $totalDuration seconds"
         $progressForm.Refresh()
-        Start-Sleep -Seconds 2  # Show completion for 2 seconds
+        Start-Sleep -Seconds 2
         $progressForm.Close()
     }
     catch {
@@ -827,13 +781,17 @@ function Create-ExcelFromCsv {
         if ($progressForm -and $progressForm.Visible) {
             $progressLabel.Text = "Error: $($_.Exception.Message)"
             $progressForm.Refresh()
-            Start-Sleep -Seconds 3  # Show error for 3 seconds
+            Start-Sleep -Seconds 3
             $progressForm.Close()
         }
     }
     finally {
+        if ($null -ne $workbook) {
+            try { $workbook.Close($false) } catch { }
+        }
         if ($null -ne $excel) {
-            [System.Runtime.Interopservices.Marshal]::ReleaseComObject($excel) | Out-Null
+            try { $excel.Quit() } catch { }
+            try { [System.Runtime.Interopservices.Marshal]::ReleaseComObject($excel) | Out-Null } catch { }
         }
         [System.GC]::Collect()
         [System.GC]::WaitForPendingFinalizers()
@@ -3352,10 +3310,13 @@ function New-SitesCsv {
     if ([string]::IsNullOrWhiteSpace($Html))       { throw "No HTML supplied." }
     if ([string]::IsNullOrWhiteSpace($TargetPath)) { throw "No target path supplied." }
 
-    $regex = '<option\s+value="(?<siteid>[^"]+)"[^>]*>(?<fullname>.*?)</option>'
-    $matches = [regex]::Matches($Html, $regex, 'IgnoreCase')
+    # <option value="X" ...>Text [possibly with newlines] </option>
+    # [\s\S]*? lets the display text span multiple lines; Singleline is
+    # belt-and-braces in case the pattern is later edited to use .*?
+    $regex = '<option\s+value="(?<siteid>[^"]+)"[^>]*>(?<fullname>[\s\S]*?)</option>'
+    $optionMatches = [regex]::Matches($Html, $regex, 'IgnoreCase, Singleline')
 
-    if ($matches.Count -eq 0) {
+    if ($optionMatches.Count -eq 0) {
         throw "No <option> elements matched. Confirm you pasted the entire <select> block."
     }
 
@@ -3367,17 +3328,15 @@ function New-SitesCsv {
 
     $seen = @{}
     $written = 0
-    foreach ($m in $matches) {
+    foreach ($m in $optionMatches) {
         $siteId   = $m.Groups['siteid'].Value.Trim()
         $fullname = $m.Groups['fullname'].Value.Trim()
 
         if ([string]::IsNullOrWhiteSpace($siteId) -or [string]::IsNullOrWhiteSpace($fullname)) { continue }
 
-        # Skip duplicate Site IDs (keep first occurrence)
         if ($seen.ContainsKey($siteId)) { continue }
         $seen[$siteId] = $true
 
-        # Quote the full name; double any embedded quotes
         $safeName = $fullname.Replace('"', '""')
         $lines.Add("$siteId,""$safeName""")
         $written++
@@ -10021,7 +9980,7 @@ function Add-SameDayPartsRoom {
         $config.SameDayPartsRooms += $selectedSites
 
         # Save the updated configuration
-        $config | ConvertTo-Json -Depth 6 | Set-Content -Path $configPath
+        $config | ConvertTo-Json -Depth 12 | Set-Content -Path $script:configPath -Encoding UTF8
 
         # Create subdirectory for Same Day Parts Room
         $sameDayPartsRoomDir = Join-Path $config.PartsRoomDirectory "Same Day Parts Room"
@@ -10143,7 +10102,7 @@ function Add-PartsBookFromCatalog {
         $added++
     }
 
-    $config | ConvertTo-Json -Depth 6 | Set-Content -Path $script:configPath
+    $config | ConvertTo-Json -Depth 12 | Set-Content -Path $script:configPath -Encoding UTF8
     Write-Log "Added $added book(s) to config."
 
     [System.Windows.Forms.MessageBox]::Show(
@@ -10239,7 +10198,7 @@ function Remove-SameDayPartsRoom {
     }
     $config.SameDayPartsRooms = $keep
 
-    $config | ConvertTo-Json -Depth 6 | Set-Content -Path $script:configPath
+    $config | ConvertTo-Json -Depth 12 | Set-Content -Path $script:configPath -Encoding UTF8
     Write-Log "Removed $($remove.Count) Same Day site(s) from config. Files preserved."
 
     [System.Windows.Forms.MessageBox]::Show(
@@ -10292,7 +10251,7 @@ $requiredDirs = @($config.PartsRoomDirectory, $config.PartsBooksDirectory, $conf
 
 # Save updated config if changes were made
 if ($configUpdated) {
-    $config | ConvertTo-Json | Set-Content -Path $configPath
+    $config | ConvertTo-Json -Depth 12 | Set-Content -Path $script:configPath -Encoding UTF8
     Write-Log "Config file updated with default paths"
 }
 
@@ -10345,14 +10304,35 @@ function Show-MainForm {
     Setup-WorkTrackingTab -parentTab $workTrackingTab
 
     # ---- Open Parts Room ----
-    $openPartsRoomButton = New-Button "Open Parts Room" {
-        $partsRoomFilePath = Get-ChildItem -Path $config.PartsRoomDirectory -Filter "*.xlsx" | Select-Object -First 1 -ExpandProperty FullName
-        if (Test-Path $partsRoomFilePath) {
-            Start-Process $partsRoomFilePath
-        } else {
-            [System.Windows.Forms.MessageBox]::Show("Parts Room file not found.", "Error", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
-        }
-    } -Style 'Primary'
+	$openPartsRoomButton = New-Button "Open Parts Room" {
+		$partsRoomFilePath = Get-ChildItem -Path $config.PartsRoomDirectory -Filter "*.xlsx" -File -ErrorAction SilentlyContinue |
+							 Select-Object -First 1 -ExpandProperty FullName
+
+		if ($partsRoomFilePath -and (Test-Path $partsRoomFilePath)) {
+			Start-Process $partsRoomFilePath
+			return
+		}
+
+		$csvPath = Get-ChildItem -Path $config.PartsRoomDirectory -Filter "*.csv" -File -ErrorAction SilentlyContinue |
+				   Select-Object -First 1 -ExpandProperty FullName
+
+		if ($csvPath) {
+			$ans = [System.Windows.Forms.MessageBox]::Show(
+				"No Parts Room Excel file found.`r`n`r`nOpen the CSV instead?`r`n$csvPath",
+				"Parts Room",
+				[System.Windows.Forms.MessageBoxButtons]::YesNo,
+				[System.Windows.Forms.MessageBoxIcon]::Question)
+			if ($ans -eq [System.Windows.Forms.DialogResult]::Yes) {
+				Start-Process $csvPath
+			}
+		} else {
+			[System.Windows.Forms.MessageBox]::Show(
+				"No Parts Room data found in:`r`n$($config.PartsRoomDirectory)`r`n`r`nRun 'Update Parts Room' from the Actions tab first.",
+				"Parts Room",
+				[System.Windows.Forms.MessageBoxButtons]::OK,
+				[System.Windows.Forms.MessageBoxIcon]::Information)
+		}
+	} -Style 'Primary'
     $partsBookPanel.Controls.Add($openPartsRoomButton)
 
     # ---- Create Parts Book ----
