@@ -7725,18 +7725,34 @@ function New-WorksheetFromHtml {
 
     if ([string]::IsNullOrWhiteSpace($Html)) { throw "No HTML provided." }
 
-    # Detect all Scheduled Date values in the file (regex on the raw HTML)
-    $datePattern = 'Scheduled Date:\s*</TH>\s*<TD[^>]*align=left>\s*(\d{2}-[A-Z]{3}-\d{2})'
+    # Detect all Scheduled Date values in the file.
+    #
+    # The attribute-value pair on the <TD> is deliberately not matched:
+    # eMARS renders some pages with align=left (unquoted) and others with
+    # align="left" (quoted), and pinning the pattern to either form breaks
+    # the other.  [^>]*> swallows whatever attributes are present.
+    $datePattern = 'Scheduled Date:\s*</TH>\s*<TD[^>]*>\s*(\d{2}-[A-Z]{3}-\d{2})'
     $foundDates = @()
     $matches = [regex]::Matches($Html, $datePattern, 'IgnoreCase')
+    Write-Log "New-WorksheetFromHtml: date pattern found $($matches.Count) match(es)"
+
     foreach ($m in $matches) {
         $v = $m.Groups[1].Value.Trim()
         if ($v -and $foundDates -notcontains $v) { $foundDates += $v }
     }
 
     if ($foundDates.Count -eq 0) {
+        # Diagnostic: show what header text IS present so future breakage
+        # is diagnosable from the log alone.
+        $headerProbe = [regex]::Matches($Html, 'Scheduled Date[^<]{0,40}')
+        Write-Log "New-WorksheetFromHtml: no dates matched. Header probe ($($headerProbe.Count) hit(s)):"
+        foreach ($hp in ($headerProbe | Select-Object -First 3)) {
+            Write-Log "  -> '$($hp.Value)'"
+        }
         throw "No 'Scheduled Date' sections found in the HTML."
     }
+
+    Write-Log "New-WorksheetFromHtml: found dates: $($foundDates -join ', ')"
 
     $temp = Join-Path ([System.IO.Path]::GetTempPath()) ("edac_" + [guid]::NewGuid().ToString() + ".html")
     $saved = @()
@@ -7747,9 +7763,13 @@ function New-WorksheetFromHtml {
             # Convert 20-SEP-26 -> 2026-09-20
             $dt = $null
             try { $dt = [DateTime]::ParseExact($target, 'dd-MMM-yy', [System.Globalization.CultureInfo]::InvariantCulture) }
-            catch { continue }
+            catch {
+                Write-Log "New-WorksheetFromHtml: could not parse date '$target' — skipping"
+                continue
+            }
 
             $rows = @(ConvertFrom-eDacWorksheet -HtmlPath $temp -TargetDate $target)
+            Write-Log "New-WorksheetFromHtml: date $target -> $($rows.Count) data row(s)"
 
             $decorated = @()
             foreach ($r in $rows) {
@@ -7975,28 +7995,81 @@ function New-SettingRow {
     $Parent.Controls.Add($InputControl)
 }
 
+# ============================================================
+# Settings tab — computed Work Target helpers
+# ============================================================
+
+function Get-ComputedWorkTargetHours {
+    # Target = day length − (all non-work components, minutes → hours)
+    param($Settings)
+    if (-not $Settings) { return 0.0 }
+
+    $dayHours = [double]$Settings.DayLenBox.Value
+
+    $nonWorkMinutes = 0.0
+    foreach ($box in @(
+        $Settings.LunchBox,
+        $Settings.WashupBox,
+        $Settings.StartupBox,
+        $Settings.Break1Box,
+        $Settings.Break2Box,
+        $Settings.EndWashBox,
+        $Settings.PaperBox
+    )) {
+        $nonWorkMinutes += [double]$box.Value
+    }
+
+    $target = $dayHours - ($nonWorkMinutes / 60.0)
+    if ($target -lt 0)  { $target = 0 }
+    if ($target -gt 24) { $target = 24 }
+    return [Math]::Round($target, 2)
+}
+
+function Update-WorkTargetDisplay {
+    if (-not $script:wtSettings) { return }
+    if (-not $script:wtSettings.TargetBox) { return }
+    $t = Get-ComputedWorkTargetHours -Settings $script:wtSettings
+    $script:wtSettings.TargetBox.Value = [decimal]$t
+}
+
 function Load-WtSettingsValues {
-    $c = $script:wtSettings
+    if (-not $script:wtSettings) { return }
+    if (-not $script:config)     { return }
+
+    $c  = $script:wtSettings
     $wt = $script:config.WorkTracking
 
-    $c.TechNameBox.Text  = if ($wt.TechnicianName) { $wt.TechnicianName } else { '' }
-    $c.EmailBox.Text     = if ($script:config.SupervisorEmail) { $script:config.SupervisorEmail } else { '' }
-    $c.EdacUrlBox.Text   = if ($wt.eDacUrl) { $wt.eDacUrl } else { '' }
+    Write-Log "Load-WtSettingsValues: configPath='$script:configPath'"
+
+    if (-not $wt) {
+        Write-Log "Load-WtSettingsValues: WorkTracking is null — skipping."
+        return
+    }
+
+    # --- Direct inputs ---
+    $c.TechNameBox.Text   = if ($wt.TechnicianName)       { "$($wt.TechnicianName)" }       else { '' }
+    $c.EmailBox.Text      = if ($script:config.SupervisorEmail) { "$($script:config.SupervisorEmail)" } else { '' }
+    $c.EdacUrlBox.Text    = if ($wt.eDacUrl)              { "$($wt.eDacUrl)" }              else { '' }
     $c.ThresholdBox.Value = if ($wt.ReactiveToWorkOrderMinutes) { [int]$wt.ReactiveToWorkOrderMinutes } else { 15 }
 
+    Write-Log "Load-WtSettingsValues: techName='$($c.TechNameBox.Text)' email='$($c.EmailBox.Text)'"
+
+    # --- Work budget inputs ---
     $wb = $wt.WorkBudget
     if ($wb) {
-        $c.DayLenBox.Value  = if ($wb.DayLengthHours) { [decimal]$wb.DayLengthHours } else { 8.5 }
-        $c.LunchBox.Value   = if ($wb.LunchMinutes)   { [decimal]$wb.LunchMinutes }   else { 30 }
-        $c.WashupBox.Value  = if ($wb.WashupMinutes)  { [decimal]$wb.WashupMinutes }  else { 15 }
-        $c.StartupBox.Value = if ($wb.StartupMinutes) { [decimal]$wb.StartupMinutes } else { 15 }
+        $c.DayLenBox.Value  = if ($wb.DayLengthHours) { [decimal]$wb.DayLengthHours } else { [decimal]8.5 }
+        $c.LunchBox.Value   = if ($wb.LunchMinutes)   { [decimal]$wb.LunchMinutes }   else { [decimal]30 }
+        $c.WashupBox.Value  = if ($wb.WashupMinutes)  { [decimal]$wb.WashupMinutes }  else { [decimal]15 }
+        $c.StartupBox.Value = if ($wb.StartupMinutes) { [decimal]$wb.StartupMinutes } else { [decimal]15 }
         $pbm = @($wb.PaidBreaksMinutes)
-        $c.Break1Box.Value  = if ($pbm.Count -ge 1 -and $pbm[0]) { [decimal]$pbm[0] } else { 15 }
-        $c.Break2Box.Value  = if ($pbm.Count -ge 2 -and $pbm[1]) { [decimal]$pbm[1] } else { 15 }
-        $c.EndWashBox.Value = if ($wb.EndOfDayWashupMinutes) { [decimal]$wb.EndOfDayWashupMinutes } else { 15 }
-        $c.PaperBox.Value   = if ($wb.PaperworkMinutes)      { [decimal]$wb.PaperworkMinutes }      else { 15 }
-        $c.TargetBox.Value  = if ($wb.WorkTargetHours)       { [decimal]$wb.WorkTargetHours }       else { 6.5 }
+        $c.Break1Box.Value  = if ($pbm.Count -ge 1 -and $pbm[0]) { [decimal]$pbm[0] } else { [decimal]15 }
+        $c.Break2Box.Value  = if ($pbm.Count -ge 2 -and $pbm[1]) { [decimal]$pbm[1] } else { [decimal]15 }
+        $c.EndWashBox.Value = if ($wb.EndOfDayWashupMinutes) { [decimal]$wb.EndOfDayWashupMinutes } else { [decimal]15 }
+        $c.PaperBox.Value   = if ($wb.PaperworkMinutes)      { [decimal]$wb.PaperworkMinutes }      else { [decimal]15 }
     }
+
+    # Work Target is derived — always recompute from loaded inputs.
+    Update-WorkTargetDisplay
 }
 
 function Setup-SettingsTab {
@@ -8047,7 +8120,7 @@ function Setup-SettingsTab {
     $reloadBtn.Margin = New-Object System.Windows.Forms.Padding(0,0,8,0)
     $saveBar.Controls.Add($reloadBtn)
 
-    # --- Body: FlowLayoutPanel of GroupBoxes ---
+    # --- Body ---
     $body = New-Object System.Windows.Forms.FlowLayoutPanel
     $body.Dock = 'Fill'
     $body.FlowDirection = [System.Windows.Forms.FlowDirection]::TopDown
@@ -8130,15 +8203,19 @@ function Setup-SettingsTab {
     $paperBox   = & $newNum 0 60
     $targetBox  = & $newNum 0 24 0.25 2
 
-    New-SettingRow -Parent $gBudget -Top  28 -LabelText "Day Length (hours):"              -InputControl $dayLenBox
-    New-SettingRow -Parent $gBudget -Top  62 -LabelText "Lunch (min, 0=skip):"             -InputControl $lunchBox
-    New-SettingRow -Parent $gBudget -Top  96 -LabelText "Wash-up at Lunch (min):"          -InputControl $washupBox
-    New-SettingRow -Parent $gBudget -Top 130 -LabelText "Startup (min):"                   -InputControl $startupBox
-    New-SettingRow -Parent $gBudget -Top 164 -LabelText "Paid Break 1 (min):"              -InputControl $break1Box
-    New-SettingRow -Parent $gBudget -Top 198 -LabelText "Paid Break 2 (min):"              -InputControl $break2Box
-    New-SettingRow -Parent $gBudget -Top 232 -LabelText "Wash-up End-of-Day (min):"        -InputControl $endWashBox
-    New-SettingRow -Parent $gBudget -Top 266 -LabelText "Paperwork (min):"                 -InputControl $paperBox
-    New-SettingRow -Parent $gBudget -Top 300 -LabelText "Work Target (hours):"             -InputControl $targetBox
+    # Work Target is derived, not user-editable.
+    $targetBox.Enabled   = $false
+    $targetBox.BackColor = [System.Drawing.Color]::FromArgb(236,240,241)
+
+    New-SettingRow -Parent $gBudget -Top  28 -LabelText "Day Length (hours):"                  -InputControl $dayLenBox
+    New-SettingRow -Parent $gBudget -Top  62 -LabelText "Lunch (min, 0=skip):"                 -InputControl $lunchBox
+    New-SettingRow -Parent $gBudget -Top  96 -LabelText "Wash-up at Lunch (min):"              -InputControl $washupBox
+    New-SettingRow -Parent $gBudget -Top 130 -LabelText "Startup (min):"                       -InputControl $startupBox
+    New-SettingRow -Parent $gBudget -Top 164 -LabelText "Paid Break 1 (min):"                  -InputControl $break1Box
+    New-SettingRow -Parent $gBudget -Top 198 -LabelText "Paid Break 2 (min):"                  -InputControl $break2Box
+    New-SettingRow -Parent $gBudget -Top 232 -LabelText "Wash-up End-of-Day (min):"            -InputControl $endWashBox
+    New-SettingRow -Parent $gBudget -Top 266 -LabelText "Paperwork (min):"                     -InputControl $paperBox
+    New-SettingRow -Parent $gBudget -Top 300 -LabelText "Work Target (hours, auto-computed):"  -InputControl $targetBox
 
     # --- Installation group ---
     $gInstall = New-Object System.Windows.Forms.GroupBox
@@ -8159,13 +8236,11 @@ function Setup-SettingsTab {
     $currentRootLabel.Text = "Current root: $($script:config.RootDirectory)"
     $gInstall.Controls.Add($currentRootLabel)
 
-    # Uniform 3-column grid: 220 px buttons, 8 px gaps, 12 px side margins
     $installColX  = @(12, 240, 468)
     $installRowY  = @(58, 98)
     $installBtnW  = 220
     $installBtnH  = 32
 
-    # --- Row 1: setup + folder shortcuts ---
     $btnSetupWizard = New-Object System.Windows.Forms.Button
     $btnSetupWizard.Text = "Run Installation Wizard"
     $btnSetupWizard.Location = New-Object System.Drawing.Point($installColX[0], $installRowY[0])
@@ -8223,7 +8298,6 @@ function Setup-SettingsTab {
     })
     $gInstall.Controls.Add($btnOpenScripts)
 
-    # --- Row 2: regenerators + figure converter ---
     $btnPartsVolumes = New-Object System.Windows.Forms.Button
     $btnPartsVolumes.Text = "Regenerate Parts Volumes List"
     $btnPartsVolumes.Location = New-Object System.Drawing.Point($installColX[0], $installRowY[1])
@@ -8263,9 +8337,103 @@ function Setup-SettingsTab {
     $btnFigureConvert.Add_Click({ Show-FigureConvertDialog })
     $gInstall.Controls.Add($btnFigureConvert)
 
+    # --- Store control references ---
+    $script:wtSettings = @{
+        TechNameBox  = $techNameBox
+        EmailBox     = $emailBox
+        EdacUrlBox   = $edacUrlBox
+        ThresholdBox = $thresholdBox
+        DayLenBox    = $dayLenBox
+        LunchBox     = $lunchBox
+        WashupBox    = $washupBox
+        StartupBox   = $startupBox
+        Break1Box    = $break1Box
+        Break2Box    = $break2Box
+        EndWashBox   = $endWashBox
+        PaperBox     = $paperBox
+        TargetBox    = $targetBox
+    }
+
+    # Wire auto-recompute on any budget input.
+    foreach ($box in @($dayLenBox, $lunchBox, $washupBox, $startupBox,
+                       $break1Box, $break2Box, $endWashBox, $paperBox)) {
+        $box.Add_ValueChanged({ Update-WorkTargetDisplay })
+    }
+
+    # --- Initial load ---
+    Load-WtSettingsValues
+
+    # --- Save handler ---
+    $saveBtn.Add_Click({
+        try {
+            $c   = $script:wtSettings
+            $cfg = $script:config
+            if (-not $cfg.WorkTracking) { throw "WorkTracking section missing from config." }
+
+            $techName  = "$($c.TechNameBox.Text)".Trim()
+            $email     = "$($c.EmailBox.Text)".Trim()
+            $edacUrl   = "$($c.EdacUrlBox.Text)".Trim()
+            $threshold = [int]$c.ThresholdBox.Value
+
+            Write-Log "Save: path='$script:configPath' techName='$techName' email='$email'"
+
+            $cfg.WorkTracking.TechnicianName             = $techName
+            $cfg.SupervisorEmail                         = $email
+            $cfg.WorkTracking.eDacUrl                    = $edacUrl
+            $cfg.WorkTracking.ReactiveToWorkOrderMinutes = $threshold
+
+            $cfg.WorkTracking.WorkBudget.DayLengthHours        = [double]$c.DayLenBox.Value
+            $cfg.WorkTracking.WorkBudget.LunchMinutes          = [int]$c.LunchBox.Value
+            $cfg.WorkTracking.WorkBudget.WashupMinutes         = [int]$c.WashupBox.Value
+            $cfg.WorkTracking.WorkBudget.StartupMinutes        = [int]$c.StartupBox.Value
+            $cfg.WorkTracking.WorkBudget.PaidBreaksMinutes     = @([int]$c.Break1Box.Value, [int]$c.Break2Box.Value)
+            $cfg.WorkTracking.WorkBudget.EndOfDayWashupMinutes = [int]$c.EndWashBox.Value
+            $cfg.WorkTracking.WorkBudget.PaperworkMinutes      = [int]$c.PaperBox.Value
+            $cfg.WorkTracking.WorkBudget.WorkTargetHours       = [double]$c.TargetBox.Value
+
+            $json = $cfg | ConvertTo-Json -Depth 12
+            $json | Set-Content -Path $script:configPath -Encoding UTF8
+            $script:config = $cfg
+
+            Write-Log "Save: wrote $($json.Length) chars to $script:configPath"
+
+            [System.Windows.Forms.MessageBox]::Show("Settings saved.", "Settings", "OK", "Information")
+        } catch {
+            Write-Log "Error saving settings: $($_.Exception.Message)"
+            [System.Windows.Forms.MessageBox]::Show("Error saving settings: $($_.Exception.Message)", "Error", "OK", "Error")
+        }
+    })
+
+    # --- Reload handler ---
+    $reloadBtn.Add_Click({
+        try {
+            Write-Log "Reload: path='$script:configPath' exists=$(Test-Path $script:configPath)"
+
+            if (-not (Test-Path $script:configPath)) {
+                throw "Config file not found at $script:configPath"
+            }
+
+            $raw = Get-Content -Path $script:configPath -Raw -Encoding UTF8
+            Write-Log "Reload: read $($raw.Length) chars"
+
+            $fresh = $raw | ConvertFrom-Json
+            $script:config = $fresh
+
+            $techRead = "$($script:config.WorkTracking.TechnicianName)"
+            Write-Log "Reload: parsed techName='$techRead'"
+
+            Load-WtSettingsValues
+
+            Write-Log "Reload: UI updated"
+            [System.Windows.Forms.MessageBox]::Show("Settings reloaded.", "Settings", "OK", "Information")
+        } catch {
+            Write-Log "Error reloading settings: $($_.Exception.Message)"
+            [System.Windows.Forms.MessageBox]::Show("Error reloading settings: $($_.Exception.Message)", "Error", "OK", "Error")
+        }
+    })
+
     Write-Log "Settings tab setup completed."
 }
-
 
 # Function to set up the Search tab with enhanced debugging
 function Setup-SearchTab {
