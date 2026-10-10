@@ -11,6 +11,7 @@
 # Load required assemblies for the Windows Forms GUI
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+Add-Type -AssemblyName Microsoft.Office.Interop.Excel
 
 # Modern animated progress bar
 Add-Type -ReferencedAssemblies System.Windows.Forms, System.Drawing -TypeDefinition @"
@@ -814,57 +815,67 @@ function Convert-HtmlFigureToCsv {
     }
 
     $htmlContent = Get-Content -Path $HtmlPath -Raw -ErrorAction Stop
+    if ([string]::IsNullOrWhiteSpace($htmlContent)) { throw "Empty HTML: $HtmlPath" }
 
-    $htmlDoc = $null
-    try {
-        $htmlDoc = New-Object -ComObject "HTMLFile"
-        try   { $htmlDoc.IHTMLDocument2_write($htmlContent) }
-        catch {
-            $bytes = [System.Text.Encoding]::UTF8.GetBytes($htmlContent)
-            $htmlDoc.write($bytes)
+    # Locate the parts table. It is <TABLE BORDER="1" COLS="5" BORDERCOLOR="#808080">.
+    # Attribute order isn't guaranteed; try plausible variations.
+    $patterns = @(
+        '(?is)<table[^>]*border\s*=\s*"?#?1"?[^>]*cols\s*=\s*"?#?5"?[^>]*bordercolor\s*=\s*"?#?808080"?[^>]*>(.*?)</table>',
+        '(?is)<table[^>]*bordercolor\s*=\s*"?#?808080"?[^>]*cols\s*=\s*"?#?5"?[^>]*>(.*?)</table>',
+        '(?is)<table[^>]*cols\s*=\s*"?#?5"?[^>]*>(.*?)</table>'
+    )
+
+    $tableHtml = $null
+    foreach ($p in $patterns) {
+        $m = [regex]::Match($htmlContent, $p)
+        if ($m.Success) { $tableHtml = $m.Groups[1].Value; break }
+    }
+    if ($null -eq $tableHtml) { throw "Data table not found in $HtmlPath" }
+
+    $rowMatches = [regex]::Matches($tableHtml, '(?is)<tr[^>]*>(.*?)</tr>')
+    if ($rowMatches.Count -le 2) { throw "Data table has no data rows in $HtmlPath" }
+
+    $lines = New-Object System.Collections.Generic.List[string]
+    $lines.Add('"NO.","PART DESCRIPTION","REF.","STOCK NO.","PART NO.","CAGE"')
+
+    $written = 0
+    # Skip rows 0 and 1 (two header rows), same as the old script.
+    for ($r = 2; $r -lt $rowMatches.Count; $r++) {
+        $rowHtml     = $rowMatches[$r].Groups[1].Value
+        $cellMatches = [regex]::Matches($rowHtml, '(?is)<td[^>]*>(.*?)</td>')
+        if ($cellMatches.Count -eq 0) { continue }
+
+        $cleanCells = @()
+        foreach ($cm in $cellMatches) {
+            $text = $cm.Groups[1].Value
+            $text = [regex]::Replace($text, '(?is)<[^>]+>', '')
+            $text = $text -replace '&nbsp;', ' '
+            $text = $text -replace '&amp;',  '&'
+            $text = $text -replace '&lt;',   '<'
+            $text = $text -replace '&gt;',   '>'
+            $text = $text -replace '&quot;', '"'
+            $text = $text -replace '&#39;',  "'"
+            $text = ($text -replace '\s+', ' ').Trim()
+            $cleanCells += '"' + ($text -replace '"', '""') + '"'
         }
 
-        $dataTable = $null
-        foreach ($t in $htmlDoc.getElementsByTagName("TABLE")) {
-            try {
-                $bc = $t.getAttribute("bordercolor")
-                if ($t.border -eq "1" -and $t.cols -eq "5" -and ($bc -in @("#808080","808080"))) {
-                    $dataTable = $t
-                    break
-                }
-            } catch { }
-        }
-        if ($null -eq $dataTable) { throw "Data table not found in $HtmlPath" }
-
-        $rows = New-Object System.Collections.Generic.List[string]
-        $rows.Add('"NO.","PART DESCRIPTION","REF.","STOCK NO.","PART NO.","CAGE"')
-
-        $written = 0
-        for ($i = 2; $i -lt $dataTable.rows.length; $i++) {
-            $row   = $dataTable.rows[$i]
-            $cells = @($row.cells)
-            $clean = $cells | ForEach-Object {
-                '"' + ($_.innerText.Trim() -replace '\s+', ' ' -replace '&nbsp;', '') + '"'
-            }
-            if (($clean -join '') -ne '""""""""""') {
-                $rows.Add($clean -join ',')
-                $written++
-            }
-        }
-
-        $csvDir = Split-Path -Path $CsvPath -Parent
-        if (-not (Test-Path $csvDir)) { New-Item -ItemType Directory -Path $csvDir -Force | Out-Null }
-        $rows | Out-File -LiteralPath $CsvPath -Encoding UTF8
-
-        Write-Log "Convert-HtmlFigureToCsv: $($written) row(s) -> $CsvPath"
-        return $written
-    } finally {
-        if ($null -ne $htmlDoc) {
-            [System.Runtime.Interopservices.Marshal]::ReleaseComObject($htmlDoc) | Out-Null
-            [System.GC]::Collect()
-            [System.GC]::WaitForPendingFinalizers()
+        if (($cleanCells -join '') -ne '""""""""""') {
+            $lines.Add($cleanCells -join ',')
+            $written++
         }
     }
+
+    $csvDir = Split-Path -Path $CsvPath -Parent
+    if ($csvDir -and -not (Test-Path $csvDir)) {
+        New-Item -ItemType Directory -Path $csvDir -Force | Out-Null
+    }
+
+    # UTF-8 without BOM — PS 5.1's Out-File -Encoding UTF8 writes a BOM
+    [System.IO.File]::WriteAllLines(
+        $CsvPath, $lines, (New-Object System.Text.UTF8Encoding($false)))
+
+    Write-Log "Convert-HtmlFigureToCsv: $written row(s) -> $CsvPath"
+    return $written
 }
 
 function Convert-FigureFolderToCsv {
@@ -3563,12 +3574,84 @@ function Send-JobToHistorian {
     }
 }
 
+function Save-PmChecklistEvent {
+    # Idempotent write for a pm.checklist event.  Any prior event with the
+    # same (machineId, checklistNo, work date) is dropped from the file,
+    # then this event is appended.  Other lines in Historian.jsonl are
+    # preserved unchanged.
+    param($Event)
+
+    if ($null -eq $Event) { throw "Save-PmChecklistEvent: null event." }
+
+    $path = Get-HistorianFilePath
+    $dir  = Split-Path -Path $path -Parent
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+
+    # Populate envelope fields. capturedAt is always refreshed so the
+    # Historian shows when the current version was written.
+    if (-not ($Event.PSObject.Properties.Name -contains 'id') -or
+        [string]::IsNullOrWhiteSpace("$($Event.id)")) {
+        $Event | Add-Member -NotePropertyName 'id' -NotePropertyValue ([guid]::NewGuid().ToString()) -Force
+    }
+    $Event | Add-Member -NotePropertyName 'capturedAt' -NotePropertyValue (Get-Date).ToString("o") -Force
+    $tech = "$($script:config.WorkTracking.TechnicianName)".Trim()
+    $Event | Add-Member -NotePropertyName 'capturedBy' -NotePropertyValue $tech -Force
+
+    $machineId   = "$($Event.payload.machineId)"
+    $checklistNo = "$($Event.payload.checklistNo)"
+    $targetDate  = $null
+    try { $targetDate = ([DateTime]$Event.payload.checklistDate).Date } catch { }
+
+    $newLine = $Event | ConvertTo-Json -Depth 12 -Compress
+    $newLine = $newLine -replace "[\r\n]+", ' '
+
+    # Read existing lines; drop any prior pm.checklist for the same tuple.
+    $kept = New-Object System.Collections.Generic.List[string]
+    $dropped = 0
+    if (Test-Path $path) {
+        foreach ($line in (Get-Content -Path $path -Encoding UTF8)) {
+            if ([string]::IsNullOrWhiteSpace($line)) { continue }
+
+            $e = $null
+            try { $e = $line | ConvertFrom-Json } catch { }
+            if ($null -ne $e -and "$($e.kind)" -eq 'pm.checklist' -and $e.payload) {
+                if ("$($e.machineId)" -eq $machineId -and
+                    "$($e.payload.checklistNo)" -eq $checklistNo) {
+
+                    $match = $true
+                    if ($targetDate) {
+                        $evDate = Get-HistorianEventWorkDate -Event $e
+                        $match = ($evDate -and $evDate.Date -eq $targetDate)
+                    }
+                    if ($match) { $dropped++; continue }
+                }
+            }
+            $kept.Add($line) | Out-Null
+        }
+    }
+
+    $tmp = "$path.tmp"
+    try {
+        $kept.Add($newLine) | Out-Null
+        $kept | Set-Content -Path $tmp -Encoding UTF8
+        Move-Item -Path $tmp -Destination $path -Force
+        Write-Log "Historian: saved pm.checklist machine=$machineId no=$checklistNo date=$($targetDate.ToString('yyyy-MM-dd')) (superseded $dropped prior)"
+        return $Event
+    } catch {
+        if (Test-Path $tmp) { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
+        throw
+    }
+}
+
 function Send-PmChecklistToHistorian {
-    # Sends one event per machine for the given date.
-    # Only counts tasks marked Complete in the session.
+    # Writes one event per machine for the given date.  Any prior event for
+    # the same machine + checklist number + date is replaced, so a second
+    # send corrects the first rather than duplicating it.
     param([DateTime]$Date)
 
-    $sent = 0
+    $written = 0
+    $blank   = 0
+
     foreach ($m in @($script:pmMachines)) {
         if (-not $m.SortDate -or $m.SortDate.Date -ne $Date.Date) { continue }
         if (-not $m.State) { continue }
@@ -3590,7 +3673,7 @@ function Send-PmChecklistToHistorian {
             }
         }
 
-        if ($selected.Count -eq 0) { continue }
+        if ($selected.Count -eq 0) { $blank++; continue }
 
         $totalMin = ($selected | Measure-Object -Property ActualTimeMin -Sum).Sum
         $hours    = [Math]::Round($totalMin / 60.0, 2)
@@ -3626,14 +3709,17 @@ function Send-PmChecklistToHistorian {
         }
 
         try {
-            Add-HistorianEvent -Event $evt | Out-Null
-            $sent++
+            Save-PmChecklistEvent -Event $evt | Out-Null
+            $written++
         } catch {
-            Write-Log "Send-PmChecklistToHistorian: append failed for $($m.MachineId): $($_.Exception.Message)"
+            Write-Log "Send-PmChecklistToHistorian: write failed for $($m.MachineId): $($_.Exception.Message)"
         }
     }
 
-    return $sent
+    return [PSCustomObject]@{
+        Written = $written
+        Blank   = $blank
+    }
 }
 
 function Send-WorksheetDayToHistorian {
@@ -5418,18 +5504,19 @@ function Setup-PmChecklistSubTab {
     $toolbar.Controls.Add($reloadBtn)
 
     $sendPmBtn = New-Button "Send Checklist" {
-        $date = $script:pmDatePicker.Value.Date
-        $count = Send-PmChecklistToHistorian -Date $date
-        if ($count -eq 0) {
+        $date   = $script:pmDatePicker.Value.Date
+        $result = Send-PmChecklistToHistorian -Date $date
+
+        if ($result.Written -eq 0) {
             [System.Windows.Forms.MessageBox]::Show(
                 "Nothing to send for $($date.ToString('yyyy-MM-dd')).`r`n`r`nNo tasks are marked complete for that date.",
                 "Send Checklist", "OK", "Information")
         } else {
-            [System.Windows.Forms.MessageBox]::Show(
-                "Sent $count machine checklist$(if ($count -ne 1) { 's' }) to Historian for $($date.ToString('yyyy-MM-dd')).",
-                "Send Checklist", "OK", "Information")
+            $msg = "Sent $($result.Written) machine checklist$(if ($result.Written -ne 1) { 's' }) to Historian for $($date.ToString('yyyy-MM-dd'))."
+            $msg += "`r`n`r`nSending again for the same date will replace the previous version."
+            [System.Windows.Forms.MessageBox]::Show($msg, "Send Checklist", "OK", "Information")
         }
-        Write-Log "PM Checklist: sent $count machine(s) to Historian for $($date.ToString('yyyy-MM-dd'))."
+        Write-Log "PM Checklist: sent $($result.Written) machine(s) for $($date.ToString('yyyy-MM-dd'))."
     } -Style 'Success' -Width 150 -Height 32 -TextAlign MiddleCenter
     $sendPmBtn.Margin = New-Object System.Windows.Forms.Padding(0,0,6,0)
     $toolbar.Controls.Add($sendPmBtn)
