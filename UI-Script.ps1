@@ -1411,13 +1411,17 @@ function Merge-PartsBookSections {
     param(
         [string]$SourceDir,
         [string]$SiteCsvPath,
-        [string]$PartsBookName
+        [string]$PartsBookName,
+        $ProgressHandle = $null
     )
+
+    $mergeStart = Get-Date
 
     $combinedDir = Join-Path $SourceDir "CombinedSections"
     if (-not (Test-Path $combinedDir)) { New-Item -ItemType Directory -Path $combinedDir -Force | Out-Null }
 
     $csvFiles = @(Get-ChildItem -Path (Join-Path $SourceDir "HTML and CSV Files") -Filter "Figure *.csv" -ErrorAction SilentlyContinue)
+    Write-Log "Merge: found $($csvFiles.Count) figure CSV(s) to combine"
 
     # Numeric ascending group sort (Section 2, 3, ..., 9, 10, ..., 20)
     $groups = @(
@@ -1425,9 +1429,13 @@ function Merge-PartsBookSections {
             Group-Object { $_.BaseName -replace 'Figure (\d+)-\d+', '$1' } |
             Sort-Object -Property @{ Expression = { [int]$_.Name } }
     )
+    Write-Log "Merge: $($groups.Count) section group(s) to process"
 
+    # ---- Load site data and pre-add columns ONCE ----
     $siteData = $null
+    $bookCol  = $null
     if ($SiteCsvPath -and (Test-Path $SiteCsvPath)) {
+        $loadStart = Get-Date
         $siteData = Import-Csv -Path $SiteCsvPath
         if ($siteData.Count -gt 0) {
             if (-not $siteData[0].PSObject.Properties['Changed Part (NSN)']) {
@@ -1438,11 +1446,24 @@ function Merge-PartsBookSections {
                 $siteData | ForEach-Object { $_ | Add-Member -NotePropertyName $bookCol -NotePropertyValue '' -Force }
             }
         }
+        Write-Log "Merge: loaded $($siteData.Count) site row(s) in $([int]((Get-Date)-$loadStart).TotalSeconds)s; bookCol='$bookCol'"
     }
 
+    $groupIdx = 0
     foreach ($group in $groups) {
+        $groupIdx++
+        $groupStart = Get-Date
         $figNum = $group.Name
         $sectionFile = Join-Path $combinedDir "Section $figNum.csv"
+
+        # Pump the message queue so the UI doesn't go gray
+        Update-PartsBookProgress -Handle $ProgressHandle `
+            -Message "Merging section $figNum ($groupIdx of $($groups.Count))..." `
+            -Percent (($groupIdx - 1) / [double]$groups.Count * 100) `
+            -Book $PartsBookName
+
+        Write-Log "Merge: section $figNum start ($($group.Group.Count) figure file(s))"
+
         $allRows = @()
 
         # Numeric ascending within a section (2-1, 2-2, ..., 2-10)
@@ -1474,7 +1495,6 @@ function Merge-PartsBookSections {
                         $row.'Location' = $match.'Location'
                         $row.'QTY'      = $match.'QTY'
                         $idx = $siteData.IndexOf($match)
-                        $bookCol = $PartsBookName -replace '[^\w\s-]', '' -replace '\s+', ' '
                         $figRef = "Figure " + ($row.'REF.' -replace '^Figure\s+', '' -replace '\.csv$', '')
                         $existing = "$($siteData[$idx].$bookCol)"
                         if ([string]::IsNullOrEmpty($existing)) { $siteData[$idx].$bookCol = $figRef }
@@ -1492,7 +1512,6 @@ function Merge-PartsBookSections {
                             }
                             $row.'Location' = $siteData[$idx].'Location'
                             $row.'QTY'      = $siteData[$idx].'QTY'
-                            $bookCol = $PartsBookName -replace '[^\w\s-]', '' -replace '\s+', ' '
                             $figRef = "Figure " + ($row.'REF.' -replace '^Figure\s+', '' -replace '\.csv$', '')
                             $existing = "$($siteData[$idx].$bookCol)"
                             if ([string]::IsNullOrEmpty($existing)) { $siteData[$idx].$bookCol = $figRef }
@@ -1510,6 +1529,7 @@ function Merge-PartsBookSections {
         }
 
         $allRows | Export-Csv -Path $sectionFile -NoTypeInformation
+        Write-Log "Merge: section $figNum done — $($allRows.Count) row(s) in $([int]((Get-Date)-$groupStart).TotalSeconds)s"
     }
 
     if ($siteData -and (Test-Path $SiteCsvPath)) {
@@ -1517,6 +1537,7 @@ function Merge-PartsBookSections {
         Write-Log "Merge-PartsBookSections: updated $SiteCsvPath"
     }
 
+    Write-Log "Merge-PartsBookSections: TOTAL $([int]((Get-Date)-$mergeStart).TotalSeconds)s"
     return $combinedDir
 }
 
@@ -1557,8 +1578,9 @@ function New-PartsBookExcel {
                 -Book $BookName
 
             $csvContent = @(Import-Csv -Path $file.FullName)
-            $ws = $workbook.Sheets.Add()
-            $ws.Name = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
+			$ws = $workbook.Sheets.Add([System.Reflection.Missing]::Value,
+									   $workbook.Sheets.Item($workbook.Sheets.Count))
+			$ws.Name = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
 
             $headers = @('NO.','STOCK NO.','PART DESCRIPTION','PART NO.','REF.','QTY','LOCATION','CAGE')
             for ($c = 0; $c -lt $headers.Count; $c++) { $ws.Cells.Item(1, $c + 1) = $headers[$c] }
@@ -1848,7 +1870,7 @@ function Show-PartsBookCreatorDialog {
                 $figData = Import-Csv -Path $tree.VolumesToUrlPath
                 Export-PartsBookFigures -VolumesToUrlData $figData -DirectoryPath $bookDir -BookName $bookName -ProgressHandle $progress | Out-Null
 
-                $combined = Merge-PartsBookSections -SourceDir $bookDir -SiteCsvPath $partsRoomCsv -PartsBookName $safeName
+                $combined = Merge-PartsBookSections -SourceDir $bookDir -SiteCsvPath $partsRoomCsv -PartsBookName $safeName -ProgressHandle $progress
 
                 $excelPath = New-PartsBookExcel -SourceDir $bookDir -CombinedCsvDir $combined -BookName $bookName -ProgressHandle $progress
 
@@ -3643,6 +3665,157 @@ function Save-PmChecklistEvent {
     }
 }
 
+function Save-BreakMissedEvent {
+    # Idempotent LWW write for a break.missed event keyed on payload.date.
+    # Any prior break.missed event for the same date is compacted out.
+    param($Event)
+
+    if ($null -eq $Event) { throw "Save-BreakMissedEvent: null event." }
+
+    $path = Get-HistorianFilePath
+    $dir  = Split-Path -Path $path -Parent
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+
+    if (-not ($Event.PSObject.Properties.Name -contains 'id') -or
+        [string]::IsNullOrWhiteSpace("$($Event.id)")) {
+        $Event | Add-Member -NotePropertyName 'id' -NotePropertyValue ([guid]::NewGuid().ToString()) -Force
+    }
+    $Event | Add-Member -NotePropertyName 'capturedAt' -NotePropertyValue (Get-Date).ToString("o") -Force
+    $tech = "$($script:config.WorkTracking.TechnicianName)".Trim()
+    $Event | Add-Member -NotePropertyName 'capturedBy' -NotePropertyValue $tech -Force
+
+    $targetDate = $null
+    try { $targetDate = ([DateTime]$Event.payload.date).Date } catch { }
+    if (-not $targetDate) { throw "Save-BreakMissedEvent: event has no usable payload.date." }
+
+    $newLine = $Event | ConvertTo-Json -Depth 12 -Compress
+    $newLine = $newLine -replace "[\r\n]+", ' '
+
+    $kept = New-Object System.Collections.Generic.List[string]
+    $dropped = 0
+    if (Test-Path $path) {
+        foreach ($line in (Get-Content -Path $path -Encoding UTF8)) {
+            if ([string]::IsNullOrWhiteSpace($line)) { continue }
+            $e = $null
+            try { $e = $line | ConvertFrom-Json } catch { }
+            if ($null -ne $e -and "$($e.kind)" -eq 'break.missed' -and $e.payload) {
+                $evDate = $null
+                try { $evDate = ([DateTime]$e.payload.date).Date } catch { }
+                if ($evDate -and $evDate -eq $targetDate) { $dropped++; continue }
+            }
+            $kept.Add($line) | Out-Null
+        }
+    }
+
+    $tmp = "$path.tmp"
+    try {
+        $kept.Add($newLine) | Out-Null
+        $kept | Set-Content -Path $tmp -Encoding UTF8
+        Move-Item -Path $tmp -Destination $path -Force
+        Write-Log "Historian: saved break.missed date=$($targetDate.ToString('yyyy-MM-dd')) (superseded $dropped prior)"
+        return $Event
+    } catch {
+        if (Test-Path $tmp) { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
+        throw
+    }
+}
+
+function Save-WorksheetEvent {
+    # Idempotent LWW write for a worksheet event keyed on payload.date.
+    # Any prior worksheet event for the same date is compacted out.
+    param($Event)
+
+    if ($null -eq $Event) { throw "Save-WorksheetEvent: null event." }
+
+    $path = Get-HistorianFilePath
+    $dir  = Split-Path -Path $path -Parent
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+
+    if (-not ($Event.PSObject.Properties.Name -contains 'id') -or
+        [string]::IsNullOrWhiteSpace("$($Event.id)")) {
+        $Event | Add-Member -NotePropertyName 'id' -NotePropertyValue ([guid]::NewGuid().ToString()) -Force
+    }
+    $Event | Add-Member -NotePropertyName 'capturedAt' -NotePropertyValue (Get-Date).ToString("o") -Force
+    $tech = "$($script:config.WorkTracking.TechnicianName)".Trim()
+    $Event | Add-Member -NotePropertyName 'capturedBy' -NotePropertyValue $tech -Force
+
+    $targetDate = $null
+    try { $targetDate = ([DateTime]$Event.payload.date).Date } catch { }
+    if (-not $targetDate) { throw "Save-WorksheetEvent: event has no usable payload.date." }
+
+    $newLine = $Event | ConvertTo-Json -Depth 12 -Compress
+    $newLine = $newLine -replace "[\r\n]+", ' '
+
+    $kept = New-Object System.Collections.Generic.List[string]
+    $dropped = 0
+    if (Test-Path $path) {
+        foreach ($line in (Get-Content -Path $path -Encoding UTF8)) {
+            if ([string]::IsNullOrWhiteSpace($line)) { continue }
+            $e = $null
+            try { $e = $line | ConvertFrom-Json } catch { }
+            if ($null -ne $e -and "$($e.kind)" -eq 'worksheet' -and $e.payload) {
+                $evDate = $null
+                try { $evDate = ([DateTime]$e.payload.date).Date } catch { }
+                if ($evDate -and $evDate -eq $targetDate) { $dropped++; continue }
+            }
+            $kept.Add($line) | Out-Null
+        }
+    }
+
+    $tmp = "$path.tmp"
+    try {
+        $kept.Add($newLine) | Out-Null
+        $kept | Set-Content -Path $tmp -Encoding UTF8
+        Move-Item -Path $tmp -Destination $path -Force
+        Write-Log "Historian: saved worksheet date=$($targetDate.ToString('yyyy-MM-dd')) (superseded $dropped prior)"
+        return $Event
+    } catch {
+        if (Test-Path $tmp) { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
+        throw
+    }
+}
+
+function Send-BreakMissedToHistorian {
+    # Wraps Save-BreakMissedEvent with a payload builder.  Returns the saved
+    # event or $null on failure.
+    param([DateTime]$Date, [array]$Missed)
+
+    if ($null -eq $Missed -or @($Missed).Count -eq 0) { return $null }
+
+    $totalScheduled = ($Missed | Measure-Object -Property ScheduledMin -Sum).Sum
+
+    $detailLines = @()
+    $detailLines += "Date:     $($Date.ToString('yyyy-MM-dd'))"
+    $detailLines += "Missed:   $(@($Missed).Count) of the day's configured breaks"
+    $detailLines += ""
+    foreach ($m in $Missed) {
+        $detailLines += ("  - {0,-20} scheduled {1,3} min" -f $m.Type, $m.ScheduledMin)
+    }
+
+    $evt = [PSCustomObject]@{
+        source    = 'work_tracking'
+        kind      = 'break.missed'
+        machineId = 'WORKSHEET'
+        eventTime = (Get-Date).ToString("o")
+        summary   = "Missed breaks — $($Date.ToString('yyyy-MM-dd')) · $(@($Missed).Count) of the day's configured breaks"
+        detail    = ($detailLines -join "`n")
+        payload   = [PSCustomObject]@{
+            date              = $Date.ToString("yyyy-MM-dd")
+            missed            = @($Missed | ForEach-Object {
+                [PSCustomObject]@{ type = $_.Type; scheduledMin = [int]$_.ScheduledMin }
+            })
+            totalScheduledMin = [int]$totalScheduled
+        }
+    }
+
+    try {
+        return Save-BreakMissedEvent -Event $evt
+    } catch {
+        Write-Log "Send-BreakMissedToHistorian: $($_.Exception.Message)"
+        return $null
+    }
+}
+
 function Send-PmChecklistToHistorian {
     # Writes one event per machine for the given date.  Any prior event for
     # the same machine + checklist number + date is replaced, so a second
@@ -3775,7 +3948,7 @@ function Send-WorksheetDayToHistorian {
     }
 
     try {
-        return Add-HistorianEvent -Event $evt
+        return Save-WorksheetEvent -Event $evt
     } catch {
         Write-Log "Send-WorksheetDayToHistorian: $($_.Exception.Message)"
         return $null
@@ -4428,15 +4601,268 @@ function Open-PmArchivedHtml {
 # Initialised once; the PM Checklist sub-tab will later set this.
 if ($null -eq $script:pmTotalSelectedHours) { $script:pmTotalSelectedHours = 0.0 }
 
+# Canonical break types, in chronological order through a shift.
+# Must stay in sync with Get-ConfiguredBreakSchedule below.
+# Legacy names kept at the bottom so old records still round-trip cleanly
+# through the editor.
 $script:breakTypes = @(
-    'Lunch',
-    'Wash-up',
     'Startup',
-    'Paid Break',
-    'End-of-Day Wash-up',
+    'Paid Break 1',
+    'Lunch',
+    'Wash-up (lunch)',
+    'Paid Break 2',
+    'Wash-up (end)',
     'Paperwork',
+    'Paid Break',
+    'Wash-up',
+    'End-of-Day Wash-up',
     'Other'
 )
+
+function Get-StandingWorkOrdersPath {
+    $jobsPath = Get-JobsFilePath
+    $dir = Split-Path $jobsPath -Parent
+    return (Join-Path $dir "StandingWorkOrders.json")
+}
+
+function Get-FiscalYearKey {
+    # USPS fiscal year begins Oct 1.  Oct 2026 – Sep 2027 => "FY2027".
+    param([DateTime]$Date)
+    $fy = if ($Date.Month -ge 10) { $Date.Year + 1 } else { $Date.Year }
+    return "FY$fy"
+}
+
+function Get-StandingWorkOrderCache {
+    # Returns a hashtable keyed by FY string, each value a hashtable of
+    # acronym -> standing WO number.
+    $path = Get-StandingWorkOrdersPath
+    if (-not (Test-Path $path)) { return @{} }
+    try {
+        $raw = Get-Content -Path $path -Raw -Encoding UTF8
+        if ([string]::IsNullOrWhiteSpace($raw)) { return @{} }
+        $data = $raw | ConvertFrom-Json
+        $out = @{}
+        if ($data) {
+            foreach ($fyProp in $data.PSObject.Properties) {
+                $inner = @{}
+                foreach ($aProp in $fyProp.Value.PSObject.Properties) {
+                    $inner[$aProp.Name] = "$($aProp.Value)"
+                }
+                $out[$fyProp.Name] = $inner
+            }
+        }
+        return $out
+    } catch {
+        Write-Log "Get-StandingWorkOrderCache: $($_.Exception.Message)"
+        return @{}
+    }
+}
+
+function Save-StandingWorkOrderCache {
+    param([hashtable]$Cache)
+
+    $path = Get-StandingWorkOrdersPath
+    $dir  = Split-Path $path -Parent
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+
+    $tmp = "$path.tmp"
+    try {
+        $obj = [ordered]@{}
+        foreach ($fy in ($Cache.Keys | Sort-Object)) {
+            $inner = [ordered]@{}
+            foreach ($acr in ($Cache[$fy].Keys | Sort-Object)) {
+                $inner[$acr] = "$($Cache[$fy][$acr])"
+            }
+            $obj[$fy] = $inner
+        }
+        ($obj | ConvertTo-Json -Depth 6) | Set-Content -Path $tmp -Encoding UTF8
+        Move-Item -Path $tmp -Destination $path -Force
+        return $true
+    } catch {
+        Write-Log "Save-StandingWorkOrderCache: $($_.Exception.Message)"
+        if (Test-Path $tmp) { Remove-Item $tmp -Force -ErrorAction SilentlyContinue }
+        return $false
+    }
+}
+
+function Update-StandingWorkOrderCacheFromWorksheet {
+    # Learns acronym -> WO for the day's REACTIVE MAINTENANCE standing rows.
+    # A standing row is Ty=W, Acronym-CL=ADMIN-AA, and Description contains
+    # "REACTIVE".  The machine-type acronym lives in the Equip No column.
+    param($Worksheet, [DateTime]$Date)
+
+    if ($null -eq $Worksheet -or $null -eq $Worksheet.Rows) { return 0 }
+
+    $fy = Get-FiscalYearKey -Date $Date
+    $cache = Get-StandingWorkOrderCache
+    if (-not $cache.ContainsKey($fy)) { $cache[$fy] = @{} }
+
+    $added = 0
+    foreach ($row in @($Worksheet.Rows)) {
+        if ("$($row.Acronym)"   -ne 'ADMIN') { continue }
+        if ("$($row.ClassCode)" -ne 'AA')    { continue }
+
+        $desc = "$($row.Description)".ToUpper()
+        if ($desc -notmatch 'REACTIVE') { continue }
+
+        $acr = "$($row.Equipment)".ToUpper()
+        $wo  = "$($row.WorkOrderNo)"
+        if ([string]::IsNullOrWhiteSpace($acr) -or [string]::IsNullOrWhiteSpace($wo)) { continue }
+
+        if (-not $cache[$fy].ContainsKey($acr)) {
+            $cache[$fy][$acr] = $wo
+            $added++
+        }
+    }
+
+    if ($added -gt 0) {
+        Save-StandingWorkOrderCache -Cache $cache | Out-Null
+        Write-Log "StandingWorkOrders: learned $added entries for $fy"
+    }
+    return $added
+}
+
+function Sync-WorksheetJobHours {
+    # Applies today's reactive calls and work orders to the worksheet.
+    #
+    # Reactive calls aggregate by machine-type acronym into the
+    # "<ACRONYM> REACTIVE MAINTENANCE" standing row's ActualTime.  If no
+    # standing row exists, one is appended with a placeholder WO.
+    #
+    # Work orders land on their own row keyed on WorkOrderNo.
+    #
+    # Idempotent: values are SET to the summed hours, not added.
+    param($Worksheet, [DateTime]$Date)
+
+    if ($null -eq $Worksheet -or $null -eq $Worksheet.Rows) { return }
+
+    $jobs = ConvertTo-FlatArray -Source (Get-Jobs)
+
+    # ---- Aggregate reactive calls by machine-type acronym ----
+    $reactiveByAcr = @{}
+    foreach ($job in @($jobs)) {
+        if ($null -eq $job) { continue }
+        if ("$($job.kind)" -ne 'reactive') { continue }
+        $jd = $null
+        if ($job.createdAt) { try { $jd = ([DateTime]$job.createdAt).Date } catch { } }
+        if (-not $jd -or $jd -ne $Date.Date) { continue }
+
+        $mid = "$($job.machineId)"
+        $acr = ($mid -split '\s+')[0].ToUpper()
+        if ([string]::IsNullOrWhiteSpace($acr)) { continue }
+
+        $h = Get-JobHours $job
+        if ($null -eq $h) { $h = 0.0 }
+
+        if (-not $reactiveByAcr.ContainsKey($acr)) { $reactiveByAcr[$acr] = 0.0 }
+        $reactiveByAcr[$acr] = [Math]::Round($reactiveByAcr[$acr] + [double]$h, 2)
+    }
+
+    # ---- Apply reactive hours ----
+    $fy    = Get-FiscalYearKey -Date $Date
+    $cache = Get-StandingWorkOrderCache
+    $fyMap = if ($cache.ContainsKey($fy)) { $cache[$fy] } else { @{} }
+
+    foreach ($acr in $reactiveByAcr.Keys) {
+        $hours = $reactiveByAcr[$acr]
+
+        $target = $null
+        foreach ($row in @($Worksheet.Rows)) {
+            if ("$($row.Acronym)"   -ne 'ADMIN') { continue }
+            if ("$($row.ClassCode)" -ne 'AA')    { continue }
+            if ("$($row.Equipment)".ToUpper() -ne $acr) { continue }
+            $target = $row
+            break
+        }
+
+        if ($target) {
+            # If we previously made a NEW placeholder, promote it to the
+            # real WO now that we've learned it from an import.
+            if ("$($target.WorkOrderNo)" -eq 'NEW' -and $fyMap.ContainsKey($acr)) {
+                $target.WorkOrderNo = "$($fyMap[$acr])"
+            }
+            $target.ActualTime     = [Math]::Round($hours, 2)
+            $target.AutoValue      = [Math]::Round($hours, 2)
+            $target.ManualOverride = $false
+        } else {
+            $wo = if ($fyMap.ContainsKey($acr)) { "$($fyMap[$acr])" } else { 'NEW' }
+            $newRow = [PSCustomObject]@{
+                RowType        = 'W'
+                WorkOrderNo    = $wo
+                WorkCode       = '07'
+                Acronym        = 'ADMIN'
+                ClassCode      = 'AA'
+                Equipment      = $acr
+                Route          = '#'
+                Frequency      = '`'
+                Priority       = 'D'
+                DueDate        = ''
+                Description    = "$acr REACTIVE MAINTENANCE"
+                ChecklistNo    = ''
+                EstimatedHrs   = 0.0
+                PmDescription  = ''
+                ActualTime     = [Math]::Round($hours, 2)
+                AutoValue      = [Math]::Round($hours, 2)
+                ManualOverride = $false
+                NeedsAudit     = $true
+            }
+            $Worksheet.Rows = @($Worksheet.Rows) + $newRow
+        }
+    }
+
+    # ---- Apply work-order hours (one row per WO#) ----
+    foreach ($job in @($jobs)) {
+        if ($null -eq $job) { continue }
+        if ("$($job.kind)" -ne 'workorder') { continue }
+        $jd = $null
+        if ($job.createdAt) { try { $jd = ([DateTime]$job.createdAt).Date } catch { } }
+        if (-not $jd -or $jd -ne $Date.Date) { continue }
+
+        $wo = "$($job.workOrderNo)"
+        if ([string]::IsNullOrWhiteSpace($wo)) { continue }
+
+        $h = Get-JobHours $job
+        if ($null -eq $h) { $h = 0.0 }
+
+        $target = $null
+        foreach ($row in @($Worksheet.Rows)) {
+            if ("$($row.WorkOrderNo)" -eq $wo) { $target = $row; break }
+        }
+
+        if ($target) {
+            $target.ActualTime     = [Math]::Round([double]$h, 2)
+            $target.AutoValue      = [Math]::Round([double]$h, 2)
+            $target.ManualOverride = $false
+        } else {
+            $mid   = "$($job.machineId)"
+            $parts = @($mid -split '\s+')
+            $acr   = if ($parts.Count -ge 1) { $parts[0].ToUpper() } else { '' }
+            $mno   = if ($parts.Count -ge 2) { $parts[1] }           else { '' }
+
+            $newRow = [PSCustomObject]@{
+                RowType        = 'W'
+                WorkOrderNo    = $wo
+                WorkCode       = '07'
+                Acronym        = $acr
+                ClassCode      = ''
+                Equipment      = $mno
+                Route          = '#'
+                Frequency      = '`'
+                Priority       = 'D'
+                DueDate        = ''
+                Description    = "$($job.description)"
+                ChecklistNo    = ''
+                EstimatedHrs   = 0.0
+                PmDescription  = ''
+                ActualTime     = [Math]::Round([double]$h, 2)
+                AutoValue      = [Math]::Round([double]$h, 2)
+                ManualOverride = $false
+                NeedsAudit     = $true
+            }
+            $Worksheet.Rows = @($Worksheet.Rows) + $newRow
+        }
+    }
+}
 
 function Get-BreaksFilePath {
     $jobsPath = Get-JobsFilePath
@@ -4491,6 +4917,125 @@ function Get-TodaysBreaks {
     return @($all | Where-Object { "$($_.date)" -eq $today })
 }
 
+function Get-ConfiguredBreakSchedule {
+    # Returns the day's break schedule from WorkBudget config, filtered to
+    # entries with a nonzero duration.  Order is chronological.
+    # Used both to seed today's placeholder rows and (later) to detect
+    # missed breaks.
+    $wb = $script:config.WorkTracking.WorkBudget
+    if (-not $wb) { return @() }
+
+    $out = @()
+    $v = 0.0
+
+    if ([double]::TryParse("$($wb.StartupMinutes)", [ref]$v) -and $v -gt 0) {
+        $out += [PSCustomObject]@{ Type = 'Startup'; DefaultMinutes = $v }
+    }
+    $pbm = @($wb.PaidBreaksMinutes)
+    if ($pbm.Count -ge 1) {
+        $v = 0.0
+        if ([double]::TryParse("$($pbm[0])", [ref]$v) -and $v -gt 0) {
+            $out += [PSCustomObject]@{ Type = 'Paid Break 1'; DefaultMinutes = $v }
+        }
+    }
+    $v = 0.0
+    if ([double]::TryParse("$($wb.LunchMinutes)", [ref]$v) -and $v -gt 0) {
+        $out += [PSCustomObject]@{ Type = 'Lunch'; DefaultMinutes = $v }
+    }
+    $v = 0.0
+    if ([double]::TryParse("$($wb.WashupMinutes)", [ref]$v) -and $v -gt 0) {
+        $out += [PSCustomObject]@{ Type = 'Wash-up (lunch)'; DefaultMinutes = $v }
+    }
+    if ($pbm.Count -ge 2) {
+        $v = 0.0
+        if ([double]::TryParse("$($pbm[1])", [ref]$v) -and $v -gt 0) {
+            $out += [PSCustomObject]@{ Type = 'Paid Break 2'; DefaultMinutes = $v }
+        }
+    }
+    $v = 0.0
+    if ([double]::TryParse("$($wb.EndOfDayWashupMinutes)", [ref]$v) -and $v -gt 0) {
+        $out += [PSCustomObject]@{ Type = 'Wash-up (end)'; DefaultMinutes = $v }
+    }
+    $v = 0.0
+    if ([double]::TryParse("$($wb.PaperworkMinutes)", [ref]$v) -and $v -gt 0) {
+        $out += [PSCustomObject]@{ Type = 'Paperwork'; DefaultMinutes = $v }
+    }
+
+    return @($out)
+}
+
+function Initialize-TodaysBreaks {
+    # Ensures each configured break type has a row for today.  Existing
+    # rows (placeholders or filled in) are left untouched.  Returns the
+    # number of rows added.
+    $today = (Get-Date).ToString("yyyy-MM-dd")
+    $all = Get-Breaks
+    if ($null -eq $all) { $all = @() }
+
+    $existingTypes = @{}
+    foreach ($b in $all) {
+        if ("$($b.date)" -ne $today) { continue }
+        $t = "$($b.type)"
+        if (-not [string]::IsNullOrWhiteSpace($t)) { $existingTypes[$t] = $true }
+    }
+
+    $schedule = @(Get-ConfiguredBreakSchedule)
+    if ($schedule.Count -eq 0) { return 0 }
+
+    $added = 0
+    foreach ($item in $schedule) {
+        if ($existingTypes.ContainsKey($item.Type)) { continue }
+        $all += [PSCustomObject]@{
+            id          = [guid]::NewGuid().ToString()
+            date        = $today
+            startTime   = ''
+            durationMin = 0
+            type        = $item.Type
+            notes       = ''
+        }
+        $added++
+    }
+
+    if ($added -gt 0) {
+        Save-Breaks -Breaks $all | Out-Null
+        Write-Log "Initialize-TodaysBreaks: seeded $added placeholder row(s) for $today"
+    }
+    return $added
+}
+
+function Test-MissedBreaksForDate {
+    # Returns an array of { Type, ScheduledMin } for configured breaks on
+    # $Date whose logged duration is still 0 (never filled in).
+    param([DateTime]$Date)
+
+    $sched = @(Get-ConfiguredBreakSchedule)
+    if ($sched.Count -eq 0) { return ,@() }
+
+    $dateStr = $Date.ToString("yyyy-MM-dd")
+    $all = Get-Breaks
+    if ($null -eq $all) { return ,@() }
+
+    $logged = @{}
+    foreach ($b in $all) {
+        if ("$($b.date)" -ne $dateStr) { continue }
+        $d = 0
+        [void][int]::TryParse("$($b.durationMin)", [ref]$d)
+        $logged["$($b.type)"] = $d
+    }
+
+    $missed = @()
+    foreach ($item in $sched) {
+        if (-not $logged.ContainsKey($item.Type)) { continue }   # no row at all -> not our problem
+        if ($logged[$item.Type] -gt 0) { continue }               # was taken
+        $missed += [PSCustomObject]@{
+            Type         = $item.Type
+            ScheduledMin = [int]$item.DefaultMinutes
+        }
+    }
+
+    return ,$missed
+}
+
 function Get-TodaysJobHours {
     $today = (Get-Date).ToString("yyyy-MM-dd")
     $total = 0.0
@@ -4514,11 +5059,20 @@ function Refresh-BreaksList {
     try {
         $script:breaksListView.Items.Clear()
         foreach ($b in @(Get-TodaysBreaks)) {
+            $dur = 0
+            [void][int]::TryParse("$($b.durationMin)", [ref]$dur)
+            $isPlaceholder = ($dur -le 0)
+
             $it = New-Object System.Windows.Forms.ListViewItem("$($b.type)")
             $it.SubItems.Add("$($b.startTime)")   | Out-Null
             $it.SubItems.Add("$($b.durationMin)") | Out-Null
             $it.SubItems.Add("$($b.notes)")       | Out-Null
             $it.Tag = $b
+
+            if ($isPlaceholder) {
+                $it.ForeColor = [System.Drawing.Color]::FromArgb(150, 160, 175)
+            }
+
             $script:breaksListView.Items.Add($it) | Out-Null
         }
     } finally {
@@ -4772,12 +5326,89 @@ function Get-JobHours {
     } catch { return $null }
 }
 
+function Refresh-JobTotals {
+    if (-not $script:jobTotalsLabel) { return }
+
+    $today = (Get-Date).Date
+    $jobs  = ConvertTo-FlatArray -Source (Get-Jobs)
+
+    $reactives = @()
+    $wos       = @()
+
+    foreach ($job in @($jobs)) {
+        if ($null -eq $job) { continue }
+        $jd = $null
+        if ($job.createdAt) {
+            try { $jd = ([DateTime]$job.createdAt).Date } catch { }
+        }
+        if (-not $jd -or $jd -ne $today) { continue }
+
+        $h = Get-JobHours $job
+        if ($null -eq $h) { $h = 0.0 }
+
+        if ("$($job.kind)" -eq 'workorder') { $wos       += [PSCustomObject]@{ Job = $job; Hours = [double]$h } }
+        else                                 { $reactives += [PSCustomObject]@{ Job = $job; Hours = [double]$h } }
+    }
+
+    $lines = @()
+    $lines += "Reactive calls — $(Get-Date -Format 'yyyy-MM-dd')"
+    $lines += ""
+
+    if ($reactives.Count -eq 0) {
+        $lines += "  (no reactive calls today)"
+    } else {
+        # one line per call, then per-acronym subtotals
+        foreach ($r in $reactives) {
+            $acr = "$($r.Job.machineId)".Split(' ')[0]
+            $lines += ("  {0,-12} {1,7:F2} h   {2}" -f "$($r.Job.machineId)", $r.Hours, "$($r.Job.description)")
+        }
+        $lines += "  ---- by acronym ----"
+        $byAcr = $reactives | Group-Object { "$($_.Job.machineId)".Split(' ')[0] }
+        foreach ($g in ($byAcr | Sort-Object Name)) {
+            $sum = ($g.Group | Measure-Object -Property Hours -Sum).Sum
+            $lines += ("  {0,-12} reactive work  {1,7:F2} h" -f "$($g.Name)", $sum)
+        }
+        $reactiveTotal = ($reactives | Measure-Object -Property Hours -Sum).Sum
+        $lines += ("  REACTIVE TOTAL           {0,7:F2} h" -f $reactiveTotal)
+    }
+
+    $lines += ""
+    $lines += "Work orders — $(Get-Date -Format 'yyyy-MM-dd')"
+    if ($wos.Count -eq 0) {
+        $lines += "  (no work orders today)"
+    } else {
+        foreach ($w in $wos) {
+            $wo = if ($w.Job.workOrderNo) { $w.Job.workOrderNo } else { '(no WO#)' }
+            $lines += ("  {0,-12} {1,-12} {2,7:F2} h   {3}" -f `
+                "$($w.Job.machineId)", $wo, $w.Hours, "$($w.Job.description)")
+        }
+        $woTotal = ($wos | Measure-Object -Property Hours -Sum).Sum
+        $lines += ("  WO TOTAL                 {0,7:F2} h" -f $woTotal)
+    }
+
+    $script:jobTotalsLabel.Text = ($lines -join "`r`n")
+}
+
 function Refresh-JobLogList {
     if (-not $script:jobLogListView) { return }
 
-    $script:wtJobs = Get-Jobs
-    $jobs = $script:wtJobs
-    if ($null -eq $jobs) { $jobs = @() }
+    $allJobs = Get-Jobs
+    if ($null -eq $allJobs) { $allJobs = @() }
+    $script:wtJobs = $allJobs      # full set, source of truth
+
+    # Filter: show if job is on the selected date, OR not yet sent.
+    $selected = if ($script:jobLogDatePicker) { $script:jobLogDatePicker.Value.Date } else { (Get-Date).Date }
+
+    $jobs = @()
+    foreach ($job in $allJobs) {
+        $jobDate = $null
+        if ($job.createdAt) {
+            try { $jobDate = ([DateTime]$job.createdAt).Date } catch { }
+        }
+        $onSelected = ($null -ne $jobDate) -and ($jobDate -eq $selected)
+        $unsent     = (-not $job.sentToHistorian)
+        if ($onSelected -or $unsent) { $jobs += $job }
+    }
 
     $script:jobLogListView.BeginUpdate()
     try {
@@ -4819,10 +5450,17 @@ function Refresh-JobLogList {
     }
 
     if ($script:jobLogStatusLabel) {
-        $total = @($jobs).Count
+        $shown  = @($jobs).Count
+        $total  = @($allJobs).Count
         $drafts = @($jobs | Where-Object { -not $_.sentToHistorian }).Count
-        $script:jobLogStatusLabel.Text = "$total job$(if ($total -ne 1) { 's' }) — $drafts draft$(if ($drafts -ne 1) { 's' })"
+        $selStr = $selected.ToString('yyyy-MM-dd')
+		$shown  = @($jobs).Count
+		$total  = @($allJobs).Count
+        $script:jobLogStatusLabel.Text =
+            "Showing $shown of $total — $selStr — $drafts draft$(if ($drafts -ne 1) { 's' })"
     }
+
+    Refresh-JobTotals
 }
 
 function Setup-JobLogSubTab {
@@ -4941,6 +5579,30 @@ function Setup-JobLogSubTab {
     } -Style 'Success' -Width 150 -Height 32 -TextAlign MiddleCenter
     $sendAllBtn.Margin = New-Object System.Windows.Forms.Padding(0,0,6,0)
     $toolbar.Controls.Add($sendAllBtn)
+	    # ---- Date filter ----
+    $lblDate = New-Object System.Windows.Forms.Label
+    $lblDate.Text = "Date:"
+    $lblDate.Size = New-Object System.Drawing.Size(44, 32)
+    $lblDate.TextAlign = [System.Drawing.ContentAlignment]::MiddleRight
+    $lblDate.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $lblDate.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $lblDate.Margin = New-Object System.Windows.Forms.Padding(12,0,4,0)
+    $toolbar.Controls.Add($lblDate)
+
+    $script:jobLogDatePicker = New-Object System.Windows.Forms.DateTimePicker
+    $script:jobLogDatePicker.Format = [System.Windows.Forms.DateTimePickerFormat]::Short
+    $script:jobLogDatePicker.Size = New-Object System.Drawing.Size(120, 26)
+    $script:jobLogDatePicker.Value = (Get-Date).Date
+    $script:jobLogDatePicker.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+    $script:jobLogDatePicker.Margin = New-Object System.Windows.Forms.Padding(0,4,6,0)
+    $script:jobLogDatePicker.Add_ValueChanged({ Refresh-JobLogList })
+    $toolbar.Controls.Add($script:jobLogDatePicker)
+
+    $todayBtn = New-Button "Today" {
+        $script:jobLogDatePicker.Value = (Get-Date).Date
+    } -Style 'Ghost' -Width 70 -Height 32 -TextAlign MiddleCenter
+    $todayBtn.Margin = New-Object System.Windows.Forms.Padding(0,0,6,0)
+    $toolbar.Controls.Add($todayBtn)
 
     $script:jobLogListView = New-Object System.Windows.Forms.ListView
     $script:jobLogListView.Dock = 'Fill'
@@ -4964,9 +5626,10 @@ function Setup-JobLogSubTab {
 
     $bottomGrid = New-Object System.Windows.Forms.TableLayoutPanel
     $bottomGrid.Dock = 'Fill'
-    $bottomGrid.ColumnCount = 2
+    $bottomGrid.ColumnCount = 3
     $bottomGrid.RowCount = 1
     $bottomGrid.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 300))) | Out-Null
+    $bottomGrid.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 400))) | Out-Null
     $bottomGrid.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100.0))) | Out-Null
     $bottomPanel.Controls.Add($bottomGrid)
 
@@ -5037,7 +5700,25 @@ function Setup-JobLogSubTab {
     $gbBreaks.Controls.Add($script:breaksListView)
     $script:breaksListView.BringToFront()
 
-    $bottomGrid.Controls.Add($gbBreaks, 1, 0)
+    $bottomGrid.Controls.Add($gbBreaks, 2, 0)
+	
+	 # Middle: Reactive / WO totals
+    $gbTotals = New-Object System.Windows.Forms.GroupBox
+    $gbTotals.Text = "Today's Reactive / WO Hours"
+    $gbTotals.Dock = 'Fill'
+    $gbTotals.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $gbTotals.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $gbTotals.Margin = New-Object System.Windows.Forms.Padding(6, 0, 6, 0)
+
+    $script:jobTotalsLabel = New-Object System.Windows.Forms.Label
+    $script:jobTotalsLabel.Dock = 'Fill'
+    $script:jobTotalsLabel.Font = New-Object System.Drawing.Font("Consolas", 9)
+    $script:jobTotalsLabel.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $script:jobTotalsLabel.Padding = New-Object System.Windows.Forms.Padding(8, 4, 8, 4)
+    $script:jobTotalsLabel.Text = "(no jobs yet today)"
+    $gbTotals.Controls.Add($script:jobTotalsLabel)
+
+    $bottomGrid.Controls.Add($gbTotals, 1, 0)
 
     # ---- Break editor wiring ----
     $addBreakBtn.Add_Click({
@@ -5045,7 +5726,25 @@ function Setup-JobLogSubTab {
         if ($null -eq $result) { return }
         $all = Get-Breaks
         if ($null -eq $all) { $all = @() }
-        $all += $result
+
+        # If an empty placeholder for the same date+type already exists,
+        # replace it instead of creating a duplicate.
+        $replaced = $false
+        for ($i = 0; $i -lt $all.Count; $i++) {
+            $b = $all[$i]
+            if ("$($b.date)" -ne "$($result.date)") { continue }
+            if ("$($b.type)" -ne "$($result.type)") { continue }
+            $d = 0
+            [void][int]::TryParse("$($b.durationMin)", [ref]$d)
+            if ($d -gt 0) { continue }
+
+            $result | Add-Member -NotePropertyName 'id' -NotePropertyValue "$($b.id)" -Force
+            $all[$i] = $result
+            $replaced = $true
+            break
+        }
+        if (-not $replaced) { $all += $result }
+
         Save-Breaks -Breaks $all | Out-Null
         Refresh-BreaksList
         Refresh-WorkBudget
@@ -5071,6 +5770,35 @@ function Setup-JobLogSubTab {
         Refresh-WorkBudget
     })
 
+    $script:breaksListView.Add_DoubleClick({
+        $sel = $script:breaksListView.SelectedItems
+        if ($sel.Count -eq 0) { return }
+        $break = $sel[0].Tag
+        if ($null -eq $break) { return }
+
+        $result = Show-BreakEditor -Break $break
+        if ($null -eq $result) { return }
+
+        $all = Get-Breaks
+        if ($null -eq $all) { $all = @() }
+
+        $updated = @()
+        $found = $false
+        foreach ($b in $all) {
+            if ("$($b.id)" -eq "$($result.id)") {
+                $updated += $result
+                $found = $true
+            } else {
+                $updated += $b
+            }
+        }
+        if (-not $found) { $updated += $result }
+
+        Save-Breaks -Breaks $updated | Out-Null
+        Refresh-BreaksList
+        Refresh-WorkBudget
+    })
+	
     # Double-click job list — edit
     $script:jobLogListView.Add_DoubleClick({
         $sel = $script:jobLogListView.SelectedItems
@@ -5103,6 +5831,11 @@ function Setup-JobLogSubTab {
     })
 
     # Initial loads
+	
+	# Seed today's break placeholders from the Work Budget config.
+    try { [void](Initialize-TodaysBreaks) }
+    catch { Write-Log "Initialize-TodaysBreaks failed: $($_.Exception.Message)" }
+	
     Refresh-JobLogList
     Refresh-BreaksList
     Refresh-WorkBudget
@@ -5634,18 +6367,29 @@ function Refresh-WeeklyWorksheetList {
         }
 
         # Totals
-        $sumEst = 0.0; $sumAct = 0.0; $audit = 0
+        $sumEst = 0.0; $sumAct = 0.0; $sumReactive = 0.0; $audit = 0
         foreach ($row in @($ws.Rows)) {
             [void][double]::TryParse("$($row.EstimatedHrs)", [ref]$sumEst)
-            if ($null -ne $row.ActualTime) { $sumAct += [double]$row.ActualTime }
+            if ($null -ne $row.ActualTime) {
+                $sumAct += [double]$row.ActualTime
+                if ("$($row.Acronym)" -eq 'ADMIN' -and "$($row.ClassCode)" -eq 'AA') {
+                    $sumReactive += [double]$row.ActualTime
+                }
+            }
             if ($row.NeedsAudit) { $audit++ }
         }
         $diff = $sumAct - $sumEst
         $diffStr = if ($diff -ge 0) { "+{0:F2}" -f $diff } else { "{0:F2}" -f $diff }
 
         if ($script:wsStatusLabel) {
-            $script:wsStatusLabel.Text = "Rows: $shown   Est: $("{0:F2}" -f $sumEst) h   Actual: $("{0:F2}" -f $sumAct) h   Diff: $diffStr h" +
+            $script:wsStatusLabel.Text = (
+                "Rows: $shown" +
+                "   Est: $("{0:F2}" -f $sumEst) h" +
+                "   Actual: $("{0:F2}" -f $sumAct) h" +
+                "   Reactive: $("{0:F2}" -f $sumReactive) h" +
+                "   Diff: $diffStr h" +
                 $(if ($audit -gt 0) { "   |   $audit NEEDS AUDIT" } else { '' })
+            )
         }
     } finally {
         $script:wsListView.EndUpdate()
@@ -5814,6 +6558,7 @@ function Setup-WeeklyWorksheetSubTab {
             return
         }
         Sync-WorksheetActualTimes -Worksheet $script:wsWorksheet -Date $script:wsDatePicker.Value.Date
+        Sync-WorksheetJobHours   -Worksheet $script:wsWorksheet -Date $script:wsDatePicker.Value.Date
         Add-WorksheetPlaceholders -Worksheet $script:wsWorksheet -Date $script:wsDatePicker.Value.Date
         Save-WeeklyWorksheet -Date $script:wsDatePicker.Value.Date -Worksheet $script:wsWorksheet | Out-Null
         Refresh-WeeklyWorksheetList
@@ -5829,22 +6574,55 @@ function Setup-WeeklyWorksheetSubTab {
             [System.Windows.Forms.MessageBox]::Show("No worksheet loaded for $($date.ToString('yyyy-MM-dd')).", "Send Day", "OK", "Warning")
             return
         }
-        $auditCount = @(@($ws.Rows) | Where-Object { $_.NeedsAudit }).Count
-        $confirm = if ($auditCount -gt 0) {
-            "Send worksheet for $($date.ToString('yyyy-MM-dd')) to Historian?`r`n`r`n$auditCount row(s) still need audit and will be excluded from the summary but included in the file with an AUDIT flag."
-        } else {
-            "Send worksheet for $($date.ToString('yyyy-MM-dd')) to Historian?"
-        }
-        $answer = [System.Windows.Forms.MessageBox]::Show($confirm, "Send Day",
-            [System.Windows.Forms.MessageBoxButtons]::YesNo,
-            [System.Windows.Forms.MessageBoxIcon]::Question)
-        if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
 
+        # ---- 1. Audit-rows confirmation ----
+        $auditCount = @(@($ws.Rows) | Where-Object { $_.NeedsAudit }).Count
+        if ($auditCount -gt 0) {
+            $confirmAudit = "Send worksheet for $($date.ToString('yyyy-MM-dd')) to Historian?`r`n`r`n$auditCount row(s) still need audit and will be excluded from the summary but included in the file with an AUDIT flag."
+            $answerAudit = [System.Windows.Forms.MessageBox]::Show($confirmAudit, "Send Day",
+                [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                [System.Windows.Forms.MessageBoxIcon]::Question)
+            if ($answerAudit -ne [System.Windows.Forms.DialogResult]::Yes) { return }
+        }
+
+        # ---- 2. Missed-break check ----
+        $missedBreaks = @(Test-MissedBreaksForDate -Date $date)
+        $flagMissed = $false
+
+        if ($missedBreaks.Count -gt 0) {
+            $listText = ($missedBreaks | ForEach-Object { "  · $($_.Type)  ($($_.ScheduledMin) min)" }) -join "`r`n"
+            $msg = @"
+Unlogged breaks for $($date.ToString('yyyy-MM-dd')):
+
+$listText
+
+YES   — Mark these as MISSED. They will be recorded in the Historian.
+NO    — I am still working and will take them. Nothing recorded.
+CANCEL — Do not send yet.
+"@
+            $answerMissed = [System.Windows.Forms.MessageBox]::Show($msg, "Missed Breaks",
+                [System.Windows.Forms.MessageBoxButtons]::YesNoCancel,
+                [System.Windows.Forms.MessageBoxIcon]::Warning)
+
+            if ($answerMissed -eq [System.Windows.Forms.DialogResult]::Cancel) { return }
+            if ($answerMissed -eq [System.Windows.Forms.DialogResult]::Yes)    { $flagMissed = $true }
+        }
+
+        # ---- 3. Write the break.missed event first (if flagged) ----
+        if ($flagMissed) {
+            $bme = Send-BreakMissedToHistorian -Date $date -Missed $missedBreaks
+            if ($null -eq $bme) {
+                Write-Log "Send Day: break.missed write failed; continuing with worksheet send."
+            }
+        }
+
+        # ---- 4. Send the worksheet ----
         $evt = Send-WorksheetDayToHistorian -Date $date -Worksheet $ws
         if ($null -eq $evt) {
             [System.Windows.Forms.MessageBox]::Show("Send failed. See log.", "Send Day", "OK", "Error")
         } else {
-            [System.Windows.Forms.MessageBox]::Show("Sent to Historian.", "Send Day", "OK", "Information")
+            $tail = if ($flagMissed) { "`r`n`r`nMissed breaks were recorded." } else { '' }
+            [System.Windows.Forms.MessageBox]::Show("Sent to Historian.$tail", "Send Day", "OK", "Information")
         }
     } -Style 'Success' -Width 110 -Height 32 -TextAlign MiddleCenter
     $sendDayBtn.Margin = New-Object System.Windows.Forms.Padding(0,0,6,0)
@@ -7714,6 +8492,15 @@ function Get-PmSelectedHoursFor {
         $pmMno = 0
         if (-not [int]::TryParse("$($m.Mno)", [ref]$pmMno)) { continue }
         if ($pmMno -ne $mnoInt) { continue }
+
+        # Lazy-load State if this machine was never rendered (i.e. the PM
+        # Checklist tab was showing a different date when it was loaded).
+        if (-not $m.State) {
+            $sess = Get-PmSession -Machine $m
+            $m | Add-Member -NotePropertyName State `
+                            -NotePropertyValue $sess.Selections -Force
+        }
+
         foreach ($t in @($m.Parsed.Tasks)) {
             $e = $m.State[$t.ItemNo]
             if (-not $e -or -not $e.Selected) { continue }
@@ -7889,8 +8676,28 @@ function New-WorksheetFromHtml {
                 Rows      = $decorated
             }
 
-            Sync-WorksheetActualTimes -Worksheet $ws -Date $dt
-            Add-WorksheetPlaceholders -Worksheet $ws -Date $dt
+            try {
+				Sync-WorksheetActualTimes -Worksheet $ws -Date $dt
+			} catch {
+				Write-Log "New-WorksheetFromHtml: Sync-WorksheetActualTimes failed for $target — $($_.Exception.Message) at $($_.InvocationInfo.ScriptLineNumber)"
+				throw
+			}
+			try {
+                Update-StandingWorkOrderCacheFromWorksheet -Worksheet $ws -Date $dt
+            } catch {
+                Write-Log "New-WorksheetFromHtml: cache update failed for $target — $($_.Exception.Message)"
+            }
+            try {
+                Sync-WorksheetJobHours -Worksheet $ws -Date $dt
+            } catch {
+                Write-Log "New-WorksheetFromHtml: Sync-WorksheetJobHours failed for $target — $($_.Exception.Message)"
+            }
+            try {
+				Add-WorksheetPlaceholders -Worksheet $ws -Date $dt
+			} catch {
+				Write-Log "New-WorksheetFromHtml: Add-WorksheetPlaceholders failed for $target — $($_.Exception.Message) at $($_.InvocationInfo.ScriptLineNumber)"
+				throw
+			}
 
             Save-WeeklyWorksheet -Date $dt -Worksheet $ws | Out-Null
             $saved += [PSCustomObject]@{ Date = $dt.ToString("yyyy-MM-dd"); Rows = $decorated.Count }
