@@ -765,6 +765,155 @@
 				page-break-after: avoid;
 			}
 		}
+
+        /* ==========================================================
+           NEW: BIN ACTION BAR (appears when a bin is clicked)
+           ========================================================== */
+        .bin-action-bar {
+            display: none;
+            margin-top: 10px;
+            padding: 8px 10px;
+            background: #f0f7ff;
+            border: 1px solid #b9d7f2;
+            border-left: 4px solid #0078d4;
+            border-radius: 6px;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+        }
+        .bin-action-bar.show { display: flex; }
+        .bin-action-bar .ba-label {
+            font-weight: 700;
+            color: #1a3a6b;
+            margin-right: 2px;
+        }
+        .bin-action-bar .ba-sub {
+            font-weight: 400;
+            color: #5b6b80;
+            font-size: 11px;
+        }
+        .bin-action-bar button {
+            border: none;
+            border-radius: 4px;
+            padding: 5px 10px;
+            font-size: 11.5px;
+            font-weight: 600;
+            cursor: pointer;
+            background: #0078d4;
+            color: #fff;
+            touch-action: manipulation;
+            white-space: nowrap;
+        }
+        .bin-action-bar button:hover { background: #005a9e; }
+        .bin-action-bar button.alt { background: #6c757d; }
+        .bin-action-bar button.alt:hover { background: #5a6268; }
+        .bin-action-bar button.ba-close { background: #d13438; padding: 5px 9px; }
+        .bin-action-bar button.ba-close:hover { background: #a52a2a; }
+        .bin-action-bar select {
+            padding: 4px 6px;
+            border: 1px solid #aaa;
+            border-radius: 4px;
+            font-size: 11.5px;
+            background: #fff;
+        }
+        .module-card .bin-cell-sm.selected {
+            outline: 2px solid #0078d4;
+            outline-offset: 1px;
+            z-index: 4;
+        }
+        .panel-inspection .bin-card-insp .bin-header-insp .trend-btn {
+            background: #107c10;
+            color: #fff;
+            border: none;
+            border-radius: 3px;
+            padding: 0 5px;
+            font-size: 8px;
+            cursor: pointer;
+            touch-action: manipulation;
+            margin-left: 2px;
+        }
+        .panel-inspection .bin-card-insp .bin-header-insp .trend-btn:hover { background: #0a5e0a; }
+
+        /* ==========================================================
+           NEW: TREND MODAL
+           ========================================================== */
+        .trend-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px 14px;
+            align-items: center;
+            margin-bottom: 12px;
+            font-size: 12px;
+            background: #f8f9fa;
+            border: 1px solid #e3e8ee;
+            border-radius: 6px;
+            padding: 8px 10px;
+        }
+        .trend-controls label { font-weight: 600; color: #37475a; display: inline-flex; align-items: center; gap: 4px; }
+        .trend-controls select, .trend-controls input[type="date"] {
+            padding: 4px 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 12px;
+            background: #fff;
+        }
+        .trend-controls .tc-sep { width: 1px; height: 20px; background: #dbe3ec; }
+        .trend-controls button {
+            border: none;
+            border-radius: 4px;
+            padding: 5px 12px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            background: #0078d4;
+            color: #fff;
+        }
+        .trend-controls button:hover { background: #005a9e; }
+        .trend-controls button.alt { background: #6c757d; }
+        .trend-controls button.alt:hover { background: #5a6268; }
+        .trend-chart-wrap {
+            overflow-x: auto;
+            border: 1px solid #e3e8ee;
+            border-radius: 6px;
+            background: #fff;
+            padding: 8px;
+        }
+        .trend-chart-title {
+            font-weight: 700;
+            font-size: 13px;
+            color: #1a3a6b;
+            margin: 4px 0 6px 4px;
+        }
+        .trend-legend {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            font-size: 12px;
+            margin: 8px 0 2px 4px;
+        }
+        .trend-legend .li { display: flex; align-items: center; gap: 5px; color: #37475a; }
+        .trend-legend .sw { width: 16px; height: 4px; border-radius: 2px; }
+        .trend-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+            margin-top: 12px;
+        }
+        .trend-table th, .trend-table td {
+            border: 1px solid #dde5ee;
+            padding: 3px 6px;
+            text-align: center;
+        }
+        .trend-table th { background: #eef2f7; font-weight: 700; }
+        .trend-table tr:nth-child(even) td { background: #fafcfe; }
+        .historian-status {
+            margin-top: 8px;
+            font-size: 11px;
+            color: #5b6b80;
+            text-align: center;
+        }
+        .historian-status b { color: #107c10; }
     </style>
 </head>
 
@@ -837,12 +986,33 @@
                     <div class="seg" style="background:#d13438;"></div>
                 </div>
                 <span>High</span>
-                <span style="margin-left:12px;font-size:11px;color:#666;">Click a module → inspect</span>
+                <span style="margin-left:12px;font-size:11px;color:#666;">Click a bin → trend / inspect</span>
             </div>
             <div id="stackerModulesContainer" class="modules-grid">
                 <div class="no-data">No data loaded. Generate heat map first.</div>
             </div>
+
+            <!-- NEW: Bin action bar -->
+            <div class="bin-action-bar" id="binActionBar">
+                <span class="ba-label" id="baLabel">Bin —</span>
+                <span class="ba-sub" id="baSub"></span>
+                <span style="font-size:11px;font-weight:600;color:#37475a;">Scope:</span>
+                <select id="baScope">
+                    <option value="bin">This Bin</option>
+                    <option value="tier">This Tier</option>
+                    <option value="module">This Module</option>
+                    <option value="machine">Whole Machine</option>
+                </select>
+                <button data-series="jam">📈 Jams</button>
+                <button data-series="unplanned">📈 Unplanned</button>
+                <button data-series="combined">📈 Combined</button>
+                <button data-series="all">📈 All Events</button>
+                <button data-series="missort" class="alt">📈 Missort %</button>
+                <button class="ba-close" id="baClose">✕</button>
+            </div>
+
             <div style="margin-top:8px;font-size:11px;color:#999;text-align:center;" id="readerFeederSummary"></div>
+            <div class="historian-status" id="historianStatus"></div>
         </div>
 
         <!-- RIGHT: Inspection -->
@@ -926,6 +1096,44 @@
                     <button id="step3Done">✅ Done – Apply to Report</button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- ===== NEW: TREND MODAL ===== -->
+    <div class="modal-overlay" id="trendModal">
+        <div class="modal" style="max-width:960px;">
+            <div class="modal-header">
+                <h2 id="trendTitle">📈 Trend Analysis</h2>
+                <button class="close-btn" id="trendClose">&times;</button>
+            </div>
+
+            <div class="data-summary" id="trendSummary" style="grid-template-columns:repeat(4,1fr);"></div>
+
+            <div class="trend-controls">
+                <label>Scope:</label>
+                <select id="trendScope">
+                    <option value="bin">This Bin</option>
+                    <option value="tier">This Tier (all bins)</option>
+                    <option value="module">This Stacker Module</option>
+                    <option value="machine">Whole Machine</option>
+                </select>
+                <span class="tc-sep"></span>
+                <label>From:</label><input type="date" id="trendFrom">
+                <label>To:</label><input type="date" id="trendTo">
+                <span class="tc-sep"></span>
+                <span id="trendTypes" style="display:flex;gap:10px;flex-wrap:wrap;">
+                    <label><input type="checkbox" data-series="jam" checked> Jams</label>
+                    <label><input type="checkbox" data-series="unplanned" checked> Unplanned</label>
+                    <label><input type="checkbox" data-series="combined" checked> Combined</label>
+                    <label><input type="checkbox" data-series="missort"> Missort %</label>
+                </span>
+                <span class="tc-sep"></span>
+                <button id="trendRefresh">🔄 Refresh</button>
+                <button id="trendExport" class="alt">⬇ CSV</button>
+            </div>
+
+            <div id="trendChartWrap" class="trend-chart-wrap"></div>
+            <div id="trendTableWrap"></div>
         </div>
     </div>
 
@@ -1044,6 +1252,7 @@
             totalModules: 19,
             currentModule: 1,
             selectedModule: 1,
+            selectedBin: null,          // NEW: { module, bin }
             viewMode: 'combined',
             isDataLoaded: false,
             selectedMachine: '',
@@ -1082,6 +1291,14 @@
         const checkDate = $('checkDate');
         const techName = $('techName');
         const machinePhase = $('machinePhase');
+
+        // NEW refs
+        const binActionBar = $('binActionBar');
+        const baLabel = $('baLabel');
+        const baSub = $('baSub');
+        const baScope = $('baScope');
+        const baClose = $('baClose');
+        const historianStatus = $('historianStatus');
 
         // Modal
         const modal = $('investigationModal');
@@ -1506,18 +1723,31 @@
                     const tierLabel = b.tier ? `T${b.tier}` : '';
                     const tooltip =
                         `Bin ${b.bin} (${tierLabel})<br>Jams: ${b.jamTotal}<br>Unplanned: ${b.unplannedCount}<br>Missort: ${b.missortPct.toFixed(1)}%`;
+                    // NEW: mark the selected bin so the trend bar target is visible
+                    const isSel = state.selectedBin &&
+                                  String(state.selectedBin.module) === String(m) &&
+                                  String(state.selectedBin.bin) === String(binKey);
                     html +=
-                        `<div class="bin-cell-sm" style="background:${color};"><span>${b.bin}</span><span class="tooltip-sm">${tooltip}</span></div>`;
+                        `<div class="bin-cell-sm ${isSel ? 'selected' : ''}" data-module="${m}" data-bin="${binKey}" style="background:${color};"><span>${b.bin}</span><span class="tooltip-sm">${tooltip}</span></div>`;
                 });
                 html += `</div><div class="module-badge">${getModuleBadge(moduleData)}</div></div>`;
             }
             stackerContainer.innerHTML = html;
 
-            // Click to select module
+            // NEW: Click a module card, or a specific bin inside it
             document.querySelectorAll('.module-card').forEach(el => {
-                el.addEventListener('click', function() {
+                el.addEventListener('click', function(ev) {
                     const mod = parseInt(this.dataset.module);
-                    selectModule(mod);
+                    const cell = ev.target.closest('.bin-cell-sm');
+                    if (cell && cell.dataset.bin) {
+                        state.selectedBin = { module: mod, bin: cell.dataset.bin };
+                        selectModule(mod);
+                        showBinActionBar(mod, cell.dataset.bin);
+                    } else {
+                        state.selectedBin = null;
+                        hideBinActionBar();
+                        selectModule(mod);
+                    }
                 });
             });
 
@@ -1606,7 +1836,11 @@
                 html += `<div class="bin-card-insp ${isPrinter ? 'printer-insp' : ''}" data-module="${moduleNum}" data-bin="${binKey}">`;
                 html += `<div class="bin-header-insp">${label}`;
                 if (!isPrinter) {
+                    // NEW: quick trend button per bin
+                    html += `<span>`;
+                    html += `<button class="trend-btn" data-module="${moduleNum}" data-bin="${binKey}" title="Trend">📈</button>`;
                     html += `<button class="investigate-btn" data-module="${moduleNum}" data-bin="${binKey}">🔍 Investigate</button>`;
+                    html += `</span>`;
                 }
                 html += `</div>`;
                 html += `<div class="comp-grid-insp">`;
@@ -1752,6 +1986,18 @@
                     const moduleNum = parseInt(this.dataset.module);
                     const binKey = this.dataset.bin;
                     openInvestigation(moduleNum, binKey);
+                });
+            });
+
+            // NEW: Trend buttons on bin cards
+            document.querySelectorAll('#inspectionContent .trend-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const moduleNum = parseInt(this.dataset.module);
+                    const binKey = this.dataset.bin;
+                    state.selectedBin = { module: moduleNum, bin: binKey };
+                    showBinActionBar(moduleNum, binKey);
+                    openTrend(moduleNum, binKey, { scope: baScope.value, series: 'all' });
                 });
             });
         }
@@ -2155,6 +2401,8 @@
         inspReset.addEventListener('click', () => {
             if (!confirm('Reset all inspection data for this machine?')) return;
             initInspectionState(state.totalModules);
+            state.selectedBin = null;
+            hideBinActionBar();
             if (state.isDataLoaded) {
                 selectModule(1);
             } else {
@@ -2368,6 +2616,9 @@
             mainArea.style.display = 'grid';
             state.isDataLoaded = true;
 
+            // NEW: persist per-bin snapshot to the historian time series
+            recordBinSnapshotForHistorian();
+
             renderHeatMap();
             selectModule(1);
 
@@ -2389,10 +2640,6 @@
         // 20. SAMPLE LOADER – now loads the overall format
         // --------------------------------------------------------------
         sampleBtn.addEventListener('click', () => {
-            // The overall sample is provided in the file "table border=1 cellspacing=0 cellpadding=0.txt"
-            // We'll embed a simplified version that matches the overall format.
-            // Since the sample is long, we'll use the exact same HTML from the file (we'll include it as a string).
-            // I'll copy the whole table from the provided file.
             const sample = `<table border="1" cellspacing="0" cellpadding="0" width="95%">
         <tbody><tr id="header">
         </tr><tr><td><b>FEEDER</b></td><td align="right"><b>Soft</b></td><td align="right"><b>Hard</b></td><td align="right"><b>Unspecified</b></td></tr>
@@ -2883,6 +3130,7 @@
             const today = new Date().toISOString().split('T')[0];
             checkDate.value = today;
             initInspectionState(19);
+            refreshHistorianStatus();
         });
 
         console.log('DBS Unified with Investigation ready. Supports both detailed and overall table formats.');
@@ -2970,7 +3218,7 @@
 	        if (!el){
 	            el = document.createElement('div');
 	            el.id = '__histToast';
-	            el.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99999;padding:10px 16px;border-radius:8px;font:600 13px/1.4 system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.2);color:#fff;transition:opacity .3s;';
+	            el.style.cssText = 'position:fixed;bottom:20px;right:20pxAll;z-index:99999;padding:10px 16px;border-radius:8px;font:600 13px/1.4 system-ui,sans-serif;box-shadow:0 4px 14px rgba(0,0,0,.2);color:#fff;transition:opacity .3s;';
 	            document.body.appendChild(el);
 	        }
 	        el.style.background = ok === false ? '#b3261e' : '#1b5e20';
@@ -2981,15 +3229,479 @@
 	    };
 	})();
 	</script>
+
+    <!-- ============================================================
+         ===== NEW: BIN-LEVEL HISTORIAN + TREND ANALYSIS =====
+         ============================================================ -->
     <script>
-        document.getElementById('sendHistBtn').addEventListener('click', () => {
-        const machineId = (document.getElementById('machineId').value || '').trim() || 'UNKNOWN';
+    /* ------------------------------------------------------------------
+       1. BIN SERIES STORE
+       Per-machine / per-module / per-bin daily snapshots.
+       Key:   historian_bin_series_v1
+       Shape: { machineId, module, bin, tier, date, jamTotal,
+                unplannedCount, missortPct, combined, tech, capturedAt, source }
+       Dedup key: machineId | module | bin | date
+       ------------------------------------------------------------------ */
+    (function(){
+        const KEY = 'historian_bin_series_v1';
+        const MAX_RECORDS = 25000;
+
+        function readAll(){
+            try { const r = localStorage.getItem(KEY); return r ? JSON.parse(r) : []; }
+            catch(e){ return []; }
+        }
+        function writeAll(a){
+            try { localStorage.setItem(KEY, JSON.stringify(a)); return true; }
+            catch(e){ console.warn('bin series write failed', e); return false; }
+        }
+        function keyOf(r){ return [r.machineId, r.module, r.bin, r.date].join('|'); }
+
+        window.binSeriesUpsert = function(records){
+            if (!records || !records.length) return { added:0, updated:0, total: readAll().length };
+            const all = readAll();
+            const idx = new Map();
+            all.forEach((r,i) => idx.set(keyOf(r), i));
+            let added = 0, updated = 0;
+            records.forEach(r => {
+                const k = keyOf(r);
+                const rec = Object.assign({ capturedAt: new Date().toISOString(), source: 'heatmap' }, r);
+                if (idx.has(k)) {
+                    all[idx.get(k)] = Object.assign({}, all[idx.get(k)], rec);
+                    updated++;
+                } else {
+                    idx.set(k, all.length);
+                    all.push(rec);
+                    added++;
+                }
+            });
+            if (all.length > MAX_RECORDS) all.splice(0, all.length - MAX_RECORDS);
+            writeAll(all);
+            return { added, updated, total: all.length };
+        };
+
+        window.binSeriesQuery = function(opts){
+            const o = opts || {};
+            let rows = readAll();
+            if (o.machineId) rows = rows.filter(r => r.machineId === o.machineId);
+            if (o.module != null) rows = rows.filter(r => r.module === o.module);
+            if (o.bin != null) rows = rows.filter(r => r.bin === o.bin);
+            if (o.tier != null) rows = rows.filter(r => r.tier === o.tier);
+            if (o.from) rows = rows.filter(r => r.date >= o.from);
+            if (o.to)   rows = rows.filter(r => r.date <= o.to);
+            rows.sort((a,b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+            return rows;
+        };
+
+        window.binSeriesCount = function(){ return readAll().length; };
+        window.binSeriesClear = function(){ write([]); };
+        window.binSeriesMachines = function(){
+            return [...new Set(readAll().map(r => r.machineId))].sort();
+        };
+    })();
+
+    /* ------------------------------------------------------------------
+       2. HELPERS
+       ------------------------------------------------------------------ */
+    function escapeXml(s){
+        return String(s).replace(/[<>&"']/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function resolveMachineIdForSeries(){
+        const raw = (machineId.value || '').trim() ||
+                    state.machineName ||
+                    state.selectedMachine ||
+                    'UNKNOWN';
+        if (window.historianParseMachineId){
+            const p = window.historianParseMachineId(raw);
+            if (p) return window.historianCanonicalId(p.acronym, p.mno);
+        }
+        return raw;
+    }
+
+    function refreshHistorianStatus(){
+        const n = window.binSeriesCount ? window.binSeriesCount() : 0;
+        const machines = window.binSeriesMachines ? window.binSeriesMachines() : [];
+        if (!historianStatus) return;
+        if (n === 0){
+            historianStatus.textContent = 'Historian: no bin snapshots recorded yet.';
+        } else {
+            historianStatus.innerHTML = `Historian: <b>${n}</b> bin snapshots stored` +
+                (machines.length ? ` across ${machines.length} machine(s): ${machines.slice(0,6).join(', ')}${machines.length>6?'…':''}` : '');
+        }
+    }
+
+    /* ------------------------------------------------------------------
+       3. SNAPSHOT RECORDING  (called on Generate Heat Map / Send)
+       ------------------------------------------------------------------ */
+    function recordBinSnapshotForHistorian(){
+        if (!state.stackerData) return null;
+        const mid = resolveMachineIdForSeries();
+        const dateStr = checkDate.value || new Date().toISOString().slice(0,10);
+        const tech = (techName.value || '').trim();
+        const records = [];
+
+        Object.keys(state.stackerData).forEach(m => {
+            const mod = state.stackerData[m];
+            Object.keys(mod).forEach(binKey => {
+                const b = mod[binKey];
+                if (!b || b.isPrinter) return;
+                records.push({
+                    machineId: mid,
+                    module: parseInt(m, 10),
+                    bin: b.bin,
+                    tier: b.tier,
+                    date: dateStr,
+                    jamTotal: b.jamTotal,
+                    unplannedCount: b.unplannedCount,
+                    missortPct: +Number(b.missortPct || 0).toFixed(2),
+                    combined: b.combined,
+                    tech,
+                    source: 'heatmap'
+                });
+            });
+        });
+
+        const res = window.binSeriesUpsert(records);
+        refreshHistorianStatus();
+        return res;
+    }
+
+    /* ------------------------------------------------------------------
+       4. BIN ACTION BAR  (appears when a bin is clicked)
+       ------------------------------------------------------------------ */
+    let baTarget = null;   // { module, binKey }
+
+    function showBinActionBar(moduleNum, binKey){
+        const b = state.stackerData && state.stackerData[moduleNum] ?
+                  state.stackerData[moduleNum][binKey] : null;
+        if (!b || b.isPrinter) return;
+        baTarget = { module: moduleNum, binKey };
+        baLabel.textContent = `SM ${moduleNum} · Bin ${binKey}`;
+        baSub.textContent = `(Tier ${b.tier} · ${b.combined} combined events) — Trend:`;
+        binActionBar.classList.add('show');
+    }
+
+    function hideBinActionBar(){
+        binActionBar.classList.remove('show');
+        baTarget = null;
+    }
+
+    baClose.addEventListener('click', (e) => {
+        e.stopPropagation();
+        state.selectedBin = null;
+        hideBinActionBar();
+        if (state.stackerData) renderHeatMap();
+    });
+
+    // Trend buttons inside the action bar
+    binActionBar.querySelectorAll('button[data-series]').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!baTarget) return;
+            openTrend(baTarget.module, baTarget.binKey, {
+                scope: baScope.value,
+                series: btn.dataset.series
+            });
+        });
+    });
+
+    /* ------------------------------------------------------------------
+       5. TREND MODAL
+       ------------------------------------------------------------------ */
+    const trendModal      = $('trendModal');
+    const trendClose      = $('trendClose');
+    const trendTitle      = $('trendTitle');
+    const trendSummary    = $('trendSummary');
+    const trendScope      = $('trendScope');
+    const trendFrom       = $('trendFrom');
+    const trendTo         = $('trendTo');
+    const trendChartWrap  = $('trendChartWrap');
+    const trendTableWrap  = $('trendTableWrap');
+    const trendRefresh    = $('trendRefresh');
+    const trendExport     = $('trendExport');
+    const trendTypes      = $('trendTypes');
+
+    const SERIES_DEFS = {
+        jam:       { key: 'jamTotal',       label: 'Jams',       color: '#d13438' },
+        unplanned: { key: 'unplannedCount', label: 'Unplanned',  color: '#d48c00' },
+        combined:  { key: 'combined',       label: 'Combined',   color: '#0078d4' }
+    };
+
+    const trendState = {
+        module: null,
+        bin: null,
+        tier: null,
+        machineId: ''
+    };
+
+    trendClose.addEventListener('click', () => trendModal.classList.remove('active'));
+    trendModal.addEventListener('click', (e) => { if (e.target === trendModal) trendModal.classList.remove('active'); });
+    trendRefresh.addEventListener('click', renderTrend);
+    trendExport.addEventListener('click', exportTrendCSV);
+    trendScope.addEventListener('change', renderTrend);
+    trendFrom.addEventListener('change', renderTrend);
+    trendTo.addEventListener('change', renderTrend);
+    trendTypes.addEventListener('change', renderTrend);
+
+    function openTrend(moduleNum, binKey, opts){
+        opts = opts || {};
+        const b = state.stackerData && state.stackerData[moduleNum] ?
+                  state.stackerData[moduleNum][binKey] : null;
+
+        trendState.module    = moduleNum;
+        trendState.bin       = (b && !b.isPrinter) ? b.bin : null;
+        trendState.tier      = b ? b.tier : null;
+        trendState.machineId = resolveMachineIdForSeries();
+
+        if (opts.scope) trendScope.value = opts.scope;
+
+        if (opts.series){
+            const s = opts.series;
+            trendTypes.querySelectorAll('input[data-series]').forEach(cb => {
+                if (s === 'all')          cb.checked = cb.dataset.series !== 'missort';
+                else if (s === 'missort') cb.checked = cb.dataset.series === 'missort';
+                else                      cb.checked = cb.dataset.series === s;
+            });
+        }
+
+        trendTitle.textContent = `📈 Trend — SM ${moduleNum} · Bin ${binKey} ` +
+                                 (b ? `(Tier ${b.tier})` : '');
+        trendModal.classList.add('active');
+        renderTrend();
+    }
+
+    function trendRows(){
+        const q = { machineId: trendState.machineId };
+        const scope = trendScope.value;
+        if (scope === 'bin')      { q.module = trendState.module; q.bin = trendState.bin; }
+        else if (scope === 'tier'){ q.module = trendState.module; q.tier = trendState.tier; }
+        else if (scope === 'module'){ q.module = trendState.module; }
+        /* scope === 'machine' → no extra filter */
+        if (trendFrom.value) q.from = trendFrom.value;
+        if (trendTo.value)   q.to   = trendTo.value;
+        return window.binSeriesQuery(q);
+    }
+
+    function aggregateSeries(rows){
+        const byDate = new Map();
+        rows.forEach(r => {
+            const d = r.date;
+            if (!byDate.has(d)) byDate.set(d, { date: d, jamTotal:0, unplannedCount:0, combined:0, missortSum:0, n:0 });
+            const g = byDate.get(d);
+            g.jamTotal       += Number(r.jamTotal || 0);
+            g.unplannedCount += Number(r.unplannedCount || 0);
+            g.combined       += Number(r.combined || 0);
+            g.missortSum     += Number(r.missortPct || 0);
+            g.n++;
+        });
+        return [...byDate.values()]
+            .map(g => ({
+                date: g.date,
+                jamTotal: g.jamTotal,
+                unplannedCount: g.unplannedCount,
+                combined: g.combined,
+                missortPct: g.n ? g.missortSum / g.n : 0
+            }))
+            .sort((a,b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+    }
+
+    function niceCeil(v){
+        if (v <= 1) return 1;
+        if (v <= 5) return 5;
+        if (v <= 10) return 10;
+        const mag = Math.pow(10, Math.floor(Math.log10(v)));
+        const n = v / mag;
+        const step = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10;
+        return step * mag;
+    }
+
+    /* Build an SVG line chart.  series = [{name,color,values:[..]}] aligned with labels */
+    function buildLineChart(labels, series, opts){
+        opts = opts || {};
+        const W = opts.width  || 880;
+        const H = opts.height || 280;
+        const padL = 58, padR = 24, padT = 22, padB = 78;
+        const plotW = W - padL - padR;
+        const plotH = H - padT - padB;
+
+        const allVals = series.flatMap(s => s.values);
+        const maxV = Math.max(1, ...allVals);
+        const yMax = opts.yMax != null ? opts.yMax : niceCeil(maxV);
+
+        const xAt = i => labels.length <= 1 ? padL + plotW/2
+                                            : padL + (i/(labels.length-1))*plotW;
+        const yAt = v => padT + plotH - (v/yMax)*plotH;
+
+        let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" ` +
+                  `preserveAspectRatio="xMidYMid meet" style="min-width:${W}px;display:block;">`;
+
+        // horizontal grid + y labels
+        for (let g = 0; g <= 4; g++){
+            const v = (yMax/4)*g;
+            const y = yAt(v);
+            svg += `<line x1="${padL}" y1="${y}" x2="${padL+plotW}" y2="${y}" stroke="#e3e8ee" stroke-width="1"/>`;
+            svg += `<text x="${padL-8}" y="${y+4}" text-anchor="end" font-size="10" fill="#7a8798">` +
+                   `${opts.yFormat ? opts.yFormat(v) : Math.round(v)}</text>`;
+        }
+        // axes
+        svg += `<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT+plotH}" stroke="#b9c8dc"/>`;
+        svg += `<line x1="${padL}" y1="${padT+plotH}" x2="${padL+plotW}" y2="${padT+plotH}" stroke="#b9c8dc"/>`;
+
+        // x labels
+        const step = Math.max(1, Math.ceil(labels.length / 12));
+        labels.forEach((lb, i) => {
+            if (i % step !== 0 && i !== labels.length - 1) return;
+            const x = xAt(i);
+            const y = padT + plotH + 16;
+            svg += `<text x="${x}" y="${y}" text-anchor="end" font-size="10" fill="#5b6b80" ` +
+                   `transform="rotate(-40 ${x} ${y})">${escapeXml(lb)}</text>`;
+        });
+
+        // series lines
+        series.forEach(s => {
+            const pts = s.values.map((v, i) => ({ x: xAt(i), y: yAt(v) }));
+            if (!pts.length) return;
+            const d = pts.map((p, i) => (i ? 'L' : 'M') + p.x.toFixed(1) + ' ' + p.y.toFixed(1)).join(' ');
+            svg += `<path d="${d}" fill="none" stroke="${s.color}" stroke-width="2" ` +
+                   `stroke-linejoin="round" stroke-linecap="round"/>`;
+            pts.forEach((p, i) => {
+                svg += `<circle cx="${p.x}" cy="${p.y}" r="3" fill="#fff" stroke="${s.color}" stroke-width="2">` +
+                       `<title>${escapeXml(labels[i])}: ${s.values[i]}</title></circle>`;
+            });
+        });
+
+        svg += `</svg>`;
+        return svg;
+    }
+
+    function buildLegend(series){
+        return `<div class="trend-legend">` + series.map(s =>
+            `<span class="li"><span class="sw" style="background:${s.color};"></span>${escapeXml(s.name)}</span>`
+        ).join('') + `</div>`;
+    }
+
+    function renderTrend(){
+        const rows = trendRows();
+        const agg  = aggregateSeries(rows);
+        const labels = agg.map(r => r.date);
+
+        const sumJam  = agg.reduce((a,r) => a + r.jamTotal, 0);
+        const sumUnp  = agg.reduce((a,r) => a + r.unplannedCount, 0);
+        const sumComb = agg.reduce((a,r) => a + r.combined, 0);
+        const avgMis  = agg.length ? agg.reduce((a,r) => a + r.missortPct, 0) / agg.length : 0;
+
+        const scopeTxt = {
+            bin:     `SM ${trendState.module} · Bin ${trendState.bin}`,
+            tier:    `SM ${trendState.module} · Tier ${trendState.tier} (all bins)`,
+            module:  `SM ${trendState.module} (all bins)`,
+            machine: `Whole machine`
+        }[trendScope.value];
+
+        trendSummary.innerHTML =
+            `<div><span class="label">Machine:</span> <span class="value">${escapeXml(trendState.machineId)}</span></div>` +
+            `<div><span class="label">Scope:</span> <span class="value">${escapeXml(scopeTxt)}</span></div>` +
+            `<div><span class="label">Snapshots:</span> <span class="value">${labels.length}</span></div>` +
+            `<div><span class="label">Range:</span> <span class="value">${labels.length ? labels[0] + ' → ' + labels[labels.length-1] : '—'}</span></div>` +
+            `<div><span class="label">Σ Jams:</span> <span class="value">${sumJam}</span></div>` +
+            `<div><span class="label">Σ Unplanned:</span> <span class="value">${sumUnp}</span></div>` +
+            `<div><span class="label">Σ Combined:</span> <span class="value">${sumComb}</span></div>` +
+            `<div><span class="label">Avg Missort:</span> <span class="value">${avgMis.toFixed(1)}%</span></div>`;
+
+        if (!labels.length){
+            trendChartWrap.innerHTML =
+                `<div class="no-data">No historian snapshots match this selection yet.<br>` +
+                `<span style="font-size:12px;">Generate a heat map with the Machine ID + Date filled in to record a daily snapshot, then come back here.</span></div>`;
+            trendTableWrap.innerHTML = '';
+            return;
+        }
+
+        // ---- build enabled series ----
+        const enabled = {};
+        trendTypes.querySelectorAll('input[data-series]').forEach(cb => { enabled[cb.dataset.series] = cb.checked; });
+
+        const countSeries = [];
+        Object.keys(SERIES_DEFS).forEach(id => {
+            if (!enabled[id]) return;
+            const def = SERIES_DEFS[id];
+            countSeries.push({
+                name: def.label,
+                color: def.color,
+                values: agg.map(r => r[def.key])
+            });
+        });
+
+        let chartHtml = '';
+        if (countSeries.length){
+            chartHtml += `<div class="trend-chart-title">Event counts per day</div>`;
+            chartHtml += buildLineChart(labels, countSeries, { height: 280 });
+            chartHtml += buildLegend(countSeries);
+        }
+
+        if (enabled.missort){
+            const missSeries = [{
+                name: 'Missort %',
+                color: '#107c10',
+                values: agg.map(r => +r.missortPct.toFixed(2))
+            }];
+            chartHtml += `<div class="trend-chart-title" style="margin-top:14px;">Missort % per day</div>`;
+            chartHtml += buildLineChart(labels, missSeries, {
+                height: 220,
+                yMax: Math.max(5, niceCeil(Math.max(1, ...missSeries[0].values))),
+                yFormat: v => v.toFixed(0) + '%'
+            });
+            chartHtml += buildLegend(missSeries);
+        }
+
+        if (!chartHtml){
+            chartHtml = `<div class="no-data">Select at least one event type above to plot.</div>`;
+        }
+        trendChartWrap.innerHTML = chartHtml;
+
+        // ---- data table ----
+        let tbl = `<table class="trend-table"><thead><tr><th>Date</th><th>Jams</th><th>Unplanned</th>` +
+                  `<th>Combined</th><th>Missort %</th><th>Bins</th></tr></thead><tbody>`;
+        const binsPerDate = new Map();
+        rows.forEach(r => binsPerDate.set(r.date, (binsPerDate.get(r.date) || 0) + 1));
+        agg.forEach(r => {
+            tbl += `<tr><td>${escapeXml(r.date)}</td><td>${r.jamTotal}</td><td>${r.unplannedCount}</td>` +
+                   `<td>${r.combined}</td><td>${r.missortPct.toFixed(1)}%</td>` +
+                   `<td>${binsPerDate.get(r.date) || 0}</td></tr>`;
+        });
+        tbl += `</tbody></table>`;
+        trendTableWrap.innerHTML = tbl;
+    }
+
+    function exportTrendCSV(){
+        const rows = trendRows();
+        const agg  = aggregateSeries(rows);
+        if (!agg.length){ alert('No data to export.'); return; }
+        let csv = 'date,jams,unplanned,combined,missort_pct\n';
+        agg.forEach(r => {
+            csv += `${r.date},${r.jamTotal},${r.unplannedCount},${r.combined},${r.missortPct.toFixed(2)}\n`;
+        });
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `trend_${trendState.machineId.replace(/\s+/g,'_')}` +
+                     `_SM${trendState.module}_bin${trendState.bin != null ? trendState.bin : 'all'}` +
+                     `_${trendScope.value}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+    }
+
+    /* ------------------------------------------------------------------
+       6. HOOK INTO "SEND TO HISTORIAN"
+       ------------------------------------------------------------------ */
+    document.getElementById('sendHistBtn').addEventListener('click', () => {
+        const machineIdVal = (document.getElementById('machineId').value || '').trim() || 'UNKNOWN';
         const tech      = (document.getElementById('techName').value  || '').trim();
         const dateVal   = document.getElementById('checkDate').value;
         const eventTime = dateVal ? new Date(dateVal + 'T12:00').toISOString() : new Date().toISOString();
 
         // Component checks: summarize by component + bins
-        const compByBin = {};   // module:bin -> [components]
+        const compByBin = {};
         let totalCompChecks = 0;
         for (let m = 0; m < state.totalModules; m++) {
             const mod = state.binChecks[m] || {};
@@ -3018,35 +3730,53 @@
             if (b.replace || b.tension) beltLines.push(`  • Reader T${k}: ${b.replace?'REPLACE ':''}${b.tension?'TENSION':''}`.trim());
         }
 
+        // NEW: also record the per-bin time-series snapshot
+        let snapInfo = null;
+        if (state.stackerData) snapInfo = recordBinSnapshotForHistorian();
+
         const detailLines = [];
         Object.keys(compByBin).sort().forEach(k => {
             detailLines.push(`  • ${k}: ${compByBin[k].join(', ')}`);
         });
         if (beltLines.length) detailLines.push(...beltLines);
+        if (snapInfo) {
+            detailLines.push(`  • Bin snapshots: ${snapInfo.added} added, ${snapInfo.updated} updated (total ${snapInfo.total})`);
+        }
 
-        if (!totalCompChecks && !beltLines.length) {
+        if (!totalCompChecks && !beltLines.length && !snapInfo) {
             historianToast('Nothing checked to send.', false);
             return;
         }
 
-        const summary = `Belts & rollers inspection — ${totalCompChecks} component checks, ${beltLines.length} belt actions`;
+        const summary = `Belts & rollers inspection — ${totalCompChecks} component checks, ${beltLines.length} belt actions` +
+                        (snapInfo ? `, ${snapInfo.added + snapInfo.updated} bin snapshots` : '');
         const detail  = detailLines.join('\n');
 
         const res = historianSave({
             source: 'belts_rollers',
             eventTime,
-            machineId,
+            machineId: machineIdVal,
             tech,
             category: 'inspection',
             kind: 'belts_rollers.save',
             status: 'info',
             summary,
             detail,
-            payload: { compByBin, beltLines, totalModules: state.totalModules }
+            payload: {
+                compByBin,
+                beltLines,
+                totalModules: state.totalModules,
+                binSeries: snapInfo
+            }
         });
 
         historianToast(`Historian ${res.action} (${res.total} total).`, true);
-        });
-</script>
+    });
+
+    /* ------------------------------------------------------------------
+       7. WARM-UP
+       ------------------------------------------------------------------ */
+    refreshHistorianStatus();
+    </script>
 </body>
 </html>
