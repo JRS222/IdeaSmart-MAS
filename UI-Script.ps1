@@ -4157,8 +4157,11 @@ function Load-PmMachines {
     $dir = Get-PmArchiveDir
     if (-not (Test-Path $dir)) { return ,@() }
 
+    $files = @(Get-ChildItem -Path $dir -Filter "*.json" -File)
+    Write-Log "Load-PmMachines: dir=$dir fileCount=$($files.Count)"
+
     $machines = @()
-    foreach ($jsonFile in @(Get-ChildItem -Path $dir -Filter "*.json" -File)) {
+    foreach ($jsonFile in $files) {
         try {
             $data = Get-Content -Path $jsonFile.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
 
@@ -4518,8 +4521,7 @@ function Sync-PmArchive {
     $removed = 0
     $groups = @{}
 
-    foreach ($jf in @(Get-ChildItem -Path $dir -Filter "*.json" -File)) {
-        try {
+    foreach ($jf in @(Get-ChildItem -Path $dir -Filter "*.json" -File -Exclude "*.session.json")) {        try {
             $data = Get-Content -Path $jf.FullName -Raw -Encoding UTF8 | ConvertFrom-Json
             $acr = ($data.Meta.Acronym     -replace '[^\w]', '')
             $mno = ($data.Meta.EquipmentNo -replace '[^\w]', '')
@@ -5958,6 +5960,7 @@ function Refresh-PmMachineTabs {
         if ($m.SortDate.Date -eq $selected) { $shown += $m }
     }
 
+    Write-Log "Refresh-PmMachineTabs: selected=$($selected.ToString('yyyy-MM-dd')) all=$($all.Count) shown=$($shown.Count)"
     if ($shown.Count -eq 0) {
         $emptyTab = New-Object System.Windows.Forms.TabPage
         $emptyTab.Text = "(none)"
@@ -7122,6 +7125,29 @@ function Format-HistorianReport {
                 & $add (Format-HistorianTableRow -Cells @(
                     $dtStr, "$($e.machineId)", "$($p.checklistNo)", "$taskCount", ("{0:F2}" -f $hrs)
                 ) -Widths $widths -Aligns $aligns)
+
+                & $add ''
+
+                # Per-task detail lines
+                if ($p -and $p.selectedTasks) {
+                    $taskWidths = @(8, 26, 12, 10, 6)
+                    $taskAligns = @('L','L','L','R','R')
+                    foreach ($t in @($p.selectedTasks)) {
+                        $ovr  = if ($t.Override) { '*' } else { ' ' }
+                        $due  = if ([string]::IsNullOrWhiteSpace("$($t.DueDate)")) { '--' } else { "$($t.DueDate)" }
+                        $component = "$($t.Component)"
+                        if ($component.Length -gt 26) { $component = $component.Substring(0, 23) + '...' }
+
+                        & $add (Format-HistorianTableRow -Cells @(
+                            ("   $ovr$($t.ItemNo)"),
+                            $component,
+                            $due,
+                            "$($t.MinSkillLevel)",
+                            ("{0:F2}" -f ($t.ActualTimeMin / 60.0))
+                        ) -Widths $taskWidths -Aligns $taskAligns)
+                    }
+                    & $add ''
+                }
             }
             & $add ''
             & $add ("  Subtotal:  {0} checklist{1}  ·  {2:F2} h" -f $pmEvents.Count, $(if ($pmEvents.Count -ne 1) { 's' } else { '' }), $sub)
@@ -7305,6 +7331,119 @@ function Get-HistorianReportDirectory {
     return (Join-Path $script:config.RootDirectory $rel)
 }
 
+function ConvertTo-HistorianReportHtml {
+    # Wraps the ASCII report text in a minimal HTML page.  The <pre> tag
+    # preserves column alignment; all we do on top of that is apply a
+    # monospace font and a card-style frame.
+    param(
+        [string]$Text,
+        [string]$Title = 'Work Tracking Report'
+    )
+
+    if ($null -eq $Text) { $Text = '' }
+
+    $encoded = $Text.
+        Replace('&', '&amp;').
+        Replace('<', '&lt;').
+        Replace('>', '&gt;')
+
+    $safeTitle = [System.Net.WebUtility]::HtmlEncode($Title)
+
+    # CSS is a literal here-string (single-quoted) — no interpolation.
+    # Font stack: Consolas on Windows, Courier New as fallback.  Print
+    # rules strip the card chrome so Ctrl+P gives clean monospace output.
+    $css = @'
+* { box-sizing: border-box; }
+
+html {
+  background: #4a5568;
+}
+
+body {
+  margin: 0;
+  padding: 24px;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  font-family: "Segoe UI", Tahoma, sans-serif;
+  font-size: 13px;
+}
+
+.page {
+  width: 8.5in;
+  min-height: 11in;
+  padding: 0.5in 0.4in;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  border-radius: 2px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  overflow: hidden;
+}
+
+pre {
+  margin: 0;
+  padding: 0;
+  font-family: Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 8.5pt;
+  line-height: 1.35;
+  white-space: pre;
+  color: #1a2332;
+  text-align: left;
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+@media print {
+  @page { size: letter portrait; margin: 0.4in; }
+
+  html, body {
+    background: #ffffff;
+    padding: 0;
+    margin: 0;
+    display: block;
+    min-height: auto;
+  }
+
+  .page {
+    width: 100%;
+    min-height: auto;
+    padding: 0;
+    box-shadow: none;
+    border-radius: 0;
+    display: block;
+    overflow: visible;
+  }
+
+  pre {
+    font-size: 8.5pt;
+    overflow: visible;
+    max-width: none;
+  }
+}
+'@
+
+    return @"
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>$safeTitle</title>
+<style>
+$css
+</style>
+</head>
+<body>
+<div class="page">
+<pre>$encoded</pre>
+</div>
+</body>
+</html>
+"@
+}
+
 function Show-HistorianReportDialog {
     $form = New-Object System.Windows.Forms.Form
     $form.Text = 'Generate Report'
@@ -7336,6 +7475,19 @@ function Show-HistorianReportDialog {
     $closeBtn.Cursor = 'Hand'
     $closeBtn.Add_Click({ $form.Close() })
     $btnBar.Controls.Add($closeBtn)
+
+    $previewBtn = New-Object System.Windows.Forms.Button
+    $previewBtn.Text = "Preview in Browser"
+    $previewBtn.Size = New-Object System.Drawing.Size(150, 32)
+    $previewBtn.Location = New-Object System.Drawing.Point(400, 10)
+    $previewBtn.Anchor = 'Top,Right'
+    $previewBtn.FlatStyle = 'Flat'
+    $previewBtn.FlatAppearance.BorderSize = 0
+    $previewBtn.BackColor = [System.Drawing.Color]::FromArgb(52,152,219)
+    $previewBtn.ForeColor = [System.Drawing.Color]::White
+    $previewBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $previewBtn.Cursor = 'Hand'
+    $btnBar.Controls.Add($previewBtn)
 
     $copyBtn = New-Object System.Windows.Forms.Button
     $copyBtn.Text = "Copy to Clipboard"
@@ -7496,6 +7648,21 @@ function Show-HistorianReportDialog {
 
     $generateBtn.Add_Click($doGenerate)
 
+    $previewBtn.Add_Click({
+        if ([string]::IsNullOrWhiteSpace($script:__hr_lastText)) {
+            [System.Windows.Forms.MessageBox]::Show("Generate a report first.", "Preview", "OK", "Warning")
+            return
+        }
+        try {
+            $tempHtml = Join-Path ([System.IO.Path]::GetTempPath()) 'PartsMgmt_ReportPreview.html'
+            $html = ConvertTo-HistorianReportHtml -Text $script:__hr_lastText
+            [System.IO.File]::WriteAllText($tempHtml, $html, (New-Object System.Text.UTF8Encoding($false)))
+            Start-Process $tempHtml
+        } catch {
+            [System.Windows.Forms.MessageBox]::Show("Preview failed: $($_.Exception.Message)", "Preview", "OK", "Error")
+        }
+    })
+
     $copyBtn.Add_Click({
         if ([string]::IsNullOrWhiteSpace($script:__hr_lastText)) {
             [System.Windows.Forms.MessageBox]::Show("Generate a report first.", "Copy", "OK", "Warning")
@@ -7517,17 +7684,32 @@ function Show-HistorianReportDialog {
         $dir = Get-HistorianReportDirectory
         if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
 
-        $defaultName = "Report_$(Get-Date -Format 'yyyy-MM-dd_HHmmss').txt"
+        $defaultName = "Report_$(Get-Date -Format 'yyyy-MM-dd_HHmmss').html"
         $dlg = New-Object System.Windows.Forms.SaveFileDialog
-        $dlg.Filter = "Text files (*.txt)|*.txt"
+        $dlg.Filter = "HTML Report (*.html)|*.html|Text file (*.txt)|*.txt"
         $dlg.InitialDirectory = $dir
         $dlg.FileName = $defaultName
         $dlg.Title = "Save Report"
         if ($dlg.ShowDialog() -ne [System.Windows.Forms.DialogResult]::OK) { return }
 
         try {
-            $script:__hr_lastText | Set-Content -Path $dlg.FileName -Encoding UTF8
-            [System.Windows.Forms.MessageBox]::Show("Saved:`r`n$($dlg.FileName)", "Save", "OK", "Information")
+            $ext = [System.IO.Path]::GetExtension($dlg.FileName).ToLowerInvariant()
+            if ($ext -eq '.html' -or $ext -eq '.htm') {
+                $html = ConvertTo-HistorianReportHtml -Text $script:__hr_lastText
+                [System.IO.File]::WriteAllText(
+                    $dlg.FileName, $html,
+                    (New-Object System.Text.UTF8Encoding($false)))
+            } else {
+                $script:__hr_lastText | Set-Content -Path $dlg.FileName -Encoding UTF8
+            }
+
+            $open = [System.Windows.Forms.MessageBox]::Show(
+                "Saved to:`r`n$($dlg.FileName)`r`n`r`nOpen it now?",
+                "Save", [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                [System.Windows.Forms.MessageBoxIcon]::Information)
+            if ($open -eq [System.Windows.Forms.DialogResult]::Yes) {
+                Start-Process $dlg.FileName
+            }
         } catch {
             [System.Windows.Forms.MessageBox]::Show("Save failed: $($_.Exception.Message)", "Save", "OK", "Error")
         }
