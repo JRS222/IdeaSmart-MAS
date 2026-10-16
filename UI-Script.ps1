@@ -4739,6 +4739,34 @@ function Sync-WorksheetJobHours {
     if ($null -eq $Worksheet -or $null -eq $Worksheet.Rows) { return }
 
     $jobs = ConvertTo-FlatArray -Source (Get-Jobs)
+	
+	   # ---- Build the set of WO#s that should exist as rows ----
+    $currentWos = @{}
+    foreach ($job in @($jobs)) {
+        if ($null -eq $job) { continue }
+        if ("$($job.kind)" -ne 'workorder') { continue }
+        $jd = $null
+        if ($job.createdAt) { try { $jd = ([DateTime]$job.createdAt).Date } catch { } }
+        if (-not $jd -or $jd -ne $Date.Date) { continue }
+        $wo = "$($job.workOrderNo)"
+        if ([string]::IsNullOrWhiteSpace($wo)) { continue }
+        $currentWos[$wo] = $true
+    }
+
+    # ---- Prune our own auto-added rows whose WO# is no longer live ----
+    $kept = New-Object System.Collections.ArrayList
+    foreach ($row in @($Worksheet.Rows)) {
+        $isAuto = ($row.PSObject.Properties['AutoRow'] -and $row.AutoRow)
+        if ($isAuto) {
+            $rwo = "$($row.WorkOrderNo)"
+            if (-not $currentWos.ContainsKey($rwo)) {
+                Write-Log "Sync-WorksheetJobHours: pruning stale auto row WO=$rwo"
+                continue
+            }
+        }
+        [void]$kept.Add($row)
+    }
+    $Worksheet.Rows = $kept.ToArray()
 
     # ---- Aggregate reactive calls by machine-type acronym ----
     $reactiveByAcr = @{}
@@ -4773,13 +4801,16 @@ function Sync-WorksheetJobHours {
             if ("$($row.Acronym)"   -ne 'ADMIN') { continue }
             if ("$($row.ClassCode)" -ne 'AA')    { continue }
             if ("$($row.Equipment)".ToUpper() -ne $acr) { continue }
+            if ("$($row.Description)".ToUpper() -notmatch 'REACTIVE') { continue }
             $target = $row
             break
         }
 
         if ($target) {
-            # If we previously made a NEW placeholder, promote it to the
-            # real WO now that we've learned it from an import.
+            if ($target.ManualOverride) {
+                Write-Log "Sync-WorksheetJobHours: reactive $acr has manual override ($($target.ActualTime) h); skipping."
+                continue
+            }
             if ("$($target.WorkOrderNo)" -eq 'NEW' -and $fyMap.ContainsKey($acr)) {
                 $target.WorkOrderNo = "$($fyMap[$acr])"
             }
@@ -4807,6 +4838,7 @@ function Sync-WorksheetJobHours {
                 AutoValue      = [Math]::Round($hours, 2)
                 ManualOverride = $false
                 NeedsAudit     = $true
+                AutoRow        = $true
             }
             $Worksheet.Rows = @($Worksheet.Rows) + $newRow
         }
@@ -4832,6 +4864,10 @@ function Sync-WorksheetJobHours {
         }
 
         if ($target) {
+            if ($target.ManualOverride) {
+                Write-Log "Sync-WorksheetJobHours: WO $wo has manual override ($($target.ActualTime) h); skipping."
+                continue
+            }
             $target.ActualTime     = [Math]::Round([double]$h, 2)
             $target.AutoValue      = [Math]::Round([double]$h, 2)
             $target.ManualOverride = $false
@@ -5807,6 +5843,19 @@ function Setup-JobLogSubTab {
         if ($sel.Count -eq 0) { return }
 
         $original = $sel[0].Tag
+        if ($null -eq $original) {
+            Write-Log "JobLog double-click: null Tag, aborting."
+            return
+        }
+
+        $origId = "$($original.id)"
+        if ([string]::IsNullOrWhiteSpace($origId)) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "This job has no id and cannot be edited safely.`r`nDelete it and re-create.",
+                "Job Editor", "OK", "Warning")
+            return
+        }
+
         $result = Show-JobEditor -Job $original -Kind $original.kind
         if ($null -eq $result) { return }
 
@@ -5814,17 +5863,25 @@ function Setup-JobLogSubTab {
         if ($null -eq $jobs) { $jobs = @() }
 
         if ($result.Action -eq 'delete') {
-            $jobs = @($jobs | Where-Object { $_.id -ne $original.id })
+            $kept = New-Object System.Collections.ArrayList
+            foreach ($j in $jobs) {
+                if ("$($j.id)" -ne $origId) { [void]$kept.Add($j) }
+            }
+            $jobs = $kept.ToArray()
         } elseif ($result.Action -eq 'save') {
-            $found = $false
+            $result.Job.id = $origId
+            $replaced = $false
             for ($i = 0; $i -lt $jobs.Count; $i++) {
-                if ($jobs[$i].id -eq $original.id) {
+                if ("$($jobs[$i].id)" -eq $origId) {
                     $jobs[$i] = $result.Job
-                    $found = $true
+                    $replaced = $true
                     break
                 }
             }
-            if (-not $found) { $jobs += $result.Job }
+            if (-not $replaced) {
+                Write-Log "JobLog double-click: id '$origId' not found in Jobs.json; appending instead."
+                $jobs = @($jobs) + $result.Job
+            }
         }
 
         Save-Jobs -Jobs $jobs | Out-Null
@@ -5945,6 +6002,71 @@ function Update-PmMachineTabTotals {
 
     Update-PmSelectedHoursTotal
 }
+
+function Handle-PmCheckboxChanged {
+    param(
+        [System.Windows.Forms.ListView]$Sender,
+        [System.Windows.Forms.ItemCheckedEventArgs]$Event
+    )
+
+    if ($script:pmSuppressEvents) { return }
+
+    $machine = $Sender.Tag
+    if (-not $machine -or -not $machine.State) { return }
+
+    $item = $Event.Item
+    if (-not $item) { return }
+    $task = $item.Tag
+    if (-not $task) { return }
+
+    $existing = $machine.State[$task.ItemNo]
+    $custom   = if ($existing) { $existing.CustomTimeMin } else { $null }
+    $machine.State[$task.ItemNo] = @{
+        Selected      = [bool]$item.Checked
+        CustomTimeMin = $custom
+    }
+
+    Write-Log "PM checkbox: $($machine.MachineId) $($task.ItemNo) selected=$($item.Checked) customMin=$custom"
+    Save-PmSession -Machine $machine
+    Update-PmMachineTabTotals -Machine $machine -Tab $Sender.Parent
+}
+
+function Handle-PmItemDoubleClick {
+    param(
+        [System.Windows.Forms.ListView]$Sender,
+        [System.EventArgs]$Event
+    )
+
+    if ($script:pmSuppressEvents) { return }
+
+    $machine = $Sender.Tag
+    if (-not $machine -or -not $machine.State) { return }
+
+    $sel = $Sender.SelectedItems
+    if ($sel.Count -eq 0) { return }
+    $item = $sel[0]
+    $task = $item.Tag
+    if (-not $task) { return }
+
+    $result = Show-PmTaskEditor -Machine $machine -Task $task
+    if ($null -eq $result) { return }
+
+    $machine.State[$task.ItemNo] = @{
+        Selected      = [bool]$result.Selected
+        CustomTimeMin = $result.CustomTimeMin
+    }
+    Save-PmSession -Machine $machine
+
+    $item.Checked = [bool]$result.Selected
+    $displayMin = if ($null -ne $result.CustomTimeMin) { [int]$result.CustomTimeMin } else { [int]$task.EstTimeMin }
+    $item.SubItems[6].Text = "$displayMin"
+
+    $rowColor = Get-PmTaskRowColor -Task $task -Today (Get-Date).Date
+    Set-PmTaskRowColors -Item $item -RowColor $rowColor -TimeIsOverridden ($null -ne $result.CustomTimeMin)
+
+    Update-PmMachineTabTotals -Machine $machine -Tab $Sender.Parent
+}
+
 
 function Refresh-PmMachineTabs {
     if (-not $script:pmMachineTabs) { return }
@@ -6087,72 +6209,16 @@ function Refresh-PmMachineTabs {
 
         $totals.Text = "Done: $doneCount of $($m.TaskCount)  •  $([Math]::Round($selectedMinutes/60.0, 2)) h"
 
+
         $lv.Add_ItemChecked({
             param($sender, $e)
-            if ($script:pmSuppressEvents) { return }
-
-            $machine = $m
-            if (-not $machine -or -not $machine.State) {
-                Write-Log "PM checkbox: no machine bound, ignoring."
-                return
-            }
-
-            $item = $e.Item
-            if (-not $item) {
-                Write-Log "PM checkbox: null e.Item, ignoring."
-                return
-            }
-            $task = $item.Tag
-            if (-not $task) {
-                Write-Log "PM checkbox: null item.Tag, ignoring."
-                return
-            }
-
-            $existing = $machine.State[$task.ItemNo]
-            $custom = if ($existing) { $existing.CustomTimeMin } else { $null }
-            $machine.State[$task.ItemNo] = @{ Selected = [bool]$item.Checked; CustomTimeMin = $custom }
-
-            Write-Log "PM checkbox: $($machine.MachineId) $($task.ItemNo) selected=$($item.Checked) customMin=$custom"
-
-            Save-PmSession -Machine $machine
-
-            Update-PmMachineTabTotals -Machine $machine -Tab $sender.Parent
-        }.GetNewClosure())
+            Handle-PmCheckboxChanged -Sender $sender -Event $e
+        })
 
         $lv.Add_DoubleClick({
             param($sender, $e)
-            if ($script:pmSuppressEvents) { return }
-
-            $machine = $m
-            if (-not $machine -or -not $machine.State) { return }
-
-            $sel = $sender.SelectedItems
-            if ($sel.Count -eq 0) { return }
-            $item = $sel[0]
-            $task = $item.Tag
-            if (-not $task) { return }
-
-            $result = Show-PmTaskEditor -Machine $machine -Task $task
-            if ($null -eq $result) { return }
-
-            $machine.State[$task.ItemNo] = @{
-                Selected      = [bool]$result.Selected
-                CustomTimeMin = $result.CustomTimeMin
-            }
-            Save-PmSession -Machine $machine
-
-            # Update the row in place
-            $item.Checked = [bool]$result.Selected
-            $displayMin = if ($null -ne $result.CustomTimeMin) { [int]$result.CustomTimeMin } else { [int]$task.EstTimeMin }
-            $item.SubItems[6].Text = "$displayMin"
-
-            # Reapply row colors + override styling
-            $rowColor = Get-PmTaskRowColor -Task $task -Today (Get-Date).Date
-            Set-PmTaskRowColors -Item $item -RowColor $rowColor -TimeIsOverridden ($null -ne $result.CustomTimeMin)
-
-            # Refresh per-machine totals
-            Update-PmMachineTabTotals -Machine $machine -Tab $sender.Parent
-        }.GetNewClosure())
+            Handle-PmItemDoubleClick -Sender $sender -Event $e
+        })
 
         $tab.Controls.Add($lv)
         $script:pmMachineTabs.TabPages.Add($tab) | Out-Null
@@ -6524,6 +6590,7 @@ function Setup-WeeklyWorksheetSubTab {
             $summary = New-WorksheetFromHtml -Html $resp.Content -Source 'url'
             $script:wsWorksheet = Get-WeeklyWorksheet -Date $script:wsDatePicker.Value.Date
             Refresh-WeeklyWorksheetList
+			Refresh-JobLogList
             Write-Log "Weekly Worksheet: imported $($summary.DatesParsed) date(s), $($summary.TotalRows) total row(s)."
             $msg = "Imported $($summary.DatesParsed) date(s):`r`n" +
                    (($summary.Saved | ForEach-Object { "  $($_.Date) — $($_.Rows) row(s)" }) -join "`r`n")
@@ -6543,6 +6610,7 @@ function Setup-WeeklyWorksheetSubTab {
             $summary = New-WorksheetFromHtml -Html $html -Source 'paste'
             $script:wsWorksheet = Get-WeeklyWorksheet -Date $script:wsDatePicker.Value.Date
             Refresh-WeeklyWorksheetList
+			Refresh-JobLogList
             Write-Log "Weekly Worksheet: imported $($summary.DatesParsed) date(s), $($summary.TotalRows) total row(s)."
             $msg = "Imported $($summary.DatesParsed) date(s):`r`n" +
                    (($summary.Saved | ForEach-Object { "  $($_.Date) — $($_.Rows) row(s)" }) -join "`r`n")
@@ -6561,9 +6629,9 @@ function Setup-WeeklyWorksheetSubTab {
             return
         }
         Sync-WorksheetActualTimes -Worksheet $script:wsWorksheet -Date $script:wsDatePicker.Value.Date
+        Import-WorksheetJobsToJobLog -Worksheet $script:wsWorksheet -Date $script:wsDatePicker.Value.Date | Out-Null
         Sync-WorksheetJobHours   -Worksheet $script:wsWorksheet -Date $script:wsDatePicker.Value.Date
         Add-WorksheetPlaceholders -Worksheet $script:wsWorksheet -Date $script:wsDatePicker.Value.Date
-        Save-WeeklyWorksheet -Date $script:wsDatePicker.Value.Date -Worksheet $script:wsWorksheet | Out-Null
         Refresh-WeeklyWorksheetList
         Write-Log "Weekly Worksheet: manual sync."
     } -Style 'Success' -Width 160 -Height 32 -TextAlign MiddleCenter
@@ -7397,30 +7465,35 @@ pre {
 }
 
 @media print {
-  @page { size: letter portrait; margin: 0.4in; }
+  @page { size: letter portrait; margin: 0.5in; }
 
   html, body {
     background: #ffffff;
     padding: 0;
     margin: 0;
     display: block;
+    text-align: center;
     min-height: auto;
   }
 
   .page {
-    width: 100%;
+    display: inline-block;
+    width: auto;
     min-height: auto;
     padding: 0;
+    margin: 0 auto;
     box-shadow: none;
     border-radius: 0;
-    display: block;
+    text-align: left;
     overflow: visible;
   }
 
   pre {
     font-size: 8.5pt;
+    line-height: 1.3;
     overflow: visible;
     max-width: none;
+    margin: 0;
   }
 }
 '@
@@ -8774,6 +8847,84 @@ function Add-WorksheetPlaceholders {
     $Worksheet.Rows = $existing
 }
 
+function Import-WorksheetJobsToJobLog {
+    # Reads a worksheet's rows and adds any non-standing work order rows
+    # to Jobs.json.  Idempotent: a row whose WO# + date already exists in
+    # the job log is skipped, so re-fetching the same worksheet is safe.
+    #
+    # "Standing" rows are excluded by acronym:  both the reactive
+    # maintenance template and the feeder-hardware template carry
+    # Acronym='ADMIN', ClassCode='AA'.  Real assigned WOs carry the
+    # machine-type acronym (DBCS, CIOSS, ...) and no class code.
+    #
+    # Auto-added rows (AutoRow=$true) are also excluded — those came
+    # *from* the job log via Sync-WorksheetJobHours and don't need to
+    # round-trip back.
+    param($Worksheet, [DateTime]$Date)
+
+    if ($null -eq $Worksheet -or $null -eq $Worksheet.Rows) { return 0 }
+
+    $jobs = Get-Jobs
+    if ($null -eq $jobs) { $jobs = @() }
+
+    $existingKeys = @{}
+    foreach ($j in @($jobs)) {
+        $wo = "$($j.workOrderNo)"
+        if ([string]::IsNullOrWhiteSpace($wo)) { continue }
+        $jd = ''
+        if ($j.createdAt) {
+            try { $jd = ([DateTime]$j.createdAt).Date.ToString('yyyy-MM-dd') } catch { }
+        }
+        if ($jd) { $existingKeys["$wo|$jd"] = $true }
+    }
+
+    $dateKey = $Date.Date.ToString('yyyy-MM-dd')
+    $added   = 0
+    $out     = New-Object System.Collections.ArrayList
+    foreach ($j in @($jobs)) { [void]$out.Add($j) }
+
+    foreach ($row in @($Worksheet.Rows)) {
+        if ("$($row.RowType)" -ne 'W')                  { continue }
+        if ("$($row.Acronym)"   -eq 'ADMIN')            { continue }
+        if ("$($row.Description)".ToUpper() -match 'REACTIVE') { continue }
+        if ($row.PSObject.Properties['AutoRow'] -and $row.AutoRow) { continue }
+
+        $wo = "$($row.WorkOrderNo)"
+        if ([string]::IsNullOrWhiteSpace($wo)) { continue }
+
+        $key = "$wo|$dateKey"
+        if ($existingKeys.ContainsKey($key)) { continue }
+
+        $acr = "$($row.Acronym)"
+        $mno = "$($row.Equipment)"
+        $machineId = if ($mno) { "$acr $mno" } else { $acr }
+
+        $newJob = [PSCustomObject]@{
+            id              = [guid]::NewGuid().ToString()
+            kind            = 'workorder'
+            machineId       = $machineId
+            startTime       = ''
+            endTime         = ''
+            hoursOverride   = $null
+            description     = "$($row.Description)"
+            workOrderNo     = $wo
+            parts           = @()
+            createdAt       = $Date.Date.ToString("o")
+            sentToHistorian = $false
+            sentAt          = $null
+        }
+        [void]$out.Add($newJob)
+        $existingKeys[$key] = $true
+        $added++
+    }
+
+    if ($added -gt 0) {
+        Save-Jobs -Jobs $out.ToArray() | Out-Null
+        Write-Log "Import-WorksheetJobsToJobLog: added $added job(s) for $dateKey"
+    }
+    return $added
+}
+
 function New-WorksheetFromHtml {
     # Parses the full eDAC HTML, extracts EVERY Scheduled Date section,
     # saves one JSON per date, and returns a summary.
@@ -8856,7 +9007,7 @@ function New-WorksheetFromHtml {
                 FetchedAt = (Get-Date).ToString("o")
                 Source    = $Source
                 Rows      = $decorated
-            }
+		}}
 
             try {
 				Sync-WorksheetActualTimes -Worksheet $ws -Date $dt
@@ -8882,8 +9033,14 @@ function New-WorksheetFromHtml {
 			}
 
             Save-WeeklyWorksheet -Date $dt -Worksheet $ws | Out-Null
+
+            try {
+                Import-WorksheetJobsToJobLog -Worksheet $ws -Date $dt | Out-Null
+            } catch {
+                Write-Log "New-WorksheetFromHtml: job import failed for $target — $($_.Exception.Message)"
+            }
+
             $saved += [PSCustomObject]@{ Date = $dt.ToString("yyyy-MM-dd"); Rows = $decorated.Count }
-        }
     } finally {
         if (Test-Path $temp) { Remove-Item $temp -Force -ErrorAction SilentlyContinue }
     }
