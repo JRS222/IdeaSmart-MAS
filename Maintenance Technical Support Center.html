@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<!-- saved from url=(0067)https://www1.mtsc.usps.gov/apps/mtsc/index.php#Doc&partssearch&0&NA -->
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<!--[if lt IE 9]>
+<script>
+document.createElement('header');
+document.createElement('nav');
+document.createElement('section');
+document.createElement('article');
+document.createElement('aside');
+document.createElement('footer');
+document.createElement('hgroup');
+</script>
+<![endif]-->
+
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<title>Maintenance Technical Support Center</title>
+<link rel="shortcut icon" href="https://www1.mtsc.usps.gov/apps/mtsc/css/images/mtsc.favicon.ico" type="image/x-icon">
+<link rel="stylesheet" href="./Maintenance Technical Support Center_files/jquery-ui-1.9.2.custom.min.css"><!--orginal-->
+<link rel="stylesheet" href="./Maintenance Technical Support Center_files/layerslider.css" type="text/css"><!--orginal-->
+<link rel="stylesheet" type="text/css" href="./Maintenance Technical Support Center_files/reset.css" media="screen"><!--orginal-->
+<link rel="stylesheet" type="text/css" href="./Maintenance Technical Support Center_files/text.css" media="screen"><!--orginal-->
+<link rel="stylesheet" type="text/css" href="./Maintenance Technical Support Center_files/grid.css" media="screen"><!--orginal-->
+<link rel="stylesheet" type="text/css" href="./Maintenance Technical Support Center_files/layout.css" media="screen"><!--orginal-->
+<link rel="stylesheet" type="text/css" href="./Maintenance Technical Support Center_files/skin.css" media="screen"><!--orginal-->
+<!--<link rel="stylesheet" type="text/css" href="/styles/mtsc_datatable.css" />--><!--orginal-->
+<!--<link rel="stylesheet" type="text/css" href="/scripts/datatables/datatables.min.css" />ADDED-->
+<!--<link rel="stylesheet" type="text/css" href="/scripts/datatables/DataTables-1.11.3/css/dataTables.jqueryui.min.css" />ADDED nice-->
+<link rel="stylesheet" type="text/css" href="./Maintenance Technical Support Center_files/jquery.dataTables.min.css"><!--ADDED nice-->
+<link rel="stylesheet" type="text/css" href="./Maintenance Technical Support Center_files/mtsc_datatable-1.11.3.css"><!--ADDED--> 
+<link rel="stylesheet" type="text/css" href="./Maintenance Technical Support Center_files/colorbox.css"><!--orginal-->
+<link rel="stylesheet" type="text/css" href="./Maintenance Technical Support Center_files/simplePagination.css"><!--orginal-->
+<link rel="stylesheet" type="text/css" href="./Maintenance Technical Support Center_files/mtscMenu.css"><!--orginal-->
+<link rel="stylesheet" type="text/css" href="./Maintenance Technical Support Center_files/theme.css" id="themestyle"><!--orginal-->
+
+<!--<link rel="stylesheet" href="css/jquery-ui-1.9.1.custom.css" type="text/css" />--><!--orginal comment--> 
+<style>
+
+div.paging_full_numbers {
+	height:22px;
+	line-height: 15px;
+}
+div.fg-toolbar div {
+	margin: 0px;
+}
+.ui-autocomplete {
+	padding: 2px;
+}
+.ui-widget button {
+	padding: 0;
+}
+div.msg_wrapper{
+    padding-bottom: 10px;
+    padding-top: 5px;
+}
+span.no_record_msg
+{
+    margin-left: 25px;
+    margin-bottom: 10px;
+}
+#tooltip {
+    position:absolute;
+    border:1px solid #333;
+    background:#FFFFCC;
+    font-family:Verdana, Geneva, sans-serif;
+    font-size:85%;
+    display:none;
+}
+.emarsinfo{
+    cursor: pointer;
+}
+
+.advanced_search{
+    width:100%;
+    min-height: 700px;
+    background-color: #EBEBEB;
+}
+/*JSC US3557*/
+.description{
+    background:none;
+}
+.choice{
+    background:none;
+   margin:0px;
+    padding:0px;
+    border:0px;
+}
+.elementradio{
+    background:none;
+    border-color:none;
+    outline:none;
+    box-shadow: none !important;
+}
+.spacer
+{
+    display: block;
+    width: 50em;
+}
+
+#msbooksTable tr{
+    cursor: auto !important;
+}
+
+#rbTable{
+    width: 100%;
+    display: table;
+    padding: 0px;
+    border:0px;
+    margin:0px
+}
+#rbTableRow
+{
+    display: table-row;
+    padding: 0px;
+    border:0px;
+    margin:0px;
+}
+#rbTableData
+{
+   display:inline-block;
+   padding-bottom: 6px;
+   border:0px;
+}
+#spacer
+{
+    border-top:10px solid transparent;
+}
+
+.rounded
+{
+    border-radius:4px;
+    border: 1px solid grey;
+    padding:5px;
+    box-shadow: none !important;
+}
+.divider{
+
+    width:7px;
+    height:auto;
+    display:inline-block;
+}
+/*.shamefulDivider{
+    width:20px;
+    height:auto;
+    display:inline-block;
+}*/
+.ui-dialog-title{
+
+    color: #FFFFFF !important;
+}
+
+.dataTable {
+    overflow-x: auto;
+}
+
+/*JSC US3557*/
+</style>
+<!-- End Datatable css -->
+<!--<link rel="stylesheet" type="text/css" href="css/nav.css" media="screen" />-->
+<!--[if IE 6]><link rel="stylesheet" type="text/css" href="css/ie6.css" media="screen" /><![endif]-->
+<!--[if IE 7]><link rel="stylesheet" type="text/css" href="css/ie.css" media="screen" /><![endif]-->
+<link rel="stylesheet" type="text/css" href="./Maintenance Technical Support Center_files/mtsc_menu.css"><link rel="stylesheet" type="text/css" href="./Maintenance Technical Support Center_files/mtsc_menu.css"><link rel="stylesheet" type="text/css" href="./Maintenance Technical Support Center_files/mtsc_menu.css"><link rel="stylesheet" type="text/css" href="./Maintenance Technical Support Center_files/mtsc_menu.css"><link rel="stylesheet" type="text/css" href="./Maintenance Technical Support Center_files/mtsc_menu.css"><link rel="stylesheet" type="text/css" href="./Maintenance Technical Support Center_files/mtsc_menu.css"><link rel="stylesheet" type="text/css" href="./Maintenance Technical Support Center_files/mtsc_menu.css"><link rel="stylesheet" type="text/css" href="./Maintenance Technical Support Center_files/mtsc_menu.css"><link rel="stylesheet" type="text/css" href="./Maintenance Technical Support Center_files/mtsc_menu.css"><link rel="stylesheet" type="text/css" href="./Maintenance Technical Support Center_files/mtsc_menu.css"><link rel="stylesheet" type="text/css" href="./Maintenance Technical Support Center_files/mtsc_menu.css"><link rel="stylesheet" type="text/css" href="./Maintenance Technical Support Center_files/mtsc_menu.css"><link rel="stylesheet" type="text/css" href="./Maintenance Technical Support Center_files/mtsc_menu.css"><link rel="stylesheet" type="text/css" href="./Maintenance Technical Support Center_files/mtsc_menu.css"><link rel="stylesheet" type="text/css" href="./Maintenance Technical Support Center_files/mtsc_menu.css"></head>
+<body>
+<!--JSC Manager's Corner US3557-->
+
+<!--END JSC Manager's Corner US3557-->
+<div class="container_16">
+  <!-- begin header -->
+  	<div class="grid_16">
+		<table class="mtsc_header">
+			<tbody>
+				<tr>
+					<td width="150" valign="top" align="center"></td>
+					<td width="*" valign="top">
+						<h4 class="head">USPS<br>Maintenance Technical Support Center<br>HelpDesk: (800) 366-4123</h4>
+					</td>
+					<td width="520" align="left" valign="top">
+						<div style="float:right; padding:30px 15px 30px 0;">
+                            							<div style="float:left;">
+								<input class="search text" name="value" type="text" placeholder="Search website content" id="search" onfocus="javascript:switchIt('search');">
+                                <input class="search button" id="mainSearch" value="Search" type="submit">
+								<div>
+                                    <input type="radio" name="search_type" id="search_3" value="solr_search" checked="checked"><span style="background-color: #FFFF00; color: black; padding: 0px 3px 0px 3px;">New</span> MTSC Search 
+									<input type="radio" name="search_type" id="search_1" value="mtscweb_content">MTSC Content Search
+                                    <input type="radio" name="search_type" id="search_2" value="rem_ticket">Helpdesk Ticket Search
+									<!--<span style="padding-left:15px;"><a href="#" style="color:#FFF" title="temporarily unavailable">Helpdesk Ticket Search</a></span> -->
+								</div>
+							</div>
+							<div style="float:left; margin-left: 3px;">
+								<!-- <input class="search button" value="Search" type="submit"> -->
+								<div class="search" style="margin-top: 25px;">
+									<a href="javascript:void(0);" id="mtsc_advanced_search">Document Search</a>
+								</div>
+							</div>
+                                                        
+							<div style="clear:both;height:1px;"></div>
+							<div style="float:right; margin-top:30px;">
+                                <span id="mtscfeedback" class="header_link">MTSC Feedback</span>
+                                <span id="managercorner" class="header_link">Manager's Corner</span>
+							</div>
+						</div>
+					</td>
+				</tr>
+			</tbody>
+		</table>
+	</div>
+  <div class="clear"></div>
+  <!-- end header -->
+  <!-- begin breadcrumbs and secondary header -->
+  <div class="grid_11">
+    <div class="breadcrumbs"><a href="javascript:void(0)" onclick="MTSChome_link();">MTSC Home</a><span id="nav_container">&nbsp;&nbsp;&gt;&nbsp;&nbsp;<a href="javascript:void(0);" class="nav_sys">Menu-&gt;Documentation</a></span> </div>
+    <h2 id="page-heading">Parts Cross-Reference Search</h2>
+  </div>
+  <div class="grid_5" style="position:relative; height: 75px;">
+    <div class="equipment_search">
+		<span>Choose your equipment here:</span>
+		<div>
+			<input type="text" class="equip text ui-autocomplete-input" id="sys" value="Autocomplete System Acronym" autocomplete="off"><span role="status" aria-live="polite" class="ui-helper-hidden-accessible"></span>
+			&nbsp;
+			<input id="goto_equipment" type="button" sysname="" class="equip button" value="Submit">
+			<div id="mtsc_equip_list_link"><a href="javascript:void(0);">View Full Equipment List</a></div>
+		</div>
+	</div>
+    <div id="mtsc_site_map_link">
+		<a href="javascript:void(0);">Site Map</a>
+	</div>
+  </div>
+  <div class="clear"></div>
+  <!-- end breadcrumbs and secondary header -->
+  <div id="overall_container" class="grid_11">
+    <div id="system_alert_container" class="box menu" style="display: none;">
+      <div myval="0" class="h2_wrapper" style="background-color: #900;"> <span id="toggle-div1">SYSTEM ALERT</span><img src="./Maintenance Technical Support Center_files/switch_minus.gif" class="fulid_sign"> </div>
+      <div class="block" id="alert" style="display:block;">
+        <table>
+          <tbody><tr class="alertheader">
+            <th style="width: 10%;">System</th>
+            <th style="width: 60%;">Description</th>
+            <th style="width: 15%;">From</th>
+            <th style="width: 15%;">To</th>
+          </tr>
+          </tbody><tbody id="system_alert_body"></tbody>
+        </table>
+      </div>
+    </div>
+    <div id="main_container"><!--- Parts Cross Reference Table Search User Input Form --->
+<!--- 05/01/2013 Grace Xu --->
+<div myval="0" class="h2_wrapper">
+    <span id="datatable_title">Parts Cross-Reference Search</span>
+    <img src="./Maintenance Technical Support Center_files/switch_minus.gif" class="fulid_sign">
+</div>
+
+<div class="block" id="table_div1">
+    <div id="table_wrapper2">
+        <div id="partsearchDiv">
+            <!--
+            <center>
+            <h2>
+                Parts Cross-Reference Search
+            </h2>
+            </center>
+            -->
+            <form id="partsearchform" name="partssearchform" method="post" action="https://www1.mtsc.usps.gov/apps/mtsc/index.php">
+            <table width="100%" border="0" cellspacing="0" cellpadding="5" style="padding:0; border: none;">
+                <tbody>
+                <tr id="msbooktr" style="border: none;">
+                  <td width="18%" align="right" style="padding: 2px;"><label for="msbook"><b>Select Handbook:&nbsp;</b></label></td>
+                  <td style="text-align:left; padding: 2px;" colspan="4"> 
+                    <select name="msbookSelect" id="msbookSelect" style="width: 100%;">
+                    <option value="all" volno="all" selected="">All MS Handbooks</option><option value="120" volno="B">MS-120 Computerized Forwarding System - CFS (Vol. B)</option><option value="136" volno="D">MS-136 Package Bar Code Sorter - PBCS (Vol. D)</option><option value="138" volno="D">MS-138 Small Parcel And Bundle Sorter - SPBS-1/SPBS-2 (Vol. D)</option><option value="141" volno="B">MS-141 Dual Pass Rough Cull System - DPRCS (Vol. B)</option><option value="145" volno="B">MS-145 Universal Keystation - UK-1 &amp; UK-2 (Vol. B)</option><option value="148" volno="D">MS-148 Integrated Mail Handling System - IMHS (Vol. D)</option><option value="150" volno="B">MS-150 Remote Computer Reader - RCR (Vol. B)</option><option value="154" volno="C">MS-154 Letter Mail Labeling Machine 400C - LMLM (Vol. C)</option><option value="155" volno="C">MS-155 Remote Bar Coding System/Image Processing Subsystem - RBCS/IPSS (Vol. C)</option><option value="158" volno="B">MS-158 Fixed Mechanization Process Control System - FMPCS (Vol. B)</option><option value="168" volno="B">MS-168 Bar Code Sorter Sweep Rack - BCSSR (Vol. B)</option><option value="172" volno="B">MS-172 Flats Canceler/Stacker Model 15 (w/Modified Canceler) - FCSM (Vol. B)</option><option value="174" volno="C">MS-174 Identification Code Sort - ICS (Vol. C)</option><option value="178" volno="D">MS-178 Automated Flat Sorting Machine 100 - AFSM 100 (Vol. D)</option><option value="178" volno="F2">MS-178 Automated Flat Sorting Machine 100/Automated Tray Handling System - AFSM 100/ATHS (Vol. F2)</option><option value="178" volno="G2">MS-178 Automated Flat Sorting Machine 100 - Automatic Induction - AFSM 100-ai (Vol. G2)</option><option value="178" volno="I2">MS-178 Automated Flat Sorting Machine 100 Ink Jet Canceller - AFSM100 (Vol. I2)</option><option value="179" volno="B">MS-179 Automatic Airline Assignment - AAA (Vol. B)</option><option value="180" volno="B">MS-180 Semi Automatic Scan Where You Band - SASWYB (Vol. B)</option><option value="192" volno="D">MS-192 Robotic Containerization System - RCS (Vol. D)</option><option value="196" volno="D">MS-196 Singulate-Scan-Induction Unit - SSIU (Vol. D)</option><option value="202" volno="D">MS-202 Automated Package Processing System - APPS (Vol. D)</option><option value="209" volno="I">MS-209 Flats Sequencing System - FSS (Vol. I)</option><option value="211" volno="B">MS-211 Postal Pak Unloader, Type C - PPU - C (Vol. B)</option><option value="212" volno="B">MS-212 Wide Field Of View Camera - WFOV (Vol. B)</option><option value="216" volno="C">MS-216 Postal Automated Redirection System - PARS (Vol. C)</option><option value="221" volno="D">MS-221 Accusort Tray Management System - TMS (Vol. D)</option><option value="222" volno="D">MS-222 Accusort AKL Staging Buffer - AKL-25 (Vol. D)</option><option value="223" volno="B">MS-223 Automatic Flats Tray Lidder - AFTL (Vol. B)</option><option value="224" volno="B">MS-224 37pc Ink Jet Printer - IJP (Vol. B)</option><option value="228" volno="C">MS-228 Delivery Bar Code Sorter Input/Output Subsystem D - DIOSS-D (Vol. C)</option><option value="229" volno="C">MS-229 Delivery Bar Code Sorter Phase 2 - DBCS (Vol. C)</option><option value="229" volno="D">MS-229 Delivery Bar Code Sorter Phase 3 - DBCS (Vol. D)</option><option value="229" volno="E">MS-229 Delivery Bar Code Sorter Phase 4 - DBCS (Vol. E)</option><option value="229" volno="F">MS-229 Delivery Bar Code Sorter Phase 5 - DBCS (Vol. F)</option><option value="230" volno="B">MS-230 Sortec Sortation System - SSS (Vol. B)</option><option value="232" volno="D">MS-232 Lockheed Martin Tray Management System - TMS (Vol. D)</option><option value="234" volno="D">MS-234 Reciprocating Vertical Lift - CIPRO (Vol. D)</option><option value="235" volno="C">MS-235 Delivery Bar Code Sorter Output Subsystem Phase 2 - DBCS/OSS (Vol. C)</option><option value="235" volno="D">MS-235 Delivery Bar Code Sorter Output Subsystem Phase 3 - DBCS/OSS (Vol. D)</option><option value="235" volno="E">MS-235 Delivery Bar Code Sorter Output Subsystem Phase 4 - DBCS/OSS (Vol. E)</option><option value="235" volno="F">MS-235 Delivery Bar Code Sorter Output Subsystem Phase 5 - DBCS/OSS (Vol. F)</option><option value="238" volno="B">MS-238 CASI Staging Tracking And Retrieval System - STAR (Vol. B)</option><option value="240" volno="B">MS-240 Automatic Tray Sleever II - ATS II (Vol. B)</option><option value="242" volno="B">MS-242 Enhanced Airline Assignment - EAA (Vol. B)</option><option value="243" volno="B">MS-243 Automatic Tray Unsleever - ATU (Vol. B)</option><option value="244" volno="B">MS-244 Tag Blaster - TAGBLSTR (Vol. B)</option><option value="245" volno="B">MS-245 Automatic Flats Tray Unlidder - AFTU (Vol. B)</option><option value="246" volno="B">MS-246 In Line Scale - ILS (Vol. B)</option><option value="247" volno="D">MS-247 Daifuku Staging Unit - DSU (Vol. D)</option><option value="249" volno="C">MS-249 Delivery Bar Code Sorter Input/Output Subsystem - C - DIOSS-C (Vol. C)</option><option value="250" volno="C">MS-250 Delivery Bar Code Sorter Input/Output Subsystem - E Phase 2 - DIOSS-E (Vol. C)</option><option value="250" volno="D">MS-250 Delivery Bar Code Sorter Input/Output Subsystem - E Phase 3 - DIOSS-E (Vol. D)</option><option value="250" volno="E">MS-250 Delivery Bar Code Sorter Input/Output Subsystem - E Phase 4 - DIOSS-E (Vol. E)</option><option value="250" volno="F">MS-250 Delivery Bar Code Sorter Input/Output Subsystem - E Phase 5 - DIOSS-E (Vol. F)</option><option value="251" volno="C">MS-251 Delivery Bar Code Sorter Input/Output Subsystem - B Phase 2 - DIOSS-B (Vol. C)</option><option value="251" volno="D">MS-251 Delivery Bar Code Sorter Input/Output Subsystem - B Phase 3 - DIOSS-B (Vol. D)</option><option value="251" volno="E">MS-251 Delivery Bar Code Sorter Input/Output Subsystem - B Phase 4 - DIOSS-B (Vol. E)</option><option value="251" volno="F">MS-251 Delivery Bar Code Sorter Input/Output Subsystem - B Phase 5 - DIOSS-B (Vol. F)</option><option value="252" volno="C">MS-252 Combined Input/Output Subsystem - C Phase 2 - CIOSS-C (Vol. C)</option><option value="252" volno="D">MS-252 Combined Input/Output Subsystem - C Phase 3 - CIOSS-C (Vol. D)</option><option value="252" volno="E">MS-252 Combined Input/Output Subsystem - C Phase 4 - CIOSS-C (Vol. E)</option><option value="252" volno="F">MS-252 Combined Input/Output Subsystem - C Phase 5 - CIOSS-C (Vol. F)</option><option value="254" volno="C">MS-254 Delivery Bar Code Sorter Phase 6 - DBCS 6 (Vol. C)</option><option value="261" volno="B">MS-261 Ventilation and Filtration System - VFS (Vol. B)</option><option value="261" volno="D">MS-261 Ventilation and Filtration System for AFCS - VFS (Vol. D)</option><option value="266" volno="C">MS-266 Advanced Facer Canceler System 200 - AFCS 200 (Vol. C)</option><option value="267" volno="C">MS-267 Low Cost Reject Encoding Machine - LCREM (Vol. C)</option><option value="268" volno="C">MS-268 Flats Remote Encoding System - FRES (Vol. C)</option><option value="271" volno="B">MS-271 Dual Pass Rough Cull with Control Modification - DPRC-CM (Vol. B)</option><option value="272" volno="B">MS-272 Automated Parcel Bundle Sorter - APBS (Vol. B)</option><option value="272" volno="C2">MS-272 Automated Parcel Bundle Sorter Siemens Feed System - APBS-SFS (Vol. C2)</option><option value="272" volno="D2">MS-272 Automated Parcel Bundle Sorter Lockheed Martin Feed System - APBS-LMFS (Vol. D2)</option><option value="273" volno="B">MS-273 Package Sorter Overhead Camera - PSOC (Vol. B)</option><option value="275" volno="B">MS-275 Small Package Sorting System - SPSS (Vol. B)</option><option value="295" volno="B">MS-295 Automatic Tray Sleever, Upgraded - ATSU (Vol. B)</option><option value="297" volno="B">MS-297 Automated Delivery Unit Sorter - ADUS (Vol. B)</option><option value="298" volno="C">MS-298 DELIVERY BAR CODE SORTER Phase 3-5 LAU PH2 - DBCS 3-5 LAU PH2 (Vol. C)</option><option value="299" volno="C">MS-299 DELIVERY BAR CODE SORTER Phase 6 LAU PH2 - DBCS 6 LAU PH2 (Vol. C)</option><option value="300" volno="B">MS-300 Universal Sort System - ACT - USS (Vol. B)</option><option value="300" volno="C">MS-300 Universal Sort System - Honeywell - USS (Vol. C)</option><option value="301" volno="B">MS-301 Enhanced Package Processing System - EPPS (Vol. B)</option><option value="302" volno="A2">MS-302 Automated Guided Vehicles - Seegrid - AGV (Vol. A2)</option><option value="302" volno="B2">MS-302 Automated Guided Vehicles - Daifuku - AGV (Vol. B2)</option><option value="302" volno="C2">MS-302 Automated Guided Vehicles - EITS - AGV (Vol. C2)</option><option value="303" volno="B">MS-303 Small Delivery Unit Sorter - SDUS (Vol. B)</option><option value="304" volno="B">MS-304 Low Cost Tray Sorter - LCTS (Vol. B)</option><option value="305" volno="B">MS-305 Single Induction Package Sorter - SIPS (Vol. B)</option><option value="306" volno="B">MS-306 Biohazard Detection System - BDS (Vol. B)</option><option value="307" volno="B">MS-307 High Output Package Sorter - HOPS (Vol. B)</option><option value="308" volno="B">MS-308 Low Cost Universal Sorter - LCUS (Vol. B)</option><option value="310" volno="B">MS-310 Parcel Sorting Machine (PSM) Induction Vision Robot - PIVR (Vol. B)</option><option value="311" volno="B">MS-311 Robotic Induction System - RIS (Vol. B)</option><option value="312" volno="A">MS-312 Robust Bulk Universal Sorter - RBUS (Vol. A)</option><option value="313" volno="B">MS-313 High Speed Tray Sorter - HSTS (Vol. B)</option><option value="316" volno="B">MS-316 Parallel In-Line Sorter - PILS (Vol. B)</option>                    </select>
+                  </td>
+                </tr>
+                <tr id="sectiontr" style="border: none;">
+                  <td width="18%" align="right" style="padding: 2px;"><label for="section"><b>Select Section:&nbsp;</b></label></td>
+                  <td style="text-align:left; padding: 2px;" colspan="4"> 
+                    <select name="sectionSelect" id="sectionSelect" style="width: 100%;" disabled=""><option value="NA">--Select Section--</option></select>
+                  </td>
+                </tr>
+                <tr id="searchinputtr" style="border: none;">
+                    <td align="right" style="padding: 2px;"><label for="searchinput"><b>Search Criteria:&nbsp;</b></label></td> 
+                    <td style="width: 100px;" align="right"><b>Complete NSN: </b></td>
+                    <td align="left" style="padding-left: 5px;"><input id="nsn" type="text" name="nsn" value="" size="16"></td>
+                    
+                    </tr>
+                    <tr style="border: none;">
+                    <td></td>
+                    <td style="width: 100px;" align="right">
+                    <b>Partial NSN: </b>
+                    </td>
+                    <td align="left" style="padding-left: 5px;">
+                    <input type="text" id="nsn1" name="nsn1" value="" size="4" maxlength="4" onkeyup="return autoTab(this, 4, event);">-
+                    <input type="text" id="nsn2" name="nsn2" value="" size="2" maxlength="2" onkeyup="return autoTab(this, 2, event);">-
+                    <input type="text" id="nsn3" name="nsn3" value="" size="3" maxlength="3" onkeyup="return autoTab(this, 3, event);">-
+                    <input type="text" id="nsn4" name="nsn4" value="" size="4" maxlength="4" onkeyup="return autoTab(this, 4, event);">
+                    </td>
+                    </tr>
+                    <tr style="border: none;">
+                    <td></td>
+                    <td style="width: 100px;" align="right"><b>OEM: </b></td>
+                    
+                    <td align="left" style="padding-left: 5px;"><input type="text" class="uppercase" id="oem" name="oem" value="" size="15" maxlength="30">
+                    </td>
+                    </tr>
+                    <tr style="border: none;">
+                    <td></td>
+                    <td style="width: 100px;" align="right"><b>Nomenclature: </b></td>
+                    <td align="left" style="padding-left: 5px;"><input type="text" class="uppercase" id="nomen" name="nomen" value="" size="15" maxlength="30">
+                    </td>
+                </tr>
+                <tr style="border: none;">
+                  <td colspan="5" align="right">
+                    <input type="button" name="button" id="partssearchButton" value="Search">
+                  </td>
+                </tr>
+                </tbody>
+            </table>
+            </form>
+        </div>
+        <!---
+        <div id="partsearchnoteDiv">
+        <table width="100%">
+        <tr>
+            <td bgcolor="CCCCCC"><br/><font color="000099" size="-1">
+            &nbsp;&nbsp;How To Search Parts Cross-Reference?<br/><br/>
+            &nbsp;&nbsp;1. Select handbook from drop down list.<br/>
+            &nbsp;&nbsp;2. Select section from drop down list for selected handbook.<br/>
+            &nbsp;&nbsp;3. Input the search criteria (NSN, OEM or Nomenclature) or part of the NSN, OEM, or Nomenclature in any combination.<br/>
+            &nbsp;&nbsp;4. Click 'Search' button to begin searching.<br/><br/>
+            </font>
+            </td>
+        </tr>
+        </table>
+        </div>
+        --->
+        <!--- parts search result in mtsc_table --->
+        <div id="partssearchresultDiv" class="dataTables_wrapper" value="" role="grid">
+            <div id="searchcriteriaDiv"></div>
+            <div id="emarsselectDiv" style="display:none;">
+            <small><font color="990000"><b>Select region, search the eMARS national stockroom database for part availability by <br>clicking "Stock No" (search by NSN) or clicking "Part No" (search by OEM) in the search result table</b></font></small>
+                        <select id="emars_area" name="emars_area" style="font-family:Arial; font-size:8pt;">
+                        <option value="all">NATIONAL</option>
+                        <option value="1V">EASTERN REGION</option>
+                        <option value="1W">WESTERN REGION</option>
+                        <!--<OPTION value="1K">CAPITAL METRO</option>
+                        <OPTION value="1C">EASTERN</option>
+                        <OPTION value="1J">GREAT LAKES</option>
+                        <OPTION value="1M">MTESC</option>
+                        <OPTION value="1A">NEW YORK METRO</option>
+                        <OPTION value="1B">NORTHEAST</option>
+                        <OPTION value="1F">PACIFIC</option>
+                        <OPTION value="1H">SOUTHERN</option>
+                        <OPTION value="1E">WESTERN</option>-->
+                        </select>
+                        <img src="./Maintenance Technical Support Center_files/emarsnsr.gif" width="90" height="20">
+            </div>
+            <table class="cell-border hover compact order_column stripe compact" id="partssearchresultTable"></table>
+        </div> 
+        <div id="xutest">
+        </div>
+    </div>
+</div>
+
+</div>
+    <div id="latest_news_container" class="box_menu" style="display: none;"></div>
+  </div>
+  <nav id="nav_wrapper" class="mtsc_menu_container" style="float:right;width:30%;margin-right:1%;"><div class="box menu">
+      <div class="h2_hd_wrapper"><span id="toggle-div1">DASHBOARD</span><img class="fulid_sign" src="./Maintenance Technical Support Center_files/switch_minus.gif"></div>
+      <div id="dash_menu"><ul class="mtsc_menu_top_ul"><li menuid="mtscmenu_2" class="menu_item " hashkey=""><a href="https://www1.mtsc.usps.gov/APPS/dashboard-x" target="_blank" reload="false"><span>Dashboard X</span></a></li><li menuid="mtscmenu_4" class="menu_item " hashkey=""><a href="https://apex.mtsc.usps.gov/ords/rpt2prod/f?p=115:1::::::" target="_blank" reload="false"><span>National Maintenance Scorecard</span></a></li></ul></div></div><div class="box menu">
+      <div class="h2_hd_wrapper"><span id="toggle-div1">HELPDESK</span><img class="fulid_sign" src="./Maintenance Technical Support Center_files/switch_minus.gif"></div>
+      <div id="helpdesk_menu"><ul class="mtsc_menu_top_ul"><li menuid="mtscmenu_6" class="menu_item" hashkey=""><a href="https://tickets.mtsc.usps.gov/login.php" target="_blank" reload="false"><span>Create/Update Tickets</span></a></li><li menuid="mtscmenu_7" class="menu_item  menu_selected menu_minus" hashkey=""><a class="disable_click active" href="javascript:void(0);" reload="false"><span>Service Portal</span></a><ul class="menu_plus" style="display: block;"><li menuid="mtscmenu_8" class="menu_item" hashkey=""><a href="https://mtscprod.servicenowservices.com/mtsc_sp" target="_blank" reload="false"><span>Knowledge Base</span></a></li><li menuid="mtscmenu_9" class="menu_item" hashkey=""><a href="https://mtscprod.servicenowservices.com/nav_to?uri=mtsc_sp" target="_blank" reload="false"><span>MTSC / MP&amp;S Travel Requests</span></a></li><li menuid="mtscmenu_10" class="menu_item" hashkey=""><a href="https://mtscprod.servicenowservices.com/nav_to?uri=mtsc_sp" target="_blank" reload="false"><span>NTSN Project Requests</span></a></li></ul></li><li menuid="mtscmenu_11" class="menu_item" hashkey=""><a href="https://tickets.mtsc.usps.gov/login.php?mpelogins" target="_blank" reload="false"><span>MPE Access</span></a></li><li menuid="mtscmenu_12" class="menu_item  menu_plus_dark" hashkey=""><a class="disable_click" href="javascript:void(0);" reload="false"><span>MTSC Helpdesk Reports</span></a><ul style=""><li menuid="mtscmenu_13" class="menu_item  menu_plus_dark" hashkey=""><a class="disable_click" href="javascript:void(0);" reload="false"><span>Tickets by Division</span></a><ul style=""><li menuid="mtscmenu_13.1" class="menu_item  menu_plus_dark" hashkey=""><a class="disable_click" href="javascript:void(0);" reload="false"><span>Central</span></a><ul style=""><li menuid="mtscmenu_13.2" class="menu_item" hashkey="Tickets&amp;oct&amp;Central&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open/Closed Tickets</span></a></li><li menuid="mtscmenu_13.3" class="menu_item" hashkey="Tickets&amp;dndg&amp;Central&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down/Degraded Tickets</span></a></li><li menuid="mtscmenu_13.4" class="menu_item" hashkey="Tickets&amp;dg72&amp;Central&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Degraded 72 Tickets</span></a></li><li menuid="mtscmenu_13.5" class="menu_item" hashkey="Tickets&amp;dn24&amp;Central&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down 24 Tickets</span></a></li><li menuid="mtscmenu_13.6" class="menu_item" hashkey="Tickets&amp;me24&amp;Central&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Major Equipment Down 24 Tickets</span></a></li><li menuid="mtscmenu_13.7" class="menu_item" hashkey="Tickets&amp;peak&amp;Central&amp;Division"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/HDReports/svcnow.tickets_rpts.php" reload="false"><span>Peak Season Open/Recently Closed</span></a></li></ul></li><li menuid="mtscmenu_14" class="menu_item  menu_plus_dark" hashkey=""><a class="disable_click" href="javascript:void(0);" reload="false"><span>Chesapeake</span></a><ul style=""><li menuid="mtscmenu_15" class="menu_item" hashkey="Tickets&amp;oct&amp;Chesapeake&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open/Closed Tickets</span></a></li><li menuid="mtscmenu_16" class="menu_item" hashkey="Tickets&amp;dndg&amp;Chesapeake&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down/Degraded Tickets</span></a></li><li menuid="mtscmenu_17" class="menu_item" hashkey="Tickets&amp;dg72&amp;Chesapeake&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Degraded 72 Tickets</span></a></li><li menuid="mtscmenu_18" class="menu_item" hashkey="Tickets&amp;dn24&amp;Chesapeake&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down 24 Tickets</span></a></li><li menuid="mtscmenu_19" class="menu_item" hashkey="Tickets&amp;me24&amp;Chesapeake&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Major Equipment Down 24 Tickets</span></a></li><li menuid="mtscmenu_20" class="menu_item" hashkey="Tickets&amp;peak&amp;Chesapeake&amp;Division"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/HDReports/svcnow.tickets_rpts.php" reload="false"><span>Peak Season Open/Recently Closed</span></a></li></ul></li><li menuid="mtscmenu_20.1" class="menu_item  menu_plus_dark" hashkey=""><a class="disable_click" href="javascript:void(0);" reload="false"><span>Florida</span></a><ul style=""><li menuid="mtscmenu_20.2" class="menu_item" hashkey="Tickets&amp;oct&amp;Florida&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open/Closed Tickets</span></a></li><li menuid="mtscmenu_20.3" class="menu_item" hashkey="Tickets&amp;dndg&amp;Florida&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down/Degraded Tickets</span></a></li><li menuid="mtscmenu_20.4" class="menu_item" hashkey="Tickets&amp;dg72&amp;Florida&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Degraded 72 Tickets</span></a></li><li menuid="mtscmenu_20.5" class="menu_item" hashkey="Tickets&amp;dn24&amp;Florida&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down 24 Tickets</span></a></li><li menuid="mtscmenu_20.6" class="menu_item" hashkey="Tickets&amp;me24&amp;Florida&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Major Equipment Down 24 Tickets</span></a></li><li menuid="mtscmenu_20.7" class="menu_item" hashkey="Tickets&amp;peak&amp;Florida&amp;Division"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/HDReports/svcnow.tickets_rpts.php" reload="false"><span>Peak Season Open/Recently Closed</span></a></li></ul></li><li menuid="mtscmenu_27.1" class="menu_item  menu_plus_dark" hashkey=""><a class="disable_click" href="javascript:void(0);" reload="false"><span>Gulf South</span></a><ul style=""><li menuid="mtscmenu_27.2" class="menu_item" hashkey="Tickets&amp;oct&amp;Gulf%20South&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open/Closed Tickets</span></a></li><li menuid="mtscmenu_27.3" class="menu_item" hashkey="Tickets&amp;dndg&amp;Gulf%20South&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down/Degraded Tickets</span></a></li><li menuid="mtscmenu_27.4" class="menu_item" hashkey="Tickets&amp;dg72&amp;Gulf%20South&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Degraded 72 Tickets</span></a></li><li menuid="mtscmenu_27.5" class="menu_item" hashkey="Tickets&amp;dn24&amp;Gulf%20South&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down 24 Tickets</span></a></li><li menuid="mtscmenu_27.6" class="menu_item" hashkey="Tickets&amp;me24&amp;Gulf%20South&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Major Equipment Down 24 Tickets</span></a></li><li menuid="mtscmenu_27.7" class="menu_item" hashkey="Tickets&amp;peak&amp;Gulf%20South&amp;Division"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/HDReports/svcnow.tickets_rpts.php" reload="false"><span>Peak Season Open/Recently Closed</span></a></li></ul></li><li menuid="mtscmenu_28" class="menu_item  menu_plus_dark" hashkey=""><a class="disable_click" href="javascript:void(0);" reload="false"><span>Lakeshores</span></a><ul style=""><li menuid="mtscmenu_29" class="menu_item" hashkey="Tickets&amp;oct&amp;Lakeshores&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open/Closed Tickets</span></a></li><li menuid="mtscmenu_30" class="menu_item" hashkey="Tickets&amp;dndg&amp;Lakeshores&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down/Degraded Tickets</span></a></li><li menuid="mtscmenu_31" class="menu_item" hashkey="Tickets&amp;dg72&amp;Lakeshores&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Degraded 72 Tickets</span></a></li><li menuid="mtscmenu_32" class="menu_item" hashkey="Tickets&amp;dn24&amp;Lakeshores&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down 24 Tickets</span></a></li><li menuid="mtscmenu_33" class="menu_item" hashkey="Tickets&amp;me24&amp;Lakeshores&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Major Equipment Down 24 Tickets</span></a></li><li menuid="mtscmenu_34" class="menu_item" hashkey="Tickets&amp;peak&amp;Lakeshores&amp;Division"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/HDReports/svcnow.tickets_rpts.php" reload="false"><span>Peak Season Open/Recently Closed</span></a></li></ul></li><li menuid="mtscmenu_35" class="menu_item  menu_plus_dark" hashkey=""><a class="disable_click" href="javascript:void(0);" reload="false"><span>Midwest</span></a><ul style=""><li menuid="mtscmenu_36" class="menu_item" hashkey="Tickets&amp;oct&amp;Midwest&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open/Closed Tickets</span></a></li><li menuid="mtscmenu_37" class="menu_item" hashkey="Tickets&amp;dndg&amp;Midwest&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down/Degraded Tickets</span></a></li><li menuid="mtscmenu_38" class="menu_item" hashkey="Tickets&amp;dg72&amp;Midwest&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Degraded 72 Tickets</span></a></li><li menuid="mtscmenu_39" class="menu_item" hashkey="Tickets&amp;dn24&amp;Midwest&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down 24 Tickets</span></a></li><li menuid="mtscmenu_40" class="menu_item" hashkey="Tickets&amp;me24&amp;Midwest&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Major Equipment Down 24 Tickets</span></a></li><li menuid="mtscmenu_41" class="menu_item" hashkey="Tickets&amp;peak&amp;Midwest&amp;Division"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/HDReports/svcnow.tickets_rpts.php" reload="false"><span>Peak Season Open/Recently Closed</span></a></li></ul></li><li menuid="mtscmenu_42" class="menu_item  menu_plus_dark" hashkey=""><a class="disable_click" href="javascript:void(0);" reload="false"><span>New England</span></a><ul style=""><li menuid="mtscmenu_43" class="menu_item" hashkey="Tickets&amp;oct&amp;New%20England&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open/Closed Tickets</span></a></li><li menuid="mtscmenu_44" class="menu_item" hashkey="Tickets&amp;dndg&amp;New%20England&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down/Degraded Tickets</span></a></li><li menuid="mtscmenu_45" class="menu_item" hashkey="Tickets&amp;dg72&amp;New%20England&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Degraded 72 Tickets</span></a></li><li menuid="mtscmenu_46" class="menu_item" hashkey="Tickets&amp;dn24&amp;New%20England&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down 24 Tickets</span></a></li><li menuid="mtscmenu_47" class="menu_item" hashkey="Tickets&amp;me24&amp;New%20England&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Major Equipment Down 24 Tickets</span></a></li><li menuid="mtscmenu_48" class="menu_item" hashkey="Tickets&amp;peak&amp;New%20England&amp;Division"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/HDReports/svcnow.tickets_rpts.php" reload="false"><span>Peak Season Open/Recently Closed</span></a></li></ul></li><li menuid="mtscmenu_49" class="menu_item  menu_plus_dark" hashkey=""><a class="disable_click" href="javascript:void(0);" reload="false"><span>NY Metro</span></a><ul style=""><li menuid="mtscmenu_50" class="menu_item" hashkey="Tickets&amp;oct&amp;NY%20Metro&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open/Closed Tickets</span></a></li><li menuid="mtscmenu_51" class="menu_item" hashkey="Tickets&amp;dndg&amp;NY%20Metro&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down/Degraded Tickets</span></a></li><li menuid="mtscmenu_52" class="menu_item" hashkey="Tickets&amp;dg72&amp;NY%20Metro&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Degraded 72 Tickets</span></a></li><li menuid="mtscmenu_53" class="menu_item" hashkey="Tickets&amp;dn24&amp;NY%20Metro&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down 24 Tickets</span></a></li><li menuid="mtscmenu_54" class="menu_item" hashkey="Tickets&amp;me24&amp;NY%20Metro&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Major Equipment Down 24 Tickets</span></a></li><li menuid="mtscmenu_55" class="menu_item" hashkey="Tickets&amp;peak&amp;NY%20Metro&amp;Division"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/HDReports/svcnow.tickets_rpts.php" reload="false"><span>Peak Season Open/Recently Closed</span></a></li></ul></li><li menuid="mtscmenu_55.1" class="menu_item  menu_plus_dark" hashkey=""><a class="disable_click" href="javascript:void(0);" reload="false"><span>Northern Plains</span></a><ul style=""><li menuid="mtscmenu_55.11" class="menu_item" hashkey="Tickets&amp;oct&amp;Northern%20Plains&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open/Closed Tickets</span></a></li><li menuid="mtscmenu_55.12" class="menu_item" hashkey="Tickets&amp;dndg&amp;Northern%20Plains&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down/Degraded Tickets</span></a></li><li menuid="mtscmenu_55.13" class="menu_item" hashkey="Tickets&amp;dg72&amp;Northern%20Plains&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Degraded 72 Tickets</span></a></li><li menuid="mtscmenu_55.14" class="menu_item" hashkey="Tickets&amp;dn24&amp;Northern%20Plains&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down 24 Tickets</span></a></li><li menuid="mtscmenu_55.15" class="menu_item" hashkey="Tickets&amp;me24&amp;Northern%20Plains&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Major Equipment Down 24 Tickets</span></a></li><li menuid="mtscmenu_55.16" class="menu_item" hashkey="Tickets&amp;peak&amp;Northern%20Plains&amp;Division"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/HDReports/svcnow.tickets_rpts.php" reload="false"><span>Peak Season Open/Recently Closed</span></a></li></ul></li><li menuid="mtscmenu_55.2" class="menu_item  menu_plus_dark" hashkey=""><a class="disable_click" href="javascript:void(0);" reload="false"><span>Northwest</span></a><ul style=""><li menuid="mtscmenu_55.21" class="menu_item" hashkey="Tickets&amp;oct&amp;Northwest&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open/Closed Tickets</span></a></li><li menuid="mtscmenu_55.22" class="menu_item" hashkey="Tickets&amp;dndg&amp;Northwest&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down/Degraded Tickets</span></a></li><li menuid="mtscmenu_55.23" class="menu_item" hashkey="Tickets&amp;dg72&amp;Northwest&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Degraded 72 Tickets</span></a></li><li menuid="mtscmenu_55.24" class="menu_item" hashkey="Tickets&amp;dn24&amp;Northwest&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down 24 Tickets</span></a></li><li menuid="mtscmenu_55.25" class="menu_item" hashkey="Tickets&amp;me24&amp;Northwest&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Major Equipment Down 24 Tickets</span></a></li><li menuid="mtscmenu_55.26" class="menu_item" hashkey="Tickets&amp;peak&amp;Northwest&amp;Division"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/HDReports/svcnow.tickets_rpts.php" reload="false"><span>Peak Season Open/Recently Closed</span></a></li></ul></li><li menuid="mtscmenu_55.3" class="menu_item  menu_plus_dark" hashkey=""><a class="disable_click" href="javascript:void(0);" reload="false"><span>Pacific Coastal</span></a><ul style=""><li menuid="mtscmenu_55.31" class="menu_item" hashkey="Tickets&amp;oct&amp;Pacific%20Coastal&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open/Closed Tickets</span></a></li><li menuid="mtscmenu_55.32" class="menu_item" hashkey="Tickets&amp;dndg&amp;Pacific%20Coastal&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down/Degraded Tickets</span></a></li><li menuid="mtscmenu_55.33" class="menu_item" hashkey="Tickets&amp;dg24&amp;Pacific%20Coastal&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Degraded 72 Tickets</span></a></li><li menuid="mtscmenu_55.34" class="menu_item" hashkey="Tickets&amp;dn24&amp;Pacific%20Coastal&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down 24 Tickets</span></a></li><li menuid="mtscmenu_55.35" class="menu_item" hashkey="Tickets&amp;me24&amp;Pacific%20Coastal&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Major Equipment Down 24 Tickets</span></a></li><li menuid="mtscmenu_55.36" class="menu_item" hashkey="Tickets&amp;peak&amp;Pacific%20Coastal&amp;Division"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/HDReports/svcnow.tickets_rpts.php" reload="false"><span>Peak Season Open/Recently Closed</span></a></li></ul></li><li menuid="mtscmenu_63" class="menu_item  menu_plus_dark" hashkey=""><a class="disable_click" href="javascript:void(0);" reload="false"><span>South Atlantic</span></a><ul style=""><li menuid="mtscmenu_64" class="menu_item" hashkey="Tickets&amp;oct&amp;South%20Atlantic&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open/Closed Tickets</span></a></li><li menuid="mtscmenu_65" class="menu_item" hashkey="Tickets&amp;dndg&amp;South%20Atlantic&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down/Degraded Tickets</span></a></li><li menuid="mtscmenu_66" class="menu_item" hashkey="Tickets&amp;dg72&amp;South%20Atlantic&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Degraded 72 Tickets</span></a></li><li menuid="mtscmenu_67" class="menu_item" hashkey="Tickets&amp;dn24&amp;South%20Atlantic&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down 24 Tickets</span></a></li><li menuid="mtscmenu_68" class="menu_item" hashkey="Tickets&amp;me24&amp;South%20Atlantic&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Major Equipment Down 24 Tickets</span></a></li><li menuid="mtscmenu_69" class="menu_item" hashkey="Tickets&amp;peak&amp;South%20Atlantic&amp;Division"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/HDReports/svcnow.tickets_rpts.php" reload="false"><span>Peak Season Open/Recently Closed</span></a></li></ul></li><li menuid="mtscmenu_70" class="menu_item  menu_plus_dark" hashkey=""><a class="disable_click" href="javascript:void(0);" reload="false"><span>Southeast</span></a><ul style=""><li menuid="mtscmenu_71" class="menu_item" hashkey="Tickets&amp;oct&amp;Southeast&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open/Closed Tickets</span></a></li><li menuid="mtscmenu_72" class="menu_item" hashkey="Tickets&amp;dndg&amp;Southeast&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down/Degraded Tickets</span></a></li><li menuid="mtscmenu_73" class="menu_item" hashkey="Tickets&amp;dg72&amp;Southeast&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Degraded 72 Tickets</span></a></li><li menuid="mtscmenu_74" class="menu_item" hashkey="Tickets&amp;dn24&amp;Southeast&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down 24 Tickets</span></a></li><li menuid="mtscmenu_75" class="menu_item" hashkey="Tickets&amp;me24&amp;Southeast&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Major Equipment Down 24 Tickets</span></a></li><li menuid="mtscmenu_76" class="menu_item" hashkey="Tickets&amp;peak&amp;Southeast&amp;Division"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/HDReports/svcnow.tickets_rpts.php" reload="false"><span>Peak Season Open/Recently Closed</span></a></li></ul></li><li menuid="mtscmenu_77" class="menu_item  menu_plus_dark" hashkey=""><a class="disable_click" href="javascript:void(0);" reload="false"><span>Southern California</span></a><ul style=""><li menuid="mtscmenu_78" class="menu_item" hashkey="Tickets&amp;oct&amp;Southern%20California&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open/Closed Tickets</span></a></li><li menuid="mtscmenu_79" class="menu_item" hashkey="Tickets&amp;dndg&amp;Southern%20California&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down/Degraded Tickets</span></a></li><li menuid="mtscmenu_80" class="menu_item" hashkey="Tickets&amp;dg72&amp;Southern%20California&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Degraded 72 Tickets</span></a></li><li menuid="mtscmenu_81" class="menu_item" hashkey="Tickets&amp;dn24&amp;Southern%20California&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down 24 Tickets</span></a></li><li menuid="mtscmenu_82" class="menu_item" hashkey="Tickets&amp;me24&amp;Southern%20California&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Major Equipment Down 24 Tickets</span></a></li><li menuid="mtscmenu_83" class="menu_item" hashkey="Tickets&amp;peak&amp;Southern%20California&amp;Division"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/HDReports/svcnow.tickets_rpts.php" reload="false"><span>Peak Season Open/Recently Closed</span></a></li></ul></li><li menuid="mtscmenu_90.1" class="menu_item  menu_plus_dark" hashkey=""><a class="disable_click" href="javascript:void(0);" reload="false"><span>Texas</span></a><ul style=""><li menuid="mtscmenu_90.2" class="menu_item" hashkey="Tickets&amp;oct&amp;Texas&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open/Closed Tickets</span></a></li><li menuid="mtscmenu_90.3" class="menu_item" hashkey="Tickets&amp;dndg&amp;Texas&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down/Degraded Tickets</span></a></li><li menuid="mtscmenu_90.4" class="menu_item" hashkey="Tickets&amp;dg72&amp;Texas&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Degraded 72 Tickets</span></a></li><li menuid="mtscmenu_90.5" class="menu_item" hashkey="Tickets&amp;dn24&amp;Texas&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down 24 Tickets</span></a></li><li menuid="mtscmenu_90.6" class="menu_item" hashkey="Tickets&amp;me24&amp;Texas&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Major Equipment Down 24 Tickets</span></a></li><li menuid="mtscmenu_90.7" class="menu_item" hashkey="Tickets&amp;peak&amp;Texas&amp;Division"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/HDReports/svcnow.tickets_rpts.php" reload="false"><span>Peak Season Open/Recently Closed</span></a></li></ul></li><li menuid="mtscmenu_91" class="menu_item  menu_plus_dark" hashkey=""><a class="disable_click" href="javascript:void(0);" reload="false"><span>Western</span></a><ul style=""><li menuid="mtscmenu_92" class="menu_item" hashkey="Tickets&amp;oct&amp;Western&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open/Closed Tickets</span></a></li><li menuid="mtscmenu_93" class="menu_item" hashkey="Tickets&amp;dndg&amp;Western&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down/Degraded Tickets</span></a></li><li menuid="mtscmenu_94" class="menu_item" hashkey="Tickets&amp;dg72&amp;Western&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Degraded 72 Tickets</span></a></li><li menuid="mtscmenu_95" class="menu_item" hashkey="Tickets&amp;dn24&amp;Western&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down 24 Tickets</span></a></li><li menuid="mtscmenu_96" class="menu_item" hashkey="Tickets&amp;me24&amp;Western&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Major Equipment Down 24 Tickets</span></a></li><li menuid="mtscmenu_97" class="menu_item" hashkey="Tickets&amp;peak&amp;Western&amp;Division"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/HDReports/svcnow.tickets_rpts.php" reload="false"><span>Peak Season Open/Recently Closed</span></a></li></ul></li><li menuid="mtscmenu_98" class="menu_item  menu_plus_dark" hashkey=""><a class="disable_click" href="javascript:void(0);" reload="false"><span>Westshores</span></a><ul style=""><li menuid="mtscmenu_99" class="menu_item" hashkey="Tickets&amp;oct&amp;Westshores&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open/Closed Tickets</span></a></li><li menuid="mtscmenu_100" class="menu_item" hashkey="Tickets&amp;dndg&amp;Westshores&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down/Degraded Tickets</span></a></li><li menuid="mtscmenu_101" class="menu_item" hashkey="Tickets&amp;dg72&amp;Westshores&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Degraded 72 Tickets</span></a></li><li menuid="mtscmenu_102" class="menu_item" hashkey="Tickets&amp;dn24&amp;Westshores&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Down 24 Tickets</span></a></li><li menuid="mtscmenu_103" class="menu_item" hashkey="Tickets&amp;me24&amp;Westshores&amp;Division"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Open Major Equipment Down 24 Tickets</span></a></li><li menuid="mtscmenu_104" class="menu_item" hashkey="Tickets&amp;peak&amp;Westshores&amp;Division"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/HDReports/svcnow.tickets_rpts.php" reload="false"><span>Peak Season Open/Recently Closed</span></a></li></ul></li></ul></li><li menuid="mtscmenu_105" class="menu_item" hashkey=""><a href="https://www1.mtsc.usps.gov/APPS/hdmobilerpts/" target="_blank" reload="false"><span>Helpdesk Mobile Reports</span></a></li><li menuid="mtscmenu_106" class="menu_item" hashkey=""><a href="https://www1.mtsc.usps.gov/APPS/noccrpts/" target="_blank" reload="false"><span>NOCC Reports</span></a></li><li menuid="mtscmenu_107" class="menu_item" hashkey="Tickets&amp;oct&amp;All"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/HDReports/svcnow.tickets_rpts.php" reload="false"><span>Open/Closed Tickets</span></a></li><li menuid="mtscmenu_108" class="menu_item" hashkey="Tickets&amp;dndg&amp;All"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/HDReports/svcnow.tickets_rpts.php" reload="false"><span>Open Down/Degraded Tickets</span></a></li><li menuid="mtscmenu_109" class="menu_item" hashkey="Tickets&amp;dn24&amp;All"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/HDReports/svcnow.tickets_rpts.php" reload="false"><span>Open Down 24 Tickets</span></a></li><li menuid="mtscmenu_110" class="menu_item" hashkey="Tickets&amp;me24&amp;All"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/HDReports/svcnow.tickets_rpts.php" reload="false"><span>Open Major Equipment Down 24 Tickets</span></a></li><li menuid="mtscmenu_111" class="menu_item" hashkey="Tickets&amp;dg72&amp;All"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/HDReports/svcnow.tickets_rpts.php" reload="false"><span>Open Degraded 72 Tickets</span></a></li><li menuid="mtscmenu_112" class="menu_item" hashkey=""><a href="https://www1.mtsc.usps.gov/apps/helpdesk_reports/svcnow.ticket.history.php" target="_blank" reload="false"><span>Ticket History Report</span></a></li><li menuid="mtscmenu_113" class="menu_item" hashkey=""><a href="https://www1.mtsc.usps.gov/apps/helpdesk_reports/svcnow.national.emonitor.php" target="_blank" reload="false"><span>National eMonitor</span></a></li><li menuid="mtscmenu_114" class="menu_item" hashkey=""><a href="https://www1.mtsc.usps.gov/apps/helpdesk_reports/mttr/svcnow.mttr.php" target="_blank" reload="false"><span>MTTR (Mean Time To Repair) Report</span></a></li><li menuid="mtscmenu_206" class="menu_item" hashkey=""><a href="https://www1.mtsc.usps.gov/apps/helpdesk_reports/npa/npa.avail.php" target="_blank" reload="false"><span>NPA Scorecard and Machine Availability Report</span></a></li><li menuid="mtscmenu_115" class="menu_item" hashkey="Tickets&amp;peak&amp;All"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/HDReports/svcnow.tickets_rpts.php" reload="false"><span>Peak Season Open/Recently Closed Report</span></a></li><li menuid="mtscmenu_115.1" class="menu_item" hashkey=""><a href="https://www1.mtsc.usps.gov/apps/mtsc/contents/DownPackageReport/mtsc_automated_reports.php" target="_blank" reload="false"><span>Down Package Report</span></a></li></ul></li></ul></div></div><div class="box menu">
+      <div class="h2_hd_wrapper"><span id="toggle-div1">DOCUMENTATION</span><img class="fulid_sign" src="./Maintenance Technical Support Center_files/switch_plus.gif"></div>
+      <div id="docs_menu" style="display:none;"><ul class="mtsc_menu_top_ul"><li menuid="mtscmenu_117" class="menu_item " hashkey="Doc&amp;mshandbook"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/msbook_information.php" reload="false"><span>Maintenance Series Handbooks</span></a></li><li menuid="mtscmenu_119" class="menu_item " hashkey="Doc&amp;partssearch&amp;0&amp;NA"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/partsSearch_information.php" reload="false"><span>Parts Cross-Reference Search</span></a></li><li menuid="mtscmenu_119.1" class="menu_item " hashkey=""><a href="https://www1.mtsc.usps.gov/msbooks/support/PartsXRefEHB.pps" target="_blank" reload="false"><span>Parts Cross-Reference User Guide</span></a></li><li menuid="mtscmenu_120" class="menu_item " hashkey="Doc&amp;msobs"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/msbook_information.php" reload="false"><span>Obsolete MS Handbooks</span></a></li><li menuid="mtscmenu_121" class="menu_item  menu_plus_dark" hashkey=""><a class="disable_click" href="javascript:void(0);" reload="false"><span>Orderable Items</span></a><ul><li menuid="mtscmenu_122" class="menu_item " hashkey="Doc&amp;mscots"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/msbook_information.php" reload="false"><span>Current COTS and OEM Documents</span></a></li><li menuid="mtscmenu_123" class="menu_item " hashkey="Doc&amp;msvideo"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/msbook_information.php" reload="false"><span>Videos</span></a></li></ul></li><li menuid="mtscmenu_124" class="menu_item " hashkey="Equip&amp;SAFETY"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Safety</span></a></li><li menuid="mtscmenu_125" class="menu_item " hashkey="Doc&amp;mtscvideo"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/msbook_information.php" reload="false"><span>Video Master Index</span></a></li><li menuid="mtscmenu_126" class="menu_item " hashkey="Equip&amp;PDM"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Predictive Maintenance (PdM)</span></a></li></ul></div></div><div class="box menu">
+      <div class="h2_hd_wrapper"><span id="toggle-div1">BULLETINS</span><img class="fulid_sign" src="./Maintenance Technical Support Center_files/switch_plus.gif"></div>
+      <div id="bulletins_menu" style="display:none;"><ul class="mtsc_menu_top_ul"><li menuid="mtscmenu_128" class="menu_item helpdesk_bull_info" hashkey="Bull&amp;bm_index&amp;1"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/bulletin_information.php" reload="false"><span>Bulletins by Year</span></a></li><li menuid="mtscmenu_129" class="menu_item helpdesk_bull_info" hashkey=""><a href="https://www1.mtsc.usps.gov/apps/modworeport/" target="_blank" reload="false"><span>Bulletin Work Order Summary Report</span></a></li><li menuid="mtscmenu_130" class="menu_item helpdesk_bull_info" hashkey="Bull&amp;sb_index&amp;0"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/bulletin_information.php" reload="false"><span>Safety Bulletins</span></a></li><li menuid="mtscmenu_131" class="menu_item helpdesk_bull_info" hashkey="Bull&amp;pm_index&amp;0"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/bulletin_information.php" reload="false"><span>PM Guidelines</span></a></li><li menuid="mtscmenu_132" class="menu_item helpdesk_bull_info" hashkey="Bull&amp;ecp_index&amp;0"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/bulletin_information.php" reload="false"><span>Energy Control Procedures (ECPs)</span></a></li><li menuid="mtscmenu_133" class="menu_item helpdesk_bull_info" hashkey="Bull&amp;obs_index&amp;0"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/bulletin_information.php" reload="false"><span>Non-MPE Bulletins</span></a></li><li menuid="mtscmenu_134" class="menu_item helpdesk_bull_info" hashkey="Bull&amp;mlist_index&amp;0"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/bulletin_information.php" reload="false"><span>Distribution Mailing Lists</span></a></li><li menuid="mtscmenu_135" class="menu_item helpdesk_bull_info" hashkey="Bull&amp;sp_index&amp;1"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/bulletin_information.php" reload="false"><span>Superseded/Obsolete Bulletins</span></a></li><li menuid="mtscmenu_136" class="menu_item " hashkey=""><a href="https://www1.mtsc.usps.gov/apps/mtsc/equipdoc/Estimated%20Workhours%20for%20Nationally%20Deployed%20Equipment.pdf" target="_blank" reload="false"><span>Additional Estimated Workhours</span></a></li></ul></div></div><div class="box menu">
+      <div class="h2_hd_wrapper"><span id="toggle-div1">REPORTING TOOLS</span><img class="fulid_sign" src="./Maintenance Technical Support Center_files/switch_plus.gif"></div>
+      <div id="reporting_menu" style="display:none;"><ul class="mtsc_menu_top_ul"><li menuid="mtscmenu_138" class="menu_item " hashkey=""><a href="http://emars.eng.usps.gov/pemars/EM_APP_HOMEPAGE_PRC" target="_blank" reload="false"><span>eMARS Login</span></a></li><li menuid="mtscmenu_139" class="menu_item " hashkey=""><a href="http://emarssu3.eng.usps.gov/pemarsnp/nm_national_stock.stockroom_criteria" target="_blank" reload="false"><span>eMARS National Stock Room</span></a></li><li menuid="mtscmenu_140" class="menu_item " hashkey=""><a class="disable_click" href="javascript:void(0);" reload="false"><span>eCBM Overview Training</span></a></li><li menuid="mtscmenu_141" class="menu_item " hashkey=""><a href="https://www1.mtsc.usps.gov/apps/mtsc/equipdoc/eCBMguide_final.pdf" target="_blank" reload="false"><span>eCBM User Guide</span></a></li><li menuid="mtscmenu_142" class="menu_item " hashkey=""><a href="https://mhts.usps.gov/" target="_blank" reload="false"><span>MHTS Mail History Tracking System</span></a></li><li menuid="mtscmenu_143" class="menu_item " hashkey=""><a href="https://mirs.usps.gov/MIRS/" target="_blank" reload="false"><span>MIRS Mail and Image Reporting System</span></a></li><li menuid="mtscmenu_144" class="menu_item " hashkey=""><a href="http://mpewatch.usps.gov/" target="_blank" reload="false"><span>MPEwatch</span></a></li><li menuid="mtscmenu_145" class="menu_item  menu_plus_dark" hashkey=""><a class="disable_click" href="javascript:void(0);" reload="false"><span>NDC Reports</span></a><ul><li menuid="mtscmenu_146" class="menu_item " hashkey=""><a href="http://mhmachines/FMPCStoHTML/" target="_blank" reload="false"><span>NDC Real Time Reports</span></a></li><li menuid="mtscmenu_147" class="menu_item " hashkey=""><a href="http://mhmachines.usps.gov/FMPCStoHTML/FMPCS_PDS.php" target="_blank" reload="false"><span>PDS Status</span></a></li><li menuid="mtscmenu_148" class="menu_item " hashkey=""><a href="http://mhmachines.usps.gov/FMPCStoHTML/FMPCS_PSOC.php" target="_blank" reload="false"><span>PSOC Functional</span></a></li><li menuid="mtscmenu_149" class="menu_item " hashkey=""><a href="https://www1.mtsc.usps.gov/APPS/ssiureport/" target="_blank" reload="false"><span>SSIU Performance Report</span></a></li><li menuid="mtscmenu_150" class="menu_item " hashkey=""><a href="http://mhmachines.usps.gov/RAMReport/index.php?PSM-3=1&amp;PSM-4=1" target="_blank" reload="false"><span>SSIU RAM</span></a></li></ul></li><li menuid="mtscmenu_151" class="menu_item " hashkey=""><a href="http://emarssu3.eng.usps.gov/pemarsnp/nm_main.main_menu" target="_blank" reload="false"><span>NMars</span></a></li><li menuid="mtscmenu_152" class="menu_item " hashkey=""><a href="https://mdims-spec.usps.gov/" target="_blank" reload="false"><span>SPEC (Formerly Pub 112)</span></a></li><li menuid="mtscmenu_153" class="menu_item " hashkey=""><a href="https://www1.mtsc.usps.gov/apps/topeka_parts/" target="_blank" reload="false"><span>Parts &amp; Supply Quality Reporting</span></a></li><li menuid="mtscmenu_154" class="menu_item " hashkey=""><a href="https://www1.mtsc.usps.gov/apps/CSP/" target="_blank" reload="false"><span>MPE Critical Spare Parts Report</span></a></li><li menuid="mtscmenu_155" class="menu_item " hashkey=""><a href="https://webeor.usps.gov/" target="_blank" reload="false"><span>WebEOR</span></a></li></ul></div></div><div class="box menu">
+      <div class="h2_hd_wrapper"><span id="toggle-div1">MTSC</span><img class="fulid_sign" src="./Maintenance Technical Support Center_files/switch_plus.gif"></div>
+      <div id="mtscinfo_menu" style="display:none;"><ul class="mtsc_menu_top_ul"><li menuid="mtscmenu_157" class="menu_item " hashkey="MTSC&amp;mupdate"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Maintenance Update Newsletter</span></a></li><li menuid="mtscmenu_158" class="menu_item " hashkey=""><a href="https://www1.mtsc.usps.gov/apps/mtsc/equipdoc/equipment/at_risk/index_new.php" target="_blank" reload="false"><span>Weekly Service Talks</span></a></li><li menuid="mtscmenu_159" class="menu_item " hashkey="MTSC&amp;ewp"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/ewp_information.php" reload="false"><span>Electrical Work Plan (EWP)</span></a></li><li menuid="mtscmenu_160" class="menu_item " hashkey=""><a href="https://www1.mtsc.usps.gov/apps/ewp/inventory/" target="_blank" reload="false"><span>EWP Assessment Inventory</span></a></li><li menuid="mtscmenu_161" class="menu_item " hashkey=""><a href="https://www1.mtsc.usps.gov/apps/ewp/reporting/" target="_blank" reload="false"><span>EWP Assessment Reports</span></a></li><li menuid="mtscmenu_162" class="menu_item " hashkey=""><a href="https://www1.mtsc.usps.gov/apps/ewp/inventory/help/ewp_assessment_help.pdf" target="_blank" reload="false"><span>EWP Assessment Help File</span></a></li><li menuid="mtscmenu_163" class="menu_item " hashkey="MTSC&amp;ecplockout"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/ecplockout_information.php" reload="false"><span>Energy Control Program (Lockout)</span></a></li><li menuid="mtscmenu_164" class="menu_item " hashkey="MTSC&amp;maintcontactsdir"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Maintenance Contacts Directory</span></a></li><li menuid="mtscmenu_165" class="menu_item " hashkey="MTSC&amp;maintmgrdir"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Maintenance Managers Directory</span></a></li><li menuid="mtscmenu_166" class="menu_item " hashkey="MTSC&amp;empdir"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/empdir_information.php" reload="false"><span>MTSC Employee Directory</span></a></li><li menuid="mtscmenu_167" class="menu_item " hashkey=""><a href="https://www1.mtsc.usps.gov/apps/mtsc/equipdoc/Asset%20Maintenance%20(MTSC)%20Oct%202026.pdf" target="_blank" reload="false"><span>MTSC Organization Chart</span></a></li><li menuid="mtscmenu_202" class="menu_item " hashkey="MTSC&amp;facsupbrief"><a class="disable_click" href="https://www1.mtsc.usps.gov/apps/mtsc/contents/facsupbrief_information.php" reload="false"><span>Facility Support Briefings</span></a></li></ul></div></div><div class="box menu">
+      <div class="h2_hd_wrapper"><span id="toggle-div1">EXTERNAL LINKS</span><img class="fulid_sign" src="./Maintenance Technical Support Center_files/switch_plus.gif"></div>
+      <div id="external_menu" style="display:none;"><ul class="mtsc_menu_top_ul"><li menuid="mtscmenu_169" class="menu_item " hashkey=""><a href="https://blue.usps.gov/" target="_blank" reload="false"><span>USPS Blue</span></a></li><li menuid="mtscmenu_170" class="menu_item " hashkey=""><a href="https://cts.usps.gov/Sites" target="_blank" reload="false"><span>Container Tracking System (CTS)</span></a></li><li menuid="mtscmenu_171" class="menu_item " hashkey=""><a href="http://web.eng.usps.gov/" target="_blank" reload="false"><span>Engineering</span></a></li><li menuid="mtscmenu_172" class="menu_item " hashkey=""><a href="https://blue.usps.gov/facilities/welcome.htm" target="_blank" reload="false"><span>Facilities (Headquarters)</span></a></li><li menuid="mtscmenu_173" class="menu_item " hashkey=""><a href="http://crf.usps.gov/" target="_blank" reload="false"><span>CRF Central Repair Facility</span></a></li><li menuid="mtscmenu_174" class="menu_item " hashkey=""><a href="https://blue.usps.gov/wps/myportal/LMS" target="_blank" reload="false"><span>Learning Management System (LMS)</span></a></li><li menuid="mtscmenu_175" class="menu_item " hashkey=""><a href="https://uspshelp.custhelp.com/app/home_nmcs" target="_blank" reload="false"><span>Topeka Parts KB</span></a></li><li menuid="mtscmenu_176" class="menu_item " hashkey=""><a href="https://supply.blueshare5.usps.gov/sites/AMI/web/NMCS/ops_partsstockstatus.xls" target="_blank" reload="false"><span>Parts Zero Balance Report</span></a></li><li menuid="mtscmenu_177" class="menu_item " hashkey=""><a href="https://mdims-spec.usps.gov/" target="_blank" reload="false"><span>SPEC (Formerly Pub 112)</span></a></li><li menuid="mtscmenu_178" class="menu_item " hashkey=""><a href="https://ebuy.gsa.gov/" target="_blank" reload="false"><span>GSA eBuy for Federal Buyers</span></a></li><li menuid="mtscmenu_179" class="menu_item " hashkey=""><a href="http://mhmachines.usps.gov/" target="_blank" reload="false"><span>MHE Systems</span></a></li><li menuid="mtscmenu_180" class="menu_item " hashkey=""><a href="https://blue.usps.gov/sustainability/ecrm-envir-comp-bulletin-bp.htm" target="_blank" reload="false"><span>Environmental Compliance Guidance</span></a></li><li menuid="mtscmenu_181" class="menu_item " hashkey=""><a href="https://blue.usps.gov/sustainability/national-recycling-operation.htm" target="_blank" reload="false"><span>National Recycling Operation</span></a></li><li menuid="mtscmenu_182" class="menu_item " hashkey=""><a href="https://blue.usps.gov/itweb/ciso/ncrb.htm" target="_blank" reload="false"><span>Network Change Review Board (NCRB)</span></a></li></ul></div></div><div class="box menu">
+      <div class="h2_hd_wrapper"><span id="toggle-div1">MMSC</span><img class="fulid_sign" src="./Maintenance Technical Support Center_files/switch_plus.gif"></div>
+      <div id="mmsc_menu" style="display:none;"><ul class="mtsc_menu_top_ul"><li menuid="mtscmenu_184" class="menu_item " hashkey=""><a href="https://www1.mtsc.usps.gov/apps/mmsc/index.php" target="_blank" reload="false"><span>Maintenance Management Support Center</span></a></li></ul></div></div><div class="box menu">
+      <div class="h2_hd_wrapper"><span id="toggle-div1">TEAM CLEANING</span><img class="fulid_sign" src="./Maintenance Technical Support Center_files/switch_plus.gif"></div>
+      <div id="teamclean_menu" style="display:none;"><ul class="mtsc_menu_top_ul"><li menuid="mtscmenu_199" class="menu_item " hashkey=""><a href="https://3bworkload.mtsc.usps.gov/apps/mtscm/index.php" target="_blank" reload="false"><span>Custodial Workloading Application</span></a></li><li menuid="mtscmenu_200" class="menu_item " hashkey="Equip&amp;BLDGS"><a class="disable_click" href="javascript:void(0);" reload="false"><span>Supporting Documents</span></a></li><li menuid="mtscmenu_201" class="menu_item " hashkey=""><a href="https://www1.mtsc.usps.gov/apps/int_apps/index.php/ctc_news/home" target="_blank" reload="false"><span>CTC Newsletters</span></a></li></ul></div></div><div class="box menu">
+      <div class="h2_hd_wrapper"><span id="toggle-div1">NETWORK RATIONALIZATION</span><img class="fulid_sign" src="./Maintenance Technical Support Center_files/switch_plus.gif"></div>
+      <div id="sitecon_menu" style="display:none;"><ul class="mtsc_menu_top_ul"><li menuid="mtscmenu_186" class="menu_item " hashkey=""><a href="https://www1.mtsc.usps.gov/apps/mtsc/#Equip&amp;SITE" target="_self" reload="false"><span>Supporting Documents</span></a></li></ul></div></div><div class="box menu">
+      <div class="h2_hd_wrapper"><span id="toggle-div1">LEAN SIX SIGMA</span><img class="fulid_sign" src="./Maintenance Technical Support Center_files/switch_plus.gif"></div>
+      <div id="lean_six_sigma_menu" style="display:none;"><ul class="mtsc_menu_top_ul"><li menuid="mtscmenu_188" class="menu_item " hashkey=""><a href="https://www1.mtsc.usps.gov/apps/mtsc/#Equip&amp;LSS" target="_self" reload="false"><span>Lean Six Sigma</span></a></li></ul></div></div><div class="box menu">
+      <div class="h2_hd_wrapper"><span id="toggle-div1">CONFIGURATION MANAGEMENT</span><img class="fulid_sign" src="./Maintenance Technical Support Center_files/switch_plus.gif"></div>
+      <div id="config_menu" style="display:none;"><ul class="mtsc_menu_top_ul"><li menuid="mtscmenu_190" class="menu_item " hashkey=""><a href="https://blue.usps.gov/itweb/mo/mtsc-cm-enterprise-config-management.htm" target="_blank" reload="false"><span>Home</span></a></li><li menuid="mtscmenu_191" class="menu_item " hashkey=""><a href="https://configmanagement.mtsc.usps.gov/InnovatorServer/" target="_blank" reload="false"><span>ARAS Innovator</span></a></li><li menuid="mtscmenu_192" class="menu_item " hashkey=""><a href="https://www1.mtsc.usps.gov/apps/cm/index.php" target="_blank" reload="false"><span>CM Toolkit</span></a></li></ul></div></div><div class="box menu">
+      <div class="h2_hd_wrapper"><span id="toggle-div1">NETWORK OPERATIONS CONTROL CENTER</span><img class="fulid_sign" src="./Maintenance Technical Support Center_files/switch_plus.gif"></div>
+      <div id="nocc_menu" style="display:none;"><ul class="mtsc_menu_top_ul"><li menuid="mtscmenu_194" class="menu_item " hashkey=""><a href="https://noccwtp.mtsc.usps.gov/" target="_blank" reload="false"><span>NOCC Reporting Portal</span></a></li></ul></div></div><div class="box menu">
+      <div class="h2_hd_wrapper"><span id="toggle-div1">NCED</span><img class="fulid_sign" src="./Maintenance Technical Support Center_files/switch_plus.gif"></div>
+      <div id="nced_menu" style="display:none;"><ul class="mtsc_menu_top_ul"><li menuid="mtscmenu_196" class="menu_item " hashkey=""><a href="https://www1.mtsc.usps.gov/apps/mtsc/equipdoc/NCED%20Pre-Arrival%20Guide.pdf" target="_blank" reload="false"><span>NCED Pre-Arrival Guide</span></a></li><li menuid="mtscmenu_197" class="menu_item " hashkey=""><a href="https://www1.mtsc.usps.gov/apps/mtsc/equipdoc/FY25%20NCED%20Maintenance%20Prerequisite%20Table%20&amp;%20PPE%2020260204.xlsx" target="_blank" reload="false"><span>FY25 NCED Maintenance Prerequisite Table &amp; PPE</span></a></li></ul></div></div><div class="box menu">
+      <div class="h2_hd_wrapper"><span id="toggle-div1">DIGITAL TOOLS</span><img class="fulid_sign" src="./Maintenance Technical Support Center_files/switch_plus.gif"></div>
+      <div id="digit_tools_menu" style="display:none;"><ul class="mtsc_menu_top_ul"><li menuid="mtscmenu_204" class="menu_item " hashkey=""><a href="https://bluetube.usps.gov/watch.cfm?v=13013&amp;playlist=5803" target="_blank" reload="false"><span>Training Videos</span></a></li><li menuid="mtscmenu_205" class="menu_item " hashkey=""><a href="https://www1.mtsc.usps.gov/apps/mtsc/#Equip&amp;DIGITAL%20TOOLS" target="_self" reload="false"><span>Documents and Links</span></a></li></ul></div></div></nav>
+  <div class="clear"></div>
+  <div class="clear"></div>
+</div>
+<!--mgrDiag-->
+<div id="footer">
+	<div class="version"><a href="https://www1.mtsc.usps.gov/apps/mtsc/contents/releaseNotes.html" target="_blank">Version 4.10</a></div>
+	<div class="address">600 W Rock Creek Road, Norman, OK 73069-8537 - (800) 366-4123</div>
+</div>
+<!--Feedback Form-->
+<script src="./Maintenance Technical Support Center_files/jquery-1.8.2.min.js.download"></script><!--orginal-->
+<!--<script src="/mtscweb/scripts/js/jquery.simplyCountable.js"></script>--><!--orginal comment-->
+<script src="./Maintenance Technical Support Center_files/jquery.maskedinput-1.3.js.download"></script><!--orginal-->
+<script src="./Maintenance Technical Support Center_files/jquery-ui-1.9.1.custom.min.js.download" type="text/javascript"></script><!--orginal-->
+<script src="./Maintenance Technical Support Center_files/jquery-easing-1.3.js.download" type="text/javascript"></script><!--orginal-->
+<script src="./Maintenance Technical Support Center_files/layerslider.kreaturamedia.jquery-min.js.download" type="text/javascript"></script><!--orginal-->
+<script type="text/javascript" src="./Maintenance Technical Support Center_files/jquery.dataTables.min.js.download"></script> <!--ADDED-->
+<script type="text/javascript" src="./Maintenance Technical Support Center_files/natural.js.download"></script><!--ADDED-->
+<!--<script src="/scripts/jquery/datatable/jquery.dataTables.min-1.9.4.js" type="text/javascript"></script>orginal-->
+<script type="text/javascript" src="./Maintenance Technical Support Center_files/dataTables.buttons.min.js.download"></script><!--ADDED-->
+<script type="text/javascript" src="./Maintenance Technical Support Center_files/jszip.min.js.download"></script><!--ADDED-->
+<script type="text/javascript" src="./Maintenance Technical Support Center_files/pdfmake.min.js.download"></script><!--ADDED-->
+<script type="text/javascript" src="./Maintenance Technical Support Center_files/vfs_fonts.js.download"></script><!--ADDED-->
+<script type="text/javascript" src="./Maintenance Technical Support Center_files/buttons.html5.min.js.download"></script><!--ADDED-->
+<script type="text/javascript" src="./Maintenance Technical Support Center_files/buttons.print.min.js.download"></script><!--ADDED-->
+<!--<script src="/scripts/jquery/datatable/TableTools.min.js" type="text/javascript"></script> orginal-->
+<!--<script src="/scripts/jquery/datatable/mtsc_datatable.js" type="text/javascript"></script>orginal-->
+<!--<script src="/scripts/jquery/datatable/ZeroClipboard.js" type="text/javascript"></script>orginal-->
+<script type="text/javascript" src="./Maintenance Technical Support Center_files/datatables.common.js.download"></script><!--ADDED-->
+
+
+<!-- MTSC DataTable -->
+<script src="./Maintenance Technical Support Center_files/hash.js.download" type="text/javascript"></script>
+<script src="./Maintenance Technical Support Center_files/feedback.js.download" type="text/javascript"></script>
+<script src="./Maintenance Technical Support Center_files/highcharts.js.download"></script>
+<!--<script src="/scripts/jquery/highcharts/exporting.js"></script>-->
+<script src="./Maintenance Technical Support Center_files/gray.js.download"></script>
+<script src="./Maintenance Technical Support Center_files/jquery.colorbox.js.download" type="text/javascript"></script>
+<script src="./Maintenance Technical Support Center_files/jquery.simplePagination.js.download" type="text/javascript"></script>
+<script src="./Maintenance Technical Support Center_files/jquery.mtsc_menu.js.download"></script>
+
+<script src="./Maintenance Technical Support Center_files/main.js.download" type="text/javascript"></script>
+<script src="./Maintenance Technical Support Center_files/videos.js.download" type="text/javascript"></script>
+<script src="./Maintenance Technical Support Center_files/search.js.download" type="text/javascript"></script>
+<script src="./Maintenance Technical Support Center_files/latest_news.js.download" type="text/javascript"></script>
+<script src="./Maintenance Technical Support Center_files/main.js.download" type="text/javascript"></script>
+
+<!-- Menu JS files -->
+<script src="./Maintenance Technical Support Center_files/Menu_helpdesk_tickets.js.download" type="text/javascript"></script>
+<script src="./Maintenance Technical Support Center_files/Menu_mtsc.js.download" type="text/javascript"></script>
+<script src="./Maintenance Technical Support Center_files/Menu_bulletins.js.download" type="text/javascript"></script>
+<script src="./Maintenance Technical Support Center_files/Menu_documentation.js.download" type="text/javascript"></script>
+<script src="./Maintenance Technical Support Center_files/sitemap.js.download" type="text/javascript"></script>
+<!-- End Menu JS files -->
+
+<script src="./Maintenance Technical Support Center_files/moveequip_information.js.download" type="text/javascript"></script>
+<script src="./Maintenance Technical Support Center_files/partsSearch_information.js.download" type="text/javascript"></script>
+<script src="./Maintenance Technical Support Center_files/emars_information.js.download" type="text/javascript"></script>
+<script src="./Maintenance Technical Support Center_files/mtscfeedback.js.download" type="text/javascript"></script>
+<script src="./Maintenance Technical Support Center_files/show_viewer.js.download" type="text/javascript"></script>
+
+<script type="text/javascript">
+    var all_acro_desc=["AUTOMATIC AIRLINE ASSIGNMENT","ADMINISTRATIVE OPERATIONS","AUTOMATED DELIVERY UNIT SORTER","ADVANCED FACER CANCELER SYS ISS OCR PARS MODIFIED","ADVANCED FACER CANCELER SYSTEM 200","AUTOMATED FLAT SORTING MACHINE 100","AUTOMATIC FLATS TRAY LIDDER","AUTOMATIC FLATS TRAY UNLIDDER","AUTOMATED GUIDED VEHICLES","AUTOMATED INBOUND INTERNATIONAL EXPEDITED PRODUCTS PROCESSING SYSTEM","COMPRESSED AIR","AUTOMATED MAILTRAY PROCESSING SYSTEM","AUTOMATED PARCEL BUNDLE SORTER","AUTOMATED POSTAL CENTER","AUTOMATED PACKAGE PROCESSING SYSTEM","AUTO SEAMLESS DISPATCH","AUTOMATED STORAGE RETRIEVAL SYSTEM ","AUTOMATED TOOL CONTROL ROLLING TOOL CABINET ","AUTOMATED TRAY LABEL ASSIGNMENT SYSTEM","AUTOMATIC TRAY SLEEVER","AUTOMATIC TRAY SLEEVER","AUTOMATIC TRAY SLEEVER","AUTOMATIC TRAY UNSLEEVER","BALER","BAR CODE SCANNER","BAR CODE SORTER SWEEP RACK","BIOHAZARD DETECTION SYSTEM","TEAM CLEANING","BOILER","BOX","BUILDING","COGNEX, VITRONIC, ALL OTHERS ","CANCELING MACHINE","CROSSBELT SORTING SYSTEM","CLUSTER BOX UNIT","CASCADING CONVEYOR SORTER ","CLOSED CIRCUIT TV","CHANGE OF ADDRESS FORMS PROCESSING SYSTEM","COMPUTERIZED FORWARDING SYSTEM","DBCS COMBINE I-O SUB SYS OCR REPLACEMENT","COGNEX","COMPRESSORS","COMPACTOR PTR","CONTAINER","CONTAINER UNLOADER","CONVEYOR","COOLING EQUIPMENT","CONTAINER TRACKING SYSTEM","COMPACT UNIVERSAL SORTER","DOCK TO MACHINE ","DELIVERY BAR CODE SORTER","DOCUMENTS AND LINKS","DBCS I-O SUB SYS","DUAL PASS ROUGH CULL","DUST CONTAINMENT UNIT","ENHANCED AIRLINE ASSIGNMENT",null,"EYE IN THE SKY-AGV GUIDANCE SYS","ELECTRICAL","ELEVATOR","ELECTRONIC MAINT ACTIVITY RPT SCHED SYSTEM","EMERGENCY SYSTEMS","ENHANCED PACKAGE PROCESSING SYSTEM","ENHANCED PARCEL SORTING MACHINE","EMPLOYEE STORAGE LOCKER","FLATS AUTOMATED CULLING SYSTEM FOR PSM","FLATS ANALYTICS CROSS-OVER SERVER","FIXED MECHANIZATION PROCESS CONTROL SYS","FLATS REMOTE ENCODING SYSTEM","FLEX ROVER SORTER","FLATS SEQUENCING SYSTEM","GLOBAL BUSINESS SYSTEM","HAMPER DUMPER","HIGH OUTPUT PACKAGE SORTER","HIGH SPEED INDUCTION UNIT","HIGH SPEED TRAY SORTER","HIGH SPEED UNIVERSAL SORTER","HEATING, VENTILATION, AND AIR-CONDITIONING","IDENTIFICATION CODE SORT","INTEGRATED DISPATCH AND RECEIPT","INDUCTION STATION","INK JET PRINTER","INTEGRATED MAIL HANDLING SYSTEM","LOCAL AREA NETWORK","LOW COST REJECT ENCODING MACHINE","LOW COST TRAY SORTER","LOW COST UNIVERSAL SORTER","LOOSE MAIL SYSTEM","LEAN SIX SIGMA","MARK II ALL MODELS","MATRIX REGIONAL SORTER","MATRIX EAST WEST SORTER ","MULTIPLE INDUCTION MATRIX SORTER ","MODULAR OPERATIONS CONTROL SYSTEM","MOBILE POWERED EQUIPMENT","MARS SUPPLEMENTAL SORTER ","MAIL STAGING TOWER","MANUAL SCAN WHERE YOU BAND","NEIGHBORHOOD DELIVERY & COLLECTION BOX UNIT","NEXT GENERATION TRANSACTION CONCENTRATOR","NON MACHINABLE OUTSIDE SORTER","ZIP LOOKUP SYSTEM","OVERHEAD SCANNING SOLUTION","POSTAL AUTOMATED REDIRECTION SYSTEM","PASSIVE ADAPTIVE SCANNING SYSTEM","PACKAGE BAR CODE SORTER","PREDICTIVE MAINTENANCE ","PLANT EQUIP MAINT ACTIVITY RPT SCHED SYSTEM","PARCEL FEED MACHINE","PARALLEL IN-LINE SORTER","POWERED INDUSTRIAL VEHICLE MANAGEMENT SYSTEM","PARCEL SORTING MACHINE (PSM) INDUCTION VISION ROBOT","PARCEL LOCKER","PORTABLE POWERED CONVEYORS","PACKAGE REMOTE ENCODING SYSTEM","PACKAGING RECOVERY SYSTEM","PARCEL SORTING MACHINE","PACKAGE SORTER OVERHEAD CAMERA","PLANT SCANNING SYSTEM","RACKS","RAPISTAN PARCEL SORTER TRACKING SYSTEM","ROBUST BULK UNIVERSAL SORTER","REMOTE CHARACTER READER","ROBOTIC CONTAINERIZATION SYS","REPAIR & EQUIPMENT EXPERT","REMOTE IMAGE PROCESSING SYSTEM","ROBOTIC INDUCTION SYSTEM ","RESOURCE MONITORING SYSTEM","ROBOTIC SACK SORTER","REMOTE TEST AND DIAGNOSTIC SYSTEM","SAFE, SECURITY CONTAINER, AND VAULT","SAFETY ENVIRONMENTAL INFORMATION","SURFACE AIR MANAGEMENT SYSTEM","SEMIAUTOMATIC SCAN WHERE YOU BAND","SCALES","SMALL DELIVERY UNIT SORTER","PARS SECURE DESTRUCTION SHREDDER","SINGLE INDUCTION PACKAGE SORTER","NETWORK RATIONALIZATION","TRADITIONAL AND LINEAR SPIDER ","SMALL PACKAGE SORTING SYSTEM","SINGULATE SCAN INDUCTION UNIT","SACK SORTING MACHINE","SACK SHAKEOUT","TIME AND ATTENDANCE COLLECTION SYSTEM","TAG BLASTER","TRAY INDUCTION DISPATCH & ROUTING MACHINE","TRAY DEPALLETIZER SINGULATOR","TRAY FLIPPER TURNER","TRAY MANAGEMENT SYSTEM","TRAY MANAGEMENT SYSTEM CONVEYOR","TOWVEYOR","TRAY TRANSPORT","TRAY TRANSPORT","UNLOADERS","UNIVERSAL SORT SYSTEM","UNIVERSAL TRANSPORT SYSTEM","CENTRAL VACUUM SYSTEM","VENTILATION FILTRATION SYSTEM","VERTICAL TRANSFER","VIDEO RELABELING SYSTEM ","VERTICAL TRANSFER UNIT","WIDE FIELD OF VIEW"];
+    var all_acro=["AAA","ADMIN","ADUS","AFCS","AFCS200","AFSM100","AFTL","AFTU","AGV","AIIEPPS\/AIISMPS","AIR","AMPS","APBS","APC","APPS","ASD","ASRS","ATC","ATLAS","ATS","ATSII","ATSU","ATU","BALER","BCS","BCSSR","BDS","BLDGS","BOILER","BOX","BUILDING","CAMRA","CANX","CBS","CBU","CCS","CCTV","CFPS","CFS","CIOSS","COGNEX","COMP","COMPACT","CONTAINER","CONTU","CONVEYOR","COOL","CTS","CUS","D2M","DBCS","DIGITAL TOOLS","DIOSS","DPRC","DUST CONTAINMENT","EAA","EDUS","EITS","ELEC","ELEVATOR","EMARS","EMERGENCY SYSTEMS","EPPS","EPSM","ESL","FACS","FLAX","FMPCS","FRES","FRS","FSS","GBS","HDUMP","HOPS","HSIU","HSTS","HSUS","HVAC","ICS","IDR","IDUCT","IJP","IMHS","LAN","LCREM","LCTS","LCUS","LMS","LSS","MARKII","MARS","MEWS","MIMS","MOCS","MOPE","MSS","MST","MSWYB","NDCBU","NGTC","NMOSM","NOZIP","OSSTS","PARS","PASS","PBCS","PDM","PEMARS","PFM","PILS","PIVMS","PIVR","PLOCK","PPC","PRES","PRS","PSM","PSOC","PSS","RACK","RAPTS","RBUS","RCR","RCS","REX","RIPS","RIS","RMS","RSS","RTDS","SAFES AND VAULTS","SAFETY","SAMS","SASWYB","SCALE","SDUS","SHRED","SIPS","SITE","SPIDER","SPSS","SSIU","SSM","SSO","TACS","TAG BLASTER","TDR","TDS","TFT","TMS","TMS CONVEYOR","TOWVEYOR","TT","TTS","UNLOADERS","USS","UTS","VACSYS","VFS","VLU","VRS","VTU","WFOV"];
+    var mtsc_json = "1738078956";
+    var defaultSearchType ="search_1";
+    var defaultSearchTerm = decodeURI("");
+
+    $(document).ready(function(){
+        initial_load();
+        feedback_open();
+        
+        ////////////////////////mgrDiag/////////////////////////////////////////////////
+
+        var titleFlag = true;
+        var commentFlag = true;
+        var concern ="";
+        var ace = "";
+        var title ="";
+        var comments ="";
+        var aoc = 'General';
+        //radio button vals
+        $('#element_4_1').click(function(){
+            aoc = $('#element_4_1').val();
+            console.log(aoc);
+        });
+        $('#element_4_2').click(function(){
+            aoc = $('#element_4_2').val();
+            console.log(aoc);
+        });
+        $('#element_4_3').click(function(){
+            aoc = $('#element_4_3').val();
+            console.log(aoc);
+        });
+        $('#element_4_4').click(function(){
+            aoc = $('#element_4_4').val();
+            console.log(aoc);
+        });
+
+        //onChange Validation
+        $('#title').keyup(function(){
+            titleFlag = validateText($('#title').val().trim());
+
+            if(titleFlag){
+                $("#openDialog").attr("disabled", true);
+                $("#openDialog").css("background-color", "#e6e6e6");
+            }
+            else
+            {
+                if (!commentFlag){
+                    $("#openDialog").attr("disabled", false);
+                    $("#openDialog").css("background-color", "#bada55");
+                }
+            }
+            //console.log('titleFlag: '+titleFlag);
+        });
+
+        $('#comments').keyup(function(){
+            commentFlag = validateText($('#comments').val().trim());
+            if(commentFlag)
+            {
+
+                $("#openDialog").attr("disabled", true);
+                $("#openDialog").css("background-color", "#e6e6e6");
+            }
+            else
+            {
+                if (!titleFlag) {
+                    $("#openDialog").attr("disabled", false);
+                    $("#openDialog").css("background-color", "#bada55");
+                }
+            }
+            //console.log('commentFlag: '+commentFlag);
+            updateCount();
+        });
+
+        $("#mgrDiag").dialog({
+            autoOpen: false,
+            resizable: false,
+            width: 450,
+            height: 400,
+            title: "Manager's Corner"
+        }).prev(".ui-dialog-titlebar").css({"background": "#069", "font-color": "white",});
+
+        $("#mgrDiag").prev(".ui-dialog-title").css({"font-color": "white",});
+
+        $( "#managercorner " ).click(function(e) {
+            $("#mgrDiag").dialog("open");
+            $("#openDialog").attr("disabled", true);
+            $("#openDialog").css("background-color", "#e6e6e6");
+            $("#title").val("");
+            $("#comments").val("");
+            $("#ace").val("");
+            $("#element_4_1").prop("checked", true);
+        });
+
+        $('#closeDialog').click(function(event){
+            $("#mgrDiag").dialog("close");
+        });
+
+        $('#openDialog').click(function(event){
+            commentFlag = validateText($('#comments').val());
+            titleFlag = validateText($('#title').val());
+            if(commentFlag || titleFlag)
+            {
+                console.log('preventing submit');
+                return event.preventDefault();
+            }
+            concern = aoc;
+            console.log('commentFlag: '+commentFlag +'titleFlag: '+ titleFlag);
+            $("#openDialog").attr("disabled", true);
+
+
+            $.ajax({
+                type: "POST",
+                url: "contents/mtsc_feedback/managerCorner/submitComments.php",
+                error: function(data){
+                    alert(data.message);
+                    $("#openDialog").attr("disabled", true);
+                    $("#openDialog").css("background-color", "#e6e6e6");
+                    $("#title").val("");
+                    $("#comments").val("");
+                },
+                data: { concern : concern, ace: $('#ace').val(), title:$('#title').val(), comments:$('#comments').val() }
+            }).done(function( msg ) {
+
+                $("#submitDiag").dialog({
+                    title:"Manager's Corner",
+                    resizable: false,
+                    autoOpen: false,
+                    dialogClass: 'dialogTitle'
+
+                }).prev(".ui-dialog-titlebar").css("background","#069");
+
+                $("#submitDiag").dialog('open');
+                $("#mgrDiag").dialog('close');
+            });
+        });
+////////////////////////////////ENDJSC///////////////////////////////////////////////////////*
+        var system_alert_body="";
+
+        if(system_alert_body=="")
+            $("#system_alert_container").hide();
+        else
+            $("#system_alert_body").html(system_alert_body);
+        Hash.init(handler);
+        fix_page_title();
+        ini_menu();
+        //$("[menuid='mtscmenu_7'] > a > span").trigger('click');
+        area_report_ini(); // Area close/open tickets, area_report.js
+
+        mtsc_content_feedback_ini(); //mtsc contents feedback ini
+        faceted_search_ini(); //MTSC faceted search, search.js file
+        //for parts search start
+        jQuery(function($){
+            $("#date").mask("99/99/9999");
+            $("#phone").mask("(999) 999-9999");
+            $("#nsn").mask("9999-99-999-9999");
+            $("#ssn").mask("999-99-9999");
+        });
+        msbookonchange();
+        submitsearch();
+        nsnclickevent();
+        oemclickevent();
+        emarsclickevent();
+        //for parts search end
+        
+        // If we came here from solr search, set the search radio default to
+        // the MTSC Content Search.
+        
+        $("#" + defaultSearchType).prop("checked", true);
+        
+        if(defaultSearchType != 'search_3' && defaultSearchTerm != '') {
+            $('#search').val(defaultSearchTerm);
+        }
+        
+    });
+
+    $(window).resize(function(){
+        adjustTableColumnWidth();
+    });
+
+    //Change table display if the columns aren't as wide as the table
+    function adjustTableColumnWidth(){
+        if(($('.fg-toolbar').width() + 15)> $('thead').width())
+            $('.dataTable').css('display', '');
+        else
+            $('.dataTable').css('display', 'block');
+    }
+
+    //re-build page title by parsing url hash value
+    var originalTitle = document.title.split("#")[0];
+    function fix_page_title()
+    {
+        if(document.attachEvent)
+        {
+            document.attachEvent('onpropertychange', function (evt) {
+                if(evt.propertyName === 'title' && document.title !== originalTitle) {
+                    setTimeout(function () {
+                        document.title = originalTitle;
+                        }, 1);
+                }
+            });
+        }
+        else
+        {
+            document.addEventListener('onpropertychange', function (evt) {
+                if(evt.propertyName === 'title' && document.title !== originalTitle) {
+                    setTimeout(function () {
+                        document.title = originalTitle;
+                        }, 1);
+                }
+            });
+        }
+    }
+
+    //////////////////////////////////////////////////////////
+    //web contents feedback
+    function mtsc_contents_feedback ()
+    {
+        //$( "span#mtscfeedback " ).live( "click", function( e ) {
+        cleanup_page_for_loading("Feedback");
+        $("#chart_loading").show();
+        $("#mtsc_contents_feedback").hide();
+        $("#page-heading").html(" MTSC Feedback");
+        $("#main_container").load("contents/mtsc_feedback/mtscfeedback.php",function(){
+            $.ajax({
+                url: "contents/mtsc_feedback/feedback_files/query_sites.php",
+                dataType: "json",
+                success: function(data)
+                {
+                    $('#facilityname').autocomplete({
+                        source: data
+                    });
+                    $("#chart_loading").hide();
+                    $("#mtsc_contents_feedback").show();
+                }
+            });
+        });
+        //});
+    }
+    function mtsc_content_feedback_ini()
+    {
+        $( "span#mtscfeedback " ).click(function( e ) {
+            Hash.go("feedback");
+        });
+    }
+    ////////////////////////////JSC US3557/FUNCS//////////////////////////////
+    function validateText(input)
+    {
+        if(input=="") return true;
+        else return false;
+    }
+    function updateCount()
+    {
+         var count = $('#comments').val().length;
+         $('#counter2').val(count);
+         $('#counter2').text(count);
+         console.log(count);
+    }
+
+        </script>
+    
+<div id="cboxOverlay" style="display: none;"></div><div id="colorbox" class="" style="display: none;"><div id="cboxWrapper"><div><div id="cboxTopLeft" style="float: left;"></div><div id="cboxTopCenter" style="float: left;"></div><div id="cboxTopRight" style="float: left;"></div></div><div style="clear: left;"><div id="cboxMiddleLeft" style="float: left;"></div><div id="cboxContent" style="float: left;"><div id="cboxLoadedContent" style="width: 0px; height: 0px; overflow: hidden; float: left;"></div><div id="cboxTitle" style="float: left;"></div><div id="cboxCurrent" style="float: left;"></div><div id="cboxNext" style="float: left;"></div><div id="cboxPrevious" style="float: left;"></div><div id="cboxSlideshow" style="float: left;"></div><div id="cboxClose" style="float: left;"></div></div><div id="cboxMiddleRight" style="float: left;"></div></div><div style="clear: left;"><div id="cboxBottomLeft" style="float: left;"></div><div id="cboxBottomCenter" style="float: left;"></div><div id="cboxBottomRight" style="float: left;"></div></div></div><div style="position: absolute; width: 9999px; visibility: hidden; display: none;"></div></div><ul class="ui-autocomplete ui-menu ui-widget ui-widget-content ui-corner-all" id="ui-id-1" tabindex="0" style="z-index: 1; display: none;"></ul><div class="ui-dialog ui-widget ui-widget-content ui-corner-all ui-draggable ui-dialog-buttons" tabindex="-1" role="dialog" aria-labelledby="ui-id-2" style="display: none; outline: 0px; z-index: 1000;"><div class="ui-dialog-titlebar ui-widget-header ui-corner-all ui-helper-clearfix"><span id="ui-id-2" class="ui-dialog-title">Feedback Form</span><a href="https://www1.mtsc.usps.gov/apps/mtsc/index.php#" class="ui-dialog-titlebar-close ui-corner-all" role="button"><span class="ui-icon ui-icon-closethick">close</span></a></div><div id="feedback_form" style="" class="ui-dialog-content ui-widget-content">
+	<p class="validateTips">
+		<b>Please fill out the following to provide feedback.</b>
+	</p>
+    <form id="feedbackForm">
+	<fieldset>
+		<label for="name">Full Name</label>
+		<input type="text" name="name" id="name1" class="text ui-widget-content ui-corner-all">
+		<label for="email">Email Address</label>
+		<input type="text" name="email" id="email" class="text ui-widget-content ui-corner-all">
+		<label for="phone">Phone Number</label>
+		<input type="text" name="phone" id="phone" class="text ui-widget-content ui-corner-all">
+		<label for="comments">Feedback</label>
+        <textarea name="fdbk" id="fdbk" class="text ui-widget-content ui-corner-all"></textarea>
+        <input type="hidden" name="filepath" value="/apps/mtsc/index.php">
+	</fieldset>
+    </form>
+    <!--<div id="login_loading">
+		<img src="img/loading.gif" width="36" height="36" />
+	</div>-->
+	<div id="err_tr" style="display:none;">
+		<span id="err_msg"></span>
+	</div>
+</div><div class="ui-dialog-buttonpane ui-widget-content ui-helper-clearfix"><div class="ui-dialog-buttonset"><button type="button" class="ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only" role="button" aria-disabled="false"><span class="ui-button-text">Cancel</span></button><button type="button" class="ui-button ui-widget ui-state-default ui-corner-all ui-button-text-only" role="button" aria-disabled="false"><span class="ui-button-text">Submit</span></button></div></div></div><div class="ui-dialog ui-widget ui-widget-content ui-corner-all ui-draggable" tabindex="-1" role="dialog" aria-labelledby="ui-id-3" style="display: none; outline: 0px; z-index: 1000;"><div class="ui-dialog-titlebar ui-widget-header ui-corner-all ui-helper-clearfix" style="background: rgb(0, 102, 153);"><span id="ui-id-3" class="ui-dialog-title">Manager's Corner</span><a href="https://www1.mtsc.usps.gov/apps/mtsc/index.php#" class="ui-dialog-titlebar-close ui-corner-all" role="button"><span class="ui-icon ui-icon-closethick">close</span></a></div><div id="mgrDiag" style="" class="ui-dialog-content ui-widget-content">
+
+    <form id="ManagerCorner">
+        <p id="validate" class="elementradio" style=" text-align:center"> All required fields must have a value. </p>
+        <div id="submitDiag" style="display:none"><p><b>Thank you for sharing your comments with the MTSC Manager.</b></p></div>
+
+        <div id="textDiv" style="float:left; display:block; margin-right:100px;"> <!--Changing this margin changes how far to the right the RBs are -->
+            <label class="description" for="ace">Enter your ACE Id: </label>
+            <div>
+                <input id="ace" name="ace" class="rounded" type="text" maxlength="50" placeholder="Optional"> <br>
+            </div><br>
+            <label class="description" for="title">Enter your Postal Title: </label>
+            <div>
+                <input id="title" name="title" class="rounded" type="text" maxlength="255" placeholder="Required"> <br>
+            </div> <br> <br>
+        </div>
+
+        <div id="rbTable" style="max-width:125px; ">
+            <div id="rbTableRow" style="display:inline-block;  float:right">
+                <label class="description" for="element_4">Area of Concern: </label>
+                <span id="rbTableData"><input id="element_4_1" name="element_4" class="elementradio" type="radio" value="General" checked="">
+                    <label class="choice" for="element_4_1">General</label></span><br>
+                <span id="rbTableData"><input id="element_4_2" name="element_4" class="elementradio" type="radio" value="MPE">
+                    <label class="choice" for="element_4_2">MPE</label></span>    <br>
+                <span id="rbTableData"><input id="element_4_3" name="element_4" class="elementradio" type="radio" value="Policy">
+                    <label class="choice" for="element_4_3">Policy</label></span>  <br>
+                <span id="rbTableData"><input id="element_4_4" name="element_4" class="elementradio" type="radio" value="Procedures">
+                    <label class="choice" for="element_4_4">Procedures</label></span><br>
+
+            </div>
+        </div>
+        <hr style="visibility:hidden; height:5px; padding:0px; border:0px; margin:0px"> 
+        <div style="padding-top:0px; display:block;">
+            <label class="description" for="comments" style="display:block">Share your comments with the MTSC Manager: </label>
+            <textarea id="comments" class="rounded" placeholder="Required" name="comments" maxlength="4000"></textarea>
+        </div>
+        <div class="safe" id="counters"> <!-- style="margin-left: 5px;"-->
+            <span id="counter2">0</span>&nbsp;of 4,000 characters
+        </div>
+        <div id="spacer" style="float:right; padding-right:5px">
+            <button type="button" id="closeDialog" class="rounded" style="padding:3px;">Cancel</button>
+            <div class="divider"> </div>
+            <button id="openDialog" class="rounded" type="button" style="padding:3px;">Submit Comments</button>
+        </div>
+    </form>
+</div></div></body></html>
