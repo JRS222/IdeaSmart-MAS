@@ -230,6 +230,124 @@ function Write-Log {
     "$timestamp - $message" | Out-File -Append -FilePath "UI.log"
 }
 
+# ============================================================
+# Automatic retrieval helpers (Sites + Parts Volumes)
+# ============================================================
+#
+# Both the eMARS sites-criteria page and the MTSC parts-search page
+# expose their dropdown data either inline (<select> in the served
+# HTML) or via a lazy AJAX call.  These helpers fetch the page,
+# look for the inline case, and if that fails scan the page's JS for
+# candidate AJAX endpoints and try them in turn.
+
+function Invoke-PmHttpGet {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Url,
+        [int]$TimeoutSec = 30,
+        [switch]$UseDefaultCredentials
+    )
+
+    $params = @{
+        Uri             = $Url
+        UseBasicParsing = $true
+        TimeoutSec      = $TimeoutSec
+    }
+    if ($UseDefaultCredentials) { $params.UseDefaultCredentials = $true }
+
+    Write-Log "Invoke-PmHttpGet: GET $Url"
+    try {
+        $resp = Invoke-WebRequest @params
+    } catch {
+        Write-Log "Invoke-PmHttpGet: FAILED $Url — $($_.Exception.Message)"
+        throw
+    }
+    Write-Log "Invoke-PmHttpGet: $($resp.StatusCode) — $($resp.Content.Length) char(s)"
+    return $resp.Content
+}
+
+function Resolve-RelativeUrl {
+    param([string]$Base, [string]$Relative)
+    if ([string]::IsNullOrWhiteSpace($Relative)) { return $null }
+
+    $absUri = $null
+    if ([System.Uri]::TryCreate($Relative, [System.UriKind]::Absolute, [ref]$absUri)) {
+        return $absUri.AbsoluteUri
+    }
+
+    $baseUri = $null
+    if ([System.Uri]::TryCreate($Base, [System.UriKind]::Absolute, [ref]$baseUri)) {
+        $relUri = $null
+        if ([System.Uri]::TryCreate($Relative, [System.UriKind]::Relative, [ref]$relUri)) {
+            return ([System.Uri]::new($baseUri, $relUri)).AbsoluteUri
+        }
+    }
+    return $Relative
+}
+
+function Save-DebugHtml {
+    param([string]$Html, [string]$Tag)
+
+    $dir = Join-Path $script:config.RootDirectory 'Debug Dumps'
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+
+    $safe = ($Tag -replace '[^\w\-]', '_')
+    $path = Join-Path $dir ("$safe-" + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.html')
+    [System.IO.File]::WriteAllText($path, $Html, (New-Object System.Text.UTF8Encoding($false)))
+    Write-Log "Save-DebugHtml: wrote $path"
+    return $path
+}
+
+function Find-SelectBlock {
+    # Returns the outer HTML of the first <select> whose opening tag or
+    # body matches any of $Hints.  Returns $null if none match.
+    param([string]$Html, [string[]]$Hints = @())
+    if ([string]::IsNullOrWhiteSpace($Html)) { return $null }
+
+    $blocks = [regex]::Matches($Html, '(?is)<select\b[^>]*>.*?</select>')
+    if ($blocks.Count -eq 0) { return $null }
+
+    # Pass 1: match against the opening tag (select name= / id=)
+    foreach ($b in $blocks) {
+        $openTag = [regex]::Match($b.Value, '(?is)^<select\b[^>]*>').Value
+        foreach ($h in $Hints) {
+            if ($openTag -match [regex]::Escape($h)) { return $b.Value }
+        }
+    }
+    # Pass 2: match against the whole block (option values etc.)
+    foreach ($b in $blocks) {
+        foreach ($h in $Hints) {
+            if ($b.Value -match [regex]::Escape($h)) { return $b.Value }
+        }
+    }
+    return $null
+}
+
+function Find-AjaxEndpoints {
+    param([string]$Html, [string]$Keyword = '')
+
+    $found = New-Object System.Collections.Generic.List[string]
+    if ([string]::IsNullOrWhiteSpace($Html)) { return ,@() }
+
+    $patterns = @(
+        '\.(?:get|post|ajax)\s*\(\s*[''"](?<url>[^''"\s]{3,300})[''"]',
+        '\burl\s*:\s*[''"](?<url>[^''"\s]{3,300})[''"]',
+        '\bfetch\s*\(\s*[''"](?<url>[^''"\s]{3,300})[''"]',
+        '\bopen\s*\(\s*[''"](?:GET|POST)[''"]\s*,\s*[''"](?<url>[^''"\s]{3,300})[''"]',
+        '\.load\s*\(\s*[''"](?<url>[^''"\s]{3,300})[''"]'     # jQuery .load()
+    )
+
+    foreach ($p in $patterns) {
+        foreach ($m in [regex]::Matches($Html, $p, 'IgnoreCase')) {
+            $u = $m.Groups['url'].Value.Trim()
+            if ($u.Length -lt 3) { continue }
+            if ($Keyword -and ($u -notmatch [regex]::Escape($Keyword))) { continue }
+            if (-not $found.Contains($u)) { [void]$found.Add($u) }
+        }
+    }
+    return ,$found.ToArray()
+}
+
 function New-DefaultConfigObject {
     # Returns a fresh config object for the given root.
     param([string]$Root, [string]$ScriptsDir)
@@ -3185,13 +3303,15 @@ function New-PartsVolumesCsv {
         [string]$TargetPath
     )
 
-    if ([string]::IsNullOrWhiteSpace($Html))        { throw "No HTML supplied." }
-    if ([string]::IsNullOrWhiteSpace($TargetPath))  { throw "No target path supplied." }
+    if ([string]::IsNullOrWhiteSpace($Html))       { throw "No HTML supplied." }
+    if ([string]::IsNullOrWhiteSpace($TargetPath)) { throw "No target path supplied." }
 
-    $regex = '<option\s+value="(?<msbookno>[^"]+)"\s+volno="(?<volno>[^"]+)">(?<fullname>.*?)</option>'
-    $matches = [regex]::Matches($Html, $regex)
+    $optionMatches = [regex]::Matches(
+        $Html,
+        '(?is)<option\b(?<attrs>[^>]*)>(?<text>.*?)</option>')
 
-    if ($matches.Count -eq 0) {
+    Write-Log "New-PartsVolumesCsv: matched $($optionMatches.Count) <option> element(s)"
+    if ($optionMatches.Count -eq 0) {
         throw "No <option> elements matched. Confirm you pasted the entire <select> block."
     }
 
@@ -3201,16 +3321,205 @@ function New-PartsVolumesCsv {
     $lines = New-Object System.Collections.Generic.List[string]
     $lines.Add("MS Book No,Volume,Full Name")
 
-    foreach ($m in $matches) {
-        $msbookno = $m.Groups['msbookno'].Value
-        $volno    = $m.Groups['volno'].Value
-        $fullname = $m.Groups['fullname'].Value.Replace('"', '""')
-        $lines.Add("$msbookno,$volno,""$fullname""")
+    $written = 0
+    $seen = @{}
+    foreach ($m in $optionMatches) {
+        $attrs = $m.Groups['attrs'].Value
+        $text  = $m.Groups['text'].Value
+
+        $msBook = $null
+        if     ($attrs -match '\bvalue\s*=\s*"([^"]*)"')  { $msBook = $matches[1] }
+        elseif ($attrs -match "\bvalue\s*=\s*'([^']*)'")  { $msBook = $matches[1] }
+        elseif ($attrs -match '\bvalue\s*=\s*([^\s>]+)')  { $msBook = $matches[1] }
+
+        $volNo = $null
+        if     ($attrs -match '\bvolno\s*=\s*"([^"]*)"')  { $volNo = $matches[1] }
+        elseif ($attrs -match "\bvolno\s*=\s*'([^']*)'")  { $volNo = $matches[1] }
+        elseif ($attrs -match '\bvolno\s*=\s*([^\s>]+)')  { $volNo = $matches[1] }
+
+        if ([string]::IsNullOrWhiteSpace($msBook) -or [string]::IsNullOrWhiteSpace($volNo)) { continue }
+
+        $display = [regex]::Replace($text, '(?is)<[^>]+>', '')
+        $display = [System.Net.WebUtility]::HtmlDecode($display)
+        $display = ($display -replace '\s+', ' ').Trim()
+        if ([string]::IsNullOrWhiteSpace($display)) { continue }
+
+        $key = "$msBook|$volNo"
+        if ($seen.ContainsKey($key)) { continue }
+        $seen[$key] = $true
+
+        $esc = $display.Replace('"', '""')
+        $lines.Add("$msBook,$volNo,""$esc""")
+        $written++
     }
 
     $lines | Out-File -LiteralPath $TargetPath -Encoding UTF8
-    Write-Log "New-PartsVolumesCsv: wrote $($matches.Count) row(s) to $TargetPath"
-    return $matches.Count
+    Write-Log "New-PartsVolumesCsv: wrote $written row(s) to $TargetPath"
+    return $written
+}
+
+# ---- Parts Volumes ----
+
+function Get-PartsVolumesCsvFromWeb {
+    param([Parameter(Mandatory)][string]$TargetPath)
+
+    $override = ''
+    if ($script:config.PSObject.Properties['PartsVolumesEndpointUrl']) {
+        $override = "$($script:config.PartsVolumesEndpointUrl)".Trim()
+    }
+
+    $baseUrl = 'https://www1.mtsc.usps.gov/apps/mtsc/index.php'
+    $html = Invoke-PmHttpGet -Url (if ($override) { $override } else { $baseUrl })
+
+    # (a) inline <select>?
+    $selectHtml = Find-SelectBlock -Html $html -Hints @('msbookno', 'volno', 'Volume', 'Handbook')
+    if ($selectHtml) {
+        Write-Log "Get-PartsVolumesCsvFromWeb: found inline <select>"
+        return (New-PartsVolumesCsv -Html $selectHtml -TargetPath $TargetPath)
+    }
+
+    $candidates = New-Object System.Collections.Generic.List[string]
+    $addCandidate = {
+        param([string]$u)
+        if (-not [string]::IsNullOrWhiteSpace($u) -and -not $candidates.Contains($u)) {
+            [void]$candidates.Add($u)
+        }
+    }
+
+    # (b) URLs already sitting in the shell page
+    foreach ($u in (Find-AjaxEndpoints -Html $html)) { & $addCandidate $u }
+
+    # (c) walk every linked script and scan it too
+    $scriptSrcs = @()
+    foreach ($m in [regex]::Matches($html, '(?is)<script\b[^>]*\bsrc\s*=\s*[''"](?<src>[^''"]+)[''"]')) {
+        $scriptSrcs += $m.Groups['src'].Value
+    }
+    Write-Log "Get-PartsVolumesCsvFromWeb: $($scriptSrcs.Count) linked script(s) to scan"
+
+    foreach ($src in $scriptSrcs) {
+        $lower = $src.ToLowerInvariant()
+        # Chase anything plausibly parts-search related; skip pure vendor libs.
+        if ($lower -match '(jquery|datatables|highcharts|colorbox|layerslider|maskedinput|simplepagination|hash\.js|feedback\.js|videos\.js)') { continue }
+
+        $jsUrl = Resolve-RelativeUrl -Base $baseUrl -Relative $src
+        try {
+            $js = Invoke-PmHttpGet -Url $jsUrl -TimeoutSec 15
+        } catch {
+            Write-Log "  script scan failed $jsUrl : $($_.Exception.Message)"
+            continue
+        }
+        $hits = Find-AjaxEndpoints -Html $js
+        if ($hits.Count -gt 0) {
+            Write-Log "  $jsUrl -> $($hits.Count) URL(s)"
+            foreach ($h in $hits) { Write-Log "     $h" }
+        }
+        foreach ($u in $hits) { & $addCandidate $u }
+    }
+
+    # (d) final fallback: a handful of plausible MTSC content paths
+    foreach ($u in @(
+        'contents/parts_search/parts_search.php',
+        'contents/parts_search/partssearch.php',
+        'contents/partsSearch/partsSearch.php',
+        'contents/partssearch.php',
+        'contents/mtsc/parts_search.php'
+    )) { & $addCandidate $u }
+
+    Write-Log "Get-PartsVolumesCsvFromWeb: $($candidates.Count) candidate URL(s)"
+    foreach ($c in $candidates) { Write-Log "  -> $c" }
+
+    $dumpPath = Save-DebugHtml -Html $html -Tag 'parts-search'
+    Write-Log "Get-PartsVolumesCsvFromWeb: page dump -> $dumpPath"
+
+    foreach ($candidate in $candidates) {
+        # Ignore anything obviously not content
+        if ($candidate -match '\.(js|css|png|jpg|jpeg|gif|ico|svg|woff\d?)(\?|$)') { continue }
+        if ($candidate -match '^javascript:|^#') { continue }
+
+        $resolved = Resolve-RelativeUrl -Base $baseUrl -Relative $candidate
+        if (-not $resolved) { continue }
+
+        try {
+            $body = Invoke-PmHttpGet -Url $resolved -TimeoutSec 20
+        } catch {
+            Write-Log "  candidate $resolved failed: $($_.Exception.Message)"
+            continue
+        }
+
+        $sel = Find-SelectBlock -Html $body -Hints @('msbookno', 'volno', 'Volume')
+        if ($sel) {
+            Write-Log "  candidate $resolved yielded a <select>"
+            return (New-PartsVolumesCsv -Html $sel -TargetPath $TargetPath)
+        }
+        if ($body -match '(?i)<option\b' -and $body -match '(?i)volno|msbookno') {
+            Write-Log "  candidate $resolved yielded raw <option>s"
+            return (New-PartsVolumesCsv -Html $body -TargetPath $TargetPath)
+        }
+        try {
+            $json = $body | ConvertFrom-Json
+            $count = New-PartsVolumesCsvFromJson -Json $json -TargetPath $TargetPath
+            if ($count -gt 0) {
+                Write-Log "  candidate $resolved yielded JSON with $count row(s)"
+                return $count
+            }
+        } catch { }
+    }
+
+    throw "Could not locate the parts-book dropdown. Debug dump: $dumpPath"
+}
+
+function New-PartsVolumesCsvFromJson {
+    # Best-effort JSON parser for the parts-book dropdown payload.
+    # Looks for objects that carry a book number, a volume, and a name.
+    param($Json, [string]$TargetPath)
+
+    $rows = New-Object System.Collections.ArrayList
+    $seen = @{}
+
+    $stack = New-Object System.Collections.Stack
+    $stack.Push($Json)
+    while ($stack.Count -gt 0) {
+        $node = $stack.Pop()
+        if ($null -eq $node) { continue }
+
+        if ($node -is [System.Collections.IEnumerable] -and $node -isnot [string]) {
+            foreach ($child in $node) { $stack.Push($child) }
+            continue
+        }
+        if ($node -isnot [PSCustomObject]) { continue }
+
+        $props = @($node.PSObject.Properties)
+        $bProp = $props | Where-Object { $_.Name -match '(?i)ms.?book|^book$|bookno' } | Select-Object -First 1
+        $vProp = $props | Where-Object { $_.Name -match '(?i)^vol|volume|volno'      } | Select-Object -First 1
+        $nProp = $props | Where-Object { $_.Name -match '(?i)full.?name|^name$|label|text' } | Select-Object -First 1
+
+        if ($bProp -and $vProp -and $nProp) {
+            $key = "$($bProp.Value)|$($vProp.Value)"
+            if (-not $seen.ContainsKey($key)) {
+                $seen[$key] = $true
+                [void]$rows.Add([PSCustomObject]@{
+                    MsBook   = "$($bProp.Value)".Trim()
+                    Volume   = "$($vProp.Value)".Trim()
+                    FullName = "$($nProp.Value)".Trim()
+                })
+            }
+        }
+    }
+
+    if ($rows.Count -eq 0) { return 0 }
+
+    $dir = Split-Path -Path $TargetPath -Parent
+    if ($dir -and -not (Test-Path $dir)) { New-Item -ItemType Directory -Path $dir -Force | Out-Null }
+
+    $lines = New-Object System.Collections.Generic.List[string]
+    $lines.Add('MS Book No,Volume,Full Name')
+    foreach ($r in $rows) {
+        $esc = $r.FullName.Replace('"', '""')
+        $lines.Add("$($r.MsBook),$($r.Volume),`"$esc`"")
+    }
+    $lines | Out-File -LiteralPath $TargetPath -Encoding UTF8
+    Write-Log "New-PartsVolumesCsvFromJson: wrote $($rows.Count) row(s) to $TargetPath"
+    return $rows.Count
 }
 
 function Show-PartsVolumesWizard {
@@ -3225,6 +3534,24 @@ function Show-PartsVolumesWizard {
         if ($ans -ne [System.Windows.Forms.DialogResult]::Yes) { return $false }
     }
 
+    # ---- Try automatic fetch first ----
+    try {
+        $count = Get-PartsVolumesCsvFromWeb -TargetPath $targetPath
+        [System.Windows.Forms.MessageBox]::Show(
+            "Fetched and wrote $count entries to:`r`n$targetPath",
+            "Parts Volumes List", "OK", "Information")
+        return $true
+    } catch {
+        Write-Log "Show-PartsVolumesWizard: auto-fetch failed: $($_.Exception.Message)"
+        $fallback = [System.Windows.Forms.MessageBox]::Show(
+            "Automatic fetch failed.`r`n`r`n$($_.Exception.Message)`r`n`r`nFall back to the manual paste workflow?",
+            "Parts Volumes List",
+            [System.Windows.Forms.MessageBoxButtons]::YesNo,
+            [System.Windows.Forms.MessageBoxIcon]::Warning)
+        if ($fallback -ne [System.Windows.Forms.DialogResult]::Yes) { return $false }
+    }
+
+    # ---- Manual paste fallback (existing flow, unchanged) ----
     try {
         Start-Process "https://www1.mtsc.usps.gov/apps/mtsc/index.php#Doc&partssearch&0&NA"
     } catch {
@@ -3343,12 +3670,14 @@ function New-SitesCsv {
     if ([string]::IsNullOrWhiteSpace($Html))       { throw "No HTML supplied." }
     if ([string]::IsNullOrWhiteSpace($TargetPath)) { throw "No target path supplied." }
 
-    # <option value="X" ...>Text [possibly with newlines] </option>
-    # [\s\S]*? lets the display text span multiple lines; Singleline is
-    # belt-and-braces in case the pattern is later edited to use .*?
-    $regex = '<option\s+value="(?<siteid>[^"]+)"[^>]*>(?<fullname>[\s\S]*?)</option>'
-    $optionMatches = [regex]::Matches($Html, $regex, 'IgnoreCase, Singleline')
+    # Match every <option …>…</option>.  Attributes are captured as one
+    # blob and parsed separately, so we tolerate: uppercase tags, attribute
+    # order, single/double/no quotes, and multiline display text.
+    $optionMatches = [regex]::Matches(
+        $Html,
+        '(?is)<option\b(?<attrs>[^>]*)>(?<text>.*?)</option>')
 
+    Write-Log "New-SitesCsv: matched $($optionMatches.Count) <option> element(s)"
     if ($optionMatches.Count -eq 0) {
         throw "No <option> elements matched. Confirm you pasted the entire <select> block."
     }
@@ -3362,15 +3691,27 @@ function New-SitesCsv {
     $seen = @{}
     $written = 0
     foreach ($m in $optionMatches) {
-        $siteId   = $m.Groups['siteid'].Value.Trim()
-        $fullname = $m.Groups['fullname'].Value.Trim()
+        $attrs = $m.Groups['attrs'].Value
+        $text  = $m.Groups['text'].Value
 
-        if ([string]::IsNullOrWhiteSpace($siteId) -or [string]::IsNullOrWhiteSpace($fullname)) { continue }
+        $val = $null
+        if     ($attrs -match '\bvalue\s*=\s*"([^"]*)"')   { $val = $matches[1] }
+        elseif ($attrs -match "\bvalue\s*=\s*'([^']*)'")   { $val = $matches[1] }
+        elseif ($attrs -match '\bvalue\s*=\s*([^\s>]+)')   { $val = $matches[1] }
 
+        if ([string]::IsNullOrWhiteSpace($val)) { continue }
+
+        $display = [regex]::Replace($text, '(?is)<[^>]+>', '')
+        $display = [System.Net.WebUtility]::HtmlDecode($display)
+        $display = ($display -replace '\s+', ' ').Trim()
+        if ([string]::IsNullOrWhiteSpace($display)) { continue }
+
+        $siteId = $val.Trim()
+        if ([string]::IsNullOrWhiteSpace($siteId)) { continue }
         if ($seen.ContainsKey($siteId)) { continue }
         $seen[$siteId] = $true
 
-        $safeName = $fullname.Replace('"', '""')
+        $safeName = $display.Replace('"', '""')
         $lines.Add("$siteId,""$safeName""")
         $written++
     }
@@ -3378,6 +3719,74 @@ function New-SitesCsv {
     $lines | Out-File -LiteralPath $TargetPath -Encoding UTF8
     Write-Log "New-SitesCsv: wrote $written row(s) to $TargetPath"
     return $written
+}
+
+# ---- Sites ----
+
+function Get-SitesCsvFromCriteriaPage {
+    # Automatic retrieval of the sites list.  Returns the row count, or throws.
+    param([Parameter(Mandatory)][string]$TargetPath)
+
+    # Config override wins, if the user has hardcoded a discovered endpoint
+    $override = ''
+    if ($script:config.PSObject.Properties['SitesListEndpointUrl']) {
+        $override = "$($script:config.SitesListEndpointUrl)".Trim()
+    }
+
+    $url = if ($override) {
+        $override
+    } else {
+        'http://emarssu3.eng.usps.gov/pemarsnp/nm_national_stock.stockroom_criteria'
+    }
+
+    $html = Invoke-PmHttpGet -Url $url -UseDefaultCredentials
+
+    # (a) inline <select>?
+    $selectHtml = Find-SelectBlock -Html $html -Hints @(
+        'Site ID', 'site_id', 'p_site_id', 'Full Name', 'FullName', 'siteid'
+    )
+    if ($selectHtml) {
+        Write-Log "Get-SitesCsvFromCriteriaPage: found inline <select> ($($selectHtml.Length) chars)"
+        return (New-SitesCsv -Html $selectHtml -TargetPath $TargetPath)
+    }
+
+    # (b) AJAX endpoint scan
+    Write-Log "Get-SitesCsvFromCriteriaPage: no inline <select>; scanning JS for endpoints"
+    $candidates = @(
+        Find-AjaxEndpoints -Html $html -Keyword 'site'
+        Find-AjaxEndpoints -Html $html -Keyword 'stockroom'
+    ) | Select-Object -Unique
+
+    Write-Log "Get-SitesCsvFromCriteriaPage: $($candidates.Count) candidate endpoint(s):"
+    foreach ($c in $candidates) { Write-Log "  -> $c" }
+
+    $dumpPath = Save-DebugHtml -Html $html -Tag 'sites-criteria'
+    Write-Log "Get-SitesCsvFromCriteriaPage: page dump -> $dumpPath"
+
+    foreach ($candidate in $candidates) {
+        $resolved = Resolve-RelativeUrl -Base $url -Relative $candidate
+        if (-not $resolved) { continue }
+        try {
+            $body = Invoke-PmHttpGet -Url $resolved -UseDefaultCredentials
+        } catch {
+            Write-Log "  candidate $resolved failed: $($_.Exception.Message)"
+            continue
+        }
+
+        $sel = Find-SelectBlock -Html $body -Hints @(
+            'Site ID', 'site_id', 'p_site_id', 'Full Name'
+        )
+        if ($sel) {
+            Write-Log "  candidate $resolved yielded a <select>"
+            return (New-SitesCsv -Html $sel -TargetPath $TargetPath)
+        }
+        if ($body -match '(?i)<option\b') {
+            Write-Log "  candidate $resolved yielded raw <option>s"
+            return (New-SitesCsv -Html $body -TargetPath $TargetPath)
+        }
+    }
+
+    throw "Could not locate the sites dropdown. Debug dump: $dumpPath"
 }
 
 function Show-SitesWizard {
@@ -3392,6 +3801,24 @@ function Show-SitesWizard {
         if ($ans -ne [System.Windows.Forms.DialogResult]::Yes) { return $false }
     }
 
+    # ---- Try automatic fetch first ----
+    try {
+        $count = Get-SitesCsvFromCriteriaPage -TargetPath $targetPath
+        [System.Windows.Forms.MessageBox]::Show(
+            "Fetched and wrote $count entries to:`r`n$targetPath",
+            "Sites List", "OK", "Information")
+        return $true
+    } catch {
+        Write-Log "Show-SitesWizard: auto-fetch failed: $($_.Exception.Message)"
+        $fallback = [System.Windows.Forms.MessageBox]::Show(
+            "Automatic fetch failed.`r`n`r`n$($_.Exception.Message)`r`n`r`nFall back to the manual paste workflow?",
+            "Sites List",
+            [System.Windows.Forms.MessageBoxButtons]::YesNo,
+            [System.Windows.Forms.MessageBoxIcon]::Warning)
+        if ($fallback -ne [System.Windows.Forms.DialogResult]::Yes) { return $false }
+    }
+
+    # ---- Manual paste fallback (existing flow, unchanged) ----
     try {
         Start-Process "http://emarssu3.eng.usps.gov/pemarsnp/nm_national_stock.stockroom_criteria"
     } catch {
