@@ -1,47 +1,75 @@
-2026-10-17 08:04:18 - Config loaded successfully
-2026-10-17 08:04:20 - Get-Jobs: read 21 job(s) from C:\Users\YYQTP0\Desktop\PartsMgmt\Work Tracking\Jobs.json
-2026-10-17 08:04:20 - Get-Jobs: read 21 job(s) from C:\Users\YYQTP0\Desktop\PartsMgmt\Work Tracking\Jobs.json
-2026-10-17 08:04:20 - Get-Jobs: read 21 job(s) from C:\Users\YYQTP0\Desktop\PartsMgmt\Work Tracking\Jobs.json
-2026-10-17 08:04:20 - Job Log sub-tab setup completed.
-2026-10-17 08:04:20 - Sync-PmArchive: processed=0 removed=0
-2026-10-17 08:04:20 - Load-PmMachines: dir=C:\Users\YYQTP0\Desktop\PartsMgmt\Work Tracking\PM Checklists fileCount=26
-2026-10-17 08:04:21 - Refresh-PmMachineTabs: selected=2026-10-17 all=26 shown=2
-2026-10-17 08:04:22 - Get-Jobs: read 21 job(s) from C:\Users\YYQTP0\Desktop\PartsMgmt\Work Tracking\Jobs.json
-2026-10-17 08:04:22 - PM Checklist sub-tab setup completed.
-2026-10-17 08:04:22 - Weekly Worksheet sub-tab setup completed.
-[Historian] machine filter: kind='All' -> 16 machine(s): ATU 1, ATU 2, ATU 3, DBCS 28, DBCS 30, DBCS 31, DBCS 33, DBCS 34, DBCS 49, DBCS 58, DBCS 59, DBCS 61, DBCS 62, DBCS 63, DBCS 64, WORKSHEET
-2026-10-17 08:04:26 - Historian sub-tab setup completed.
-2026-10-17 08:04:26 - Processing Books from config:
-2026-10-17 08:04:26 - Checking file: C:\Users\YYQTP0\Desktop\PartsMgmt\Parts Books\MS-229 Delivery Bar Code Sorter Phase 4 - DBCS (Vol. E)\MS-229 Delivery Bar Code Sorter Phase 4 - DBCS (Vol. E).xlsx
-2026-10-17 08:04:26 - Added file: MS-229 Delivery Bar Code Sorter Phase 4 - DBCS Vol E
-2026-10-17 08:04:26 - Checking file: C:\Users\YYQTP0\Desktop\PartsMgmt\Parts Books\MS-298 DELIVERY BAR CODE SORTER Phase 3-5 LAU PH2 - DBCS 3-5 LAU PH2 (Vol. C)\MS-298 DELIVERY BAR CODE SORTER Phase 3-5 LAU PH2 - DBCS 3-5 LAU PH2 (Vol. C).xlsx                                                                                                                     2026-10-17 08:04:26 - Added file: MS-298 DELIVERY BAR CODE SORTER Phase 3-5 LAU PH2 - DBCS 3-5 LAU PH2 Vol C            2026-10-17 08:04:26 - Checking file: C:\Users\YYQTP0\Desktop\PartsMgmt\Parts Books\MS-212 Wide Field Of View Camera - WFOV (Vol. B)\MS-212 Wide Field Of View Camera - WFOV (Vol. B).xlsx
-2026-10-17 08:04:26 - Added file: MS-212 Wide Field Of View Camera - WFOV Vol B
-2026-10-17 08:04:26 - Checking file: C:\Users\YYQTP0\Desktop\PartsMgmt\Parts Books\MS-243 Automatic Tray Unsleever - ATU (Vol. B)\MS-243 Automatic Tray Unsleever - ATU (Vol. B).xlsx
-2026-10-17 08:04:26 - Added file: MS-243 Automatic Tray Unsleever - ATU Vol B
-2026-10-17 08:04:26 - Checking file: C:\Users\YYQTP0\Desktop\PartsMgmt\Parts Books\MS-242 Enhanced Airline Assignment - EAA (Vol. B)\MS-242 Enhanced Airline Assignment - EAA (Vol. B).xlsx
-2026-10-17 08:04:26 - Added file: MS-242 Enhanced Airline Assignment - EAA Vol B
-2026-10-17 08:04:26 - Checking file: C:\Users\YYQTP0\Desktop\PartsMgmt\Parts Books\MS-313 High Speed Tray Sorter - HSTS (Vol. B)\MS-313 High Speed Tray Sorter - HSTS (Vol. B).xlsx
-2026-10-17 08:04:26 - Added file: MS-313 High Speed Tray Sorter - HSTS Vol B
-2026-10-17 08:04:26 - Checking file: C:\Users\YYQTP0\Desktop\PartsMgmt\Parts Books\MS-178 Automated Flat Sorting Machine 100 - Automatic Induction - AFSM 100-ai (Vol. G2)\MS-178 Automated Flat Sorting Machine 100 - Automatic Induction - AFSM 100-ai (Vol. G2).xlsx
-2026-10-17 08:04:26 - Added file: MS-178 Automated Flat Sorting Machine 100 - Automatic Induction - AFSM 100-ai Vol G2
-2026-10-17 08:04:26 - Setting up Search tab...
-2026-10-17 08:04:27 - Search tab setup completed.
-2026-10-17 08:04:27 - Setting up Settings tab...
-2026-10-17 08:04:29 - Load-WtSettingsValues: configPath='C:\Users\YYQTP0\Desktop\PartsMgmt\Config.json'
-2026-10-17 08:04:29 - Load-WtSettingsValues: techName='Joseph Shaw' email='default@example.com'
-2026-10-17 08:04:29 - Settings tab setup completed.
-2026-10-17 08:04:29 - UI setup completed
-2026-10-17 08:04:37 - New-WorksheetFromHtml: date pattern found 7 match(es)
-2026-10-17 08:04:37 - New-WorksheetFromHtml: found dates: 17-OCT-26, 18-OCT-26, 19-OCT-26, 20-OCT-26, 21-OCT-26, 22-OCT-26, 23-OCT-26
-2026-10-17 08:04:38 - New-WorksheetFromHtml: date 17-OCT-26 -> 14 data row(s)
-2026-10-17 08:04:38 - New-WorksheetFromHtml: date 18-OCT-26 -> 13 data row(s)
-2026-10-17 08:04:38 - New-WorksheetFromHtml: date 19-OCT-26 -> 13 data row(s)
-2026-10-17 08:04:38 - New-WorksheetFromHtml: date 20-OCT-26 -> 13 data row(s)
-2026-10-17 08:04:38 - New-WorksheetFromHtml: date 21-OCT-26 -> 13 data row(s)
-2026-10-17 08:04:38 - New-WorksheetFromHtml: date 22-OCT-26 -> 13 data row(s)
-2026-10-17 08:04:39 - New-WorksheetFromHtml: date 23-OCT-26 -> 13 data row(s)
-2026-10-17 08:04:39 - Get-Jobs: read 21 job(s) from C:\Users\YYQTP0\Desktop\PartsMgmt\Work Tracking\Jobs.json
-2026-10-17 08:04:39 - Get-Jobs: read 21 job(s) from C:\Users\YYQTP0\Desktop\PartsMgmt\Work Tracking\Jobs.json
-2026-10-17 08:04:39 - Get-Jobs: read 21 job(s) from C:\Users\YYQTP0\Desktop\PartsMgmt\Work Tracking\Jobs.json
-2026-10-17 08:04:39 - Get-Jobs: read 21 job(s) from C:\Users\YYQTP0\Desktop\PartsMgmt\Work Tracking\Jobs.json
-2026-10-17 08:04:39 - Weekly Worksheet: imported 7 date(s), 13 total row(s).
+Found it. There's a stray brace in New-WorksheetFromHtml that closes the foreach loop one iteration too early — specifically, this line:
+
+```powershell
+            $ws = [PSCustomObject]@{
+                Date      = $dt.ToString("yyyy-MM-dd")
+                FetchedAt = (Get-Date).ToString("o")
+                Source    = $Source
+                Rows      = $decorated
+		}}          ← ← ← this second } closes the foreach
+```
+
+The first } closes the hashtable literal; the second } closes the foreach ($target in $foundDates) loop. Everything after that point — Sync-WorksheetActualTimes, Sync-WorksheetJobHours, Add-WorksheetPlaceholders, Save-WeeklyWorksheet, Import-WorksheetJobsToJobLog, and $saved += ... — is therefore outside the loop and runs exactly once, against whatever $ws / $dt / $decorated are left over from the last iteration.
+
+Why the log looks like this
+
+Your log is telling you the exact bug:
+
+```
+New-WorksheetFromHtml: date 17-OCT-26 -> 14 data row(s)
+New-WorksheetFromHtml: date 18-OCT-26 -> 13 data row(s)
+...                                    ← parsing all 7 ✓
+New-WorksheetFromHtml: date 23-OCT-26 -> 13 data row(s)
+
+Weekly Worksheet: imported 7 date(s), 13 total row(s).
+                                       ^^^^^^^^^^^^^^^^
+```
+
+DatesParsed = $foundDates.Count is 7 (correct — that variable was set before the loop). But TotalRows = ($saved | Measure-Object -Property Rows -Sum).Sum reports 13, because $saved only ever got one entry — the last iteration's, which had 13 rows. Seven dates × 13–14 rows each should sum to ~92. The mismatch between "7 dates parsed" and "13 total rows" is the tell.
+
+Why the view is empty
+
+Save-WeeklyWorksheet also only ran once, for 2026-10-23. So:
+
+```
+Work Tracking\Weekly Worksheets\2026-10-23.json   ← the only file that exists
+```
+
+Your wsDatePicker is on 2026-10-17 (today). Get-WeeklyWorksheet -Date 2026-10-17 looks for 2026-10-17.json, doesn't find it, returns $null, and Refresh-WeeklyWorksheetList renders the "No worksheet loaded" empty state. The parse worked; the save went to the wrong day.
+
+Also silently lost: the Sync-WorksheetActualTimes / Add-WorksheetPlaceholders / Import-WorksheetJobsToJobLog passes only executed against 23-OCT-26's data, so today's PM hours never got folded into today's worksheet rows, and no pm.checklist placeholders were added for 10-17.
+
+The fix
+
+Change the double brace to a single brace:
+
+```powershell
+            $ws = [PSCustomObject]@{
+                Date      = $dt.ToString("yyyy-MM-dd")
+                FetchedAt = (Get-Date).ToString("o")
+                Source    = $Source
+                Rows      = $decorated
+            }
+```
+
+That single character moves the sync/save/import block back inside the loop where it belongs. After this, each of the 7 dates will:
+
+1. Sync actual times from PM checklists + worksheet row data
+2. Update the standing WO cache
+3. Sync job hours (reactive + WO)
+4. Add NeedsAudit placeholders for any PM checklists without a worksheet row
+5. Write its own YYYY-MM-DD.json
+6. Import worksheet WOs into Jobs.json
+7. Append to $saved with that day's row count
+
+Your TotalRows should then jump from 13 to ~91, and 2026-10-17.json will exist so the view populates when you're on today's date.
+
+After applying
+
+Re-import the same HTML (Fetch or Paste — either is fine, Import-WorksheetJobsToJobLog is idempotent on (WO#, date) keys so no duplicate jobs will land in Jobs.json). You should see:
+
+```
+Weekly Worksheet: imported 7 date(s), 91 total row(s).
+```
+
+...or thereabouts, and today's rows will appear. The other six days will now be sitting in Work Tracking\Weekly Worksheets\ waiting when you flip the date picker forward.
