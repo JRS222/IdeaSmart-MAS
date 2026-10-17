@@ -1,4 +1,4 @@
-# Comprehensive Maintenance Software Guide
+# IdeaSmart MAS — Automatic Network Solutions · Maintenance Software Guide
 
 ## Overview
 
@@ -11,6 +11,16 @@ This maintenance software is a PowerShell-based GUI application (built on Window
 - **Reporting** — on-demand work-tracking reports exportable as text
 
 The application is driven by a single script, `UI-Script.ps1`, plus a small on-disk data tree (config + CSVs + JSON). An installation wizard is built into the UI and can be re-run from the **Settings** tab at any time.
+
+> **New to the app?** Start with [GETTING-STARTED.md](GETTING-STARTED.md) for a step-by-step first-time walkthrough.
+
+---
+
+## Requirements
+
+- **Windows** with PowerShell (Windows PowerShell 5.1 or PowerShell 7)
+- **Microsoft Excel** installed (parts-room workbooks and parts books are built via Excel COM automation)
+- **USPS intranet access** for the download features (MTSC / eMARS / eDAC pages)
 
 ---
 
@@ -50,15 +60,16 @@ If no `Config.json` exists yet, the **Installation Setup** wizard opens automati
 │       ├── CombinedSections/
 │       │   └── Section <n>.csv
 │       └── <Book Name>.xlsx
-└── Work Tracking/
-    ├── Jobs.json
-    ├── Breaks.json
-    ├── Historian.jsonl
-    ├── Weekly Worksheets/
-    │   └── YYYY-MM-DD.json
-    ├── PM Checklists/
-    │   └── <ACRONYM>_<MNO>_<CHECKNO>_<YYYY-MM-DD>.{html,json}
-    └── Reports/
+├── Work Tracking/
+│   ├── Jobs.json
+│   ├── Breaks.json
+│   ├── Historian.jsonl
+│   ├── Weekly Worksheets/
+│   │   └── YYYY-MM-DD.json
+│   ├── PM Checklists/
+│   │   └── <ACRONYM>_<MNO>_<CHECKNO>_<YYYY-MM-DD>.{html,json}
+│   └── Reports/
+└── Debug Dumps/          (created on demand for failed automatic fetches)
 ```
 
 Existing files are never overwritten by the wizard.
@@ -68,7 +79,7 @@ Existing files are never overwritten by the wizard.
 | File | Header | Required? | Purpose |
 |---|---|---|---|
 | `Sites.csv` | `Site ID,Full Name` | Yes, for parts-room downloads and same-day sites | Site lookup. |
-| `Parsed-Parts-Volumes.csv` | `Full Name,MS Book No,Volume` | Yes, for Parts Book Creator | Catalog of MS parts handbook volumes. |
+| `Parsed-Parts-Volumes.csv` | `MS Book No,Volume,Full Name` | Yes, for Parts Book Creator | Catalog of MS parts handbook volumes. |
 | `Machines.csv` | `Machine Acronym,Machine Number` | Seeded automatically; new machines are appended when jobs are saved | Machine registry. |
 
 Example `Sites.csv`:
@@ -79,7 +90,7 @@ ABC,Alpha Bravo Center
 XYZ,X-Ray Yankee Zone
 ```
 
-You can regenerate `Sites.csv` and `Parsed-Parts-Volumes.csv` at any time from the **Settings** tab by pasting the `<select>` HTML from the relevant MTSC / eMARS page.
+You can regenerate `Sites.csv` and `Parsed-Parts-Volumes.csv` at any time from the **Settings** tab — the app fetches them automatically from the MTSC / eMARS pages and only falls back to a paste dialog if the automatic fetch fails.
 
 > **Note:** Earlier versions of this software used `Actions.csv`, `Causes.csv`, and `Nouns.csv` for a Call Log workflow. Those files are **no longer used** and are not created by the installer. If they exist on disk they are harmless — the script never reads them.
 
@@ -106,11 +117,10 @@ The main window has five top-level tabs:
 
 ### Creating a Parts Book
 1. Click **Create Parts Book**.
-2. If `Parsed-Parts-Volumes.csv` is missing or empty, the Parts Volumes wizard will run first — it opens MTSC, asks you to paste the parts-book dropdown HTML, and writes the CSV.
+2. If `Parsed-Parts-Volumes.csv` is missing or empty, the Parts Volumes wizard runs first — it fetches the handbook dropdown automatically from MTSC and only asks you to paste the `<select>` HTML if that fails.
 3. In the book picker, check the volumes you want and click **Process Selected**.
 4. For each book, the UI:
-   - Opens the MTSC tree page in your browser.
-   - Asks you to paste the page source (Ctrl+U, Ctrl+A, Ctrl+C).
+   - Automatically fetches the handbook tree (sections + figures) from the phbk viewer. If the automatic fetch fails, it opens the tree page in your browser and asks you to paste the page source (Ctrl+U, Ctrl+A, Ctrl+C).
    - Parses the tree into `Volumes-to-URL.csv` + `SectionNames.txt`.
    - Downloads every figure HTML, converts it to CSV.
    - Merges section CSVs against your local parts room.
@@ -183,6 +193,8 @@ Works with the eDAC **Weekly Assignment Worksheet**.
 - **Date picker** — switches to a different day's worksheet.
 
 Double-click a row to override its actual hours or clear an auto value. Flagged rows are highlighted yellow. Rows auto-filled by sync show a ⚡ indicator.
+
+**How jobs and the worksheet stay in sync:** rows created from your job log are flagged internally (`AutoRow`). When you edit or delete a work order and then Sync, the stale worksheet row is pruned and rebuilt from the job log — no duplicates. Manual overrides on a row are respected and left alone.
 
 ### Historian
 
@@ -288,13 +300,27 @@ Zero-valued items are skipped in the budget roll-up.
 ### Installation
 - **Run Installation Wizard** — reopens the setup dialog. Safe to run again; existing data is preserved.
 - **Open Root Folder** / **Open Scripts Folder** — shortcuts.
-- **Regenerate Parts Volumes List** — re-runs the parsed-parts-volumes paste wizard.
+- **Regenerate Parts Volumes List** — re-runs the parts-volumes wizard (automatic fetch first).
 - **Convert Figure HTML → CSV** — batch-converts a folder of `Figure <sec>-<fig>.html` files into CSVs.
-- **Regenerate Sites List** — re-runs the sites paste wizard.
+- **Regenerate Sites List** — re-runs the sites wizard (automatic fetch first).
 
 Buttons at the bottom of the tab:
 - **Save Settings** — writes `Config.json`.
 - **Reload from File** — discards unsaved edits and re-reads `Config.json`.
+
+---
+
+## Automatic Fetching
+
+The download features try the network first and only ask you to paste anything if the automatic route fails.
+
+| Feature | How it fetches |
+|---|---|
+| **Sites list** | GETs the eMARS stockroom criteria page and parses the site `<select>` (tolerates the page's unclosed `<option>` tags). |
+| **Parts volumes list** | GETs the MTSC shell, then the parts-search content page (`contents/partsSearch_information.php`, fallback `msbook_information.php`), and parses the handbook dropdown (placeholder "All MS Handbooks" row is filtered out). |
+| **Parts book tree** | GETs `phbk/index.php?msbookno=N&volno=V`, then POSTs `content/build_Tree_sections.php` (sections) and `ajax/section_figures.php` (figures per section), and builds the same `Volumes-to-URL.csv` / `SectionNames.txt` the paste flow used to produce. Figure pages come from `content/printfigandtable.php`. |
+
+**Failure behavior:** any automatic step that fails logs the reason to `UI.log`, saves the offending HTML to `<Data Root>/Debug Dumps/` where applicable, and falls back to the original paste dialogs — so a page change upstream never blocks you.
 
 ---
 
@@ -345,11 +371,8 @@ There is no built-in way to delete or edit an event once it has been pushed. If 
 ### Parts on Jobs
 Parts attached to a job are stored inside `Jobs.json` with the job itself. They are **not** removed from the parts-room CSV when you click **Take Part(s) Out** — that action is currently a stub.
 
-### Search Cross-Contamination (historical)
-Earlier versions of this software had a shared search state between the old Labor Log and Search tabs. That design is gone: the Search tab now runs its queries independently, and the Historian has its own text filter. If you see stale results, click **Refresh** or clear the search box.
-
-### Notification Indicators
-Work orders that still need a work-order number are validated at save time (the Save button refuses the job), so there is no longer a passive "notification dot." The work-order number field is simply required when the rule applies.
+### Automatic Fetch Depends on the Source Pages
+The MTSC / eMARS / phbk pages are USPS intranet pages whose structure can change. Every automatic fetch is defensive (tolerant parsing, multiple candidate endpoints) and falls back to the paste workflows, which always work because they use whatever your browser shows you.
 
 ### Actions Not Yet Implemented
 The following buttons display an informational dialog and do nothing else:
@@ -376,16 +399,25 @@ The following buttons display an informational dialog and do nothing else:
 
 ## Troubleshooting
 
-- **App won't start / no tabs appear** — confirm `Config.json` exists under `Scripts/PartsMgmt/`. If not, the installation wizard should have launched. If it didn't, run `UI-Script.ps1` from an elevated PowerShell prompt and watch the console.
-- **"No CSV files found in …"** — the local parts room CSV is missing. Run **Actions → Update Parts Room** and pick a site, or drop a CSV into `Parts Room/`.
-- **"Multiple CSV files found in …"** — the Search tab expects exactly one `.csv` (plus the `.xlsx`) at the root of `Parts Room/`. Move extras into `Same Day Parts Room/`.
-- **Excel operations hang** — close any open workbooks with the same name, and end leftover `EXCEL.EXE` processes from Task Manager. The app releases COM objects after each operation.
-- **Historian shows fewer events than expected** — filters persist until cleared. Click **Clear Filters** or run **Debug Dump** to see the raw event count.
-- **A PM checklist is not appearing** — click **Scan Archive**. Canonical files (`ACRONYM_MNO_CHECKNO_YYYY-MM-DD.json`) require a matching `.json`; raw HTML files are parsed on scan.
+- **App won't start / no tabs appear** — confirm `Config.json` exists. If not, the installation wizard should have launched. If it didn't, run `UI-Script.ps1` from an elevated PowerShell prompt and watch the console.
 - **PowerShell refuses to run the script** — set the execution policy for the current user:
 
   ```powershell
   Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
   ```
 
-- **Check the log** — `UI.log` in the script directory records every action, warning, and error. Use it first when something looks wrong.
+- **An automatic fetch failed and asked me to paste** — check `UI.log` for the `Invoke-PmHttpGet/Post` and `auto-fetch failed` lines, and look in `<Data Root>/Debug Dumps/` for the saved page. The paste fallback is a fully working path, so finish the task manually and keep the log + dump for diagnostics.
+- **Duplicate work orders after editing** — fixed in the current build: worksheet rows created from the job log are flagged and pruned/rebuilt on Sync. If you still see duplicates from an older data file, click **Sync** on the Weekly Worksheet once to prune the stale rows, then delete any leftover phantom jobs in the Job Log (double-click → Delete).
+- **"No CSV files found in …"** — the local parts room CSV is missing. Run **Actions → Update Parts Room** and pick a site, or drop a CSV into `Parts Room/`.
+- **"Multiple CSV files found in …"** — the Search tab expects exactly one `.csv` (plus the `.xlsx`) at the root of `Parts Room/`. Move extras into `Same Day Parts Room/`.
+- **Excel operations hang** — close any open workbooks with the same name, and end leftover `EXCEL.EXE` processes from Task Manager. The app releases COM objects after each operation.
+- **Historian shows fewer events than expected** — filters persist until cleared. Click **Clear Filters** or run **Debug Dump** to see the raw event count.
+- **A PM checklist is not appearing** — click **Scan Archive**. Canonical files (`ACRONYM_MNO_CHECKNO_YYYY-MM-DD.json`) require a matching `.json`; raw HTML files are parsed on scan.
+- **Check the log first** — `UI.log` in the script directory records every action, warning, and error.
+
+---
+
+## Related Documents
+
+- [GETTING-STARTED.md](GETTING-STARTED.md) — first-time setup, step by step.
+- [TESTING-CHECKLIST.md](TESTING-CHECKLIST.md) — regression checklist for the download and sync features.
