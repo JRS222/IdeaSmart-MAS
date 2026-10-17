@@ -9646,7 +9646,7 @@ function New-WorksheetFromHtml {
                 FetchedAt = (Get-Date).ToString("o")
                 Source    = $Source
                 Rows      = $decorated
-		}}
+            }
 
             try {
 				Sync-WorksheetActualTimes -Worksheet $ws -Date $dt
@@ -9680,6 +9680,7 @@ function New-WorksheetFromHtml {
             }
 
             $saved += [PSCustomObject]@{ Date = $dt.ToString("yyyy-MM-dd"); Rows = $decorated.Count }
+        }
     } finally {
         if (Test-Path $temp) { Remove-Item $temp -Force -ErrorAction SilentlyContinue }
     }
