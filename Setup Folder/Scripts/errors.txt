@@ -1,4 +1,0 @@
-Error in Create-ExcelWorkbook: A positional parameter cannot be found that accepts argument 'Write-Host'.
-Cancel
-2025-04-26 04:37:14 - Setup completed successfully!
-Setup completed. Press Enter to exit:
