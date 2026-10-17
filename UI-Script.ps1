@@ -266,6 +266,36 @@ function Invoke-PmHttpGet {
     return $resp.Content
 }
 
+function Invoke-PmHttpPost {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$Url,
+        [Parameter(Mandatory)][hashtable]$Form,
+        [int]$TimeoutSec = 30,
+        [switch]$UseDefaultCredentials
+    )
+
+    $params = @{
+        Uri             = $Url
+        Method          = 'Post'
+        Body            = $Form
+        ContentType     = 'application/x-www-form-urlencoded'
+        UseBasicParsing = $true
+        TimeoutSec      = $TimeoutSec
+    }
+    if ($UseDefaultCredentials) { $params.UseDefaultCredentials = $true }
+
+    Write-Log "Invoke-PmHttpPost: POST $Url"
+    try {
+        $resp = Invoke-WebRequest @params
+    } catch {
+        Write-Log "Invoke-PmHttpPost: FAILED $Url — $($_.Exception.Message)"
+        throw
+    }
+    Write-Log "Invoke-PmHttpPost: $($resp.StatusCode) — $($resp.Content.Length) char(s)"
+    return $resp.Content
+}
+
 function Resolve-RelativeUrl {
     param([string]$Base, [string]$Relative)
     if ([string]::IsNullOrWhiteSpace($Relative)) { return $null }
@@ -1475,6 +1505,115 @@ function ConvertFrom-PartsBookTreeFallback {
     }
 }
 
+function Get-PartsBookSections {
+    # Extracts section entries (sno + display name) from handbook tree HTML,
+    # whether that HTML came from the phbk index page or from the
+    # build_Tree_sections.php AJAX response.
+    param([string]$Html)
+
+    $out = @()
+    if ([string]::IsNullOrWhiteSpace($Html)) { return $out }
+
+    foreach ($m in [regex]::Matches($Html, '(?is)<li\b(?<attrs>[^>]*\bsno\s*=\s*["''](?<sno>\d+)[^>]*)>(?<body>.*?)</li>')) {
+        $span = [regex]::Match($m.Groups['body'].Value, '(?is)<span\b[^>]*>(?<t>.*?)</span>')
+        if (-not $span.Success) { continue }
+        $name = [System.Net.WebUtility]::HtmlDecode(($span.Groups['t'].Value -replace '(?is)<[^>]+>', ''))
+        $name = ($name -replace '\s+', ' ').Trim()
+        if ([string]::IsNullOrWhiteSpace($name)) { continue }
+        $out += [PSCustomObject]@{ Number = $m.Groups['sno'].Value; Name = $name }
+    }
+    return $out
+}
+
+function Get-PartsBookFigures {
+    # Extracts figure entries (figno + name) from a section_figures.php
+    # AJAX response.
+    param([string]$Html)
+
+    $out = @()
+    if ([string]::IsNullOrWhiteSpace($Html)) { return $out }
+
+    foreach ($m in [regex]::Matches($Html, '(?is)<li\b(?<attrs>[^>]*\bfigno\s*=\s*["''](?<figno>[\w.-]+)[^>]*)>(?<body>.*?)</li>')) {
+        $span = [regex]::Match($m.Groups['body'].Value, '(?is)<span\b[^>]*>(?<t>.*?)</span>')
+        if (-not $span.Success) { continue }
+        $name = [System.Net.WebUtility]::HtmlDecode(($span.Groups['t'].Value -replace '(?is)<[^>]+>', ''))
+        $name = ($name -replace '\s+', ' ').Trim()
+        $name = $name -replace '^[\w]+-\d+\s+', ''
+        if ([string]::IsNullOrWhiteSpace($name)) { continue }
+        $out += [PSCustomObject]@{ Figno = $m.Groups['figno'].Value; Name = $name }
+    }
+    return $out
+}
+
+function Get-PartsBookTreeFromWeb {
+    # Auto-fetches the handbook tree (sections + figures) for one book and
+    # returns a synthetic HTML document shaped like the pasted page, so the
+    # existing ConvertFrom-PartsBookTree / -Fallback parsers work unchanged.
+    #
+    # Endpoints (from the phbk viewer's own treeControl.js / main.js):
+    #   GET  index.php?msbookno=N&volno=V        — shell; may render sections
+    #   POST content/build_Tree_sections.php     — section <li>s  {booknum, vol}
+    #   POST ajax/section_figures.php            — figure <li>s   {booknum, vol, section}
+    param(
+        [Parameter(Mandatory)][string]$MsBookNo,
+        [Parameter(Mandatory)][string]$Volume,
+        [int]$TimeoutSec = 30
+    )
+
+    $phbkBase = 'https://www1.mtsc.usps.gov/apps/phbk'
+
+    # 1. Sections — index page first, then the AJAX tree builder as fallback.
+    $sections = @()
+    $sectionHtml = ''
+    try {
+        $page = Invoke-PmHttpGet -Url "$phbkBase/index.php?msbookno=$MsBookNo&volno=$Volume" -TimeoutSec $TimeoutSec
+        $sectionHtml = $page
+        $sections = @(Get-PartsBookSections -Html $page)
+    } catch {
+        Write-Log "Get-PartsBookTreeFromWeb: index page failed: $($_.Exception.Message)"
+    }
+
+    if ($sections.Count -eq 0) {
+        $treeResp = Invoke-PmHttpPost -Url "$phbkBase/content/build_Tree_sections.php" -Form @{ booknum = $MsBookNo; vol = $Volume } -TimeoutSec $TimeoutSec
+        $sectionHtml = $treeResp
+        $sections = @(Get-PartsBookSections -Html $treeResp)
+    }
+    if ($sections.Count -eq 0) {
+        $dump = Save-DebugHtml -Html $sectionHtml -Tag 'phbk-tree'
+        throw "No sections found in the handbook tree for MS-$MsBookNo Vol $Volume. Debug dump: $dump"
+    }
+    Write-Log "Get-PartsBookTreeFromWeb: found $($sections.Count) section(s)"
+
+    # 2. Figures per section via the lazy-load endpoint.
+    $sb = New-Object System.Text.StringBuilder
+    $figureCount = 0
+    foreach ($sec in $sections) {
+        [void]$sb.Append('<li sno="' + $sec.Number + '" special_char="' + $sec.Number + '"><div class="hitarea"></div><span>' + [System.Net.WebUtility]::HtmlEncode($sec.Name) + '</span><ul>')
+        # Section 1 is the handbook front page (section_1.php) and carries no
+        # figures, so only query the figure endpoint for sections >= 2.
+        if ([int]$sec.Number -ge 2) {
+            try {
+                $figResp = Invoke-PmHttpPost -Url "$phbkBase/ajax/section_figures.php" -Form @{ booknum = $MsBookNo; vol = $Volume; section = $sec.Number } -TimeoutSec $TimeoutSec
+                foreach ($fig in @(Get-PartsBookFigures -Html $figResp)) {
+                    [void]$sb.Append('<li figno="' + $fig.Figno + '"><span class="go_fig">' + $fig.Figno + ' ' + [System.Net.WebUtility]::HtmlEncode($fig.Name) + '</span></li>')
+                    $figureCount++
+                }
+            } catch {
+                Write-Log "Get-PartsBookTreeFromWeb: figures for section $($sec.Number) failed: $($_.Exception.Message)"
+            }
+        }
+        [void]$sb.Append('</ul></li>')
+    }
+
+    if ($figureCount -eq 0) {
+        $dump = Save-DebugHtml -Html $sectionHtml -Tag 'phbk-tree'
+        throw "No figures found for MS-$MsBookNo Vol $Volume. Debug dump: $dump"
+    }
+
+    Write-Log "Get-PartsBookTreeFromWeb: fetched $figureCount figure(s)"
+    return '<html><body><div id="Ryan_fault"><ul id="phbk_tree" class="treeview">' + $sb.ToString() + '</ul></div></body></html>'
+}
+
 function Export-PartsBookFigures {
     param(
         $VolumesToUrlData,
@@ -1964,10 +2103,18 @@ function Show-PartsBookCreatorDialog {
                     -Percent ([double]($idx-1) / $selected.Count * 100) `
                     -Book $bookName
 
-                $url = "https://www1.mtsc.usps.gov/apps/phbk/index.php?msbookno=$($row.'MS Book No')&volno=$($row.Volume)"
-                Start-Process $url
-
-                $html = Get-PartsBookTreeHtml -BookName $bookName
+                # Try the automatic tree fetch first; fall back to the
+                # browser + paste flow only if that fails.
+                $html = $null
+                try {
+                    $html = Get-PartsBookTreeFromWeb -MsBookNo "$($row.'MS Book No')" -Volume "$($row.Volume)"
+                    Write-Log "Parts Book Creator: auto-fetched tree for $bookName"
+                } catch {
+                    Write-Log "Parts Book Creator: tree auto-fetch failed for $bookName — $($_.Exception.Message); falling back to manual paste"
+                    $url = "https://www1.mtsc.usps.gov/apps/phbk/index.php?msbookno=$($row.'MS Book No')&volno=$($row.Volume)"
+                    Start-Process $url
+                    $html = Get-PartsBookTreeHtml -BookName $bookName
+                }
                 if ([string]::IsNullOrWhiteSpace($html)) {
                     Write-Log "Parts Book Creator: skipped $bookName (no HTML pasted)"
                     continue
@@ -3306,9 +3453,11 @@ function New-PartsVolumesCsv {
     if ([string]::IsNullOrWhiteSpace($Html))       { throw "No HTML supplied." }
     if ([string]::IsNullOrWhiteSpace($TargetPath)) { throw "No target path supplied." }
 
+    # The closing </option> tag is optional in the wild (eMARS/MTSC pages emit
+    # unclosed <option> elements); stop at the next <option>, </select>, or EOF.
     $optionMatches = [regex]::Matches(
         $Html,
-        '(?is)<option\b(?<attrs>[^>]*)>(?<text>.*?)</option>')
+        '(?is)<option\b(?<attrs>[^>]*)>(?<text>.*?)(?=</option>|<option\b|</select>|\z)')
 
     Write-Log "New-PartsVolumesCsv: matched $($optionMatches.Count) <option> element(s)"
     if ($optionMatches.Count -eq 0) {
@@ -3338,6 +3487,8 @@ function New-PartsVolumesCsv {
         elseif ($attrs -match '\bvolno\s*=\s*([^\s>]+)')  { $volNo = $matches[1] }
 
         if ([string]::IsNullOrWhiteSpace($msBook) -or [string]::IsNullOrWhiteSpace($volNo)) { continue }
+        # Skip placeholder entries ("All MS Handbooks" / "--Select--").
+        if ($msBook -ieq 'all' -or $volNo -ieq 'all') { continue }
 
         $display = [regex]::Replace($text, '(?is)<[^>]+>', '')
         $display = [System.Net.WebUtility]::HtmlDecode($display)
@@ -3369,13 +3520,39 @@ function Get-PartsVolumesCsvFromWeb {
     }
 
     $baseUrl = 'https://www1.mtsc.usps.gov/apps/mtsc/index.php'
-    $html = Invoke-PmHttpGet -Url (if ($override) { $override } else { $baseUrl })
+    $targetUrl = $baseUrl
+    if ($override) { $targetUrl = $override }
+    $html = Invoke-PmHttpGet -Url $targetUrl
 
     # (a) inline <select>?
-    $selectHtml = Find-SelectBlock -Html $html -Hints @('msbookno', 'volno', 'Volume', 'Handbook')
+    $selectHtml = Find-SelectBlock -Html $html -Hints @('msbookSelect', 'msbookno', 'volno', 'booklist', 'Volume', 'Handbook')
     if ($selectHtml) {
         Write-Log "Get-PartsVolumesCsvFromWeb: found inline <select>"
         return (New-PartsVolumesCsv -Html $selectHtml -TargetPath $TargetPath)
+    }
+
+    # (a2) known lazy-load content pages — the MTSC shell loads these via the
+    # menu; they are server-rendered and carry the handbook dropdown inline.
+    foreach ($page in @(
+        'contents/partsSearch_information.php',
+        'contents/msbook_information.php'
+    )) {
+        $pageUrl = Resolve-RelativeUrl -Base $baseUrl -Relative $page
+        try {
+            $pageHtml = Invoke-PmHttpGet -Url $pageUrl -TimeoutSec 20
+        } catch {
+            Write-Log "  content page $pageUrl failed: $($_.Exception.Message)"
+            continue
+        }
+        $sel = Find-SelectBlock -Html $pageHtml -Hints @('msbookSelect', 'msbookno', 'volno', 'booklist', 'Volume', 'Handbook')
+        if ($sel) {
+            Write-Log "Get-PartsVolumesCsvFromWeb: content page $pageUrl yielded a <select>"
+            return (New-PartsVolumesCsv -Html $sel -TargetPath $TargetPath)
+        }
+        if ($pageHtml -match '(?i)<option\b' -and $pageHtml -match '(?i)volno|msbook') {
+            Write-Log "Get-PartsVolumesCsvFromWeb: content page $pageUrl yielded raw <option>s"
+            return (New-PartsVolumesCsv -Html $pageHtml -TargetPath $TargetPath)
+        }
     }
 
     $candidates = New-Object System.Collections.Generic.List[string]
@@ -3416,8 +3593,10 @@ function Get-PartsVolumesCsvFromWeb {
         foreach ($u in $hits) { & $addCandidate $u }
     }
 
-    # (d) final fallback: a handful of plausible MTSC content paths
+    # (d) final fallback: the known content pages plus a handful of plausible paths
     foreach ($u in @(
+        'contents/partsSearch_information.php',
+        'contents/msbook_information.php',
         'contents/parts_search/parts_search.php',
         'contents/parts_search/partssearch.php',
         'contents/partsSearch/partsSearch.php',
@@ -3446,7 +3625,7 @@ function Get-PartsVolumesCsvFromWeb {
             continue
         }
 
-        $sel = Find-SelectBlock -Html $body -Hints @('msbookno', 'volno', 'Volume')
+        $sel = Find-SelectBlock -Html $body -Hints @('msbookSelect', 'msbookno', 'volno', 'booklist', 'Volume')
         if ($sel) {
             Write-Log "  candidate $resolved yielded a <select>"
             return (New-PartsVolumesCsv -Html $sel -TargetPath $TargetPath)
@@ -3672,10 +3851,11 @@ function New-SitesCsv {
 
     # Match every <option …>…</option>.  Attributes are captured as one
     # blob and parsed separately, so we tolerate: uppercase tags, attribute
-    # order, single/double/no quotes, and multiline display text.
+    # order, single/double/no quotes, multiline display text, and unclosed
+    # <option> tags (the closing tag is optional in HTML).
     $optionMatches = [regex]::Matches(
         $Html,
-        '(?is)<option\b(?<attrs>[^>]*)>(?<text>.*?)</option>')
+        '(?is)<option\b(?<attrs>[^>]*)>(?<text>.*?)(?=</option>|<option\b|</select>|\z)')
 
     Write-Log "New-SitesCsv: matched $($optionMatches.Count) <option> element(s)"
     if ($optionMatches.Count -eq 0) {
@@ -3747,7 +3927,13 @@ function Get-SitesCsvFromCriteriaPage {
     )
     if ($selectHtml) {
         Write-Log "Get-SitesCsvFromCriteriaPage: found inline <select> ($($selectHtml.Length) chars)"
-        return (New-SitesCsv -Html $selectHtml -TargetPath $TargetPath)
+        try {
+            return (New-SitesCsv -Html $selectHtml -TargetPath $TargetPath)
+        } catch {
+            $dump = Save-DebugHtml -Html $selectHtml -Tag 'sites-select'
+            Write-Log "Get-SitesCsvFromCriteriaPage: select parse failed — dump saved: $dump"
+            throw
+        }
     }
 
     # (b) AJAX endpoint scan
@@ -5151,6 +5337,31 @@ function Update-StandingWorkOrderCacheFromWorksheet {
     return $added
 }
 
+function Test-AutoWorksheetRow {
+    # True for rows created by Sync-WorksheetJobHours (job-derived rows),
+    # whether or not they carry the AutoRow flag.  Older versions of this
+    # script omitted the flag on work-order rows, which let stale rows be
+    # re-imported into Jobs.json as phantom duplicates.
+    param($Row)
+
+    if ($null -eq $Row) { return $false }
+    if ($Row.PSObject.Properties['AutoRow'] -and $Row.AutoRow) { return $true }
+
+    # Fingerprint of the job-derived templates (reactive and WO variants).
+    # eDAC rows are created with NeedsAudit=$false, so they can never match.
+    if ("$($Row.WorkCode)"  -ne '07') { return $false }
+    if ("$($Row.Route)"     -ne '#')  { return $false }
+    if ("$($Row.Frequency)" -ne '`')  { return $false }
+    if ("$($Row.Priority)"  -ne 'D')  { return $false }
+    $est = 0.0
+    [void][double]::TryParse("$($Row.EstimatedHrs)", [ref]$est)
+    if ($est -gt 0) { return $false }
+    if (-not [string]::IsNullOrWhiteSpace("$($Row.ChecklistNo)"))   { return $false }
+    if (-not [string]::IsNullOrWhiteSpace("$($Row.PmDescription)")) { return $false }
+    if (-not ($Row.PSObject.Properties['NeedsAudit'] -and $Row.NeedsAudit)) { return $false }
+    return $true
+}
+
 function Sync-WorksheetJobHours {
     # Applies today's reactive calls and work orders to the worksheet.
     #
@@ -5183,7 +5394,7 @@ function Sync-WorksheetJobHours {
     # ---- Prune our own auto-added rows whose WO# is no longer live ----
     $kept = New-Object System.Collections.ArrayList
     foreach ($row in @($Worksheet.Rows)) {
-        $isAuto = ($row.PSObject.Properties['AutoRow'] -and $row.AutoRow)
+        $isAuto = Test-AutoWorksheetRow -Row $row
         if ($isAuto) {
             $rwo = "$($row.WorkOrderNo)"
             if (-not $currentWos.ContainsKey($rwo)) {
@@ -5323,6 +5534,7 @@ function Sync-WorksheetJobHours {
                 AutoValue      = [Math]::Round([double]$h, 2)
                 ManualOverride = $false
                 NeedsAudit     = $true
+                AutoRow        = $true
             }
             $Worksheet.Rows = @($Worksheet.Rows) + $newRow
         }
@@ -9284,9 +9496,9 @@ function Import-WorksheetJobsToJobLog {
     # Acronym='ADMIN', ClassCode='AA'.  Real assigned WOs carry the
     # machine-type acronym (DBCS, CIOSS, ...) and no class code.
     #
-    # Auto-added rows (AutoRow=$true) are also excluded — those came
-    # *from* the job log via Sync-WorksheetJobHours and don't need to
-    # round-trip back.
+    # Job-derived rows (AutoRow flag or template fingerprint) are excluded —
+    # those came *from* the job log via Sync-WorksheetJobHours and don't
+    # need to round-trip back.
     param($Worksheet, [DateTime]$Date)
 
     if ($null -eq $Worksheet -or $null -eq $Worksheet.Rows) { return 0 }
@@ -9314,7 +9526,7 @@ function Import-WorksheetJobsToJobLog {
         if ("$($row.RowType)" -ne 'W')                  { continue }
         if ("$($row.Acronym)"   -eq 'ADMIN')            { continue }
         if ("$($row.Description)".ToUpper() -match 'REACTIVE') { continue }
-        if ($row.PSObject.Properties['AutoRow'] -and $row.AutoRow) { continue }
+        if (Test-AutoWorksheetRow -Row $row)            { continue }
 
         $wo = "$($row.WorkOrderNo)"
         if ([string]::IsNullOrWhiteSpace($wo)) { continue }
