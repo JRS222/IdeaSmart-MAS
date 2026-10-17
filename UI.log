@@ -1,75 +1,26 @@
-Found it. There's a stray brace in New-WorksheetFromHtml that closes the foreach loop one iteration too early — specifically, this line:
+Right — that's consistent with what I said: only 10/23 gets written, because the save is happening once, after the loop, on the last iteration's values. The other six days parse in memory and then get thrown away before Save-WeeklyWorksheet ever sees them.
+
+The fix is the two brace edits. To be explicit about what's wrong in your file right now:
 
 ```powershell
-            $ws = [PSCustomObject]@{
-                Date      = $dt.ToString("yyyy-MM-dd")
-                FetchedAt = (Get-Date).ToString("o")
-                Source    = $Source
                 Rows      = $decorated
-		}}          ← ← ← this second } closes the foreach
+		}}          ← this second } is closing the foreach early
 ```
 
-The first } closes the hashtable literal; the second } closes the foreach ($target in $foundDates) loop. Everything after that point — Sync-WorksheetActualTimes, Sync-WorksheetJobHours, Add-WorksheetPlaceholders, Save-WeeklyWorksheet, Import-WorksheetJobsToJobLog, and $saved += ... — is therefore outside the loop and runs exactly once, against whatever $ws / $dt / $decorated are left over from the last iteration.
-
-Why the log looks like this
-
-Your log is telling you the exact bug:
-
-```
-New-WorksheetFromHtml: date 17-OCT-26 -> 14 data row(s)
-New-WorksheetFromHtml: date 18-OCT-26 -> 13 data row(s)
-...                                    ← parsing all 7 ✓
-New-WorksheetFromHtml: date 23-OCT-26 -> 13 data row(s)
-
-Weekly Worksheet: imported 7 date(s), 13 total row(s).
-                                       ^^^^^^^^^^^^^^^^
-```
-
-DatesParsed = $foundDates.Count is 7 (correct — that variable was set before the loop). But TotalRows = ($saved | Measure-Object -Property Rows -Sum).Sum reports 13, because $saved only ever got one entry — the last iteration's, which had 13 rows. Seven dates × 13–14 rows each should sum to ~92. The mismatch between "7 dates parsed" and "13 total rows" is the tell.
-
-Why the view is empty
-
-Save-WeeklyWorksheet also only ran once, for 2026-10-23. So:
-
-```
-Work Tracking\Weekly Worksheets\2026-10-23.json   ← the only file that exists
-```
-
-Your wsDatePicker is on 2026-10-17 (today). Get-WeeklyWorksheet -Date 2026-10-17 looks for 2026-10-17.json, doesn't find it, returns $null, and Refresh-WeeklyWorksheetList renders the "No worksheet loaded" empty state. The parse worked; the save went to the wrong day.
-
-Also silently lost: the Sync-WorksheetActualTimes / Add-WorksheetPlaceholders / Import-WorksheetJobsToJobLog passes only executed against 23-OCT-26's data, so today's PM hours never got folded into today's worksheet rows, and no pm.checklist placeholders were added for 10-17.
-
-The fix
-
-Change the double brace to a single brace:
+and the actual foreach-close is missing at the bottom — it should be sitting on its own line right after:
 
 ```powershell
-            $ws = [PSCustomObject]@{
-                Date      = $dt.ToString("yyyy-MM-dd")
-                FetchedAt = (Get-Date).ToString("o")
-                Source    = $Source
-                Rows      = $decorated
-            }
+            $saved += [PSCustomObject]@{ Date = $dt.ToString("yyyy-MM-dd"); Rows = $decorated.Count }
+        }          ← add this
+    } finally {
 ```
 
-That single character moves the sync/save/import block back inside the loop where it belongs. After this, each of the 7 dates will:
+Either make those two edits, or replace the block from $saved = @() through the closing } finally { with the version I pasted in my last message. Then:
 
-1. Sync actual times from PM checklists + worksheet row data
-2. Update the standing WO cache
-3. Sync job hours (reactive + WO)
-4. Add NeedsAudit placeholders for any PM checklists without a worksheet row
-5. Write its own YYYY-MM-DD.json
-6. Import worksheet WOs into Jobs.json
-7. Append to $saved with that day's row count
+1. Save the file
+2. Close and relaunch the app (PowerShell caches function bodies — editing the file alone won't fix the running process)
+3. Re-fetch or re-paste the eDAC HTML
+4. Check the log — the last line should read imported 7 date(s), ~91 total row(s) instead of 13
+5. Check Work Tracking\Weekly Worksheets\ — you should have 7 JSONs, not 1
 
-Your TotalRows should then jump from 13 to ~91, and 2026-10-17.json will exist so the view populates when you're on today's date.
-
-After applying
-
-Re-import the same HTML (Fetch or Paste — either is fine, Import-WorksheetJobsToJobLog is idempotent on (WO#, date) keys so no duplicate jobs will land in Jobs.json). You should see:
-
-```
-Weekly Worksheet: imported 7 date(s), 91 total row(s).
-```
-
-...or thereabouts, and today's rows will appear. The other six days will now be sitting in Work Tracking\Weekly Worksheets\ waiting when you flip the date picker forward.
+Nothing you have to delete first; Save-WeeklyWorksheet overwrites by date, and Import-WorksheetJobsToJobLog dedupes on (WO#, date), so re-importing is safe.
