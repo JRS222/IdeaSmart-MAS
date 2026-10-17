@@ -1,23 +1,47 @@
-# 1. Connect to Exchange Online
-Connect-ExchangeOnline
-
-# --- Set your email address here ---
-$UserEmail = "your.email@yourdomain.com"
-
-Write-Host "`n=== 1. CHECKING INBOX RULES ===" -ForegroundColor Cyan
-# Shows rules that might move or delete your mail
-Get-InboxRule -Mailbox $UserEmail | Format-List Name, Description, Enabled, MoveToFolder, DeleteMessage, ForwardTo, RedirectTo
-
-Write-Host "`n=== 2. CHECKING MAILBOX-LEVEL FORWARDING ===" -ForegroundColor Cyan
-# Checks if an admin set your mailbox to forward copies of all mail
-Get-Mailbox -Identity $UserEmail | Select-Object DisplayName, PrimarySmtpAddress, ForwardingAddress, ForwardingSmtpAddress, DeliverToMailboxAndForward
-
-Write-Host "`n=== 3. CHECKING ORGANIZATION-WIDE TRANSPORT RULES ===" -ForegroundColor Cyan
-# Transport rules are invisible to users and act before mail hits your mailbox
-Get-TransportRule | Where-Object { $_.State -eq 'Enabled' } | Format-List Name, Description, Priority, RedirectMessageTo, BlindCopyTo, DeleteMessage
-
-Write-Host "`n=== 4. CHECKING RECENT ADMIN AUDIT LOGS (Last 30 Days) ===" -ForegroundColor Cyan
-# Searches the audit log for changes made by admins or scripts
-$StartDate = (Get-Date).AddDays(-30)
-$EndDate = Get-Date
-Search-UnifiedAuditLog -StartDate $StartDate -EndDate $EndDate -UserIds $UserEmail -Operations "Set-Mailbox", "New-InboxRule", "Set-InboxRule", "Add-MailboxPermission" -ResultSize 50 | Format-Table CreationDate, UserIds, Operations, AuditData -Wrap
+2026-10-17 08:04:18 - Config loaded successfully
+2026-10-17 08:04:20 - Get-Jobs: read 21 job(s) from C:\Users\YYQTP0\Desktop\PartsMgmt\Work Tracking\Jobs.json
+2026-10-17 08:04:20 - Get-Jobs: read 21 job(s) from C:\Users\YYQTP0\Desktop\PartsMgmt\Work Tracking\Jobs.json
+2026-10-17 08:04:20 - Get-Jobs: read 21 job(s) from C:\Users\YYQTP0\Desktop\PartsMgmt\Work Tracking\Jobs.json
+2026-10-17 08:04:20 - Job Log sub-tab setup completed.
+2026-10-17 08:04:20 - Sync-PmArchive: processed=0 removed=0
+2026-10-17 08:04:20 - Load-PmMachines: dir=C:\Users\YYQTP0\Desktop\PartsMgmt\Work Tracking\PM Checklists fileCount=26
+2026-10-17 08:04:21 - Refresh-PmMachineTabs: selected=2026-10-17 all=26 shown=2
+2026-10-17 08:04:22 - Get-Jobs: read 21 job(s) from C:\Users\YYQTP0\Desktop\PartsMgmt\Work Tracking\Jobs.json
+2026-10-17 08:04:22 - PM Checklist sub-tab setup completed.
+2026-10-17 08:04:22 - Weekly Worksheet sub-tab setup completed.
+[Historian] machine filter: kind='All' -> 16 machine(s): ATU 1, ATU 2, ATU 3, DBCS 28, DBCS 30, DBCS 31, DBCS 33, DBCS 34, DBCS 49, DBCS 58, DBCS 59, DBCS 61, DBCS 62, DBCS 63, DBCS 64, WORKSHEET
+2026-10-17 08:04:26 - Historian sub-tab setup completed.
+2026-10-17 08:04:26 - Processing Books from config:
+2026-10-17 08:04:26 - Checking file: C:\Users\YYQTP0\Desktop\PartsMgmt\Parts Books\MS-229 Delivery Bar Code Sorter Phase 4 - DBCS (Vol. E)\MS-229 Delivery Bar Code Sorter Phase 4 - DBCS (Vol. E).xlsx
+2026-10-17 08:04:26 - Added file: MS-229 Delivery Bar Code Sorter Phase 4 - DBCS Vol E
+2026-10-17 08:04:26 - Checking file: C:\Users\YYQTP0\Desktop\PartsMgmt\Parts Books\MS-298 DELIVERY BAR CODE SORTER Phase 3-5 LAU PH2 - DBCS 3-5 LAU PH2 (Vol. C)\MS-298 DELIVERY BAR CODE SORTER Phase 3-5 LAU PH2 - DBCS 3-5 LAU PH2 (Vol. C).xlsx                                                                                                                     2026-10-17 08:04:26 - Added file: MS-298 DELIVERY BAR CODE SORTER Phase 3-5 LAU PH2 - DBCS 3-5 LAU PH2 Vol C            2026-10-17 08:04:26 - Checking file: C:\Users\YYQTP0\Desktop\PartsMgmt\Parts Books\MS-212 Wide Field Of View Camera - WFOV (Vol. B)\MS-212 Wide Field Of View Camera - WFOV (Vol. B).xlsx
+2026-10-17 08:04:26 - Added file: MS-212 Wide Field Of View Camera - WFOV Vol B
+2026-10-17 08:04:26 - Checking file: C:\Users\YYQTP0\Desktop\PartsMgmt\Parts Books\MS-243 Automatic Tray Unsleever - ATU (Vol. B)\MS-243 Automatic Tray Unsleever - ATU (Vol. B).xlsx
+2026-10-17 08:04:26 - Added file: MS-243 Automatic Tray Unsleever - ATU Vol B
+2026-10-17 08:04:26 - Checking file: C:\Users\YYQTP0\Desktop\PartsMgmt\Parts Books\MS-242 Enhanced Airline Assignment - EAA (Vol. B)\MS-242 Enhanced Airline Assignment - EAA (Vol. B).xlsx
+2026-10-17 08:04:26 - Added file: MS-242 Enhanced Airline Assignment - EAA Vol B
+2026-10-17 08:04:26 - Checking file: C:\Users\YYQTP0\Desktop\PartsMgmt\Parts Books\MS-313 High Speed Tray Sorter - HSTS (Vol. B)\MS-313 High Speed Tray Sorter - HSTS (Vol. B).xlsx
+2026-10-17 08:04:26 - Added file: MS-313 High Speed Tray Sorter - HSTS Vol B
+2026-10-17 08:04:26 - Checking file: C:\Users\YYQTP0\Desktop\PartsMgmt\Parts Books\MS-178 Automated Flat Sorting Machine 100 - Automatic Induction - AFSM 100-ai (Vol. G2)\MS-178 Automated Flat Sorting Machine 100 - Automatic Induction - AFSM 100-ai (Vol. G2).xlsx
+2026-10-17 08:04:26 - Added file: MS-178 Automated Flat Sorting Machine 100 - Automatic Induction - AFSM 100-ai Vol G2
+2026-10-17 08:04:26 - Setting up Search tab...
+2026-10-17 08:04:27 - Search tab setup completed.
+2026-10-17 08:04:27 - Setting up Settings tab...
+2026-10-17 08:04:29 - Load-WtSettingsValues: configPath='C:\Users\YYQTP0\Desktop\PartsMgmt\Config.json'
+2026-10-17 08:04:29 - Load-WtSettingsValues: techName='Joseph Shaw' email='default@example.com'
+2026-10-17 08:04:29 - Settings tab setup completed.
+2026-10-17 08:04:29 - UI setup completed
+2026-10-17 08:04:37 - New-WorksheetFromHtml: date pattern found 7 match(es)
+2026-10-17 08:04:37 - New-WorksheetFromHtml: found dates: 17-OCT-26, 18-OCT-26, 19-OCT-26, 20-OCT-26, 21-OCT-26, 22-OCT-26, 23-OCT-26
+2026-10-17 08:04:38 - New-WorksheetFromHtml: date 17-OCT-26 -> 14 data row(s)
+2026-10-17 08:04:38 - New-WorksheetFromHtml: date 18-OCT-26 -> 13 data row(s)
+2026-10-17 08:04:38 - New-WorksheetFromHtml: date 19-OCT-26 -> 13 data row(s)
+2026-10-17 08:04:38 - New-WorksheetFromHtml: date 20-OCT-26 -> 13 data row(s)
+2026-10-17 08:04:38 - New-WorksheetFromHtml: date 21-OCT-26 -> 13 data row(s)
+2026-10-17 08:04:38 - New-WorksheetFromHtml: date 22-OCT-26 -> 13 data row(s)
+2026-10-17 08:04:39 - New-WorksheetFromHtml: date 23-OCT-26 -> 13 data row(s)
+2026-10-17 08:04:39 - Get-Jobs: read 21 job(s) from C:\Users\YYQTP0\Desktop\PartsMgmt\Work Tracking\Jobs.json
+2026-10-17 08:04:39 - Get-Jobs: read 21 job(s) from C:\Users\YYQTP0\Desktop\PartsMgmt\Work Tracking\Jobs.json
+2026-10-17 08:04:39 - Get-Jobs: read 21 job(s) from C:\Users\YYQTP0\Desktop\PartsMgmt\Work Tracking\Jobs.json
+2026-10-17 08:04:39 - Get-Jobs: read 21 job(s) from C:\Users\YYQTP0\Desktop\PartsMgmt\Work Tracking\Jobs.json
+2026-10-17 08:04:39 - Weekly Worksheet: imported 7 date(s), 13 total row(s).
