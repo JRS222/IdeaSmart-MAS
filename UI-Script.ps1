@@ -699,6 +699,75 @@ $script:themeLvSubItemDraw = {
     } catch { }
 }
 
+################################################################################
+# Native window chrome (title bar, frame, scrollbars) — drawn by the OS, so it
+# can only follow a theme through the DWM API (Windows 10 1809+ / Windows 11).
+################################################################################
+
+Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+public class ThemeNative
+{
+    [DllImport("dwmapi.dll")]
+    public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
+    [DllImport("dwmapi.dll")]
+    public static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref uint value, int size);
+}
+"@ -ErrorAction SilentlyContinue
+
+function Set-ThemeWindowChrome {
+    # Colors the title bar, window frame, and (via immersive dark mode) the
+    # native scrollbars for one top-level window.
+    param($Form)
+
+    if ($null -eq $Form -or -not ($Form -is [System.Windows.Forms.Form])) { return }
+    try {
+        if (-not $Form.IsHandleCreated) { return }
+    } catch { return }
+
+    $hwnd = $Form.Handle
+    try {
+        if ($script:theme -eq 'Dark') {
+            # Immersive dark mode: darkens the title bar, frame, AND scrollbars.
+            $v = 1
+            [void][ThemeNative]::DwmSetWindowAttribute($hwnd, 20, [ref]$v, 4)   # 20H1+
+            [void][ThemeNative]::DwmSetWindowAttribute($hwnd, 19, [ref]$v, 4)   # pre-20H1
+            # Windows 11 caption/border/text colors (ignored on older builds)
+            $cap = [uint32]0x00262626   # COLORREF (BGR) dark charcoal
+            $brd = [uint32]0x00101010
+            $txt = [uint32]0x00E8E8E8
+            [void][ThemeNative]::DwmSetWindowAttribute($hwnd, 35, [ref]$cap, 4)
+            [void][ThemeNative]::DwmSetWindowAttribute($hwnd, 34, [ref]$brd, 4)
+            [void][ThemeNative]::DwmSetWindowAttribute($hwnd, 36, [ref]$txt, 4)
+        }
+        elseif ($script:theme -eq 'Postal') {
+            $v = 0
+            [void][ThemeNative]::DwmSetWindowAttribute($hwnd, 20, [ref]$v, 4)
+            [void][ThemeNative]::DwmSetWindowAttribute($hwnd, 19, [ref]$v, 4)
+            # Postal-blue caption + frame with white text (Windows 11)
+            $cap = [uint32]0x00874B00   # BGR of RGB(0, 75, 135)
+            $brd = [uint32]0x003E6FA9
+            $txt = [uint32]0x00FFFFFF
+            [void][ThemeNative]::DwmSetWindowAttribute($hwnd, 35, [ref]$cap, 4)
+            [void][ThemeNative]::DwmSetWindowAttribute($hwnd, 34, [ref]$brd, 4)
+            [void][ThemeNative]::DwmSetWindowAttribute($hwnd, 36, [ref]$txt, 4)
+        }
+        else {
+            # Default: back to the standard light chrome.
+            $v = 0
+            [void][ThemeNative]::DwmSetWindowAttribute($hwnd, 20, [ref]$v, 4)
+            [void][ThemeNative]::DwmSetWindowAttribute($hwnd, 19, [ref]$v, 4)
+            $cap = [uint32]0x00FFFFFF
+            $brd = [uint32]0x00FFFFFF
+            $txt = [uint32]0x00000000
+            [void][ThemeNative]::DwmSetWindowAttribute($hwnd, 35, [ref]$cap, 4)
+            [void][ThemeNative]::DwmSetWindowAttribute($hwnd, 34, [ref]$brd, 4)
+            [void][ThemeNative]::DwmSetWindowAttribute($hwnd, 36, [ref]$txt, 4)
+        }
+    } catch { }
+}
+
 function Set-ThemedControlColors {
     # Themes ONE control (BackColor, ForeColor, button hover shades, progress
     # bar surfaces), translating from its stored design-time colors so themes
@@ -834,6 +903,20 @@ function Apply-UiTheme {
     if ($null -eq $Root -or $Root.IsDisposed) { return }
     Set-ThemedControlColors -c $Root   # theme the window itself too
     Apply-ThemeControlTree -Collection $Root.Controls
+
+    # Native chrome (title bar / frame / scrollbars) for top-level windows.
+    if ($Root -is [System.Windows.Forms.Form]) {
+        try {
+            if (-not $script:themeBase[$Root].ChromeWired) {
+                $Root.Add_HandleCreated({
+                    Set-ThemeWindowChrome -Form $Root
+                }.GetNewClosure())
+                $script:themeBase[$Root] | Add-Member -NotePropertyName 'ChromeWired' -NotePropertyValue $true -Force
+            }
+            Set-ThemeWindowChrome -Form $Root
+        } catch { }
+    }
+
     try { $Root.Refresh() } catch { }
     Write-Log "Theme applied: $script:theme"
 }
