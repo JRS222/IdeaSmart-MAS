@@ -464,7 +464,7 @@ function Rescale-ResponsiveSplitters {
 ################################################################################
 #                          UI Theme Engine (PowerShell 5.1)                    #
 ################################################################################
-# Three themes: Default (as designed), Dark, and WindowsXP (Luna-ish).
+# Three themes: Default (as designed), Dark, and Postal (USPS-style).
 # Colors are swapped by exact-RGB mapping, so no existing layout code changes.
 # BackColor and ForeColor are mapped independently (e.g., white button text
 # stays white in every theme).
@@ -483,18 +483,20 @@ $script:themeBackMaps = @{
         '220,225,232' = [System.Drawing.Color]::FromArgb(60, 60, 62)     # splitter back
         '189,195,199' = [System.Drawing.Color]::FromArgb(66, 66, 68)     # secondary / ghost buttons
         '236,240,242' = [System.Drawing.Color]::FromArgb(66, 66, 68)     # ghost buttons alt
+        '240,240,240' = [System.Drawing.Color]::FromArgb(45, 45, 48)     # Control gray (tab strip area, group boxes)
     }
-    WindowsXP = @{
-        '236,240,241' = [System.Drawing.Color]::FromArgb(236, 233, 216)  # XP beige window
-        '245,247,250' = [System.Drawing.Color]::FromArgb(240, 238, 224)  # XP beige panels
-        '226,232,240' = [System.Drawing.Color]::FromArgb(222, 219, 203)  # XP beige track / status bars
-        '255,255,255' = [System.Drawing.Color]::FromArgb(255, 255, 250)  # warm white surfaces
-        '220,225,232' = [System.Drawing.Color]::FromArgb(196, 193, 179)  # splitter back
-        '189,195,199' = [System.Drawing.Color]::FromArgb(216, 214, 199)  # silver secondary buttons
-        '236,240,242' = [System.Drawing.Color]::FromArgb(216, 214, 199)  # ghost buttons alt
-        '52,152,219'  = [System.Drawing.Color]::FromArgb(0, 102, 204)    # XP royal blue
-        '39,174,96'   = [System.Drawing.Color]::FromArgb(51, 153, 51)    # XP green
-        '231,76,60'   = [System.Drawing.Color]::FromArgb(204, 51, 51)    # XP red
+    Postal = @{
+        '236,240,241' = [System.Drawing.Color]::FromArgb(232, 236, 242)  # light postal gray-blue window
+        '245,247,250' = [System.Drawing.Color]::FromArgb(240, 243, 247)  # light postal panels
+        '226,232,240' = [System.Drawing.Color]::FromArgb(214, 222, 232)  # track / status bars
+        '255,255,255' = [System.Drawing.Color]::FromArgb(255, 255, 255)  # white surfaces stay white
+        '220,225,232' = [System.Drawing.Color]::FromArgb(196, 206, 220)  # splitter back
+        '189,195,199' = [System.Drawing.Color]::FromArgb(163, 178, 196)  # secondary buttons
+        '236,240,242' = [System.Drawing.Color]::FromArgb(163, 178, 196)  # ghost buttons alt
+        '240,240,240' = [System.Drawing.Color]::FromArgb(232, 236, 242)  # Control gray (tab strip area, group boxes)
+        '52,152,219'  = [System.Drawing.Color]::FromArgb(0, 75, 135)     # Postal Blue (#004B87)
+        '39,174,96'   = [System.Drawing.Color]::FromArgb(39, 174, 96)    # green kept
+        '231,76,60'   = [System.Drawing.Color]::FromArgb(218, 41, 28)    # USPS red (#DA291C)
     }
 }
 
@@ -507,12 +509,12 @@ $script:themeForeMaps = @{
         '179,38,30'   = [System.Drawing.Color]::FromArgb(255, 130, 120)  # error text
         '0,0,0'       = [System.Drawing.Color]::FromArgb(230, 230, 230)  # black text
     }
-    WindowsXP = @{
-        '44,62,80'    = [System.Drawing.Color]::FromArgb(0, 0, 0)        # crisp black text
-        '90,100,115'  = [System.Drawing.Color]::FromArgb(90, 90, 80)
-        '120,130,145' = [System.Drawing.Color]::FromArgb(90, 90, 80)
-        '160,170,185' = [System.Drawing.Color]::FromArgb(120, 120, 110)
-        '179,38,30'   = [System.Drawing.Color]::FromArgb(204, 0, 0)
+    Postal = @{
+        '44,62,80'    = [System.Drawing.Color]::FromArgb(27, 43, 64)     # postal navy text
+        '90,100,115'  = [System.Drawing.Color]::FromArgb(96, 110, 128)
+        '120,130,145' = [System.Drawing.Color]::FromArgb(96, 110, 128)
+        '160,170,185' = [System.Drawing.Color]::FromArgb(130, 140, 155)
+        '179,38,30'   = [System.Drawing.Color]::FromArgb(218, 41, 28)    # USPS red
     }
 }
 
@@ -522,6 +524,179 @@ function Get-ThemeMappedColor {
     $key = "{0},{1},{2}" -f $Color.R, $Color.G, $Color.B
     if ($Map.ContainsKey($key)) { return $Map[$key] }
     return $null
+}
+
+################################################################################
+# Owner-draw handlers: tab headers and ListView headers/rows are drawn by the
+# OS, so they can only follow a theme when we draw them ourselves.
+################################################################################
+
+$script:themeTabPaint = {
+    # TabControl.BackColor is ignored by the OS control in 5.1, so the strip
+    # area behind the tabs is filled here instead.
+    param($sender, $e)
+    try {
+        if ($script:theme -eq 'Default') { return }
+        $c = if ($script:theme -eq 'Dark') { [System.Drawing.Color]::FromArgb(37, 37, 38) }
+             else { [System.Drawing.Color]::FromArgb(232, 236, 242) }
+        $b = New-Object System.Drawing.SolidBrush($c)
+        $e.Graphics.FillRectangle($b, $sender.ClientRectangle)
+        $b.Dispose()
+    } catch { }
+}
+
+$script:themeTabDraw = {
+    param($sender, $e)
+    try {
+        $g = $e.Graphics
+        if ($e.Index -lt 0 -or $e.Index -ge $sender.TabPages.Count) { return }
+        $page = $sender.TabPages[$e.Index]
+        $r = $e.Bounds
+        $selected = ($e.State -band [System.Windows.Forms.DrawItemState]::Selected) -ne 0
+        switch ($script:theme) {
+            'Dark' {
+                $back = if ($selected) { [System.Drawing.Color]::FromArgb(70, 70, 74) } else { [System.Drawing.Color]::FromArgb(45, 45, 48) }
+                $txt  = [System.Drawing.Color]::FromArgb(225, 228, 232)
+                $edge = [System.Drawing.Color]::FromArgb(22, 22, 24)
+                $acc  = [System.Drawing.Color]::FromArgb(52, 152, 219)
+            }
+            'Postal' {
+                $back = if ($selected) { [System.Drawing.Color]::White } else { [System.Drawing.Color]::FromArgb(214, 222, 232) }
+                $txt  = [System.Drawing.Color]::FromArgb(27, 43, 64)
+                $edge = [System.Drawing.Color]::FromArgb(163, 178, 196)
+                $acc  = [System.Drawing.Color]::FromArgb(0, 75, 135)
+            }
+            default { return }
+        }
+        $brush = New-Object System.Drawing.SolidBrush($back)
+        $pen   = New-Object System.Drawing.Pen($edge)
+        try {
+            $g.FillRectangle($brush, $r)
+            if ($selected) {
+                $ab = New-Object System.Drawing.SolidBrush($acc)
+                $g.FillRectangle($ab, $r.X, $r.Y, $r.Width, 3)
+                $ab.Dispose()
+                $g.DrawLine($pen, $r.X, $r.Y + 1, $r.X, $r.Bottom - 1)
+                $g.DrawLine($pen, $r.Right - 1, $r.Y + 1, $r.Right - 1, $r.Bottom - 1)
+            }
+            $fmt = New-Object System.Drawing.StringFormat
+            $fmt.Alignment = [System.Drawing.StringAlignment]::Center
+            $fmt.LineAlignment = [System.Drawing.StringAlignment]::Center
+            $fmt.Trimming = [System.Drawing.StringTrimming]::EllipsisCharacter
+            $textBrush = New-Object System.Drawing.SolidBrush($txt)
+            # DrawString needs a RectangleF in PowerShell 5.1 (a Rectangle fails to bind)
+            $rf = New-Object System.Drawing.RectangleF($r.X, $r.Y, $r.Width, $r.Height)
+            $g.DrawString($page.Text, $sender.Font, $textBrush, $rf, $fmt)
+            $textBrush.Dispose(); $fmt.Dispose()
+        } finally {
+            $brush.Dispose(); $pen.Dispose()
+        }
+    } catch { }
+}
+
+$script:themeLvHeaderDraw = {
+    param($sender, $e)
+    try {
+        $g = $e.Graphics
+        $col = $sender.Columns[$e.ColumnIndex]
+        $r = $e.Bounds
+        switch ($script:theme) {
+            'Dark'   { $back = [System.Drawing.Color]::FromArgb(58, 58, 60);  $txt = [System.Drawing.Color]::FromArgb(205, 209, 214); $line = [System.Drawing.Color]::FromArgb(88, 88, 92) }
+            'Postal' { $back = [System.Drawing.Color]::FromArgb(0, 75, 135);   $txt = [System.Drawing.Color]::White;                  $line = [System.Drawing.Color]::FromArgb(0, 56, 102) }
+            default  { $back = [System.Drawing.Color]::FromArgb(240, 242, 245); $txt = [System.Drawing.Color]::FromArgb(44, 62, 80);   $line = [System.Drawing.Color]::FromArgb(200, 205, 212) }
+        }
+        $brush = New-Object System.Drawing.SolidBrush($back)
+        $g.FillRectangle($brush, $r)
+        $brush.Dispose()
+        $tb = New-Object System.Drawing.SolidBrush($txt)
+        $fmt = New-Object System.Drawing.StringFormat
+        $fmt.Alignment = [System.Drawing.StringAlignment]::Center
+        $fmt.LineAlignment = [System.Drawing.StringAlignment]::Center
+        $fmt.Trimming = [System.Drawing.StringTrimming]::EllipsisCharacter
+        # DrawString needs a RectangleF in PowerShell 5.1 (a Rectangle fails to bind)
+        $rf = New-Object System.Drawing.RectangleF($r.X, $r.Y, $r.Width, $r.Height)
+        $g.DrawString($col.Text, $sender.Font, $tb, $rf, $fmt)
+        $tb.Dispose(); $fmt.Dispose()
+        $pen = New-Object System.Drawing.Pen($line)
+        $g.DrawLine($pen, $r.Right - 1, $r.Top, $r.Right - 1, $r.Bottom - 1)
+        $g.DrawLine($pen, $r.Left, $r.Bottom - 1, $r.Right - 1, $r.Bottom - 1)
+        $pen.Dispose()
+    } catch { }
+}
+
+$script:themeLvItemDraw = {
+    param($sender, $e)
+    try {
+        $g = $e.Graphics
+        $r = $e.Bounds
+        $item = $e.Item
+        $grid = if ($script:theme -eq 'Dark') { [System.Drawing.Color]::FromArgb(70, 70, 72) }
+                elseif ($script:theme -eq 'Postal') { [System.Drawing.Color]::FromArgb(214, 222, 232) }
+                else { [System.Drawing.Color]::FromArgb(200, 205, 212) }
+        if ($item.Selected) {
+            $sel = if ($script:theme -eq 'Dark') { [System.Drawing.Color]::FromArgb(70, 96, 130) }
+                   elseif ($script:theme -eq 'Postal') { [System.Drawing.Color]::FromArgb(0, 105, 180) }
+                   else { [System.Drawing.Color]::FromArgb(0, 120, 215) }
+            $b = New-Object System.Drawing.SolidBrush($sel)
+            $g.FillRectangle($b, $r)
+            $b.Dispose()
+        } else {
+            $back = $item.BackColor
+            if ($back.ToArgb() -eq 0) { $back = $sender.BackColor }
+            $b = New-Object System.Drawing.SolidBrush($back)
+            $g.FillRectangle($b, $r)
+            $b.Dispose()
+        }
+        # checkbox for checkable lists (PM task lists)
+        if ($sender.CheckBoxes) {
+            $cb = New-Object System.Drawing.Rectangle(($r.X + 3), ($r.Y + [int](($r.Height - 13) / 2)), 13, 13)
+            $boxCol = if ($script:theme -eq 'Dark') { [System.Drawing.Color]::FromArgb(200, 202, 206) } else { [System.Drawing.Color]::White }
+            $wb = New-Object System.Drawing.SolidBrush($boxCol)
+            $g.FillRectangle($wb, $cb)
+            $wb.Dispose()
+            $cp = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(120, 124, 130))
+            $g.DrawRectangle($cp, $cb)
+            $cp.Dispose()
+            if ($item.Checked) {
+                $xp = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(0, 120, 60), 2)
+                $g.DrawLine($xp, ($cb.X + 2), ($cb.Y + 7), ($cb.X + 5), ($cb.Y + 10))
+                $g.DrawLine($xp, ($cb.X + 5), ($cb.Y + 10), ($cb.X + 11), ($cb.Y + 3))
+                $xp.Dispose()
+            }
+        }
+        $gp = New-Object System.Drawing.Pen($grid)
+        $g.DrawLine($gp, $r.Left, $r.Bottom - 1, $r.Right - 1, $r.Bottom - 1)
+        $gp.Dispose()
+    } catch { }
+}
+
+$script:themeLvSubItemDraw = {
+    param($sender, $e)
+    try {
+        $g = $e.Graphics
+        $sub = $e.SubItem
+        $r = $e.Bounds
+        $txtColor = $sub.ForeColor
+        if ($txtColor.ToArgb() -eq 0) { $txtColor = $sender.ForeColor }
+        if ($e.Item.Selected -and $txtColor.ToArgb() -eq $sender.ForeColor.ToArgb()) {
+            $txtColor = [System.Drawing.Color]::White
+        }
+        $fmt = New-Object System.Drawing.StringFormat
+        $fmt.LineAlignment = [System.Drawing.StringAlignment]::Center
+        $fmt.Trimming = [System.Drawing.StringTrimming]::EllipsisCharacter
+        $pad = if ($sender.CheckBoxes -and $e.ColumnIndex -eq 0) { 20 } else { 4 }
+        $textRect = New-Object System.Drawing.RectangleF(($r.X + $pad), $r.Y, ($r.Width - $pad - 4), $r.Height)
+        $tb = New-Object System.Drawing.SolidBrush($txtColor)
+        $font = if ($sub.Font) { $sub.Font } else { $sender.Font }
+        $g.DrawString($sub.Text, $font, $tb, $textRect, $fmt)
+        $tb.Dispose(); $fmt.Dispose()
+        $grid = if ($script:theme -eq 'Dark') { [System.Drawing.Color]::FromArgb(70, 70, 72) }
+                elseif ($script:theme -eq 'Postal') { [System.Drawing.Color]::FromArgb(214, 222, 232) }
+                else { [System.Drawing.Color]::FromArgb(200, 205, 212) }
+        $pen = New-Object System.Drawing.Pen($grid)
+        $g.DrawLine($pen, $r.Right - 1, $r.Top, $r.Right - 1, $r.Bottom - 1)
+        $pen.Dispose()
+    } catch { }
 }
 
 function Set-ThemedControlColors {
@@ -589,6 +764,42 @@ function Set-ThemedControlColors {
             if ($c.BarColorEnd.ToArgb() -ne $ne.ToArgb()) { $c.BarColorEnd = $ne }
         } catch { }
     }
+
+    # Tab strips and ListView headers/rows are OS-drawn; switch them to
+    # owner-draw in themed modes so they follow the theme as well.
+    if ($c -is [System.Windows.Forms.TabControl]) {
+        try {
+            if ($script:theme -eq 'Default') {
+                if ($c.DrawMode -ne [System.Windows.Forms.TabDrawMode]::Normal) {
+                    $c.DrawMode = [System.Windows.Forms.TabDrawMode]::Normal
+                }
+            } else {
+                if ($c.DrawMode -ne [System.Windows.Forms.TabDrawMode]::OwnerDrawFixed) {
+                    $c.DrawMode = [System.Windows.Forms.TabDrawMode]::OwnerDrawFixed
+                    $c.ItemSize = New-Object System.Drawing.Size(112, [Math]::Max(24, $c.Font.Height + 14))
+                }
+                if (-not $script:themeBase[$c].TabWired) {
+                    $c.Add_DrawItem($script:themeTabDraw)
+                    $c.Add_Paint($script:themeTabPaint)
+                    # Add-Member -Force: plain property assignment on a new
+                    # member fails in PS 5.1 for objects held in hashtables.
+                    $script:themeBase[$c] | Add-Member -NotePropertyName 'TabWired' -NotePropertyValue $true -Force
+                }
+            }
+        } catch { }
+    }
+    if ($c -is [System.Windows.Forms.ListView]) {
+        try {
+            $want = ($script:theme -ne 'Default')
+            if ($c.OwnerDraw -ne $want) { $c.OwnerDraw = $want }
+            if ($want -and -not $script:themeBase[$c].LvWired) {
+                $c.Add_DrawColumnHeader($script:themeLvHeaderDraw)
+                $c.Add_DrawItem($script:themeLvItemDraw)
+                $c.Add_DrawSubItem($script:themeLvSubItemDraw)
+                $script:themeBase[$c] | Add-Member -NotePropertyName 'LvWired' -NotePropertyValue $true -Force
+            }
+        } catch { }
+    }
 }
 
 function Apply-ThemeControlTree {
@@ -629,7 +840,7 @@ function Apply-UiTheme {
 
 function Set-UiTheme {
     param([string]$Name)
-    if ($Name -notin @('Default','Dark','WindowsXP')) { $Name = 'Default' }
+    if ($Name -notin @('Default','Dark','Postal')) { $Name = 'Default' }
     $script:theme = $Name
     if ($script:config) {
         $script:config | Add-Member -NotePropertyName 'UiTheme' -NotePropertyValue $Name -Force
@@ -887,6 +1098,8 @@ function Initialize-Config {
 $config = Initialize-Config
 if ($config.PSObject.Properties['UiTheme'] -and "$($config.UiTheme)" -ne '') {
     $script:theme = "$($config.UiTheme)"
+    # Migration: the old WindowsXP theme became the Postal theme.
+    if ($script:theme -eq 'WindowsXP') { $script:theme = 'Postal' }
 }
 Write-Log "Active UI theme: $script:theme"
 
@@ -11803,7 +12016,7 @@ function Load-WtSettingsValues {
     $c.EdacUrlBox.Text    = if ($wt.eDacUrl)              { "$($wt.eDacUrl)" }              else { '' }
     $c.ThresholdBox.Value = if ($wt.ReactiveToWorkOrderMinutes) { [int]$wt.ReactiveToWorkOrderMinutes } else { 15 }
     if ($c.ThemeBox) {
-        $c.ThemeBox.SelectedItem = if ("$script:theme" -in @('Dark','WindowsXP')) { "$script:theme" } else { 'Default' }
+        $c.ThemeBox.SelectedItem = if ("$script:theme" -in @('Dark','Postal')) { "$script:theme" } else { 'Default' }
     }
 
     Write-Log "Load-WtSettingsValues: techName='$($c.TechNameBox.Text)' email='$($c.EmailBox.Text)'"
@@ -11907,8 +12120,8 @@ function Setup-SettingsTab {
     $themeBox = New-Object System.Windows.Forms.ComboBox
     $themeBox.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
     $themeBox.Size = New-Object System.Drawing.Size(200, 24)
-    [void]$themeBox.Items.AddRange(@('Default','Dark','WindowsXP'))
-    $themeBox.SelectedItem = if ("$script:theme" -in @('Dark','WindowsXP')) { "$script:theme" } else { 'Default' }
+    [void]$themeBox.Items.AddRange(@('Default','Dark','Postal'))
+    $themeBox.SelectedItem = if ("$script:theme" -in @('Dark','Postal')) { "$script:theme" } else { 'Default' }
     $themeBox.Add_SelectedIndexChanged({
         try { Set-UiTheme -Name "$($themeBox.SelectedItem)" } catch { }
     }.GetNewClosure())
@@ -14465,7 +14678,7 @@ function Show-MainForm {
     # Responsive layout: rescale every tab when the window is resized
     # (2.6" x 3.9" minimum up to full screen).
     Initialize-ResponsiveLayout -Form $form
-    # Apply the selected UI theme (Default / Dark / WindowsXP).
+    # Apply the selected UI theme (Default / Dark / Postal).
     Apply-UiTheme -Root $form
     $form.ShowDialog()
 }
