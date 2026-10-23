@@ -216,6 +216,428 @@ if ($null -eq $script:pmSuppressEvents)      { $script:pmSuppressEvents = $false
 if ($null -eq $script:pmTotalSelectedHours)  { $script:pmTotalSelectedHours = 0.0 }
 
 ################################################################################
+#                   Responsive Layout Engine (PowerShell 5.1)                  #
+################################################################################
+# The main window rescales every tab proportionally when the user resizes the
+# window: absolutely-positioned controls and their fonts scale with the client
+# area, docked/filling elements keep adapting absolutely, toolbar strips keep a
+# fixed size (and scroll horizontally when needed), and any tab content that
+# overflows gets a scrollbar. This lets the window run anywhere from roughly
+# 2.6" x 3.9" up to full screen.
+#
+# IMPORTANT (PowerShell 5.1): inside a .GetNewClosure() block, $script: refers
+# to the CLOSURE's own (empty) script scope, not the main script scope. The
+# event handlers below therefore capture everything they need as locals
+# ($state, $Form, $timer), and every engine function takes the state object
+# explicitly instead of relying on scope.
+
+$script:responsiveLayout = $null
+
+function Initialize-ResponsiveLayout {
+    param([System.Windows.Forms.Form]$Form)
+
+    $timer = New-Object System.Windows.Forms.Timer
+    $timer.Interval = 90
+
+    $state = [PSCustomObject]@{
+        Form          = $Form
+        DesignW       = $Form.Width
+        DesignH       = $Form.Height
+        MinScale      = 0.15
+        MaxScale      = 4.0
+        LastSx        = 1.0
+        LastSy        = 1.0
+        LastFontScale = 1.0
+        Base          = @{}
+        Timer         = $timer
+        Busy          = $false
+        Dirty         = $true
+    }
+    $script:responsiveLayout = $state
+
+    # Debounced apply: the resize event restarts the timer; the tick does the work.
+    # The design size is captured from the form's size right here: a freshly
+    # created WinForms window does not raise a Resize event for its initial
+    # size, so an event-based capture would keep the wrong baseline.
+    $timer.Add_Tick({
+        if ($null -eq $state -or $state.Busy) { return }
+        $state.Busy = $true
+        try { Invoke-ResponsiveRescale -State $state -Force } catch { }
+        $state.Busy = $false
+        $timer.Stop()
+    }.GetNewClosure())
+
+    $Form.Add_Resize({
+        if ($null -eq $state -or $state.Busy) { return }
+        try { $timer.Stop(); $timer.Start() } catch { }
+    }.GetNewClosure())
+}
+
+function Invoke-ResponsiveRefresh {
+    # Call after dynamically building tab content so new controls adopt the
+    # current window scale immediately. (Runs in the main script scope.)
+    $rl = $script:responsiveLayout
+    if (-not $rl -or $rl.DesignW -le 0) { return }
+    $rl.Dirty = $true
+    Invoke-ResponsiveRescale -State $rl -Force
+}
+
+function Invoke-ResponsiveRescale {
+    param([Parameter(Mandatory)]$State, [switch]$Force)
+
+    if ($null -eq $State.Form -or $State.Form.IsDisposed) { return }
+    if ($State.DesignW -le 0 -or $State.DesignH -le 0) { return }
+
+    $cw = $State.Form.Width
+    $ch = $State.Form.Height
+    if ($cw -le 0 -or $ch -le 0) { return }
+
+    $sx = [Math]::Max($State.MinScale, [Math]::Min($State.MaxScale, [double]$cw / $State.DesignW))
+    $sy = [Math]::Max($State.MinScale, [Math]::Min($State.MaxScale, [double]$ch / $State.DesignH))
+    $fs = [Math]::Max($State.MinScale, [Math]::Min($State.MaxScale, [Math]::Min($sx, $sy)))
+
+    if (-not $Force -and -not $State.Dirty -and
+        [Math]::Abs($sx - $State.LastSx) -lt 0.0005 -and [Math]::Abs($sy - $State.LastSy) -lt 0.0005) { return }
+
+    $State.Busy = $true
+    try {
+        Scale-ResponsiveControlTree -State $State -Collection $State.Form.Controls -Sx $sx -Sy $sy -FontScale $fs
+        Rescale-ResponsiveSplitters -Collection $State.Form.Controls -OldSx $State.LastSx -NewSx $sx -OldSy $State.LastSy -NewSy $sy
+        $State.LastSx        = $sx
+        $State.LastSy        = $sy
+        $State.LastFontScale = $fs
+        $State.Dirty         = $false
+    } catch {
+        try { Write-Log "Responsive layout error: $($_.Exception.Message)" } catch { }
+    } finally {
+        $State.Busy = $false
+    }
+}
+
+function Get-ResponsiveBase {
+    # Remember a control's design-time bounds/font size the first time we see
+    # it, so every rescale is computed from the ORIGINAL layout (no drift).
+    param($State, $Key, [System.Drawing.Rectangle]$Bounds, [float]$FontSize)
+
+    if (-not $State.Base.ContainsKey($Key)) {
+        $State.Base[$Key] = [PSCustomObject]@{
+            Bounds   = $Bounds
+            FontSize = $FontSize
+        }
+    }
+}
+
+function Scale-ResponsiveControlTree {
+    param($State, $Collection, [double]$Sx, [double]$Sy, [double]$FontScale)
+
+    foreach ($c in @($Collection)) {
+        if ($null -eq $c) { continue }
+        if ($c -is [System.Windows.Forms.Form]) { continue }
+
+        $dock = [System.Windows.Forms.DockStyle]::None
+        try { $dock = $c.Dock } catch { }
+
+        # Horizontal toolbar strips keep their own absolute layout (they scroll).
+        # Children of vertical (TopDown) flow panels — settings groups, action
+        # buttons — scale with everything else so they never overflow their
+        # container at any window size.
+        $parentIsToolbar = ($null -ne $c.Parent) -and
+            ($c.Parent -is [System.Windows.Forms.FlowLayoutPanel]) -and
+            ($c.Parent.FlowDirection -eq [System.Windows.Forms.FlowDirection]::LeftToRight) -and
+            (-not $c.Parent.WrapContents)
+
+        # ---- Absolutely positioned controls: move + resize proportionally ----
+        if ($dock -eq [System.Windows.Forms.DockStyle]::None -and -not $parentIsToolbar) {
+            $fsNow = if ($c.Font) { [float]($c.Font.SizeInPoints) } else { 9.0 }
+            Get-ResponsiveBase -State $State -Key $c -Bounds $c.Bounds -FontSize $fsNow
+            $b  = $State.Base[$c].Bounds
+            $x  = [int][Math]::Round($b.X * $Sx)
+            $y  = [int][Math]::Round($b.Y * $Sy)
+            $w  = [int][Math]::Max(1, [Math]::Round($b.Width  * $Sx))
+            $h  = [int][Math]::Max(1, [Math]::Round($b.Height * $Sy))
+            if ($c.Left -ne $x -or $c.Top -ne $y -or $c.Width -ne $w -or $c.Height -ne $h) {
+                try { $c.SetBounds($x, $y, $w, $h) } catch { }
+            }
+        }
+        elseif ($dock -eq [System.Windows.Forms.DockStyle]::Top -or $dock -eq [System.Windows.Forms.DockStyle]::Bottom) {
+            # Docked header/footer bars: the dock owns the width; scale the height.
+            if (-not ($c -is [System.Windows.Forms.FlowLayoutPanel]) -and -not ($c -is [System.Windows.Forms.TableLayoutPanel])) {
+                $fsNow = if ($c.Font) { [float]($c.Font.SizeInPoints) } else { 9.0 }
+                Get-ResponsiveBase -State $State -Key $c -Bounds $c.Bounds -FontSize $fsNow
+                $bh = $State.Base[$c].Bounds.Height
+                $nh = [int][Math]::Max(1, [Math]::Round($bh * $Sy))
+                if ($c.Height -ne $nh) { try { $c.Height = $nh } catch { } }
+            }
+        }
+
+        # ---- ListView columns scale with the horizontal factor ----
+        if ($c -is [System.Windows.Forms.ListView]) {
+            foreach ($col in @($c.Columns)) {
+                Get-ResponsiveBase -State $State -Key $col -Bounds (New-Object System.Drawing.Rectangle(0, 0, $col.Width, 0)) -FontSize 9.0
+                $bw = $State.Base[$col].Bounds.Width
+                $nw = [int][Math]::Max(12, [Math]::Round($bw * $Sx))
+                if ($col.Width -ne $nw) { try { $col.Width = $nw } catch { } }
+            }
+        }
+
+        # ---- TableLayoutPanel absolute column/row styles scale with the grid ----
+        if ($c -is [System.Windows.Forms.TableLayoutPanel]) {
+            foreach ($cs in @($c.ColumnStyles)) {
+                if ($cs.SizeType -eq [System.Windows.Forms.SizeType]::Absolute) {
+                    Get-ResponsiveBase -State $State -Key $cs -Bounds (New-Object System.Drawing.Rectangle(0, 0, [int]$cs.Width, 0)) -FontSize 9.0
+                    $bw = $State.Base[$cs].Bounds.Width
+                    $nw = [float][Math]::Max(12, [Math]::Round($bw * $Sx))
+                    if ([Math]::Abs([float]$cs.Width - $nw) -ge 1) { try { $cs.Width = $nw } catch { } }
+                }
+            }
+            foreach ($rs in @($c.RowStyles)) {
+                if ($rs.SizeType -eq [System.Windows.Forms.SizeType]::Absolute) {
+                    Get-ResponsiveBase -State $State -Key $rs -Bounds (New-Object System.Drawing.Rectangle(0, 0, 0, [int]$rs.Height)) -FontSize 9.0
+                    $bh = $State.Base[$rs].Bounds.Height
+                    $nh = [float][Math]::Max(12, [Math]::Round($bh * $Sy))
+                    if ([Math]::Abs([float]$rs.Height - $nh) -ge 1) { try { $rs.Height = $nh } catch { } }
+                }
+            }
+        }
+
+        # ---- Fonts scale with the smallest axis factor ----
+        if (-not $parentIsToolbar -and $null -ne $c.Font) {
+            $fsNow = [float]($c.Font.SizeInPoints)
+            Get-ResponsiveBase -State $State -Key $c -Bounds $c.Bounds -FontSize $fsNow
+            $baseSize = $State.Base[$c].FontSize
+            $newSize  = [float][Math]::Max(3.0, $baseSize * $FontScale)
+            if ([Math]::Abs($newSize - [float]($c.Font.SizeInPoints)) -ge 0.15) {
+                try {
+                    # Do not dispose the old font: some controls share inherited
+                    # font instances, and Font has a finalizer anyway.
+                    $newFont = New-Object System.Drawing.Font($c.Font.FontFamily, $newSize, $c.Font.Style)
+                    $c.Font  = $newFont
+                } catch { }
+            }
+        }
+
+        # ---- Recurse ----
+        if ($c -is [System.Windows.Forms.TabControl]) {
+            foreach ($page in @($c.TabPages)) {
+                Scale-ResponsiveControlTree -State $State -Collection $page.Controls -Sx $Sx -Sy $Sy -FontScale $FontScale
+            }
+        }
+        elseif ($c.Controls -and $c.Controls.Count -gt 0) {
+            Scale-ResponsiveControlTree -State $State -Collection $c.Controls -Sx $Sx -Sy $Sy -FontScale $FontScale
+        }
+    }
+}
+
+function Rescale-ResponsiveSplitters {
+    # Splitter distances are scaled DELTA-style so the user's own splitter
+    # drags survive window resizes.
+    param($Collection, [double]$OldSx, [double]$NewSx, [double]$OldSy, [double]$NewSy)
+
+    foreach ($c in @($Collection)) {
+        if ($null -eq $c) { continue }
+        if ($c -is [System.Windows.Forms.SplitContainer] -and $OldSx -gt 0 -and $NewSx -gt 0 -and $OldSy -gt 0 -and $NewSy -gt 0) {
+            try {
+                if ($c.Orientation -eq [System.Windows.Forms.Orientation]::Vertical) {
+                    $d = [int][Math]::Round($c.SplitterDistance * ($NewSx / $OldSx))
+                } else {
+                    $d = [int][Math]::Round($c.SplitterDistance * ($NewSy / $OldSy))
+                }
+                # Panel minimum sizes scale too, so neither panel can be
+                # crushed out of existence at small window sizes.
+                $m1 = [int][Math]::Max(20, [Math]::Min(400, [Math]::Round($c.Panel1MinSize * ($NewSy / $OldSy))))
+                $m2 = [int][Math]::Max(20, [Math]::Min(400, [Math]::Round($c.Panel2MinSize * ($NewSy / $OldSy))))
+                if ($c.Panel1MinSize -ne $m1) { try { $c.Panel1MinSize = $m1 } catch { } }
+                if ($c.Panel2MinSize -ne $m2) { try { $c.Panel2MinSize = $m2 } catch { } }
+                if ($d -lt $m1) { $d = $m1 }
+                $maxD = if ($c.Orientation -eq [System.Windows.Forms.Orientation]::Vertical) { $c.Width - $m2 } else { $c.Height - $m2 }
+                if ($d -gt $maxD) { $d = $maxD }
+                if ($d -lt $m1) { $d = $m1 }
+                $c.SplitterDistance = $d
+            } catch { }
+        }
+        if ($c.Controls -and $c.Controls.Count -gt 0) {
+            Rescale-ResponsiveSplitters -Collection $c.Controls -OldSx $OldSx -NewSx $NewSx -OldSy $OldSy -NewSy $NewSy
+        }
+    }
+}
+
+################################################################################
+#                          UI Theme Engine (PowerShell 5.1)                    #
+################################################################################
+# Three themes: Default (as designed), Dark, and WindowsXP (Luna-ish).
+# Colors are swapped by exact-RGB mapping, so no existing layout code changes.
+# BackColor and ForeColor are mapped independently (e.g., white button text
+# stays white in every theme).
+
+$script:theme = 'Default'
+# Remembers every control's DESIGN-TIME colors so themes always translate from
+# the original palette (switching Dark -> XP -> Default never compounds).
+$script:themeBase = @{}
+
+$script:themeBackMaps = @{
+    Dark = @{
+        '236,240,241' = [System.Drawing.Color]::FromArgb(30, 30, 30)     # window bg
+        '245,247,250' = [System.Drawing.Color]::FromArgb(37, 37, 38)     # panels / pages
+        '226,232,240' = [System.Drawing.Color]::FromArgb(60, 60, 62)     # progress track / status bars
+        '255,255,255' = [System.Drawing.Color]::FromArgb(45, 45, 48)     # white surfaces (lists, textboxes)
+        '220,225,232' = [System.Drawing.Color]::FromArgb(60, 60, 62)     # splitter back
+        '189,195,199' = [System.Drawing.Color]::FromArgb(66, 66, 68)     # secondary / ghost buttons
+        '236,240,242' = [System.Drawing.Color]::FromArgb(66, 66, 68)     # ghost buttons alt
+    }
+    WindowsXP = @{
+        '236,240,241' = [System.Drawing.Color]::FromArgb(236, 233, 216)  # XP beige window
+        '245,247,250' = [System.Drawing.Color]::FromArgb(240, 238, 224)  # XP beige panels
+        '226,232,240' = [System.Drawing.Color]::FromArgb(222, 219, 203)  # XP beige track / status bars
+        '255,255,255' = [System.Drawing.Color]::FromArgb(255, 255, 250)  # warm white surfaces
+        '220,225,232' = [System.Drawing.Color]::FromArgb(196, 193, 179)  # splitter back
+        '189,195,199' = [System.Drawing.Color]::FromArgb(216, 214, 199)  # silver secondary buttons
+        '236,240,242' = [System.Drawing.Color]::FromArgb(216, 214, 199)  # ghost buttons alt
+        '52,152,219'  = [System.Drawing.Color]::FromArgb(0, 102, 204)    # XP royal blue
+        '39,174,96'   = [System.Drawing.Color]::FromArgb(51, 153, 51)    # XP green
+        '231,76,60'   = [System.Drawing.Color]::FromArgb(204, 51, 51)    # XP red
+    }
+}
+
+$script:themeForeMaps = @{
+    Dark = @{
+        '44,62,80'    = [System.Drawing.Color]::FromArgb(225, 228, 232)  # dark text -> light
+        '90,100,115'  = [System.Drawing.Color]::FromArgb(150, 156, 163)  # muted text
+        '120,130,145' = [System.Drawing.Color]::FromArgb(150, 156, 163)  # muted text
+        '160,170,185' = [System.Drawing.Color]::FromArgb(118, 124, 131)  # faint hint text
+        '179,38,30'   = [System.Drawing.Color]::FromArgb(255, 130, 120)  # error text
+        '0,0,0'       = [System.Drawing.Color]::FromArgb(230, 230, 230)  # black text
+    }
+    WindowsXP = @{
+        '44,62,80'    = [System.Drawing.Color]::FromArgb(0, 0, 0)        # crisp black text
+        '90,100,115'  = [System.Drawing.Color]::FromArgb(90, 90, 80)
+        '120,130,145' = [System.Drawing.Color]::FromArgb(90, 90, 80)
+        '160,170,185' = [System.Drawing.Color]::FromArgb(120, 120, 110)
+        '179,38,30'   = [System.Drawing.Color]::FromArgb(204, 0, 0)
+    }
+}
+
+function Get-ThemeMappedColor {
+    param([System.Drawing.Color]$Color, $Map)
+    if ($null -eq $Color -or $null -eq $Map) { return $null }
+    $key = "{0},{1},{2}" -f $Color.R, $Color.G, $Color.B
+    if ($Map.ContainsKey($key)) { return $Map[$key] }
+    return $null
+}
+
+function Set-ThemedControlColors {
+    # Themes ONE control (BackColor, ForeColor, button hover shades, progress
+    # bar surfaces), translating from its stored design-time colors so themes
+    # can be switched back and forth without compounding.
+    param($c)
+
+    if ($null -eq $c) { return }
+
+    $isBar = $false
+    try { $isBar = ($c -is [ModernProgressBar]) } catch { $isBar = $false }
+
+    # Capture the control's original (design-time) colors on first sight.
+    if (-not $script:themeBase.ContainsKey($c)) {
+        $track  = if ($isBar) { $c.TrackColor }    else { [System.Drawing.Color]::Empty }
+        $start  = if ($isBar) { $c.BarColorStart } else { [System.Drawing.Color]::Empty }
+        $end    = if ($isBar) { $c.BarColorEnd }   else { [System.Drawing.Color]::Empty }
+        $script:themeBase[$c] = [PSCustomObject]@{
+            Back = $c.BackColor; Fore = $c.ForeColor
+            Track = $track; BarStart = $start; BarEnd = $end
+        }
+    }
+    $orig = $script:themeBase[$c]
+
+    $mapBack = $script:themeBackMaps[$script:theme]
+    $mapFore = $script:themeForeMaps[$script:theme]
+
+    # BackColor: themed value when the design color has a mapping, otherwise
+    # the original (this also restores the Default look).
+    try {
+        $nb = if ($mapBack) { Get-ThemeMappedColor -Color $orig.Back -Map $mapBack } else { $null }
+        if ($null -eq $nb) { $nb = $orig.Back }
+        if ($c.BackColor.ToArgb() -ne $nb.ToArgb()) { $c.BackColor = $nb }
+    } catch { }
+    try {
+        $nf = if ($mapFore) { Get-ThemeMappedColor -Color $orig.Fore -Map $mapFore } else { $null }
+        if ($null -eq $nf) { $nf = $orig.Fore }
+        if ($c.ForeColor.ToArgb() -ne $nf.ToArgb()) { $c.ForeColor = $nf }
+    } catch { }
+
+    # Buttons: re-derive hover/pressed shades from the themed base color,
+    # exactly like New-Button does.
+    if ($c -is [System.Windows.Forms.ButtonBase]) {
+        try {
+            $b = $c.BackColor
+            $c.FlatAppearance.MouseOverBackColor = [System.Drawing.Color]::FromArgb(
+                [Math]::Min(255, $b.R + 25), [Math]::Min(255, $b.G + 25), [Math]::Min(255, $b.B + 25))
+            $c.FlatAppearance.MouseDownBackColor = [System.Drawing.Color]::FromArgb(
+                [Math]::Max(0, $b.R - 25), [Math]::Max(0, $b.G - 25), [Math]::Max(0, $b.B - 25))
+        } catch { }
+    }
+
+    # Custom progress bar surfaces
+    if ($isBar) {
+        try {
+            $nt = if ($mapBack) { Get-ThemeMappedColor -Color $orig.Track -Map $mapBack } else { $null }
+            if ($null -eq $nt) { $nt = $orig.Track }
+            if ($c.TrackColor.ToArgb() -ne $nt.ToArgb()) { $c.TrackColor = $nt }
+            $ns = if ($mapBack) { Get-ThemeMappedColor -Color $orig.BarStart -Map $mapBack } else { $null }
+            if ($null -eq $ns) { $ns = $orig.BarStart }
+            if ($c.BarColorStart.ToArgb() -ne $ns.ToArgb()) { $c.BarColorStart = $ns }
+            $ne = if ($mapBack) { Get-ThemeMappedColor -Color $orig.BarEnd -Map $mapBack } else { $null }
+            if ($null -eq $ne) { $ne = $orig.BarEnd }
+            if ($c.BarColorEnd.ToArgb() -ne $ne.ToArgb()) { $c.BarColorEnd = $ne }
+        } catch { }
+    }
+}
+
+function Apply-ThemeControlTree {
+    param($Collection)
+
+    foreach ($c in @($Collection)) {
+        if ($null -eq $c) { continue }
+        if ($c -is [System.Windows.Forms.Form]) { continue }
+
+        Set-ThemedControlColors -c $c
+
+        if ($c -is [System.Windows.Forms.TabControl]) {
+            foreach ($page in @($c.TabPages)) {
+                Set-ThemedControlColors -c $page   # theme the tab page surface itself
+                Apply-ThemeControlTree -Collection $page.Controls
+            }
+        }
+        elseif ($c.Controls -and $c.Controls.Count -gt 0) {
+            Apply-ThemeControlTree -Collection $c.Controls
+        }
+    }
+}
+
+function Apply-UiTheme {
+    param($Root = $null)
+
+    if ($null -eq $Root) {
+        if ($script:responsiveLayout -and $null -ne $script:responsiveLayout.Form) {
+            $Root = $script:responsiveLayout.Form
+        }
+    }
+    if ($null -eq $Root -or $Root.IsDisposed) { return }
+    Set-ThemedControlColors -c $Root   # theme the window itself too
+    Apply-ThemeControlTree -Collection $Root.Controls
+    try { $Root.Refresh() } catch { }
+    Write-Log "Theme applied: $script:theme"
+}
+
+function Set-UiTheme {
+    param([string]$Name)
+    if ($Name -notin @('Default','Dark','WindowsXP')) { $Name = 'Default' }
+    $script:theme = $Name
+    if ($script:config) {
+        $script:config | Add-Member -NotePropertyName 'UiTheme' -NotePropertyValue $Name -Force
+    }
+    Apply-UiTheme
+}
+
+################################################################################
 #                            Core Utilities                                    #
 ################################################################################
 
@@ -449,6 +871,10 @@ function Initialize-Config {
             $config | Add-Member -NotePropertyName 'SupervisorEmail' -NotePropertyValue 'default@example.com'
             Write-Log "Backfilled missing SupervisorEmail key."
         }
+        if (-not ($config.PSObject.Properties.Name -contains 'UiTheme')) {
+            $config | Add-Member -NotePropertyName 'UiTheme' -NotePropertyValue 'Default'
+            Write-Log "Backfilled missing UiTheme key."
+        }
         Write-Log "Config loaded successfully"
     } else {
         Write-Log "Config file not found. Using default configuration."
@@ -459,6 +885,10 @@ function Initialize-Config {
 }
 
 $config = Initialize-Config
+if ($config.PSObject.Properties['UiTheme'] -and "$($config.UiTheme)" -ne '') {
+    $script:theme = "$($config.UiTheme)"
+}
+Write-Log "Active UI theme: $script:theme"
 
 # Helper function to create buttons with optional color styles
 function New-Button {
@@ -5294,8 +5724,21 @@ function Show-PmTaskTimerForm {
     $resetBtn.Visible = $false
     $form.Controls.Add($resetBtn)
 
+    $cancelTimerBtn = New-Object System.Windows.Forms.Button
+    $cancelTimerBtn.Text = "Cancel Timer"
+    $cancelTimerBtn.Size = New-Object System.Drawing.Size(150, 44)
+    $cancelTimerBtn.Location = New-Object System.Drawing.Point(395, 268)
+    $cancelTimerBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $cancelTimerBtn.FlatAppearance.BorderSize = 0
+    $cancelTimerBtn.BackColor = [System.Drawing.Color]::FromArgb(231,76,60)
+    $cancelTimerBtn.ForeColor = [System.Drawing.Color]::White
+    $cancelTimerBtn.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+    $cancelTimerBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $cancelTimerBtn.Visible = $false
+    $form.Controls.Add($cancelTimerBtn)
+
     $lblHint = New-Object System.Windows.Forms.Label
-    $lblHint.Text = "You can keep using the app while this runs. Finish overwrites this task's actual time."
+    $lblHint.Text = "Closing this window keeps the timer running — click the timer column again to reopen. Finish logs the time; Cancel discards it."
     $lblHint.Location = New-Object System.Drawing.Point(12, 322)
     $lblHint.Size = New-Object System.Drawing.Size(520, 22)
     $lblHint.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
@@ -5313,13 +5756,19 @@ function Show-PmTaskTimerForm {
     $closeBtn.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
     $closeBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
     $closeBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
-    $closeBtn.Add_Click({ $form.Close() })
+    # Close ONLY this window. The timer keeps running and can be reopened
+    # from the list. GetNewClosure is required for $form in PowerShell 5.1;
+    # without it the handler throws on a null $form and can kill the app.
+    $closeBtn.Add_Click({
+        try { $form.Close() } catch { try { $form.Dispose() } catch { } }
+    }.GetNewClosure())
     $form.Controls.Add($closeBtn)
 
     $timer = New-Object System.Windows.Forms.Timer
     $timer.Interval = 500
 
     $refreshDisplay = {
+        if ($form.IsDisposed) { return }
         $curEntry = $Machine.State[$taskId]
         $state = Get-PmTaskTimerState -Entry $curEntry
         $sec = Get-PmTaskTimerElapsedSeconds -Entry $curEntry
@@ -5330,23 +5779,27 @@ function Show-PmTaskTimerForm {
                 $lblState.Text = "Running"; $lblState.ForeColor = [System.Drawing.Color]::FromArgb(52,152,219)
                 $lblElapsed.ForeColor = [System.Drawing.Color]::FromArgb(52,152,219)
                 $pauseResumeBtn.Text = "Pause"; $pauseResumeBtn.BackColor = [System.Drawing.Color]::FromArgb(243,156,18)
-                $pauseResumeBtn.Visible = $true; $finishBtn.Visible = $true; $resetBtn.Visible = $false
+                $pauseResumeBtn.Visible = $true; $finishBtn.Visible = $true
+                $resetBtn.Visible = $false; $cancelTimerBtn.Visible = $true
             }
             'paused' {
                 $lblState.Text = "Paused"; $lblState.ForeColor = [System.Drawing.Color]::FromArgb(243,156,18)
                 $lblElapsed.ForeColor = [System.Drawing.Color]::FromArgb(160,160,160)
                 $pauseResumeBtn.Text = "Resume"; $pauseResumeBtn.BackColor = [System.Drawing.Color]::FromArgb(52,152,219)
-                $pauseResumeBtn.Visible = $true; $finishBtn.Visible = $true; $resetBtn.Visible = $false
+                $pauseResumeBtn.Visible = $true; $finishBtn.Visible = $true
+                $resetBtn.Visible = $false; $cancelTimerBtn.Visible = $true
             }
             'finished' {
                 $lblState.Text = "Finished"; $lblState.ForeColor = [System.Drawing.Color]::FromArgb(39,174,96)
                 $lblElapsed.ForeColor = [System.Drawing.Color]::FromArgb(90,100,115)
-                $pauseResumeBtn.Visible = $false; $finishBtn.Visible = $false; $resetBtn.Visible = $true
+                $pauseResumeBtn.Visible = $false; $finishBtn.Visible = $false
+                $resetBtn.Visible = $true; $cancelTimerBtn.Visible = $false
             }
             default {
                 $lblState.Text = "Idle"; $lblState.ForeColor = [System.Drawing.Color]::FromArgb(120,130,145)
                 $lblElapsed.ForeColor = [System.Drawing.Color]::FromArgb(160,160,160)
-                $pauseResumeBtn.Visible = $false; $finishBtn.Visible = $false; $resetBtn.Visible = $false
+                $pauseResumeBtn.Visible = $false; $finishBtn.Visible = $false
+                $resetBtn.Visible = $false; $cancelTimerBtn.Visible = $false
             }
         }
 
@@ -5361,53 +5814,82 @@ function Show-PmTaskTimerForm {
     }.GetNewClosure()
 
     $pauseResumeBtn.Add_Click({
-        $curEntry = $Machine.State[$taskId]
-        $state = Get-PmTaskTimerState -Entry $curEntry
-        if ($state -eq 'running')  { Pause-PmTaskTimer  -Machine $Machine -Task $Task }
-        elseif ($state -eq 'paused') { Resume-PmTaskTimer -Machine $Machine -Task $Task }
-        Refresh-PmTaskRow -Machine $Machine -Task $Task
-        & $refreshDisplay
+        try {
+            $curEntry = $Machine.State[$taskId]
+            $state = Get-PmTaskTimerState -Entry $curEntry
+            if ($state -eq 'running')  { Pause-PmTaskTimer  -Machine $Machine -Task $Task }
+            elseif ($state -eq 'paused') { Resume-PmTaskTimer -Machine $Machine -Task $Task }
+            Refresh-PmTaskRow -Machine $Machine -Task $Task
+            & $refreshDisplay
+        } catch { Write-Log "PM timer pause/resume error: $($_.Exception.Message)" }
     }.GetNewClosure())
 
     $finishBtn.Add_Click({
-        $curEntry = $Machine.State[$taskId]
-        $state = Get-PmTaskTimerState -Entry $curEntry
-        if ($state -notin @('running','paused')) { return }
-        $sec = Get-PmTaskTimerElapsedSeconds -Entry $curEntry
-        $hms = Format-JobTimerElapsed -Seconds $sec
-        $answer = [System.Windows.Forms.MessageBox]::Show(
-            "Finish this timer?`r`n`r`nWorked time: $hms`r`n`r`nThis will OVERWRITE the task's actual time (CustomTimeMin) with the rounded minutes.",
-            "Finish PM Task Timer",
-            [System.Windows.Forms.MessageBoxButtons]::YesNo,
-            [System.Windows.Forms.MessageBoxIcon]::Question)
-        if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
-        Finish-PmTaskTimer -Machine $Machine -Task $Task
-        Refresh-PmTaskRow -Machine $Machine -Task $Task
-        & $refreshDisplay
+        try {
+            $curEntry = $Machine.State[$taskId]
+            $state = Get-PmTaskTimerState -Entry $curEntry
+            if ($state -notin @('running','paused')) { return }
+            $sec = Get-PmTaskTimerElapsedSeconds -Entry $curEntry
+            $hms = Format-JobTimerElapsed -Seconds $sec
+            $answer = [System.Windows.Forms.MessageBox]::Show(
+                "Finish this timer?`r`n`r`nWorked time: $hms`r`n`r`nThis will OVERWRITE the task's actual time (CustomTimeMin) with the rounded minutes.",
+                "Finish PM Task Timer",
+                [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                [System.Windows.Forms.MessageBoxIcon]::Question)
+            if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
+            Finish-PmTaskTimer -Machine $Machine -Task $Task
+            Refresh-PmTaskRow -Machine $Machine -Task $Task
+            & $refreshDisplay
+        } catch { Write-Log "PM timer finish error: $($_.Exception.Message)" }
     }.GetNewClosure())
 
     $resetBtn.Add_Click({
-        $answer = [System.Windows.Forms.MessageBox]::Show(
-            "Reset this timer? The actual time stays at its current value.",
-            "Reset PM Task Timer",
-            [System.Windows.Forms.MessageBoxButtons]::YesNo,
-            [System.Windows.Forms.MessageBoxIcon]::Warning)
-        if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
-        Reset-PmTaskTimer -Machine $Machine -Task $Task
-        Refresh-PmTaskRow -Machine $Machine -Task $Task
-        & $refreshDisplay
+        try {
+            $answer = [System.Windows.Forms.MessageBox]::Show(
+                "Reset this timer? The actual time stays at its current value.",
+                "Reset PM Task Timer",
+                [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                [System.Windows.Forms.MessageBoxIcon]::Warning)
+            if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
+            Reset-PmTaskTimer -Machine $Machine -Task $Task
+            Refresh-PmTaskRow -Machine $Machine -Task $Task
+            & $refreshDisplay
+        } catch { Write-Log "PM timer reset error: $($_.Exception.Message)" }
     }.GetNewClosure())
 
-    $timer.Add_Tick({ & $refreshDisplay }.GetNewClosure())
+    $cancelTimerBtn.Add_Click({
+        try {
+            $answer = [System.Windows.Forms.MessageBox]::Show(
+                "Cancel this timer?`r`n`r`nThe timer will reset to idle. Elapsed time will NOT be recorded.",
+                "Cancel Timer",
+                [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                [System.Windows.Forms.MessageBoxIcon]::Warning)
+            if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
+            Reset-PmTaskTimer -Machine $Machine -Task $Task
+            Refresh-PmTaskRow -Machine $Machine -Task $Task
+            & $refreshDisplay
+        } catch { Write-Log "PM timer cancel error: $($_.Exception.Message)" }
+    }.GetNewClosure())
+
+    $timer.Add_Tick({
+        try { & $refreshDisplay }
+        catch { Write-Log "PM timer display error: $($_.Exception.Message)" }
+    }.GetNewClosure())
     $timer.Start()
 
+    $form.Add_FormClosing({
+        try { $timer.Stop() } catch { }
+    }.GetNewClosure())
+
+    $pmForms = $script:pmTaskTimerForms
     $form.Add_FormClosed({
         try { $timer.Stop(); $timer.Dispose() } catch { }
-        if ($script:pmTaskTimerForms) { [void]$script:pmTaskTimerForms.Remove($formKey) }
+        if ($pmForms) { [void]$pmForms.Remove($formKey) }
     }.GetNewClosure())
 
     $script:pmTaskTimerForms[$formKey] = $form
     & $refreshDisplay
+    Apply-UiTheme -Root $form
     $form.Show()
 }
 
@@ -5556,6 +6038,7 @@ function Show-PmTaskEditor {
     $form.AcceptButton = $okBtn
     $form.CancelButton = $cancelBtn
 
+    Apply-UiTheme -Root $form
     $form.ShowDialog() | Out-Null
     return $form.Tag
 }
@@ -6544,11 +7027,13 @@ function Show-BreakTimerForm {
         $timer.Stop()
     }.GetNewClosure())
 
+    $activeBreaks = $script:activeBreakTimers
     $form.Add_FormClosed({
         try { $timer.Stop(); $timer.Dispose() } catch { }
-        if ($null -ne $script:activeBreakTimers) { [void]$script:activeBreakTimers.Remove($breakId) }
+        if ($null -ne $activeBreaks) { [void]$activeBreaks.Remove($breakId) }
     }.GetNewClosure())
 
+    Apply-UiTheme -Root $form
     $form.Show()   # modeless
 }
 
@@ -6677,6 +7162,7 @@ function Show-BreakEditor {
     $form.AcceptButton = $saveBtn
     $form.CancelButton = $cancelBtn
 
+    Apply-UiTheme -Root $form
     $form.ShowDialog() | Out-Null
     return $form.Tag
 }
@@ -6765,6 +7251,7 @@ function Pause-JobTimer {
         $j | Add-Member -NotePropertyName 'timerPausedAt' -NotePropertyValue $now.ToString("o") -Force
         $j | Add-Member -NotePropertyName 'timerState'    -NotePropertyValue 'paused' -Force
     }
+    Write-Log "Pause-JobTimer: paused $JobId at $($now.ToString('HH:mm:ss'))"
     Save-Jobs -Jobs $jobs | Out-Null
     if (Get-Command Refresh-JobLogList -ErrorAction SilentlyContinue) { try { Refresh-JobLogList } catch { } }
 }
@@ -6785,6 +7272,7 @@ function Resume-JobTimer {
         $j | Add-Member -NotePropertyName 'timerPausedAt'           -NotePropertyValue $null -Force
         $j | Add-Member -NotePropertyName 'timerState'              -NotePropertyValue 'running' -Force
     }
+    Write-Log "Resume-JobTimer: resumed $JobId at $($now.ToString('HH:mm:ss'))"
     Save-Jobs -Jobs $jobs | Out-Null
     if (Get-Command Refresh-JobLogList -ErrorAction SilentlyContinue) { try { Refresh-JobLogList } catch { } }
 }
@@ -6814,6 +7302,7 @@ function Finish-JobTimer {
         $j | Add-Member -NotePropertyName 'timerComputedHours'      -NotePropertyValue $workedHours -Force
         $j | Add-Member -NotePropertyName 'timerState'              -NotePropertyValue 'finished' -Force
         $j.endTime = $now.ToString('HH:mm')
+        Write-Log "Finish-JobTimer: finished $JobId at $($now.ToString('HH:mm:ss')) — $workedHours h"
     }
     Save-Jobs -Jobs $jobs | Out-Null
     if (Get-Command Refresh-JobLogList -ErrorAction SilentlyContinue) { try { Refresh-JobLogList } catch { } }
@@ -6831,6 +7320,7 @@ function Reset-JobTimer {
         $j | Add-Member -NotePropertyName 'timerPausedTotalSeconds' -NotePropertyValue 0 -Force
         $j | Add-Member -NotePropertyName 'timerState'              -NotePropertyValue 'idle' -Force
         $j.startTime = ''; $j.endTime = ''
+        Write-Log "Reset-JobTimer: reset $JobId"
     }
     Save-Jobs -Jobs $jobs | Out-Null
     if (Get-Command Refresh-JobLogList -ErrorAction SilentlyContinue) { try { Refresh-JobLogList } catch { } }
@@ -6848,6 +7338,13 @@ function Show-JobTimerForm {
     }
     $job = Get-JobById -JobId $JobId
     if ($null -eq $job) { return }
+    # Opening the window always means the timer should be live (same behavior
+    # as the PM task timer). If it is idle, start it now so the Pause / Finish
+    # / Cancel controls are all available.
+    if ((Get-JobTimerState -Job $job) -eq 'idle') {
+        Start-JobTimer -JobId $JobId
+        $job = Get-JobById -JobId $JobId
+    }
     $kindLabel = if ("$($job.kind)" -eq 'workorder') { 'Work Order' } else { 'Reactive Call' }
 
     $form = New-Object System.Windows.Forms.Form
@@ -6929,8 +7426,21 @@ function Show-JobTimerForm {
     $resetBtn.Visible = $false
     $form.Controls.Add($resetBtn)
 
+    $cancelTimerBtn = New-Object System.Windows.Forms.Button
+    $cancelTimerBtn.Text = "Cancel Timer"
+    $cancelTimerBtn.Size = New-Object System.Drawing.Size(130, 44)
+    $cancelTimerBtn.Location = New-Object System.Drawing.Point(395, 246)
+    $cancelTimerBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $cancelTimerBtn.FlatAppearance.BorderSize = 0
+    $cancelTimerBtn.BackColor = [System.Drawing.Color]::FromArgb(231,76,60)
+    $cancelTimerBtn.ForeColor = [System.Drawing.Color]::White
+    $cancelTimerBtn.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+    $cancelTimerBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $cancelTimerBtn.Visible = $false
+    $form.Controls.Add($cancelTimerBtn)
+
     $lblHint = New-Object System.Windows.Forms.Label
-    $lblHint.Text = "You can keep using the app while this runs. Closing this window does not stop the timer."
+    $lblHint.Text = "Closing this window keeps the timer running — click the Timer column again to reopen. Finish logs the time; Cancel discards it."
     $lblHint.Location = New-Object System.Drawing.Point(12, 300)
     $lblHint.Size = New-Object System.Drawing.Size(500, 22)
     $lblHint.TextAlign = [System.Drawing.ContentAlignment]::MiddleCenter
@@ -6947,15 +7457,22 @@ function Show-JobTimerForm {
     $closeBtn.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
     $closeBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
     $closeBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
-    $closeBtn.Add_Click({ $form.Close() })
+    # Close ONLY this window. The timer keeps running and can be reopened
+    # from the Timer column. GetNewClosure is required for $form in
+    # PowerShell 5.1; without it the handler throws on a null $form and
+    # can take the whole app down.
+    $closeBtn.Add_Click({
+        try { $form.Close() } catch { try { $form.Dispose() } catch { } }
+    }.GetNewClosure())
     $form.Controls.Add($closeBtn)
 
     $timer = New-Object System.Windows.Forms.Timer
     $timer.Interval = 500
 
     $refreshDisplay = {
+        if ($form.IsDisposed) { return }
         $currentJob = Get-JobById -JobId $JobId
-        if ($null -eq $currentJob) { $form.Close(); return }
+        if ($null -eq $currentJob) { try { $form.Close() } catch { }; return }
         $state = Get-JobTimerState -Job $currentJob
         $sec = Get-JobTimerElapsedSeconds -Job $currentJob
         $lblElapsed.Text = Format-JobTimerElapsed -Seconds $sec
@@ -6965,23 +7482,27 @@ function Show-JobTimerForm {
                 $lblState.Text = "Running"; $lblState.ForeColor = [System.Drawing.Color]::FromArgb(52,152,219)
                 $lblElapsed.ForeColor = [System.Drawing.Color]::FromArgb(52,152,219)
                 $pauseResumeBtn.Text = "Pause"; $pauseResumeBtn.BackColor = [System.Drawing.Color]::FromArgb(243,156,18)
-                $pauseResumeBtn.Visible = $true; $finishBtn.Visible = $true; $resetBtn.Visible = $false
+                $pauseResumeBtn.Visible = $true; $finishBtn.Visible = $true
+                $resetBtn.Visible = $false; $cancelTimerBtn.Visible = $true
             }
             'paused' {
                 $lblState.Text = "Paused"; $lblState.ForeColor = [System.Drawing.Color]::FromArgb(243,156,18)
                 $lblElapsed.ForeColor = [System.Drawing.Color]::FromArgb(160,160,160)
                 $pauseResumeBtn.Text = "Resume"; $pauseResumeBtn.BackColor = [System.Drawing.Color]::FromArgb(52,152,219)
-                $pauseResumeBtn.Visible = $true; $finishBtn.Visible = $true; $resetBtn.Visible = $false
+                $pauseResumeBtn.Visible = $true; $finishBtn.Visible = $true
+                $resetBtn.Visible = $false; $cancelTimerBtn.Visible = $true
             }
             'finished' {
                 $lblState.Text = "Finished"; $lblState.ForeColor = [System.Drawing.Color]::FromArgb(39,174,96)
                 $lblElapsed.ForeColor = [System.Drawing.Color]::FromArgb(90,100,115)
-                $pauseResumeBtn.Visible = $false; $finishBtn.Visible = $false; $resetBtn.Visible = $true
+                $pauseResumeBtn.Visible = $false; $finishBtn.Visible = $false
+                $resetBtn.Visible = $true; $cancelTimerBtn.Visible = $false
             }
             default {
                 $lblState.Text = "Idle"; $lblState.ForeColor = [System.Drawing.Color]::FromArgb(120,130,145)
                 $lblElapsed.ForeColor = [System.Drawing.Color]::FromArgb(160,160,160)
-                $pauseResumeBtn.Visible = $false; $finishBtn.Visible = $false; $resetBtn.Visible = $false
+                $pauseResumeBtn.Visible = $false; $finishBtn.Visible = $false
+                $resetBtn.Visible = $false; $cancelTimerBtn.Visible = $false
             }
         }
 
@@ -6994,52 +7515,80 @@ function Show-JobTimerForm {
     }.GetNewClosure()
 
     $pauseResumeBtn.Add_Click({
-        $currentJob = Get-JobById -JobId $JobId
-        if ($null -eq $currentJob) { return }
-        $state = Get-JobTimerState -Job $currentJob
-        if ($state -eq 'running')  { Pause-JobTimer  -JobId $JobId }
-        elseif ($state -eq 'paused') { Resume-JobTimer -JobId $JobId }
-        & $refreshDisplay
+        try {
+            $currentJob = Get-JobById -JobId $JobId
+            if ($null -eq $currentJob) { return }
+            $state = Get-JobTimerState -Job $currentJob
+            if ($state -eq 'running')  { Pause-JobTimer  -JobId $JobId }
+            elseif ($state -eq 'paused') { Resume-JobTimer -JobId $JobId }
+            & $refreshDisplay
+        } catch { Write-Log "Job timer pause/resume error: $($_.Exception.Message)" }
     }.GetNewClosure())
 
     $finishBtn.Add_Click({
-        $currentJob = Get-JobById -JobId $JobId
-        if ($null -eq $currentJob) { return }
-        $state = Get-JobTimerState -Job $currentJob
-        if ($state -notin @('running','paused')) { return }
-        $sec = Get-JobTimerElapsedSeconds -Job $currentJob
-        $hms = Format-JobTimerElapsed -Seconds $sec
-        $answer = [System.Windows.Forms.MessageBox]::Show(
-            "Finish this timer?`r`n`r`nWorked time: $hms`r`n`r`nThe end time will be recorded and this duration used for the job.",
-            "Finish Timer",
-            [System.Windows.Forms.MessageBoxButtons]::YesNo,
-            [System.Windows.Forms.MessageBoxIcon]::Question)
-        if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
-        Finish-JobTimer -JobId $JobId
-        & $refreshDisplay
+        try {
+            $currentJob = Get-JobById -JobId $JobId
+            if ($null -eq $currentJob) { return }
+            $state = Get-JobTimerState -Job $currentJob
+            if ($state -notin @('running','paused')) { return }
+            $sec = Get-JobTimerElapsedSeconds -Job $currentJob
+            $hms = Format-JobTimerElapsed -Seconds $sec
+            $answer = [System.Windows.Forms.MessageBox]::Show(
+                "Finish this timer?`r`n`r`nWorked time: $hms`r`n`r`nThe end time will be recorded and this duration used for the job.",
+                "Finish Timer",
+                [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                [System.Windows.Forms.MessageBoxIcon]::Question)
+            if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
+            Finish-JobTimer -JobId $JobId
+            & $refreshDisplay
+        } catch { Write-Log "Job timer finish error: $($_.Exception.Message)" }
     }.GetNewClosure())
 
     $resetBtn.Add_Click({
-        $answer = [System.Windows.Forms.MessageBox]::Show(
-            "Reset this timer? This clears the start time, end time, and computed hours for this job.",
-            "Reset Timer",
-            [System.Windows.Forms.MessageBoxButtons]::YesNo,
-            [System.Windows.Forms.MessageBoxIcon]::Warning)
-        if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
-        Reset-JobTimer -JobId $JobId
-        & $refreshDisplay
+        try {
+            $answer = [System.Windows.Forms.MessageBox]::Show(
+                "Reset this timer? This clears the start time, end time, and computed hours for this job.",
+                "Reset Timer",
+                [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                [System.Windows.Forms.MessageBoxIcon]::Warning)
+            if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
+            Reset-JobTimer -JobId $JobId
+            & $refreshDisplay
+        } catch { Write-Log "Job timer reset error: $($_.Exception.Message)" }
     }.GetNewClosure())
 
-    $timer.Add_Tick({ & $refreshDisplay }.GetNewClosure())
+    $cancelTimerBtn.Add_Click({
+        try {
+            $answer = [System.Windows.Forms.MessageBox]::Show(
+                "Cancel this timer?`r`n`r`nThe timer will reset to idle. Elapsed time will NOT be recorded.",
+                "Cancel Timer",
+                [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                [System.Windows.Forms.MessageBoxIcon]::Warning)
+            if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
+            Reset-JobTimer -JobId $JobId
+            & $refreshDisplay
+        } catch { Write-Log "Job timer cancel error: $($_.Exception.Message)" }
+    }.GetNewClosure())
+
+    $timer.Add_Tick({
+        try { & $refreshDisplay }
+        catch { Write-Log "Job timer display error: $($_.Exception.Message)" }
+    }.GetNewClosure())
     $timer.Start()
 
+    $form.Add_FormClosing({
+        try { $timer.Stop() } catch { }
+    }.GetNewClosure())
+
+    $jobForms = $script:jobTimerForms
     $form.Add_FormClosed({
         try { $timer.Stop(); $timer.Dispose() } catch { }
-        if ($script:jobTimerForms) { [void]$script:jobTimerForms.Remove($JobId) }
+        if ($jobForms) { [void]$jobForms.Remove($JobId) }
     }.GetNewClosure())
 
     $script:jobTimerForms[$JobId] = $form
     & $refreshDisplay
+    Apply-UiTheme -Root $form
     $form.Show()
 }
 
@@ -7263,6 +7812,7 @@ function Setup-JobLogSubTab {
     $toolbar.Height = 52
     $toolbar.FlowDirection = [System.Windows.Forms.FlowDirection]::LeftToRight
     $toolbar.WrapContents = $false
+    $toolbar.AutoScroll = $true   # tiny windows: toolbar scrolls instead of clipping
     $toolbar.BackColor = [System.Drawing.Color]::Transparent
     $toolbar.Padding = New-Object System.Windows.Forms.Padding(0, 8, 0, 0)
     $topPanel.Controls.Add($toolbar)
@@ -7358,30 +7908,35 @@ function Setup-JobLogSubTab {
 	
     $script:jobLogListView.Add_MouseClick({
         param($sender, $e)
-        if ($sender.Columns.Count -lt 11) { return }
-        $timerColX = 0
-        for ($i = 0; $i -lt 10; $i++) { $timerColX += $sender.Columns[$i].Width }
-        if ($e.X -lt $timerColX) { return }
-        if ($e.X -gt ($timerColX + $sender.Columns[10].Width)) { return }
-        $hit = $sender.HitTest($e.Location)
-        if (-not $hit.Item) { return }
-        $job = $hit.Item.Tag
-        if ($null -eq $job) { return }
-        $jobId = "$($job.id)"
-        if ([string]::IsNullOrWhiteSpace($jobId)) { return }
+        try {
+            if ($sender.Columns.Count -lt 11) { return }
+            $timerColX = 0
+            for ($i = 0; $i -lt 10; $i++) { $timerColX += $sender.Columns[$i].Width }
+            if ($e.X -lt $timerColX) { return }
+            if ($e.X -gt ($timerColX + $sender.Columns[10].Width)) { return }
+            $hit = $sender.HitTest($e.Location)
+            if (-not $hit.Item) { return }
+            $job = $hit.Item.Tag
+            if ($null -eq $job) { return }
+            $jobId = "$($job.id)"
+            if ([string]::IsNullOrWhiteSpace($jobId)) { return }
 
-        if ($script:jobTimerForms -and $script:jobTimerForms.ContainsKey($jobId)) {
-            $existing = $script:jobTimerForms[$jobId]
-            if ($existing -and -not $existing.IsDisposed) {
-                $existing.WindowState = 'Normal'; $existing.Activate(); $existing.BringToFront(); return
+            if ($script:jobTimerForms -and $script:jobTimerForms.ContainsKey($jobId)) {
+                $existing = $script:jobTimerForms[$jobId]
+                if ($existing -and -not $existing.IsDisposed) {
+                    $existing.WindowState = 'Normal'; $existing.Activate(); $existing.BringToFront(); return
+                }
             }
+            if ((Get-JobTimerState -Job $job) -eq 'idle') {
+                Start-JobTimer -JobId $jobId
+                Refresh-WorkBudget
+            }
+            Write-Log "Job timer column clicked: id=$jobId"
+            Show-JobTimerForm -JobId $jobId
+        } catch {
+            Write-Log "Job timer column click error: $($_.Exception.Message)"
         }
-        if ((Get-JobTimerState -Job $job) -eq 'idle') {
-            Start-JobTimer -JobId $jobId
-            Refresh-WorkBudget
-        }
-        Show-JobTimerForm -JobId $jobId
-    })	
+    })
 
     # ---- Bottom panel: budget (left) + breaks (right) ----
     $bottomPanel = $split.Panel2
@@ -7391,9 +7946,11 @@ function Setup-JobLogSubTab {
     $bottomGrid.Dock = 'Fill'
     $bottomGrid.ColumnCount = 3
     $bottomGrid.RowCount = 1
-    $bottomGrid.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 300))) | Out-Null
-    $bottomGrid.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Absolute, 400))) | Out-Null
-    $bottomGrid.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 100.0))) | Out-Null
+    # Percent-based columns: every panel keeps its share at ANY window width
+    # (absolute pixel columns used to squeeze the Breaks panel to zero).
+    $bottomGrid.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 25.0))) | Out-Null
+    $bottomGrid.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 32.0))) | Out-Null
+    $bottomGrid.ColumnStyles.Add((New-Object System.Windows.Forms.ColumnStyle([System.Windows.Forms.SizeType]::Percent, 43.0))) | Out-Null
     $bottomPanel.Controls.Add($bottomGrid)
 
     # Left: Work Budget
@@ -7874,6 +8431,7 @@ function Refresh-PmMachineTabs {
         $emptyTab = New-Object System.Windows.Forms.TabPage
         $emptyTab.Text = "(none)"
         $emptyTab.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+        $emptyTab.AutoScroll = $true
         $dateStr = $selected.ToString("yyyy-MM-dd")
         $hint = if ($all.Count -gt 0) {
             "No PM Checklists for $dateStr.`r`n`r`n$($all.Count) archived checklist(s) exist on other dates.`r`nTry a different date, click 'Scan Archive', or '+ Import PM Checklist'."
@@ -7889,6 +8447,8 @@ function Refresh-PmMachineTabs {
         $emptyTab.Controls.Add($msg)
         $script:pmMachineTabs.TabPages.Add($emptyTab) | Out-Null
         $script:pmSuppressEvents = $false
+        Invoke-ResponsiveRefresh
+        Apply-UiTheme
         Update-PmSelectedHoursTotal
         return
     }
@@ -7904,6 +8464,7 @@ function Refresh-PmMachineTabs {
         $tab.Text = "$($m.MachineId)  ($($m.TaskCount))"
         $tab.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
         $tab.Padding = New-Object System.Windows.Forms.Padding(12)
+        $tab.AutoScroll = $true   # task list scrolls when the window is tiny
 
         # Top metadata
         $meta = New-Object System.Windows.Forms.Label
@@ -8047,6 +8608,9 @@ function Refresh-PmMachineTabs {
     }
 
     $script:pmSuppressEvents = $false
+    # Newly built machine tabs must adopt the current window scale and theme.
+    Invoke-ResponsiveRefresh
+    Apply-UiTheme
     Update-PmSelectedHoursTotal
 }
 
@@ -8060,6 +8624,7 @@ function Setup-PmChecklistSubTab {
     $root.Dock = 'Fill'
     $root.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
     $root.Padding = New-Object System.Windows.Forms.Padding(12)
+    $root.AutoScroll = $true   # PM checklist content scrolls when the window is tiny
     $parentTab.Controls.Add($root)
 
     $toolbar = New-Object System.Windows.Forms.FlowLayoutPanel
@@ -8067,6 +8632,7 @@ function Setup-PmChecklistSubTab {
     $toolbar.Height = 52
     $toolbar.FlowDirection = [System.Windows.Forms.FlowDirection]::LeftToRight
     $toolbar.WrapContents = $false
+    $toolbar.AutoScroll = $true   # tiny windows: toolbar scrolls instead of clipping
     $toolbar.BackColor = [System.Drawing.Color]::Transparent
     $toolbar.Padding = New-Object System.Windows.Forms.Padding(0, 8, 0, 0)
     $root.Controls.Add($toolbar)
@@ -8189,6 +8755,7 @@ function Setup-PmChecklistSubTab {
     # Machine tabs
     $script:pmMachineTabs = New-Object System.Windows.Forms.TabControl
     $script:pmMachineTabs.Dock = 'Fill'
+    $script:pmMachineTabs.Multiline = $true   # wrap machine-tab headers when tiny
     $script:pmMachineTabs.Font = New-Object System.Drawing.Font("Segoe UI", 9)
     $root.Controls.Add($script:pmMachineTabs)
     $script:pmMachineTabs.BringToFront()
@@ -8394,6 +8961,7 @@ function Setup-WeeklyWorksheetSubTab {
     $root.Dock = 'Fill'
     $root.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
     $root.Padding = New-Object System.Windows.Forms.Padding(12)
+    $root.AutoScroll = $true   # worksheet content scrolls when the window is tiny
     $parentTab.Controls.Add($root)
 
     # Bottom status bar
@@ -8418,6 +8986,7 @@ function Setup-WeeklyWorksheetSubTab {
     $toolbar.Height = 52
     $toolbar.FlowDirection = [System.Windows.Forms.FlowDirection]::LeftToRight
     $toolbar.WrapContents = $false
+    $toolbar.AutoScroll = $true   # tiny windows: toolbar scrolls instead of clipping
     $toolbar.BackColor = [System.Drawing.Color]::Transparent
     $toolbar.Padding = New-Object System.Windows.Forms.Padding(0, 8, 0, 0)
     $root.Controls.Add($toolbar)
@@ -9650,6 +10219,7 @@ function Setup-HistorianSubTab {
     $root.Dock = 'Fill'
     $root.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
     $root.Padding = New-Object System.Windows.Forms.Padding(12)
+    $root.AutoScroll = $true   # historian content scrolls when the window is tiny
     $parentTab.Controls.Add($root)
 
     # Status bar
@@ -9674,6 +10244,7 @@ function Setup-HistorianSubTab {
     $toolbar.Height = 52
     $toolbar.FlowDirection = [System.Windows.Forms.FlowDirection]::LeftToRight
     $toolbar.WrapContents = $false
+    $toolbar.AutoScroll = $true   # tiny windows: toolbar scrolls instead of clipping
     $toolbar.BackColor = [System.Drawing.Color]::Transparent
     $toolbar.Padding = New-Object System.Windows.Forms.Padding(0, 8, 0, 0)
     $root.Controls.Add($toolbar)
@@ -10169,6 +10740,12 @@ function Show-JobEditor {
         $btnStartNow.Enabled = $false; $btnEndNow.Enabled = $false
         $lblHours.ForeColor = [System.Drawing.Color]::FromArgb(52,152,219)
     }
+    # When the timer is active, the Start Timer button becomes Stop Timer so the
+    # timer can always be stopped right here in the editor.
+    if ($__timerStateForEditor -in @('running','paused')) {
+        $startTimerBtn.Text = "Stop Timer"
+        $startTimerBtn.BackColor = [System.Drawing.Color]::FromArgb(231,76,60)
+    }
     try {
         $dtpEnd.Value = [DateTime]::ParseExact($endStr, 'HH:mm', [System.Globalization.CultureInfo]::InvariantCulture)
     } catch {}
@@ -10211,6 +10788,21 @@ function Show-JobEditor {
     })
 
     $startTimerBtn.Add_Click({
+        # Toggle: when the job's timer is already active, this button STOPS it
+        # (so a running timer can always be stopped from the editor popup).
+        if ((Get-JobTimerState -Job $Job) -in @('running','paused')) {
+            $answer = [System.Windows.Forms.MessageBox]::Show(
+                "Stop this timer?`r`n`r`nElapsed time will NOT be recorded — the timer resets to idle.",
+                "Stop Timer",
+                [System.Windows.Forms.MessageBoxButtons]::YesNo,
+                [System.Windows.Forms.MessageBoxIcon]::Warning)
+            if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
+            Reset-JobTimer -JobId "$($Job.id)"
+            $form.Tag = [PSCustomObject]@{ Action = 'stop' }
+            $form.Close()
+            return
+        }
+
         $candidate = [PSCustomObject]@{
             id              = $Job.id
             kind            = $Job.kind
@@ -10307,6 +10899,7 @@ function Show-JobEditor {
     $form.AcceptButton = $saveBtn
     $form.CancelButton = $cancelBtn
 
+    Apply-UiTheme -Root $form
     $form.ShowDialog() | Out-Null
     return $form.Tag
 }
@@ -10558,6 +11151,7 @@ function Show-PartPicker {
     $form.AcceptButton = $okBtn
     $form.CancelButton = $cancelBtn
 
+    Apply-UiTheme -Root $form
     $form.ShowDialog() | Out-Null
     return $form.Tag
 }
@@ -11103,6 +11697,7 @@ function Setup-WorkTrackingTab {
 
     $subTabs = New-Object System.Windows.Forms.TabControl
     $subTabs.Dock = 'Fill'
+    $subTabs.Multiline = $true   # wrap sub-tab headers when the window is tiny
     $subTabs.Font = New-Object System.Drawing.Font("Segoe UI", 9)
     $subTabs.Padding = New-Object System.Drawing.Point(14, 4)
     $parentTab.Controls.Add($subTabs)
@@ -11207,6 +11802,9 @@ function Load-WtSettingsValues {
     $c.EmailBox.Text      = if ($script:config.SupervisorEmail) { "$($script:config.SupervisorEmail)" } else { '' }
     $c.EdacUrlBox.Text    = if ($wt.eDacUrl)              { "$($wt.eDacUrl)" }              else { '' }
     $c.ThresholdBox.Value = if ($wt.ReactiveToWorkOrderMinutes) { [int]$wt.ReactiveToWorkOrderMinutes } else { 15 }
+    if ($c.ThemeBox) {
+        $c.ThemeBox.SelectedItem = if ("$script:theme" -in @('Dark','WindowsXP')) { "$script:theme" } else { 'Default' }
+    }
 
     Write-Log "Load-WtSettingsValues: techName='$($c.TechNameBox.Text)' email='$($c.EmailBox.Text)'"
 
@@ -11291,7 +11889,7 @@ function Setup-SettingsTab {
     $gIdentity = New-Object System.Windows.Forms.GroupBox
     $gIdentity.Text = "Identity"
     $gIdentity.Width = 720
-    $gIdentity.Height = 110
+    $gIdentity.Height = 146
     $gIdentity.Padding = New-Object System.Windows.Forms.Padding(12)
     $gIdentity.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
     $gIdentity.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
@@ -11305,6 +11903,16 @@ function Setup-SettingsTab {
     $emailBox = New-Object System.Windows.Forms.TextBox
     $emailBox.Size = New-Object System.Drawing.Size(440, 24)
     New-SettingRow -Parent $gIdentity -Top 62 -LabelText "Supervisor Email:" -InputControl $emailBox
+
+    $themeBox = New-Object System.Windows.Forms.ComboBox
+    $themeBox.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
+    $themeBox.Size = New-Object System.Drawing.Size(200, 24)
+    [void]$themeBox.Items.AddRange(@('Default','Dark','WindowsXP'))
+    $themeBox.SelectedItem = if ("$script:theme" -in @('Dark','WindowsXP')) { "$script:theme" } else { 'Default' }
+    $themeBox.Add_SelectedIndexChanged({
+        try { Set-UiTheme -Name "$($themeBox.SelectedItem)" } catch { }
+    }.GetNewClosure())
+    New-SettingRow -Parent $gIdentity -Top 96 -LabelText "UI Theme:" -InputControl $themeBox
 
     # --- Work Tracking group ---
     $gWorkTrack = New-Object System.Windows.Forms.GroupBox
@@ -11499,6 +12107,7 @@ function Setup-SettingsTab {
         EmailBox     = $emailBox
         EdacUrlBox   = $edacUrlBox
         ThresholdBox = $thresholdBox
+        ThemeBox     = $themeBox
         DayLenBox    = $dayLenBox
         LunchBox     = $lunchBox
         WashupBox    = $washupBox
@@ -11537,6 +12146,7 @@ function Setup-SettingsTab {
             $cfg.SupervisorEmail                         = $email
             $cfg.WorkTracking.eDacUrl                    = $edacUrl
             $cfg.WorkTracking.ReactiveToWorkOrderMinutes = $threshold
+            $cfg.UiTheme                                 = "$script:theme"
 
             $cfg.WorkTracking.WorkBudget.DayLengthHours        = [double]$c.DayLenBox.Value
             $cfg.WorkTracking.WorkBudget.LunchMinutes          = [int]$c.LunchBox.Value
@@ -11601,6 +12211,7 @@ function Setup-SearchTab {
     $searchPanel.Dock = 'Fill'
     $searchPanel.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
     $searchPanel.Padding = New-Object System.Windows.Forms.Padding(12)
+    $searchPanel.AutoScroll = $true   # search fields scroll when the window is tiny
     $parentTab.Controls.Add($searchPanel)
 
     # ---- Bottom bar (Dock=Bottom) ----
@@ -13706,13 +14317,16 @@ function Show-MainForm {
     $form = New-Object System.Windows.Forms.Form
     $form.Text = 'Parts Management System'
     $form.Size = New-Object System.Drawing.Size(1280, 900)
-    $form.MinimumSize = New-Object System.Drawing.Size(1000, 700)
+    # Resizable from ~2.6" x 3.9" up to full screen (responsive layout engine
+    # scales every tab to whatever size the window becomes).
+    $form.MinimumSize = New-Object System.Drawing.Size(240, 360)
     $form.StartPosition = 'CenterScreen'
     $form.BackColor = [System.Drawing.Color]::FromArgb(236,240,241)
     $form.Font = New-Object System.Drawing.Font("Segoe UI", 9)
 
     $tabControl = New-Object System.Windows.Forms.TabControl
     $tabControl.Dock = 'Fill'
+    $tabControl.Multiline = $true   # wrap tab headers when the window is tiny
     $tabControl.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Regular)
     $tabControl.Padding = New-Object System.Drawing.Point(16, 6)
     $form.Controls.Add($tabControl)
@@ -13848,6 +14462,11 @@ function Show-MainForm {
     }
 
     Write-Log "UI setup completed"
+    # Responsive layout: rescale every tab when the window is resized
+    # (2.6" x 3.9" minimum up to full screen).
+    Initialize-ResponsiveLayout -Form $form
+    # Apply the selected UI theme (Default / Dark / WindowsXP).
+    Apply-UiTheme -Root $form
     $form.ShowDialog()
 }
 
