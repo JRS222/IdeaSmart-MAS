@@ -1,0 +1,2622 @@
+// JavaScript Document
+var currentWhepFacID;
+var currentSubsiteID;
+var currentMachineType;
+var currentMachineNo;
+var currentMachinePtr;
+var currentMachineClassCode;
+var siteName;
+var currentUserFirstName;
+var currentUserLastName;
+var currentUserCrew;
+var userLevel;
+var type = "M";       //M=Master, L=Local
+var workCode = "03";  //em_workcode_t, 03=routine PM
+var eqptDesc = "Small Parcel & Bundle Machine";
+var skills = new Array(); //skills user selected
+var skillStr="";		  //like "ET,MPE,MM5,"
+//current open checklist, it will be assigned a new value if it exists 
+var currentChecklistNo = -1;
+var numOfcurrentOpenTasks = -1; 
+var dayChecklistOpened = -1; //month-day string, month:1 ~ 12, day:1 ~ 31
+var dateCreated4 = '1/1/1900';  //e.g 7/31/2008 date when checklist is created
+var strheader = "";
+var ecbm_view_only = 'N'; //platforms which have only reading permit, such as FSS
+var mmo_no = 'MMO-009-08'; //MMO NOs that detail the PM tasks
+var local_time_string = new Date().toLocaleString(); 
+
+function bodyOnLoad() { 
+	//get global variables
+	currentSubsiteID = opener.currentECBMSubsite;
+	currentWhepFacID = opener.currentWhepFacID;
+	currentMachineType = opener.currentMachineType;
+	currentMachineNo = opener.currentMachineNo;
+	currentMachinePtr = opener.currentMachinePtr;
+	currentMachineClassCode = opener.currentMachineClassCode;
+	siteName = opener.siteName;
+	userLevel = opener.userLevel;
+	currentUserCrew = opener.currentUserCrew;
+	currentUserFirstName = opener.currentUserFirstName;
+	currentUserLastName = opener.currentUserLastName;
+	mmo_no = opener.mmo_no;
+	
+	ecbm_view_only = isECBMViewOnly();
+	
+	document.all.divMachInfo.innerHTML="Loading .....";
+	document.all.divOpenlist.innerHTML="Loading .....";
+	document.all.divNewlist.innerHTML ="Loading .....";
+	
+	var htmlStr = 
+	'<div style="background-color: #DCDCDC; font-size: 16; color:black; font-weight: bold; text-align: center;">SUBMIT CHECKLIST</div>'+
+	'<table cellpadding="5" cellspacing="0" width="100%" height="" border="1 id="table1" bgcolor="lightgrey">'+	
+		'<tr bgcolor="lightgrey">'+
+			'<th width="25%">Checklist No.</th><th width="25%">Creating Date</th><th width="25%">Site Name</th><th width="25%">Owner</th>'+
+		'</tr>';
+	
+	var childList = null;
+	var j = 0;
+	// infor of LATEST checklist (created-day could be any )
+	var trackno, requestDate, reportLevel, requestTech, open_yn,open_due_last;
+	var wo_ptr_today = -1;
+	var wo_no_today = -1;
+	
+	//get the latest checklist	
+	childList = getOpenlist();
+	
+	if(childList != null ){
+ 		trackno	= childList(0).text;									//last checklist ID 
+		currentChecklistNo = trackno;
+ 		numOfcurrentOpenTasks = childList(4).text;					//num of open tasks in the last checklist
+ 		dayChecklistOpened = (new Date(childList(1).text).getMonth()+1) + '-' + new Date(childList(1).text).getDate();//the month-day string when the last checklist was created.e.g. 12-21
+		dateCreated4 = new Date(childList(1).text).getMonth()+1 +'/'+new Date(childList(1).text).getDate()+'/'+new Date(childList(1).text).getYear(); //e.g 7/31/2008
+ 		requestDate	= childList(1).text;
+ 		requestTech	= childList(2).text;
+		open_due_last = childList(3).text;
+		open_yn = childList(4).text;
+		wo_ptr_today = childList(5).text;
+		wo_no_today = childList(6).text;
+		
+		/*alert('today wo ptr='+ wo_ptr_today); 
+		alert('dayChecklistOpened = '+ dayChecklistOpened); 
+		alert('open_due = '+ open_due_last);
+		alert('last trackno = '+ trackno);*/
+		 
+		if(open_yn != 0){
+  			htmlStr	+= '<tr bgcolor="lightgrey"><td width="25%"><input	type="button"	value="Submit Checklist '+trackno+'" name="btnTrackno"	id="btnTrackno"	onClick="submitChecklist('+trackno+');"';
+			if(ecbm_view_only == 'Y'){	htmlStr	+= ' disabled="true"';	}		
+  			htmlStr	+= ' /></td>'+
+				'<td width="25%">'+requestDate+'</td>'+
+  				'<td width="25%">'+siteName+'</td>'+
+  				'<td width=""><input	type="button"	value="Who Printed It?" onClick="whoPrint('+trackno+');"';
+			if(ecbm_view_only == 'Y'){htmlStr	+= ' disabled="true"';}			
+			htmlStr	+= ' /></td></tr>';
+			
+			htmlStr += '<tr bgcolor="lightgrey">'+
+  			'<th width="25%">Worksheet No.</th><th width="25%">Employee	Name</th><th width="25%">Crew</th><th	width="25%">Supervisor</th></tr>';   
+  			
+			htmlStr += '<tr bgcolor="lightgrey">'+	
+			'<td width="25%"><select id="slctWrkShtno" name="slctWrkShtno" onChange="slctWrkShtno_onChnage(this,'+trackno+');"';
+			
+			if(ecbm_view_only == 'Y'){htmlStr	+= ' disabled="true"';}	
+			htmlStr += '></select></td>'+ 
+			'<td width="25%"><input	type="text"	value=""  name="fldEmpName"	id="fldEmpName"	 readOnly="readonly"	style="background:lightgrey;"	/></td>'+
+  			'<td width="25%"><input	type="text"	value=""  name="fldCrew"	 id="fldCrew"	 readOnly="readonly"		style="background:lightgrey;"	/></td>'+
+  			'<td width=""><input	type="text"	value=""  name="fldSupervisor"	 id="fldSupervisor"	 readOnly="readonly"	 style="background:lightgrey;" /></td>'+
+  			'</tr>';
+  			
+			htmlStr += '<tr bgcolor="lightgrey"><td colspan="2"><font color="red">';
+			if(ecbm_view_only == 'Y'){ 
+				htmlStr += 'The submitting is NOT appliable to '+currentMachineType+"-" + currentMachineNo; 
+			}else{ 
+				htmlStr	+= 'To submit your work hours, please select a worksheet number first.';
+			}			
+			htmlStr += '</font><br />The PM has not been assigned if no worksheets are available.</td>'+
+			'<td colspan="2"><input	type="button"value="Print ' +trackno+ ' of '+dateCreated4+ '"	name="btnPrintExistingChecklist" id="btnPrintExistingChecklist" onClick="createChecklistNew(this,'+trackno+',-1);"	 />	';
+			
+  		}else{
+			if(trackno == -1){ //not checklist found in last 28 days 
+				htmlStr += '<tr bgcolor="lightgrey"><td colspan="4">No checklist found </td></tr>';
+			}else{
+				htmlStr += '<tr bgcolor="lightgrey"><td colspan="4">The latest checklist' +trackno+ '(<font color="navy">created in '+requestDate+'</font>) has been closed. It can be printed by pressing the button below.</td></tr>'+
+			  			'<td colspan="4"><input type="button" value="Print Checklist ' +trackno+ ' of '+dateCreated4+ '"	name="btnPrintExistingChecklist" id="btnPrintExistingChecklist" onClick="createChecklistNew(this,'+trackno+',-1);"	 />	';
+						//'<td colspan="4"><input type="button" value="Print Checklist of '+dateCreated4+'"	name="btnPrintExistingChecklist" id="btnPrintExistingChecklist" onClick="createChecklistNew(this,'+trackno+');"	 />	';
+			}
+    	}			
+	}else{
+			htmlStr += '<tr bgcolor="lightgrey"><td colspan="4">No open checklist available</td></tr>';						
+	}
+		
+	htmlStr += '<input type="hidden" name="trackno" value="'+trackno+'"></td></tr></table>';
+	document.all.divOpenlist.innerHTML = htmlStr;
+	
+	//jesse 2014.7.15 load worksheet list 
+	if(open_yn != 0){ //the checklist is still open 
+	
+		var xmlObj = null;
+		var xmlResult = null;
+		var returnText = null;
+	
+		if (window.XMLHttpRequest) { // Mozilla, Safari, ...
+			xmlObj = new XMLHttpRequest();
+			//alert('create request XMLHttpRequest()');
+		} else if (window.ActiveXObject) { // IE
+			try {
+				xmlObj = new ActiveXObject("Msxml2.XMLHTTP");
+				//alert('create request ActiveXObject("Msxml2.XMLHTTP")');
+			} catch (e) {
+				try {
+					xmlObj = new ActiveXObject("Microsoft.XMLHTTP");
+					//alert('create request ActiveXObject("Microsoft.XMLHTTP")');
+				} catch (e) {
+					alert('Ooops :(,  Cannot create an XMLHTTP instance');
+				}
+			}
+		}
+	
+		if (!xmlObj) {
+			alert('Giving up :( Cannot create an XMLHTTP instance');
+			return false;
+		}
+	
+		xmlObj.onreadystatechange=function(){
+			if (xmlObj.readyState==4 && xmlObj.status==200)
+			{ //alert('xmlObj.responseText : ' + xmlObj.responseText);
+				if (window.DOMParser) {
+					//not working for IE 8, IE 9 supports this
+					parser=new DOMParser();
+					xmlResult = parser.parserFromString(xmlObj.responseText,"text/xml");
+					//alert('1 DOMParser() ');
+				} else {
+					//not working for IE 8, , IE 9 supports this
+					//xmlResult = CreateMSXMLDocumentObject();		
+					xmlResult = new ActiveXObject("Microsoft.XMLDOM");
+					xmlResult.async = false;
+				
+					if (!xmlResult) {
+						alert ("Cannot create XMLDocument object");
+						return false;
+					}else{
+						xmlResult.loadXML(xmlObj.responseText);
+						//alert('2 ActiveXObject()');
+					}
+				}
+			
+				if (xmlResult) {
+					returnText = 'select a work sheet no' + xmlResult.getElementsByTagName('ROW')(0).text;
+					//alert(' -- returnText :' + returnText); 
+				
+					var select = document.getElementById("slctWrkShtno");
+					select.length=0;				
+					var listEle = returnText.split(",");
+					for (var i = 0; i < listEle.length; i++) {
+						//alert('listEle : ' + listEle[i]); 
+						select.options[select.length] = new Option(listEle[i],i);						
+					}
+					select.style.display="block";;
+				}		
+			
+			}
+		};
+		var url = getServerPath() + 'ecbm.ecbm_checklist.getWorkSheetList?pSite='+currentSite+'&pTrackno='+trackno;
+		xmlObj.open('GET',url,true);
+		xmlObj.send(null);
+	}
+	
+	strheader = '<span style="text-align:center;"><table width="100%"><tr>' + 
+					'<td bgcolor="000099"><font color="cccccc">&nbsp;Subsite Name:&nbsp;</font></td>' + 
+					'<td bgcolor="cccccc"><font color="000099">&nbsp;&nbsp;' + siteName + '&nbsp;&nbsp;</font></td>' + 
+					'<td bgcolor="000099"><font color="cccccc">&nbsp;Equipment Type:&nbsp;</font></td>' + 
+					'<td bgcolor="cccccc"><font color="000099">&nbsp;&nbsp;' + currentMachineType + '&nbsp;&nbsp;</font></td>' + 
+					'<td bgcolor="000099"><font color="cccccc">&nbsp;Equipment No.:&nbsp;</font></td>' + 
+					'<td bgcolor="cccccc"><font color="000099">&nbsp;&nbsp;' + currentMachineNo + '&nbsp;&nbsp;</font></td>' + 
+					'<td bgcolor="000099"><font color="cccccc">&nbsp;Class Code.:&nbsp;</font></td>' + 
+					'<td bgcolor="cccccc"><font color="000099">&nbsp;&nbsp;' + currentMachineClassCode + '&nbsp;&nbsp;</font></td>' + 
+					'</tr></table></span>';
+	document.all.divMachInfo.innerHTML= strheader;
+	
+	//add 'Create Checklist' Option here
+	document.all.divNewlist.innerHTML = createChecklistHtmlString(wo_ptr_today,open_due_last);	
+	
+	
+	//close the eCBM checklist window automatically after 0.25 hours (15 minutes )
+	setTimeout('self.close();', 0.3*60*60*1000);
+}
+
+
+var worksheet_empName=null;
+var worksheet_supervisor=null;
+var worksheet_crew=null;
+var worksheet_empid=null;
+var worksheet_empavgsalary=null;
+var worksheet_emp_level_code=null;
+var worksheet_emp_ldc_code=null;
+var worksheet_no=null;
+var worksheet_wo_ptr=null;
+
+function slctWrkShtno_onChnage(obj,chklst_no) {
+	//alert('inside slctWrkShtno_onChnage()'); 
+	var select_text = obj.options[obj.selectedIndex].text;
+		
+	if (obj.options[obj.selectedIndex].value == 0){
+		document.all.fldEmpName.value='';
+		document.all.fldCrew.value='';		
+		document.all.fldSupervisor.value = '';
+      
+		return;
+    }else{ 
+
+		//jesse,  to use AjAX call 
+		var xmlObj = null; var xmlResult = null;
+		if(window.XMLHttpRequest){ // Mozilla, Safari, ...
+			xmlObj = new XMLHttpRequest();
+		}else if(window.ActiveXObject){ // IE
+			try { xmlObj = new ActiveXObject("Msxml2.XMLHTTP");}catch(e){
+				try { xmlObj = new ActiveXObject("Microsoft.XMLHTTP");}catch (e){
+					alert('Ooops :(,  Cannot create an XMLHTTP instance');
+				}
+			}
+		}
+	
+		if(!xmlObj){ alert('Giving up :( Cannot create an XMLHTTP instance');return false;}
+	
+		xmlObj.onreadystatechange = function(){
+			if (xmlObj.readyState == 4 && xmlObj.status == 200)
+			{ 
+				//alert('xmlObj.responseText : ' + xmlObj.responseText);
+				if(window.DOMParser){ //not working for IE 8, IE 9 supports this		
+					parser=new DOMParser();
+					xmlResult = parser.parserFromString(xmlObj.responseText,"text/xml");
+				}else{
+					//not working for IE 8, , IE 9 supports this : //xmlResult = CreateMSXMLDocumentObject();
+				
+					xmlResult = new ActiveXObject("Microsoft.XMLDOM");
+					xmlResult.async = false;				
+					if (!xmlResult) {
+						alert ("Cannot create XMLDocument object");
+						return false;
+					}else{
+						xmlResult.loadXML(xmlObj.responseText);
+						//alert('2 ActiveXObject()');
+					}
+				}
+			
+				if(xmlResult){
+					var nodeList = xmlResult.getElementsByTagName("ROW");		
+					if(nodeList != null) {				
+						document.all.fldEmpName.value=nodeList(0).childNodes[4].text;
+						worksheet_empName =  nodeList(0).childNodes[4].text;
+						document.all.fldCrew.value=nodeList(0).childNodes[0].text;
+						worksheet_crew = nodeList(0).childNodes[0].text; 			
+						document.all.fldSupervisor.value = nodeList(0).childNodes[1].text;	
+					
+						worksheet_supervisor = nodeList(0).childNodes(1).text;
+						worksheet_empid=nodeList(0).childNodes(2).text;
+						worksheet_empavgsalary=nodeList(0).childNodes(5).text;
+						worksheet_emp_level_code=nodeList(0).childNodes(6).text;
+						worksheet_no=select_text;
+						worksheet_wo_ptr=nodeList(0).childNodes(7).text;
+						worksheet_emp_ldc_code=nodeList(0).childNodes(8).text;  
+						
+						if(nodeList(0).childNodes(10).text == 'C') { 
+							alert('If this is not your first time to submit this checklist (or worksheet), \n\n please just  enter an additional time, DO NOT add it to your previous input.'); 
+						}
+					}else{
+						alert("ERROR - fail to retrieve the worksheet information.");  
+					} 
+				}
+			}
+		};
+		xmlObj.open('GET',"ecbm.ecbm_checklist.getWorkSheet?pSite="+currentSite+"&pWorksheetNo="+select_text+'&pTrackno='+chklst_no,true);	
+		xmlObj.send(null);
+	}	
+}
+
+var vEnvironment = getEnvVar().toUpperCase(); 
+var vReportUserIdMapping = 'emarsprdrpt';
+if(vEnvironment == 'DEV') { vReportUserIdMapping = 'emarsdevrpt'; }
+else if (vEnvironment == 'TEST') { vReportUserIdMapping = 'emarststrpt'; } // staging
+else if (vEnvironment == 'PROD') { vReportUserIdMapping = 'pemarsrpt'; } // 'pemarsrpt'
+else if (vEnvironment == 'CAT') { vReportUserIdMapping = 'cemarsrpt'; }
+else if (vEnvironment == 'VIEW') { vReportUserIdMapping = 'emarsdevrpt'; }  //'emarsdevrpt'\
+
+//p_wo_ptr_today --- wo ptr of today's wo. -1 if unavailable
+//p_open_due_last  --- number of open tasks which are due on last checklist
+function createChecklistHtmlString(p_wo_ptr_today,p_open_due_last)
+{
+	
+	//make the drop-down list below dynamic !!!!!!!!!!!!!!!!!
+	var htmlStr = '<div style="background-color: #DCDCDC; font-size: 16; color:black; font-weight: bold; text-align: center;">CREATE CHECKLIST</div>'+
+	'<table cellpadding="5" cellspacing="0" width="100%" height="" border="1" rules="cols" id="table1" bgcolor="lightgrey">'+	
+		'<tr bgcolor="lightgrey"><th width="30%" align="center">Skill Level</th><th width="70%"  align="center">Creating PM Checklists</th></tr>'+
+		'<tr bgcolor="lightgrey"><td align="center"><select name="checklistCategory" size="5" multiple="multiple">'+
+			'<option value="ET" selected="selected">ET</option>'+
+			'<option value="MPE" selected="selected">MPE</option>'+
+			'<option value="MM7" selected="selected">MM7</option>'+
+			'<option value="MM5" selected="selected">MM5</option>'+ '<option value="MM4" selected="selected">MM4</option>'+ 
+			'</select><br><font color="red">hold Ctrl to select multiple levels</font></td>'+
+			'<td align="center">'+
+				'<b><input type="button" name="btn_safety" value=" List of Warning and Safety Tasks  " onClick="btn_safetyTask_onClick();">'+
+				'<br><input type="button" name="btn_mail" value="             Mail Search Checklist             " onClick="showMailOpList(this);">'+
+				'<br><input type="button" name="btn_op" value="Operational Maintenance Checklist" onClick="showMailOpList(this);">';
+	
+	  
+	/*var acronym_in_ecbm = ' AFCS AFCS200 AFSM100 AIAFSM APBS APPS CIOSS DBCS DIOSS FSSOCR HOPS PSM SAMP TESDECK';
+	
+	//alert('acronym_in_ecbm.includes(currentMachineType.toUpperCase() ) --- ' + acronym_in_ecbm.indexOf(currentMachineType.toUpperCase()) ); 
+	 
+	 if( acronym_in_ecbm.indexOf(currentMachineType.toUpperCase() ) > -1  ) {
+	 	htmlStr += '<br><a href="/'+vReportUserIdMapping+'/'+currentMachineType.toUpperCase()+'_'+currentMachineClassCode.toUpperCase()+'_pmchecklist.doc" ';
+	 }else{  
+		htmlStr += '<br><a href="/'+vReportUserIdMapping+'/'+currentMachineType.toUpperCase()+'_'+currentMachineClassCode.toUpperCase()+'_pmchecklist.docx" ';
+	 } 
+*/ 	 
+	htmlStr += '<br><a href="/'+vReportUserIdMapping+'/'+currentMachineType.toUpperCase()+'_'+currentMachineClassCode.toUpperCase()+'_pmchecklist.doc" ';
+	htmlStr +=  'target="_blank">'+currentMachineType+ '-'+currentMachineClassCode.toUpperCase()+' Master Task List</a></b>'; 
+		
+	htmlStr +=		'<br><font color="red">select the skill level(s) and click the button below </font>';
+	htmlStr += '&nbsp;<br>To <span style="color:red;font-size:150%;">';	
+	
+	if(dayChecklistOpened == (new Date().getMonth()+1) +'-'+ new Date().getDate()){ 
+		htmlStr +=	'PRINT </span> Checklist No. '+ currentChecklistNo + ' For  ';
+		htmlStr += '<span style="color:red;font-size:150%;">Today</span> <br><input type="button" name="buttonCreateList" value="Without Task Details"   onClick="return createChecklistNew(this,'+currentChecklistNo+',-1);"><input type="button" name="buttonCreateList2" value="With Task Details"  onClick="return createChecklistNew(this,'+currentChecklistNo+','+p_open_due_last+',-1);">'; 
+	}else{
+		if(ecbm_view_only == 'Y'){ 
+			htmlStr +=	'PRINT </span> Checklist No. '+ currentChecklistNo + ' For  '; 
+			htmlStr += '<span style="color:red;font-size:150%;">'+dateCreated4+'</span> <br><input type="button" name="buttonCreateList" value="Without Task Details"   onClick="return createChecklistNew(this,'+currentChecklistNo+',-1);"><input type="button" name="buttonCreateList2" value="With Task Details"  onClick="return createChecklistNew(this,'+currentChecklistNo+','+p_open_due_last+',-1);">';
+	
+		}else{ 
+			htmlStr +=	'CREATE </span> Checklist For '; 
+			htmlStr +='<span style="color:red;font-size:150%;">Today</span> <br><input type="button" name="buttonCreateList" value="Without Task Details"   onClick="return createChecklistNew(this,-1,'+p_open_due_last+','+ p_wo_ptr_today+');"><input type="button" name="buttonCreateList2" value="With Task Details"  onClick="return createChecklistNew(this,-1,'+p_open_due_last+','+ p_wo_ptr_today+');">'; 		 
+		}
+	}
+	/*
+	if(ecbm_view_only == 'Y'){
+			htmlStr += '<span style="color:red;font-size:150%;">'+dateCreated4+'</span> <br><input type="button" name="buttonCreateList" value="Without Task Details"   onClick="return createChecklistNew(this,'+currentChecklistNo+');"><input type="button" name="buttonCreateList2" value="With Task Details"  onClick="return createChecklistNew(this,'+currentChecklistNo+');">';
+	}else{
+			htmlStr +='<span style="color:red;font-size:150%;">Today</span> <br><input type="button" name="buttonCreateList" value="Without Task Details"   onClick="return createChecklistNew(this,-1);"><input type="button" name="buttonCreateList2" value="With Task Details"  onClick="return createChecklistNew(this,-1);">'; 		 
+	}
+	*/
+	htmlStr += '</td></tr></table>';
+	
+	return htmlStr;	
+}
+
+//open a new window, and create and display a new checklist 
+var winNewlist=null;
+var header = '<html><head><title>PM Checklist</title>'; 
+header += '<style type="text/css">'+
+	'DIV.danger {'+
+		'background-image:url(/'+vReportUserIdMapping+'/warning.gif);'+
+		'background-repeat:no-repeat;'+
+		'background-position:center top;'+
+		'margin: 0 0 2em 1em;'+
+		'width: 300px;'+
+		'border:#000000 solid thin;'+
+		'border-collapse:collapse;'+
+		'font-weight:bold;'+
+		'padding: 4em 1em 1em 1em;'+
+	'}'+
+	'DIV.caution {	background-image:url(/'+vReportUserIdMapping+
+	'/caution.gif);	background-repeat:no-repeat;	background-position:center top;margin: 0 0 2em 1em;	width: 300px;'+
+	'border:#000000 solid thin;	border-collapse:collapse;font-weight:bold;padding: 4em 1em 1em 1em;}'+
+	'DIV.note {background-image:url(/'+vReportUserIdMapping+
+	'/note.gif);background-repeat:no-repeat;background-position:center top;margin: 0 0 2em 1em;width: 300px;'+
+	'border:#000000 solid thin;border-collapse:collapse;font-weight:bold;padding: 3.5em 1em 1em 1em;}'+
+'</style>';
+var bodier = '</head><body style="background-color:#e6e6e6;">';
+var btnClose = '<table cellspacing="0" cellpadding="0" border="0" rules="none" align="center" width="790>'+
+		'<tr valign="middle" bgcolor="#e6e6e6">'+
+			'<td height="30" valign="middle" align="center" width="100%">'+
+				'<input type="button" name="printButton" value="Print It" onClick="window.print()">'+
+        		'<input type="button" name="logoutButton2" value="Close Window" onClick="window.close()">'+ 
+      		'</td>'+
+		'</tr></table>';
+var taskHeader = '<table cellspacing="0" cellpadding="0" border="2" rules="all" align="center" width="790">'+
+	'<tr><th width="5%" align="center" height="100%">Item No</th>'+
+		'<th width="10%" align="center" height="100%">Part or Component</th>'+	
+		'<th width="5%" align="center" height="100%">Est. Time Req`d (min)</th>'+
+		'<th width="5%" align="center" height="100%">Min. Skill Level</th>'+
+		'<th width="5%" align="center" height="100%">Task Bypass Code</th>'+
+		'<th width="5%" align="center" height="100%">Due Date</th>'+
+		'<th width="65%" align="center" height="100%">Task Statement and Instruction <br>(Comply with all current safety precautions)</th>'+
+	'</tr>';
+var footer = "</body></html>";
+
+function whoPrint(listNo)
+{
+	var win = null;
+	win = window.open("","newWin","alwaysRaised,status,height=300,width=790,resizable,scrollbars,top=0,left=0",true);
+	
+    var childList = null;
+	var objAcroList = null;
+	var objAcros=new ActiveXObject('microsoft.XMLDOM');
+   	objAcros.async=false;
+   objAcros.load('ecbm.ecbm_checklist.whoPrintChecklist?p_trackno='+listNo+'&p_site='+currentSite+'&p_facid='+currentWhepFacID);
+   
+   if (objAcros.parsed) {
+      objAcroList=objAcros.getElementsByTagName("ROW");
+	  win.document.write(header);	
+	  win.document.write(bodier);
+	  win.document.write(btnClose+'<br>');	
+	
+	  win.document.write('<p bgcolor="white" align="center" style="font-size:large;"><b>Who Have Print Checklist ' + listNo +'<b></p>');
+	  var tableHeader = '<table cellspacing="0" cellpadding="0" border="2" rules="all" align="center" width="600">'+
+						'<tr><th>Printing Time</th><th>Reporting Time</th><th>Printer</th><th>Reporter</th><th>Skill</th></tr>';
+	  win.document.write(tableHeader);
+	 for(var i=0;i<objAcroList.length;i++)
+	  {
+	  	var child = objAcroList(i).childNodes;
+	  	win.document.write('<tr><td>'+child[0].text+'</td><td>'+child[1].text+'</td><td>'+child[2].text+'</td><td>'+child[3].text+'</td><td>'+child[4].text+'</td></tr>');	  
+	  }
+	  
+	  win.document.write('</table>');
+	  win.document.write('<br>'+btnClose);
+	  win.document.write('</body></html>');
+	  win.document.close();
+	  win.focus();
+	  
+   }  //if (objAcros.parsed)
+   
+}
+
+function getCiossSize()
+{
+	var objHTTP=new ActiveXObject('microsoft.XMLHTTP');	
+    var urlStr=getServerPath()+'ecbm.ecbm_machine_lists.getMachineSize?p_machineid='+currentMachinePtr+'&p_site='+currentSite;
+   objHTTP.open('GET', urlStr, false);
+   objHTTP.send();
+	return objHTTP.responseText;	
+}
+
+//get Mail Search and Operational tasks for a machine
+function getMailOpData()
+{
+	var j,i;
+    var childList = null;
+	var objAcroList = null;
+	var objAcros=new ActiveXObject('microsoft.XMLDOM');
+   	objAcros.async=false;
+    objAcros.load('ecbm.ecbm_checklist.getMailOpData?p_machineid='+currentMachinePtr+'&p_machinetype='+currentMachineType+'&p_classcode='+currentMachineClassCode+'&p_site='+currentSite);
+   
+   if (objAcros.parsed) {
+      objAcroList=objAcros.getElementsByTagName("ROW");
+	 return objAcroList;
+   }
+   
+   return null;
+   
+}
+
+function showMailOpList(btnObj)
+{
+	var listWin = null;
+	listWin = window.open("","win2","alwaysRaised,status,height=600,width=790,resizable,scrollbars,top=0,left=0",true);
+	var mailOpList = getMailOpData();
+	showMailSearchTasks(mailOpList,listWin,btnObj);
+}
+
+function showMailSearchTasks(taskList,newWin,obj)
+{
+	var type="Mail Search"; //route_type==Mail Search
+	var wc = "24"; // work code 
+	if(obj.name == "btn_op") {
+		wc = "09"; 
+		type = "Operational Maintenance";}  //route_type==Operational Maintenance
+	var days2live = "1";	//grace period, all mail search task are daily tasks
+	var minutesPerTask = 0;  //time required for each task
+	var minutesReqtOfMail = 0; //total time required for all mail search tasks
+	var minutesReqtPerStationOfMail = 0;
+		
+	newWin.document.write(header);	
+	newWin.document.write(bodier);
+	newWin.document.write(btnClose+'<br>');
+	//formal header
+	newWin.document.write(buildFormalHeader(wc));	
+	
+	newWin.document.write('<p bgcolor="white" align="center" style="font-size:large;"><b>'+type+' Checklist<b></p>');
+	//header of the power-off task table
+	var taskHeader2 = '<table cellspacing="0" cellpadding="0" border="2" rules="all" align="center" width="790">'+
+	'<tr><th width="5%" align="center" height="100%">Item No</th>'+
+		'<th width="10%" align="center" height="100%">Part or Component</th>'+	
+		'<th width="5%" align="center" height="100%">Est. Time Req`d (min)</th>'+
+		'<th width="5%" align="center" height="100%">Min. Skill Level</th>'+
+		//'<th width="" align="center" height="100%">Task Bypass Code</th>'+
+		//'<th width="5%" align="center" height="100%">Due Date</th>'+
+		'<th width="75%" align="center" height="100%">Task Statement and Instruction <br>(Comply with all current safety precautions)</th>'+
+	    '</tr>';
+		
+	newWin.document.write(taskHeader2);
+	
+	var found = false;
+	var bgcolor = "C0C0C0";
+	for(var off=0;off<taskList.length;off++)
+	{		
+		var childList = taskList(off).childNodes;			
+		if(childList[15].text == type)
+		{
+			days2live = childList[3].text;
+			minutesPerTask = new Number(childList[7].text).valueOf();
+			
+			//calculate the time reuired
+			if(currentMachineType == "APPS"){    	//<!--- if 2 --->			
+				var multiFactors = new Array("feed","carriercells","bins","apcu","pun","gcpu","vdcsupply","tencells","twentyfivebins","apcupun","apcugate","estop","sortconfig","mab","occ","dailyhours");
+				if(childList[14].text == "T"){ //perUnit	<!--- if 3 --->
+					var multiFactor = childList[20].text.toLowerCase();
+					if(multiFactor == "fixed"){ //multiplevar
+						minutesPerTask = minutesPerTask*new Number(childList[19].text).valueOf();
+						minutesReqtOfMail = minutesReqtOfMail + minutesPerTask;							
+					}else{  //<!--- Feed ... E-stop  --->
+						for(var x=0;x<multiFactors.length;x++)
+						{  //find the position of multiplier in database procedure, see procedure ecbm_checklist.getEORData(...) 
+							if(multiFactors[x] == multiFactor){
+								minutesPerTask = minutesPerTask*new Number(childList[x+22].text).valueOf(); 															
+								minutesReqtOfMail = minutesReqtOfMail + minutesPerTask;
+							}
+						}							
+					} 
+				}else{// <!--- if 3 --->
+					minutesReqtOfMail = minutesReqtOfMail + minutesPerTask;
+				}  // <!--- if 3 --->
+			}else{ //(currentMachineType == "SPBS" || currentMachineType == "SPBM" || currentMachineType == "AFCS" || ...)  
+				minutesReqtOfMail = minutesReqtOfMail + minutesPerTask;
+				if(childList[14].text == "T"){
+					minutesReqtPerStationOfMail = minutesReqtPerStationOfMail + minutesPerTask;
+				}
+			}//<!--- if 2 --->
+					
+			var t1 = '<tr bgcolor="'+bgcolor+'"  valign="top" >'+
+							'<td width="5%"align="center">'+childList[0].text+'</td>'+
+							'<td width="10%" height="100%" align="center">'+childList[21].text+'</td>'+	
+							'<td width="5%"  align="center">'+Math.ceil(minutesPerTask)+'</td>'+
+							'<td width="5%"  align="center">'+childList[9].text+'</td>'+
+							'<td width="75%" height="100%" align="left">'+childList[6].text+'</td>'+
+							'</tr>';
+						
+			newWin.document.write(t1); 
+			if(bgcolor == "E6E6E6") { 
+				  bgcolor = "C0C0C0"; 
+			}else{
+				  bgcolor = "E6E6E6";  }
+			if(found == false) {
+				found = true;
+			}	
+		}   //if it is 'Mail Search'  
+	}//for loop 
+	
+	if(found){
+		newWin.document.write('<tr bgcolor="#e6e6e6"><th colspan="7" align="left">Total time requried:'+Math.ceil(minutesReqtOfMail)+' minutes</th></tr>');
+	}else{
+		newWin.document.write('<tr bgcolor="#c0c0c0"><th colspan="7" align="left">No records found.</th></tr>');
+	}
+	
+	newWin.document.write('</table>');
+	newWin.document.write('<br>'+btnClose+'<br>');
+	newWin.document.write(footer); //</body></html>
+	newWin.document.close();
+	newWin.focus();
+}
+
+var minutesReqtDue = 0;			//est. time of all open due tasks
+var minutesReqt = 0;					//est. time of all open tasks
+var minutesReqtPerStation = 0;  //for SPBS/APBS only
+var numOfSteps = 0;					//total number of tasks
+function createChecklistNew(btnC, existingChecklistID,openDueLast,woptr4today)
+{
+	var details = 0; //without details
+	var newList = 0; //not true, existing checklist
+	var listid = existingChecklistID; 
+	
+	if(listid == -1){
+		newList = 1;  				//true, new checklist
+	} 
+		
+	//verify the Work Order first . if there is no work order available, show a warning and return
+	if(woptr4today ==  '-1'  && listid == '-1'){
+		alert(" There is no open PM Work Order or Route available for this equipment.");
+		return;
+	};
+	
+	//WO ready; and no checklist has been created for TODAY yet
+	if(woptr4today > 0 && listid == '-1'){
+		//veryfy the eCBM daily work order  
+		/*	-- return 1) a negitive new checklist no if not created yet;
+			--        2) -1 if the CHECKLIST window was opened before midnight;
+			--        3) current checklist no if already created  
+		*/
+
+		listid =  getWorkOrder(woptr4today);
+		
+		if(listid == -1){
+		 	 alert("This window probably stays open too long or was opened before midnight. \n\nPlease Exit this page, wait for a couple of minutes, then try again.");
+			 self.close();
+			 
+			 return;		 
+		} 
+		
+		if(btnC.value == "With Task Details"){ details = 1; }
+						
+		if(listid < 0){					//a new  checklist no. with a negative sign
+			
+			dateCreated4 = new Date().getMonth()+1 +'/'+new Date().getDate()+'/'+new Date().getYear(); //today
+		
+			//show user a warning
+			//Jesse 7/29/2008 show the warning one more time with bigger font 
+			// 2016.6.3 var numOfTasksDue = getNumOfDueTasks(currentChecklistNo);
+			var numOfTasksDue = openDueLast;
+			
+			if(numOfTasksDue*1 > 0 && dayChecklistOpened != (new Date().getMonth()+1) +'-'+ new Date().getDate()){
+				var warningStr = "Warning: \n\nYou are about to create a new checklist which will close the previous open checklist. ";
+				warningStr += "\n\nThere are "+numOfTasksDue*1+ " open tasks past their Due Date that will be bypassed if you create this checklist.  Creating this checklist will adversely affect your PM completion rate.";
+				//warningStr += "\n\nAll tasks that have not been completed will be carried forward to the new checklist when you create it.";
+				warningStr += "\n\nDo you still wish to proceed? \n"; 
+				if(!window.confirm(warningStr))	{ 
+					//update em_wo_t.wo_comment with a negative trackno value
+					var res101 = update_workorder(woptr4today,listid,0,0);
+
+					return false; 
+				}else{				
+					var returnVal = window.showModalDialog("/emars-html/warning_before_create.html",numOfTasksDue,"dialogHeight: 700px; dialogWidth: 500px; dialogTop: 150px; dialogLeft: 150px; edge: Sunken; center: Yes; resizable: No; status: No;");
+					//"+vReportUserIdMapping+" 
+					if(returnVal != "yes") { 
+						//update em_wo_t.wo_comment with a negative trackno value
+						var res102 = update_workorder(woptr4today,listid,0,0);
+
+						return false; 
+					}					
+				}
+			} 
+			
+			listid = Math.abs(listid);  //positive the checklist no 
+			
+			//create a new checklist
+			var res = generateAChecklist(listid,woptr4today);
+			if(res != '1-1') { 
+				if (res == '2-2') { alert('System error in creating the checklist, please come back in a couple of minutes.'); }
+				else {alert(res); }
+				
+				return;
+			}
+		} 
+	
+	}else{  
+		//print the whole existing checklist without the details
+		details = 0;
+		
+		if(btnC.value == "With Task Details"){ details = 1; }	
+	}
+	
+	//save the skill levels submitted by request, into a string
+	for(var i=0;i<document.all.checklistCategory.length;i++){
+			if(document.all.checklistCategory.options[i].selected){
+				skillStr += document.all.checklistCategory.options[i].value +",";
+			}		
+	}
+	
+	
+	//front end html window
+	winNewlist = window.open("","newWin","fullscreen, alwaysraised,status,height=600,width=790,resizable,scrollbars,top=0,left=0",true);
+	//this is the first time to create a checklist (new checklist), close its parent window, 
+	//to refresh the list of new-open-checklists 
+	if(newList == 1){ winNewlist.opener.close();}
+	
+	winNewlist.focus();		
+	winNewlist.document.write(header); //std html <head>	
+	winNewlist.document.write(bodier); //std html <body>
+	
+	var hint = '<table align="center" width="100%" style="text-align:center;font:small oblique bolder Arial;">'+
+				'<tr><th style="background-color:red;">To print or close this window, please scroll down to the bottom</th></tr>';
+	if(newList != 1){
+		hint += '<tr><td style="background-color:blue;color:white;">The tasks in blue background have been completed</td></tr>';
+	}
+	hint += '</table>';	
+	winNewlist.document.write(hint);
+	var listInfo = '<br><table align="center" width="790">'+
+		'<tr id="title"><th align="center">'+currentMachineType+' PM Checklist by '+currentUserFirstName+' ' +currentUserLastName+' </th></tr>'+
+		'<tr align="center" style="font-size:80%;"><td>(<b>Checklist No. :</b> '+listid+', <b>Skill(s) :</b> '+skillStr+' <b>Time :</b>'+ local_time_string +')</td></tr>'+
+		'</table>';
+	winNewlist.document.write(listInfo);
+	
+	//formal header --- similar to the one in MMO
+	winNewlist.document.write(buildFormalHeader(workCode));
+	//list the bypass codes and desc
+	winNewlist.document.write('<br><table align="center" width="790"><tr><td>' + showBypassCodes() + '</td></tr></table><br>');
+	
+	//SAFETY notes by MTSC (Daniel Fauchier 3/16/2009)
+	var safetyNote = '<table align="center" width="790" border="1"><tr><td><b>'+ 
+		'Preventive Maintenance (PM) guidelines provide maintenance employees with the recommended task based maintenance activities.  The Electronic Conditioned Based Maintenance (eCBM) is an abbreviated task list that represents a portion of the PM checklist.  The complete master PM checklist must be accessible to all maintenance employees when performing PM and eCBM task based maintenance activities. ' +
+		'</b></td></tr><tr><th>MMO No: <a href="http://www.mtsc.usps.gov" target="_blank">' + mmo_no + '</a> </th></tr></table><br>';
+	winNewlist.document.write(safetyNote);
+	
+	//header of the power-off task table
+	winNewlist.document.write(taskHeader);		
+	//find all task records of the checklist
+	var existing_tasks = getChecklistTasks(listid);
+		
+	// ------------------------------ start of power-off warnings ----------------------------------- 
+	//get all safety tasks
+	var safetyTaskList = getSafetyTasks();
+	if(safetyTaskList == null)
+	{ alert("Error with getSafetyTasks()!");}
+	
+	//add the est time of all safety tasks (one time together)   
+	for(i=0;i<safetyTaskList.length;i++)
+	{ 
+		childList=safetyTaskList(i).childNodes;
+		minutesReqt +=  new Number(childList[3].text).valueOf();
+		minutesReqtDue += new Number(childList[3].text).valueOf();
+		numOfSteps += 1;  
+	}	
+			
+	//$$$$$$$$$$$$$$$$ before "pre-route" $$$$$$$$$$$$$$$$$$ 
+	//buildSafetyTasks(safetyTaskList, poweronoff, beforePreRoute,withdetails);	
+	buildSafetyTasks(safetyTaskList, "off", "1", details);
+	// $$$$$$$$$ "pre-route" tasks go here, only for APPS for now (12/14/2004) $$$$$$$$$$$$ 
+	if(currentMachineType == "APPS")
+	{
+		//add the poweroff tasks here
+		buildAPPSPreRoutePMTasksNew(existing_tasks,listid,details);
+		//$$$$$$$$$$$$$$$$ after "pre-route" warning $$$$$$$$$$$$$$$$$$ 	
+		buildSafetyTasks(safetyTaskList, "off", "0",details);
+	}
+	
+	//add mail search tasks first, MM4 and MM5 are in charge of Mail Search tasks
+	//can not screen "MM4" and "MM5" here. Why? : if only ET ,or MPE skill is selected 
+	// all mail search tasks will be skipped 
+	//and verify user's selection inside the function	
+	
+	/* 2010.9.29  treat mail search tasks as the regular. refer to function buildPMTasksNew(a,b,c) also
+	if(currentMachineType == "APPS"){// || currentMachineType == "SPBS" || currentMachineType == "AFCS"){
+		buildMailSearchTasksNew(existing_tasks); 
+	}
+	*/
+	
+	//add the poweroff tasks here
+	buildPMTasksNew(existing_tasks,"off",details);
+		
+	//close the power-off task table
+	winNewlist.document.write('</table><br>');
+	
+	if(ecbm_view_only != 'Y'){ //Jesse 10/19/2010, for acronyms like FSS, SAMP ...... the tasks are not classified by power-on or power-off
+		//header of the power-on task table
+		winNewlist.document.write(taskHeader);	
+		buildSafetyTasks(safetyTaskList, "on", "0", details);
+		
+		//add the poweron tasks here
+		buildPMTasksNew(existing_tasks,"on",details);
+		
+		buildCleanupTasks(safetyTaskList,details);
+		
+		//close the power-on task table
+		winNewlist.document.write('</table>');	
+		winNewlist.document.write('<table cellspacing="2" cellpadding="3" border="0" align="center" width="750">');
+		winNewlist.document.write('<tr align="left"><td colspan="7">* --- the tasks marked with an asterisk are critical tasks.  ~  --- per induction station.</td></tr>');
+		winNewlist.document.write('</table><br>');
+	}
+	
+	/* jesse 2012.12.7   number of induction  has been considered in generateAchecklist() 
+	
+	//for SPBS, minutes per induction station
+	if(currentMachineType == 'SPBS' || currentMachineType == 'APBS') {	
+  		    winNewlist.document.write('<br /> ~ per induction station.<br />');
+			var totalMinutes4 = minutesReqt + 3 * minutesReqtPerStation;
+			var totalMinutes5 = minutesReqt + 4 * minutesReqtPerStation;
+			var totalMinutes6 = minutesReqt + 5 * minutesReqtPerStation;
+			winNewlist.document.write('<br /><br />	<hr width="600" noshade size="2" />');
+			winNewlist.document.write('<table cellspacing="2" cellpadding="3" border="0" align="center" width="750">'+
+			'<tr align="center"><th>&nbsp;</th><th>'+currentMachineType+' MASTER CHECKLIST</th></tr>'+
+			'<tr><td>&nbsp;</td><td>&nbsp;</td></tr>'+
+			'<tr align="center"><td>&nbsp;</td><td>DAILY TIME TOTALS:</td></tr>'+
+			'<tr><td>&nbsp;</td><td>&nbsp;</td></tr>'+
+			'<tr align="center"><td>&nbsp;</td><td>4 INDUCTION</td></tr>'+
+			'<tr align="center"><td>&nbsp;</td><td>Total - '+ new Number(totalMinutes4/60).toFixed(2) +' hours</td></tr>'+
+			'<tr><td>&nbsp;</td><td>&nbsp;</td></tr>'+
+			'<tr align="center"><td>&nbsp;</td><td>5 INDUCTION</td></tr>'+
+			'<tr align="center"><td>&nbsp;</td><td>Total - '+ new Number(totalMinutes5/60).toFixed(2) +' hours</td></tr>'+
+			'<tr><td>&nbsp;</td><td>&nbsp;</td></tr>'+
+			'<tr align="center"><td>&nbsp;</td><td>6 INDUCTION</td></tr>'+
+			'<tr align="center"><td>&nbsp;</td><td>Total - '+ new Number(totalMinutes6/60).toFixed(2) +' hours</td></tr>'+
+			'<tr><td>&nbsp;</td><td>&nbsp;</td></tr>'+
+			'</table>');
+	} //<!--- cfif machineType eq "SPBS" or machineType eq "APBS" --->
+ 
+ ---jesse 2012.12.7   number of induction  has been considered in generateAchecklist()    
+ */ 
+	
+	//verify the generation of the new checklist
+	var aChild = getOpenlist();
+	if(aChild != null){	
+		//if open_yn == 0, 1) all tasks on LAST list have been closed; and 2) the list of Today is empty (no items) 
+		if(aChild(4).text == '0')	
+		{ 
+			minutesReqt = 0;  minutesReqtDue = 0;
+
+		}
+	}
+				
+	var userInfo = '<table cellspacing="2" cellpadding="3" border="0" align="center" width="600">'+
+			'<tr valign="middle"><th height="30" valign="middle" align="left" width="50%">'+
+			'Crew No.:'+currentUserCrew+'</th><td><b>Employee Name:</b>'+currentUserFirstName+' ' +currentUserLastName+'</td></tr>'+
+		  	'<tr><td><b>Est. Time Req`d  <br />    for All Open Tasks:</b>&nbsp;'+ new Number(minutesReqt/60).toFixed(2) + ' (hours) &nbsp;'+
+					'<br /><b>Est. Time Req`d  <br />    for Tasks Due Today:</b> &nbsp;'+ new Number(minutesReqtDue/60).toFixed(2) + ' (hours) &nbsp;' + 
+		  	'</td><td><b>Actual Time Spent: ________</b>(hours)' + 
+			'</td></tr></table>';
+			
+	winNewlist.document.write(userInfo);
+	winNewlist.document.write('<br>'+btnClose);
+	winNewlist.document.write(footer); //</body></html>
+			
+	//save a record into table printchecklist.
+	var tt = savePrintingRecord(listid);
+	if(tt == 0){
+		alert("Have trouble with savePrintingRecord("+listid+")");
+	}
+	
+	winNewlist.document.close();
+	winNewlist.focus();
+	
+	skillStr = "";
+	minutesReqt = 0;
+	minutesReqtDue= 0;
+	minutesReqtPerStation = 0;
+	numOfSteps = 0;
+	
+	if(newList == 1){ 
+		self.close(); 
+		//document.all.buttonCreateList2.disabled = false;
+		//document.all.buttonCreateList.disabled = false;
+	}
+	
+}
+
+//called by createChecklist(btc)
+function showBypassCodes() {
+   var objHTTP = new ActiveXObject('microsoft.XMLHTTP');
+   var urlStr = getServerPath()+'ecbm.ECBM_CHECKLIST.displayBypassCodes';
+   objHTTP.open('GET', urlStr, false);
+   objHTTP.send();
+ 	 return objHTTP.responseText;
+}
+
+//called by createChecklist(btc), 
+//Jesse 1/4/2008 find the WO for today. return the WO_ptr or -1
+//jesse 5/25/2016 update em_wo_t.ecbm_checklist_no=new trackno to prevent the duplicates.return new checklist no or -1 (failed)
+function getWorkOrder(p_woptr4today) {
+	var objHTTP=new ActiveXObject('microsoft.XMLHTTP');
+  var urlStr=getServerPath()+'ecbm.ECBM_CHECKLIST.getWorkOrder?p_site='+currentSite+'&p_equipment_ptr='+currentMachinePtr+'&p_wo_ptr='+p_woptr4today;
+  objHTTP.open('GET', urlStr, false);
+  objHTTP.send();
+	return objHTTP.responseText;
+}
+
+
+//called by buildPMTasks(taskList, onoff, newList,listID)
+function getBypassCodes() {
+  var objAcroList = null;
+  var objAcros=new ActiveXObject('microsoft.XMLDOM');
+  objAcros.async=false;
+	
+	// get the list of bypass codes 
+  objAcros.load("ecbm.ecbm_checklist.getBypassCodes");
+   
+  if (objAcros.parsed) {
+    objAcroList=objAcros.getElementsByTagName("ROW");
+	  return objAcroList;  
+  }
+  return null;
+}
+
+
+//taskList - query,  withDetails - 0 or 1
+function buildAPPSPreRoutePMTasksNew(taskList,withDetails)
+{
+	var index = 0;	
+	for(var off=0;off<taskList.length;off++)
+	{
+		var childList = taskList(off).childNodes;
+		
+		//it is pre-route task. 
+		//for APPS, all pre-route tasks are daily tasks. so far, #115(MPE), #118(ET)	
+		if(childList[9].text.toLowerCase() == "y") 
+		{
+				//display the task only when it is requested		
+			if(skillStr.toLowerCase().indexOf(childList[7].text.toLowerCase()) >= 0 || childList[7].text.toLowerCase() == "all")
+			{	
+				index++;
+				numOfSteps++;
+				
+				var comm = "";
+				if(childList[4].text != null)
+				{
+					//replace the "'" (single quote) with "` " 
+					comm = '<i><font size="+1" color="&#035;FF0000" face="Times New Roman, Times, serif">'+childList[4].text.replace("&#39;","` ")+'</font></i>';
+				}
+				
+				var bypasscodes ="";  // "1<br>2<br>3<br>7<br>8<br>W"; //dynamic later
+				var codeList = getBypassCodes();
+				for(var b=0;b<codeList.length;b++){
+					bypasscodes += codeList(b).childNodes(0).text + ","; 
+				}				
+				
+				var bgcolor = "E6E6E6";
+				if(index % 2 != 0) { bgcolor = "C0C0C0"; }
+				
+				//check if it has been reported 'completed'  
+				if(childList[11].text.toLowerCase() == 'completed'){
+					bgcolor = 'blue'; 
+					//bgcolor ="7CFC00";  //greenyellow
+				}else if(childList[11].text.toLowerCase() == 'pending'){
+					minutesReqt += new Number(childList[5].text).valueOf();	
+					if(new Number(childList[12].text).valueOf() <= 1) {  //D2L <= 1, it is due
+						minutesReqtDue += new Number(childList[5].text).valueOf();
+					}
+				}
+														
+				var t1 = '<tr bgcolor="'+bgcolor+'" valign="top"';
+				if(bgcolor == "blue"){
+					t1 += 'style="font-size:80%;color:white;">';
+				}else{
+					t1 += 'style="font-size:80%;color:black;">';
+			   }
+						
+				t1 += '<td width="5%" align="right">'+childList[15].text+'</td>';
+				if(childList[17].text == 'Y') { //criticality 2011.2.8
+					t1 += '*';	
+				}
+							
+				if(withDetails == 1){
+					t1 += '<td width="10%" align="left">'+childList[1].text+ ' - '  + childList[16].text +'</td>'+
+						'<td width="5%" align="right">'+Math.ceil(childList[5].text)+'</td>'+
+						'<td width="5%"  align="left">'+childList[7].text+'</td>'+
+						'<td width="5%"  align="left">'+bypasscodes+'</td>'+
+						'<td width="5%" height="100%" align="right">'+childList[10].text+'</td>'+
+						'<td width="65%" align="left">'+childList[2].text +'<br>'+comm+'</td>'+
+				'</tr>';	
+				}else{
+					t1 += '<td width="30%"  align="center">'+childList[1].text+ ' - '  + childList[16].text +'</td>'+
+						'<td width="5%"  align="center">'+Math.ceil(childList[5].text)+'</td>'+
+						'<td width="5%"  align="center">'+childList[7].text+'</td>'+
+						'<td width="10%"  align="center">'+bypasscodes+'</td>'+
+						'<td width="5%" height="100%" align="center">'+childList[10].text+'</td>'+
+						'<td width="40%" align="left">See master list ...<br>'+comm+'</td>'+ 
+				'</tr>';	
+				}		
+							
+				winNewlist.document.write(t1); 
+			} //user request it
+		}  //it is pre-route
+	}  //for(var off=0;off<taskList.length;off++)
+}
+
+
+//taskList - query, onoff - 'on' or 'off', withDetails - '1' or '0'
+function buildPMTasksNew(taskList, onoff, withDetails)
+{
+	var index = 0;	
+	for(var off=0; off<taskList.length; off++)
+	{
+		var childList = taskList(off).childNodes;
+		var taskStatus = "pending";		//possible values: 'completed','pending','bypassed'
+		
+	  if(ecbm_view_only == "Y"){ //some acronym like FSS, SAMP, ...... 
+	  
+	  		    taskStatus = childList[11].text;
+			    var minutesPerTask = new Number(childList[5].text).valueOf();	
+			
+				index++;
+				numOfSteps++;
+				
+				var comm = "";
+				if(childList[4].text != null)
+				{   //replace the "'" (single quote) with "` " 
+					comm = '<i><font size="+1" color="&#035;FF0000" face="Times New Roman, Times, serif">'+childList[4].text.replace("&#39;","` ")+'</font></i>';	
+				}
+						
+				var bypasscodes ="";  // "1<br>2<br>3<br>7<br>8<br>W"; //dynamic later
+				var codeList = getBypassCodes();
+				for(var b=0;b<codeList.length;b++){
+					var child = codeList(b).childNodes;  
+					bypasscodes += child(0).text + ","; 
+				}
+						
+				var bgcolor = "E6E6E6";						
+				if(taskStatus == 'completed'){ 
+					bgcolor ='blue';
+					//bgcolor ="7CFC00";  //greenyellow
+				}else{
+					if(taskStatus == 'pending') { 
+						minutesReqt += minutesPerTask;
+						if(new Number(childList[12].text).valueOf() <= 1){
+							minutesReqtDue += minutesPerTask;	
+						}
+					}
+					if(index % 2 != 0) { bgcolor = "C0C0C0"; }
+				}
+												
+				var t1 = '<tr bgcolor="'+bgcolor+'" valign="top"';
+				if(bgcolor == "blue"){
+					t1 += 'style="font-size:80%;color:white;">';
+				}else{
+					t1 += 'style="font-size:80%;color:black;">';
+			   }
+						
+				t1 += '<td width="5%" align="right">'+childList[15].text+'</td>' + 
+				         '<td width="10%"  align="left">'+childList[1].text + ' - ' + childList[16].text+'</td>'+
+						 '<td width="5%" align="right">'+Math.ceil(minutesPerTask)+'</td>'+
+						 '<td width="5%"  align="left">'+childList[7].text+'</td>'+
+						 '<td width="5%"  align="left">'+bypasscodes+'</td>'+
+						 '<td width="5%" height="100%" align="right">'+childList[10].text+'</td>';
+			   if(withDetails == 1){
+					t1 += '<td width="65%"  align="left">'+childList[2].text +'<br>'+comm+'</td></tr>';
+				}else{
+					t1 += '<td width="40%"  align="left">See master list ...<br>'+comm+'</td></tr>';
+				}
+						
+				winNewlist.document.write(t1); 
+		
+	  }else{
+		  
+		//2/29/2010 if(currentMachineType == "APPS" || currentMachineType == "SPBS" || currentMachineType == "AFCS"){
+	  	if(currentMachineType == "APPS"){
+		//not pre-route, not mail search and on or off 
+		//if(childList[13].text.toLowerCase() != "mail search" && childList[8].text.toLowerCase() == onoff && (childList[9].text == null || childList[9].text.toLowerCase() != "y")) 
+		
+		//// 2010.9.29  treat mail-search tasks as the regular 
+		//not pre-route, and on or off 
+		if(childList[8].text.toLowerCase() == onoff && (childList[9].text == null || childList[9].text.toLowerCase() != "y")) 
+		{
+			taskStatus = childList[11].text;
+			var minutesPerTask = new Number(childList[5].text).valueOf();		
+					
+			//display the task only when the user requests it		
+			if(skillStr.toLowerCase().indexOf(childList[7].text.toLowerCase()) >= 0 || childList[7].text.toLowerCase() == "all"){
+				index++;
+				numOfSteps++;
+				
+				var comm = "";
+				if(childList[4].text != null)
+				{   //replace the "'" (single quote) with "` " 
+					comm = '<i><font size="+1" color="&#035;FF0000" face="Times New Roman, Times, serif">'+childList[4].text.replace("&#39;","` ")+'</font></i>';	
+				}
+						
+				var bypasscodes ="";  // "1<br>2<br>3<br>7<br>8<br>W"; //dynamic later
+				var codeList = getBypassCodes();
+				for(var b=0;b<codeList.length;b++){
+					var child = codeList(b).childNodes;  
+					bypasscodes += child(0).text + ","; 
+				}
+						
+				var bgcolor = "E6E6E6";						
+				if(taskStatus == 'completed'){ 
+					bgcolor ='blue';
+					//bgcolor ="7CFC00";  //greenyellow
+				}else{
+					if(taskStatus == 'pending') { 
+						minutesReqt += minutesPerTask;
+						if(new Number(childList[12].text).valueOf() <= 1){
+							minutesReqtDue += minutesPerTask;	
+						}
+					}
+					if(index % 2 != 0) { bgcolor = "C0C0C0"; }
+				}
+												
+				var t1 = '<tr bgcolor="'+bgcolor+'" valign="top"';
+				if(bgcolor == "blue"){
+					t1 += 'style="font-size:80%;color:white;">';
+				}else{
+					t1 += 'style="font-size:80%;color:black;">';
+			   }
+						
+				t1 += '<td width="5%" align="right">'+childList[15].text;
+				
+				if(childList[14].text.toLowerCase() == 't'){ // per induction station
+					minutesReqtPerStation += minutesPerTask;
+					t1 += '~';
+				}		
+				
+				if(childList[17].text == 'Y') { //criticality 2011.2.8
+					t1 += '*	</td>'; 
+				}else{
+					t1 += '</td>'; 
+				}
+				
+				t1 += '<td width="10%"  align="left">'+childList[1].text + ' - ' + childList[16].text+'</td>'+
+						 '<td width="5%" align="right">'+Math.ceil(minutesPerTask)+'</td>'+
+						 '<td width="5%"  align="left">'+childList[7].text+'</td>'+
+						 '<td width="5%"  align="left">'+bypasscodes+'</td>'+
+						 '<td width="5%" height="100%" align="right">'+childList[10].text+'</td>';
+						 
+			   if(withDetails == 1){
+					t1 += '<td width="65%"  align="left">'+childList[2].text +'<br>'+comm+'</td></tr>';
+				}else{
+					t1 += '<td width="40%"  align="left">See master list ...<br>'+comm+'</td></tr>';
+				}
+						
+				winNewlist.document.write(t1); 
+			}				
+		}////not pre-route, not mail search and on or off 
+		
+	  }else{   //if(currentMachineType != "APPS" ) //treat the "Mail Search" tasks as regular tasks
+	
+		if(childList[8].text.toLowerCase() == onoff) 
+		{
+			taskStatus = childList[11].text;
+			var minutesPerTask = new Number(childList[5].text).valueOf();
+					 
+			//if(childList[14].text.toLowerCase() == "t"){
+			//	minutesReqtPerStation += minutesPerTask;
+			//}				
+					
+			//display the task only when the user requests it		
+			if(skillStr.toLowerCase().indexOf(childList[7].text.toLowerCase()) >= 0 || childList[7].text.toLowerCase() == "all"){
+				index++;
+				numOfSteps++;
+				
+				var comm = "";
+				if(childList[4].text != null)
+				{   //replace the "'" (single quote) with "` " 
+					comm = '<i><font size="+1" color="&#035;FF0000" face="Times New Roman, Times, serif">'+childList[4].text.replace("&#39;","` ")+'</font></i>';	
+				}
+						
+				var bypasscodes ="";  // "1<br>2<br>3<br>7<br>8<br>W"; //dynamic later
+				var codeList = getBypassCodes();
+				for(var b=0;b<codeList.length;b++){
+					var child = codeList(b).childNodes;  
+					bypasscodes += child(0).text + ","; 
+				}
+						
+				var bgcolor = "E6E6E6";						
+				if(taskStatus == 'completed'){ 
+				   bgcolor ='blue';
+					//bgcolor ="7CFC00";  //greenyellow
+				}else{
+					if(taskStatus == 'pending') {
+						minutesReqt += minutesPerTask;
+						if(new Number(childList[12].text).valueOf() <= 1){
+							minutesReqtDue += minutesPerTask;	
+						}
+					}
+					if(index % 2 != 0) { bgcolor = "C0C0C0"; }
+				}
+				
+				var t1 = '<tr bgcolor="'+bgcolor+'" valign="top"';
+				if(bgcolor == "blue"){
+					t1 += 'style="font-size:80%;color:white;">';
+				}else{
+					t1 += 'style="font-size:80%;color:black;">';
+			   }
+			   t1 += '<td width="5%" align="right">'+childList[15].text;
+			   
+				if(childList[14].text.toLowerCase() == 't'){ // per induction station
+					minutesReqtPerStation += minutesPerTask;
+					t1 += '~';
+				}		
+				if(childList[17].text == 'Y') { //criticality 2011.2.8
+					t1 += '*	</td>'; 
+				}else{
+					t1 += '</td>'; 
+				}
+				
+				t1 += '<td width="10%"  align="left">'+childList[1].text + ' - ' + childList[16].text+'</td>'+
+						 '<td width="5%" align="right">'+Math.ceil(minutesPerTask)+'</td>'+
+						 '<td width="5%"  align="left">'+childList[7].text+'</td>'+
+						 '<td width="5%"  align="left">'+bypasscodes+'</td>'+
+						 '<td width="5%" height="100%" align="right">'+childList[10].text+'</td>';
+				if(withDetails == 1){
+					t1 += '<td width="65%"  align="left">'+childList[2].text +'<br>'+comm+'</td></tr>';
+				}else{
+					t1 += '<td width="40%"  align="left">See master list ...<br>'+comm+'</td></tr>';
+				}
+	
+				winNewlist.document.write(t1); 
+			}				
+		}  			
+	  }//if(currentMachineType != "APPS" )	
+	 }//end of  if (ecbm_view_only=='Y') 	
+	}//for loop
+	
+	//<!--- no routes needed --->
+	if(index == 0){
+		winNewlist.document.write('<tr align="center"><th colspan="7">No other power-'+onoff+' tasks required at this time.</th></tr>');
+	}	
+}
+
+var currentTaskID = 0;
+function showATask(taskID)
+{	
+	//open a new window to display the task details
+	currentTaskID = taskID;
+	openSwilWin('ECBM_TASK_DETAILS');
+}
+
+function submitFeedback(taskID)
+{	
+	//open a new window to request the feedback
+	currentTaskID = taskID;
+	openSwilWin('ECBM_FEEDBACK');
+}
+
+function buildMailSearchTasksNew(taskList)
+{
+	var mailNotes = '';			                      //note and comment to mail search task
+	var days2live = 1;			                      //grace period 
+	var min_days2live = 1;		                      //smallest value of days2live
+	var ids = "";            	                      //temp string to save the step ids
+	var minutesPerTask = 0;  	                      //time required for each task
+	var minutesReqtOfMail = 0;                        //total time required for all mail search tasks
+	var minutesReqtPerStationOfMail = 0;
+	
+	var bgcolor = "white";
+	var status = "completed";                         //completed,pending,deferred
+	var criticality = 'N';                            //criticality of tasks
+	
+	for(var off=0;off<taskList.length;off++)
+	{		
+		var childList = taskList(off).childNodes;	
+		
+		if(childList[13].text.toLowerCase() == "mail search")
+		{	
+			//if all mail search tasks have been done already, set the background=greenyellow
+			if(childList[11].text.toLowerCase() != 'completed' && status == 'completed'){
+				status = 'notcompletedyet'; //dumb value
+			} 
+			
+			//original task note
+			if(new String(childList[3].text).length > 0)
+			{mailNotes += 'Task '+ childList[0].text +':'+childList[3].text.replace("&#39;","` ")+'<br>';}
+			
+			days2live = new Number(childList[12].text).valueOf();
+			if(days2live < min_days2live)  { min_days2live = days2live;  }
+			
+			///use mmo_item_no instead of task ID 
+			ids += childList[15].text;
+			
+			if(off  % 2 == 0) { ids += ","; }else{ ids += "<br>"; }
+			
+			//bypass comments
+			if(new String(childList[4].text).length > 0)
+			{ mailNotes += '&nbsp;&nbsp;Task '+ childList[0].text +':'+childList[4].text+'<br>';}
+			
+			minutesPerTask = new Number(childList[5].text).valueOf();
+			minutesReqtOfMail += minutesPerTask;
+			if(childList[14].text == "T"){
+				minutesReqtPerStationOfMail += minutesPerTask;
+			}
+			
+			//add it to total est. time only when it is still open 
+			if(childList[11].text.toLowerCase() == 'pending') {
+				minutesReqt  +=  minutesPerTask;
+				if(new Number(childList[12].text).valueOf() <= 1){
+					minutesReqtDue += minutesPerTask;	
+				}	
+			}
+			
+			if(childList[17].text == 'Y' && criticality == 'N') { //criticality 2011.2.8
+					criticality = 'Y';	
+			}
+						
+		}   //if it is 'Mail Search'  
+	}//for loop	
+	
+	//add the time to the total required time
+	minutesReqtPerStation += minutesReqtPerStationOfMail;
+	
+	//only print the Mail Search tasks when user requests them
+	if(skillStr.indexOf("MM4") >= 0 || skillStr.indexOf("MM5") >= 0 ||  skillStr.indexOf("MM") >= 0 ||  skillStr.indexOf("All") >= 0){
+		var taskDesc = '<b>Perform Mail Search.</b><br>Detailed step-by-step instructions listed on the Mail Search Checklist';
+		if(mailNotes != ""){
+			taskDesc += '<br><i><font size="+1" color="&#035;FF0000" face="Times New Roman, Times, serif">'+mailNotes+'</font></i>';
+		}
+		
+		if(status == 'completed'){
+			bgcolor ='blue';
+			//bgcolor ="7CFC00";  //greenyellow
+		}
+		
+		var dueDate = new Date();
+		dueDate.setDate(dueDate.getDate()-1+min_days2live);
+		var dueMonth = dueDate.getMonth()+1;
+		
+		var t1 = '<tr bgcolor="'+bgcolor+'"';
+		if(bgcolor == "blue"){
+					t1 += ' style="font-size:80%;color:white;">';
+		}else{
+					t1 += ' style="font-size:80%;color:black;">';
+		}
+		
+		t1 += '<td width="5%" height="100%" align="right">'+ids;
+		if(criticality == 'Y') { //criticality 2011.2.8
+					t1 += '*'; 
+		}
+		
+		t1 +=    '</td>'+
+		        	'<td width="10%" height="100%" align="left">Mail Search</td>'+	
+					'<td width="5%" height="100%" align="right">'+minutesReqtOfMail+'</td>'+
+					'<td width="5%" height="100%" align="left">All</td>'+
+					'<td width="5%" height="100%" align="left"> </td>';
+					
+		if(min_days2live == 1){ //newly issued task(s)
+			t1 += '<td width="5%" height="100%" align="right">Today</td>';
+		}else{
+			t1 += '<td width="5%" height="100%" align="right">'+dueMonth+'/'+dueDate.getDate()+'/'+dueDate.getYear()+'</td>';
+		}
+		
+		t1 += '<td width="" height="100%" align="left">'+taskDesc+'</td></tr>';
+						
+		winNewlist.document.write(t1); 
+	}	
+}
+
+function buildCleanupTasks(safetyTaskList, withDetails){
+	for(var off=0;off<safetyTaskList.length;off++)
+	{	
+		var childList = safetyTaskList(off).childNodes;			
+		//all clean-up tasks must have a category of "FINAL-CLEANUP" 
+			if(childList[1].text == "FINAL-CLEANUP")
+			{
+				var t1 = '<tr bgcolor="#FFFF66"  style="font-size:80%;">'+
+							'<td width="5%" height="100%" align="right">C'+childList[6].text+'</td>'+
+							'<td width="10%" height="100%" align="left">'+childList[1].text+'</td>';
+				t1 +=	'<td width="5%" height="100%" align="right">'+childList[3].text+'</td>'+
+							'<td width="5%" height="100%" align="left">'+childList[4].text+'</td>'+
+							'<td width="5%" height="100%" align="left"></td>'+
+							'<td width="5%" height="100%" align="right"></td>';
+				if(withDetails ==1)
+				{ 	t1 +=		'<td width="65%" height="100%" align="left">'+childList[2].text+'</td>'; }
+				else
+				{  t1 +=		'<td width="65%" height="100%" align="left">See master list ...</td>'; }
+						
+				t1 += '</tr>';
+						
+				winNewlist.document.write(t1);		
+			}
+	}			
+}
+
+//onoff == 'on' or 'off',  beforePreRoute== 0 or 1, withDetails==0 or 1
+function buildSafetyTasks(safetyTaskList, onoff, beforePreRoute, withDetails)
+{
+	for(var off=0;off<safetyTaskList.length;off++)
+	{	
+		var childList = safetyTaskList(off).childNodes;	
+		
+		var t1 = '<tr bgcolor="#FFFF66" valign="top" style="font-size:80%;">'+
+							'<td width="5%" height="100%" align="right">W'+childList[6].text+'</td>'+
+							'<td width="10%" height="100%" align="left">'+childList[1].text+'</td>' +
+							'<td width="5%" height="100%" align="right">'+childList[3].text+'</td>'+
+							'<td width="5%" height="100%" align="left">'+childList[4].text+'</td>'+
+							'<td width="5%" height="100%" align="left"></td>'+
+							'<td width="5%" height="100%" align="right"></td>';
+							
+		if(withDetails == 1){  	t1 += '<td width="65%" height="100%" align="left">'+childList[2].text+'</td>'; 
+		}else{	t1 += '<td width="65%" height="100%" align="left">See master list ...</td>'; }
+						
+		t1 +=  '</tr>';
+		
+		//all clean-up tasks must have a category of "FINAL-CLEANUP" 
+			if(childList[5].text.toLowerCase() == onoff && childList[1].text != "FINAL-CLEANUP")
+			{
+			/*	//9/9/2010 Jesse temperory for APPS mmo-085-10 
+				if (currentMachineType == "APPS") 
+				{
+					if(currentSite==39 || currentSite==454 || currentSite==314 || currentSite==317){
+						if(childList[7].text == "MMO-085-10") {
+								if(onoff == "off"){
+										if(beforePreRoute == "1"){
+												if(childList[2].text.indexOf("POWER DOWN AND LOCKOUT POWER") < 0){
+														winNewlist.document.write(t1);
+												}
+										}else{//beforePreRoute == "0"
+												if(childList[2].text.indexOf("POWER DOWN AND LOCKOUT POWER") >= 0){
+													winNewlist.document.write(t1);
+												}
+										}	
+								}else{
+										winNewlist.document.write(t1);	
+								}
+						}
+						
+					}else{//non-test sites 
+						
+						if(childList[7].text != "MMO-085-10") {
+								if(onoff == "off"){
+										if(beforePreRoute == "1"){
+												if(childList[2].text.indexOf("POWER DOWN AND LOCKOUT POWER") < 0){
+														winNewlist.document.write(t1);
+												}
+										}else{//beforePreRoute == "0"
+												if(childList[2].text.indexOf("POWER DOWN AND LOCKOUT POWER") >= 0){
+													winNewlist.document.write(t1);
+												}
+										}	
+								}else{
+										winNewlist.document.write(t1);	
+								}						
+						}
+						
+					}
+				}else{
+					winNewlist.document.write(t1);	
+				}
+				//9/9/2010 Jesse temperory for APPS mmo-085-10
+	*/		
+			
+				//only for APPS machines
+				if(onoff == "off" && currentMachineType == "APPS")
+				{
+					if(beforePreRoute == "1")
+					{
+						if(childList[2].text.indexOf("POWER DOWN AND LOCKOUT POWER") < 0)
+						{
+							winNewlist.document.write(t1);
+						}
+					}else{//beforePreRoute == "0"
+						if(childList[2].text.indexOf("POWER DOWN AND LOCKOUT POWER") >= 0)
+						{
+							winNewlist.document.write(t1);
+						}
+					}
+				}else{
+					winNewlist.document.write(t1);
+				}  
+			} //if  
+	} //loop  
+}
+
+function updatePmsteps(stepid, duedate_str,d2l)
+{
+  	var objHTTP=new ActiveXObject('microsoft.XMLHTTP');
+	
+    var urlStr=getServerPath()+'ecbm.ECBM_CHECKLIST.updatePmstepsupdate?p_machineid='+currentMachinePtr+'&p_stepid='+stepid+'&p_duedate='+duedate_str+'&p_site='+currentSite+'&p_d2l='+d2l+'&p_user_id='+currentUser;
+	
+   objHTTP.open('GET', urlStr, false);
+   objHTTP.send();
+	return objHTTP.responseText;
+}
+
+function saveChecklist(insert,insert2,d2l,siteid,duedate_str2)
+{
+  	var objHTTP=new ActiveXObject('microsoft.XMLHTTP');
+    var urlStr=getServerPath()+'ecbm.ECBM_CHECKLIST.saveChecklistRecord?p_insert='+insert+'&p_insert2='+insert2+'&p_d2l='+d2l+'&p_site='+siteid+'&p_duedate_str='+duedate_str2;
+   objHTTP.open('GET', urlStr, false);
+   objHTTP.send();
+	return objHTTP.responseText;
+}
+
+function getServerTime()
+{
+  	var objHTTP=new ActiveXObject('microsoft.XMLHTTP');	
+    var urlStr=getServerPath()+'ecbm.ECBM_CHECKLIST.getServerTime';
+    objHTTP.open('GET', urlStr, false);
+    objHTTP.send();
+	return objHTTP.responseText;
+}
+
+function savePrintingRecord(trackno) {
+	var currentUserName = new String(currentUserFirstName + " " +currentUserLastName);
+	if(currentUserName.length > 50){
+		currentUserName = currentUserName.substr(1,50);
+	} 
+   var objHTTP=new ActiveXObject('microsoft.XMLHTTP');
+   var urlStr=getServerPath()+'ecbm.ECBM_CHECKLIST.savePrintingRecord?p_trackno='+trackno+'&p_skill='+skillStr+'&p_user='+currentUserName+'&p_site='+currentSite+'&p_facid='+currentWhepFacID;
+	
+   objHTTP.open('GET', urlStr, false);
+   objHTTP.send();
+	return objHTTP.responseText;
+}
+
+//Jesse 4/7/2008 get all tasks in one checklist for display purpose
+function getChecklistTasks(listnoo)
+{
+    var childList = null;
+	var objAcroList = null;
+	var objAcros=new ActiveXObject('microsoft.XMLDOM');
+    objAcros.async=false;
+    objAcros.load('ecbm.ecbm_checklist.getAChecklist?p_machineid='+currentMachinePtr+'&p_machinetype='+currentMachineType+'&p_classcode='+currentMachineClassCode+'&p_site='+currentSite+'&p_trackno='+listnoo);
+   
+    if (objAcros.parsed) {
+       objAcroList=objAcros.getElementsByTagName("ROW"); 
+/*	   
+	  var iddd= "";
+	   for(var off=0;off<objAcroList.length;off++)
+		{		
+			var childList = objAcroList(off).childNodes;	
+			iddd += childList[0].text +',';
+			//alert("task ID:"+ childList[0].text);
+		}
+	 	 alert("task ID:"+ iddd);  
+	*/ 
+	   return objAcroList;
+    }
+	
+    return null;	
+}
+
+//get EOR (end of run and pieces fed) counters for a machine
+function getEORData()
+{
+    var childList = null;
+	var objAcroList = null;
+	var objAcros=new ActiveXObject('microsoft.XMLDOM');
+    objAcros.async=false;
+	
+	// get the cumulated EOR counters from table ecbm.ecbm_pmstepsupdate 
+	//	note, this table has to be updated when the table em_eor_data_t is updated. Two way to implement this;
+    objAcros.load('ecbm.ecbm_checklist.getEORData?p_machineid='+currentMachinePtr+'&p_machinetype='+currentMachineType+'&p_classcode='+currentMachineClassCode+'&p_site='+currentSite);
+   
+    if (objAcros.parsed) {
+       objAcroList=objAcros.getElementsByTagName("ROW");
+	   return objAcroList;
+    }
+    return null;
+}
+
+function getEnvVar()
+{
+	var objAcroList = null;
+	var objAcros=new ActiveXObject('microsoft.XMLDOM');
+   	objAcros.async=false;
+	
+	var sysEnv = null;
+	
+	// get the system environment variable  
+   objAcros.load("ecbm.ecbm_checklist.getEnvironmentVar");
+   
+   if (objAcros.parsed) {
+      objAcroList=objAcros.getElementsByTagName("ROW");
+	  
+	 for(i=0;i<objAcroList.length;i++)
+	  { 
+	  	childList=objAcroList(i).childNodes;
+		sysEnv = childList[0].text;
+	  }	  	  
+   }
+  
+   return sysEnv;
+}	
+
+function getExistingTaskIDs(existingTrackno)
+{
+	var objAcroList = null;
+	var objAcros=new ActiveXObject('microsoft.XMLDOM');
+   	objAcros.async=false;
+	// get all task IDs of the existing checklist 
+   objAcros.load("ecbm.ecbm_checklist.getExistingTaskIDs?p_trackno="+existingTrackno);
+   
+   if (objAcros.parsed) {
+      objAcroList=objAcros.getElementsByTagName("ROW");
+  
+	  return objAcroList;	  
+   }
+  
+   return null;
+}	
+
+
+//<!--- *********************************** close the previous checklist  ****************************** --->
+function closeOldChecklist(listid)
+{
+  	var objHTTP=new ActiveXObject('microsoft.XMLHTTP');	
+    var urlStr=getServerPath()+'ecbm.ECBM_CHECKLIST.closeChecklistAndUpdateFlags?p_machineid='+currentMachinePtr+'&p_trackno='+listid+'&p_site='+currentSite;
+    objHTTP.open('GET', urlStr, false);
+    objHTTP.send();
+	return objHTTP.responseText;	
+}
+
+//if a checklist (for a machine,today) has been generated, return the trackno, otherwise return a new trackno
+function verifyChecklist()
+{	
+  	var objHTTP=new ActiveXObject('microsoft.XMLHTTP');	
+    var urlStr=getServerPath()+'ecbm.ECBM_CHECKLIST.verifyChecklist2?p_machineid='+currentMachinePtr+'&p_site='+currentSite;
+    objHTTP.open('GET', urlStr, false);
+    objHTTP.send();
+	  return objHTTP.responseText;
+}
+/*
+//if a checklist (for a machine,today) has been generated, return the trackno, otherwise return -1 
+function verifyChecklist2()
+{	
+  	var objHTTP=new ActiveXObject('microsoft.XMLHTTP');	
+    var urlStr=getServerPath()+'ecbm.ECBM_CHECKLIST.verifyChecklist2?p_machineid='+currentMachinePtr+'&p_site='+currentSite;
+   objHTTP.open('GET', urlStr, false);
+   objHTTP.send();
+	return objHTTP.responseText;
+}
+*/
+
+//create a formal MMO header table, 
+//called by createChecklist() above
+function buildFormalHeader(work_code){
+	//get machine description
+	eqptDesc = getMachineDesc();
+	
+	var tStr= 
+	'<table cellspacing="0" cellpadding="0" border="1" rules="none" align="center" width="790">'+
+	'<tr>'+
+		'<td width="40%" align="center" height="100%">'+
+			'<table cellspacing="0" cellpadding="0" border="1" rules="none" align="center" height="100%" width="100%">'+
+				'<tr align="center"><td valign="top">U.S. Postal Service</td></tr>'+
+				'<tr align="center"> <td valign="middle"><H3>Maintenance Checklist</h3></td></tr>'+
+			'</table>'+
+		'</td>'+
+		'<td align="center" width="60%" height="100%">'+
+			'<table cellspacing="0" cellpadding="0" border="1" rules="" align="center" height="100%" width="100%">'+
+				'<tr align="center"><td colspan="5">IDENTIFICATION</td></tr>'+
+				'<tr align="center"><td>Work Code</td><td>Equipment Acronym</td><td>Class Code</td><td>ID</td><td>Type</td></tr>'+
+				'<tr align="center"><th>'+work_code+'</th><th>'+currentMachineType+'</th><th>'+currentMachineClassCode+'</th><th>'+currentMachinePtr+'</th><th>'+type+'</th></tr>'+
+			'</table>'+
+		'</td>'+
+	'</tr>'+	
+	'<tr>'+
+		'<td width="40%" align="center" height="100%">'+
+			'<table cellspacing="0" cellpadding="0" border="1" rules="none" align="center" height="100%" width="100%">'+
+				'<tr align="left"><td valign="top">Equipment Nomenclature</td></tr>'+
+				'<tr align="center"> <td valign="bottom"><H5>'+eqptDesc+'</h5></td></tr>'+
+			'</table>'+			 
+		'</td>'+		
+		'<td align="center" width="60%" height="100%">'+
+			'<table cellspacing="0" cellpadding="0" border="1" rules="cols" align="center" height="100%" width="100%">'+
+				'<tr align="left" valign="top"><td>Eq`t No.</td><td>Site Name</td><td>Checklist Date</td></tr>'+
+				'<tr align="center"> <th>'+currentMachineNo+'</th><th>'+siteName+'</th><th>'+dateCreated4+'</th></tr>'+
+			'</table>'+	
+		'</td>'+
+	'</tr>'+
+'</table>';
+	return tStr;
+}
+
+//get equipment desc based on the acronym
+function getMachineDesc()
+{	
+  	var objHTTP=new ActiveXObject('microsoft.XMLHTTP');	
+    var urlStr=getServerPath()+'ecbm.ECBM_CHECKLIST.getMachineDesc?p_machineid='+currentMachinePtr+'&p_siteid='+currentSite+'&p_acronym='+currentMachineType+'&p_classcode='+currentMachineClassCode;
+   objHTTP.open('GET', urlStr, false);
+   objHTTP.send();
+	return objHTTP.responseText;
+}
+
+function submitChecklist(trackno2)
+{
+	//Jesse 1/7/2008 verify worksheet no
+	//2014.7.16 worksheet_no = document.all.fldWrkShtno.value;
+	worksheet_value = document.all.slctWrkShtno.options[document.all.slctWrkShtno.selectedIndex].value;
+
+	if(worksheet_value == 0){ //"select a worksheet no" 
+		alert("Please select a valid worksheet number.");
+		document.all.slctWrkShtno.focus();
+		return;
+	}
+/*	2014.7.16
+	//Jesse, 4/3/2008 users may enter a worksheet number without the leading zeros,
+	//	make sure to add the leading zero to it before it is passed onto the back-end. 
+	fldWrkSht_onBlur(document.all.fldWrkShtno,trackno2);
+	worksheet_no = document.all.fldWrkShtno.value;
+	if(worksheet_no == ""){
+		alert("The Worksheet No. you entered does not match the checklist No., please check your Worksheet No. and try again.");
+		document.all.fldWrkShtno.focus();
+	 	return; 
+	}
+*/		
+	//show button 'Submit' and 'Back'
+	document.getElementById('btnSubmit').style.display='block';
+	document.getElementById('btnSubmit').style.visibility='visible';
+	document.getElementById('btnBack').style.display='block';
+	document.getElementById('btnBack').style.visibility='visible';
+	
+	document.getElementById('divNewlist').style.height ='30';
+	document.getElementById('divOpenlist').style.height ='355';//'385';
+	
+	var submitHeaderStr11 = 
+	'<br><div style="background-color: #DCDCDC; font-size: 16; color:black; font-weight: bold; text-align: center;">SUBMIT CHECKLIST</div>'+
+	showBypassCodes() +
+	'<table align="center" cellpadding="5" cellspacing="0" width="100%" height="" border="1" id="table1" bgcolor="lightgrey">'+	
+		'<tr bgcolor="lightgrey">'+
+			'<td colspan="7" align="center"><font color="red">You are trying to submit checklist No. '+trackno2+', Please mark all tasks you have done, then press the button "Submit" below</font>'+
+				'<input type="hidden" name="trackno" value="'+trackno2+'"></td>'+
+		'</tr>'+
+		'<tr><th width="10%">MMO Item No.</th><th width="39%">Part or Component</th><th width="10%">Task Pending</th><th width="10%">Task Comp`ted</th><th width="10%">Note *</th><th width="">Bypass Code Reason</th><th width="1%">&nbsp;</th></tr>'+
+	'</table>'; 
+	
+	document.all.divMachInfo.innerHTML += submitHeaderStr11;
+	//display the details of the open checklist in SQL procedure
+	document.all.divOpenlist.innerHTML = submitChecklistPage(trackno2,worksheet_emp_ldc_code); 
+	
+	//display the details of the open checklist in JavaScript
+	//The reason to use JavaScript instead of PL/SQL procedure is the columns of table header and contents are not lined up well,
+	//the result seems to be the same, ??????????????? eMARS Swil tool ??????????? 
+	//document.all.divOpenlist.innerHTML = submitChecklistPage2(trackno2);
+	
+	var actualTimeField = '<table cellpadding="0" cellspacing="0" width="100%" height="" border="1" id="table1" bgcolor="lightgrey">'+	
+		'<tr bgcolor="lightgrey">'+
+			'<th width="15%" style="text-align:right">Est. Time(hrs) :</th><td width="5%">'+(new Number(document.all.totalTimeEst.value).valueOf()/60).toFixed(2) +  
+			//'</td>'+
+			'</td><th width="15%" style="text-align:right">Time Spent(hrs):</th><td width="5%"><input type="text" name="fldActualTime" value="0" size="5" maxlength="10" onBlur="verifyNum(this);"></td>'+
+		    '<th width="10%" style="text-align:right">Employee:</th><td width="20%">'+worksheet_empName +'</td>'+
+			 '<th width="10%" style="text-align:right">Supervisor:</th><td width="20%">'+worksheet_supervisor +'</td>'+
+		'</tr></table>';
+		
+	document.all.divOpenlist.innerHTML += ' &nbsp;';//actualTimeField;
+	document.all.divNewlist.innerHTML = actualTimeField;
+}
+
+function getOpenlist()
+{
+	
+    var childList = null;
+	var objAcroList = null;
+	var objAcros=new ActiveXObject('microsoft.XMLDOM');
+ 	objAcros.async=false;
+		
+	 // get open checklist for current machine - equipment_ptr 
+   objAcros.load("ecbm.ecbm_checklist.getOpenlist?p_machine_id="+currentMachinePtr+'&p_site='+currentSite+'&p_facid='+currentWhepFacID);
+   
+   if (objAcros.parsed) {
+      objAcroList=objAcros.getElementsByTagName("ROW");
+	  
+	   //return the first record (should be only one)
+	   if(objAcroList.length != 0){
+	   	  childList=objAcroList(0).childNodes;
+	    	return childList; //ONLY return the first one 
+	   }	  
+   }
+   return null;
+ 
+ /*
+   var nodeList = null;
+   var url = getServerPath()+'ecbm.ecbm_checklist.getOpenlist?p_machine_id='+currentMachinePtr+'&p_site='+currentSite+'&p_facid='+currentWhepFacID;
+   //nodeList = getAjaxResponseObject(url,"ROW")(0).childNodes;
+   
+   alert('track no 22222 ');
+   alert('getOpenlist() return? ' + nodeList[0].nodeValue); 
+   
+   return nodeList; 
+  */
+} //end of getOpenlist()
+
+//get the number of tasks which are due for a given open checklist
+function getNumOfDueTasks(local_listid)
+{	
+  	var objHTTP=new ActiveXObject('microsoft.XMLHTTP');	
+    var urlStr=getServerPath()+'ecbm.ECBM_CHECKLIST.getNumOfTasksDue?p_siteid='+currentSite+'&p_trackno='+local_listid;
+   objHTTP.open('GET', urlStr, false);
+   objHTTP.send();
+	return objHTTP.responseText;
+}
+
+//called by submitChecklist(trackno,worksheet_emp_ldc_code)
+function submitChecklistPage(trackno3,emp_ldc_code) {   
+	
+   var objHTTP=new ActiveXObject('microsoft.XMLHTTP');
+   var urlStr=getServerPath()+'ecbm.ECBM_CHECKLIST.submitChecklist?p_trackno='+trackno3+'&p_machineid='+currentMachinePtr+'&p_machinetype='+currentMachineType+'&p_classcode='+currentMachineClassCode+'&p_site='+currentSite+'&p_ldc_code='+emp_ldc_code;
+	
+   objHTTP.open('GET', urlStr, false);
+   objHTTP.send();
+	return objHTTP.responseText;
+}
+
+//filter out the special characters from user's inputs
+//triggered from SQL procedure ecbm.ECBM_CHECKLIST.submitChecklist
+function verify_bypasscomm(obj)
+{
+			var val = obj.value;
+		 	var lastchar = 0;
+			for(var i=0;i<val.length;i++)
+			{
+				lastchar = val.charCodeAt(i);//integer
+				if(lastchar == 34 || lastchar == 35 || lastchar == 38 || lastchar == 39 || lastchar == 42 || lastchar == 47 || lastchar == 60
+				 || lastchar == 62 || lastchar == 92)
+				{
+					alert("Please do NOT use ', \", /, \\, <, >, #, &, *,... special charactors here.");
+				
+					this.focus();
+					return;
+				}
+			}	
+}
+		
+//after the button 'Submit' is clicked .... to submit  a checklist
+function  submit_onClick()
+{	
+	var listno = document.all.trackno.value;
+	var actualTimeSpent = document.all.fldActualTime.value
+	
+	//verify the trackno user is trying to submit (4/16/2007 Jesse)
+	//reason: :( in case the user leave the bubble sheet open for more than 1 day; and the press the button "submit" :( 
+	var childs = null;
+	var trackno_open = 0;
+	var request_date = null;
+	
+	//there should be at most one record (at most one open checklist)
+	childs = getOpenlist();
+    // Added to check if there are any open items left on the last checklist created	
+	if(childs != null){	
+		open_yn = childs(4).text;	
+		if(open_yn!=0){
+	 	  trackno_open= childs(0).text; //current opened checklist
+	  }
+	}
+		
+	if(trackno_open == 0){ //no open checklist exists 
+		alert("You are trying to submit a checklist which has been closed. Please log out eCBM and try again! ");
+		return;
+	}else{
+		if(trackno_open != listno){ //try to submit the checklist which has been closed or is not the latest one
+			alert("You are trying to submit a checklist which has been closed. Please log out eCBM and try again! ");
+			return;
+		}else{
+			request_date = 	childs(7).text; //date when the checklist was created
+		}		
+	}	
+	//verify the trackno user is trying to submit
+	//reason: :( in case the user leave the bubble sheet open for more than 1 day; and the press the button "submit" :( 
+	
+	/* // 2019.10.3 be moved down to the average time spent 
+	if(actualTimeSpent == null || actualTimeSpent == "" || actualTimeSpent == " " || actualTimeSpent == 0)
+	{
+		alert("The Actual Time is required, please enter a valid number!\n\n If this is not your first time to submit this checklist (or worksheet), \n please just enter an additional time, DO NOT add it to your previous input.");
+		document.all.fldActualTime.focus();
+		document.all.fldActualTime.select();
+	}else
+	*/
+	// 2019.10.3 {	
+		//build an array that keeps task's status, and pass it to database	
+		var arrTaskStatus = new Array();
+		var arrTaskItemno = new Array();
+		var i, name, eleObj;
+		var len = document.forms[0].length; 
+		for(i=0;i<len;i++)
+		{
+			eleObj = document.forms[0].elements[i];
+			if(eleObj.name.substr(0,5) == "radio" && eleObj.checked && !eleObj.disabled){
+				//the array index represents task id, and value are 'p','c','i' or 'b1','b7' ...,'w'
+				//note, null value = 'undefined'
+				arrTaskStatus[eleObj.name.substring(5)] = eleObj.value;			
+			} 
+		}
+		//4/9/2008 Jesse, ensure at least one task is marked "completed" or "bypassed"
+		var isMarked = 0; 
+		var ele = null;
+		for(var j=0;j<arrTaskStatus.length;j++){
+			ele = arrTaskStatus[j];
+			if(ele != null && (ele.substr(0,1) == "c" || ele.substr(0,1) == "b" || ele.substr(0,1) == "w")){ //undefined,p,c,i or b1,b2 ...w
+				isMarked = 1;
+				break;
+			}
+		}
+		if(isMarked == 0){
+			alert("At least one task has to be marked 'completed', 'working' or 'bypassed'."); 
+			return;	
+		}
+		
+		//ensure no due-tasks are missed
+		var objList = getChecklistTasks(listno);
+    	var totalDue = 0;          //total number of tasks which are due and not been completed yet
+		var dueIddd = " ";        //starting with  a white space. id string of tasks which are due
+		var dueItemno = " ";    //starting with  a white space. mmo_item_no string of tasks which are due	
+		for(var off=0;off<objList.length;off++)
+		{		
+			var childList = objList(off).childNodes;			
+			if(childList[12].text*1 <= 1  && childList[11].text == 'pending'){  //d2l <= 1  and still no-touched
+				totalDue++;
+				dueIddd += " " + childList[0].text + ',';
+				dueItemno += " " + childList[15].text + ',';  //mmo_item_no 
+			} 
+			
+			//pair the task ID and item no
+			arrTaskItemno[childList[0].text] = childList[15].text;
+		}
+			
+		var stepid_c = ""; //step id string completed, separated by ','. eg 2,5,7,10,...
+		var stepid_b = ""; //step id string bypassed, separated by ','. eg 2,5,7,10,...
+		var stepid_w = ""; //step id string working, separated by ','. eg 2,5,7,10,...
+		var bypasscode_s = ""; //bypass code string,, separated by ','. eg 1,1,3,3,8,8,...
+		var totalBypassed = 0;
+		var totalBypassed1 = 0;  //bypass reason 1
+		var totalBypassed7 = 0;  //bypass reason 7
+		var totalBypassed8 = 0;  //bypass reason 8
+		var totalBypassed9 = 0;  //bypass reason 9
+		var totalCompleted = 0;
+		var totalWorking = 0;
+		for(var i=0;i<arrTaskStatus.length;i++){
+			var element = arrTaskStatus[i];
+			if(element != null && element == "c"){ //undefined,p,c,i or b1,b2 ...w
+				stepid_c += i + ",";
+				totalCompleted++;	
+				dueIddd = dueIddd.replace(" "+i+",",  "");
+				dueItemno = dueItemno.replace(" "+arrTaskItemno[i]+",", "");
+			}
+			if(element != null && element.substr(0,1) == "b"){
+				stepid_b += i + ",";
+				totalBypassed++;
+				dueIddd = dueIddd.replace(" "+i+",",  "");
+				dueItemno = dueItemno.replace(" "+arrTaskItemno[i]+",", "");
+				
+				var bpcode = element.substring(1);			
+				if(bpcode == "1") { totalBypassed1 = totalBypassed1 +1; }
+				if(bpcode == "7") { totalBypassed7 = totalBypassed7 +1; }
+				if(bpcode == "8") { totalBypassed8 = totalBypassed8 +1; }
+				//if(bpcode == "9") { totalBypassed9 = totalBypassed9 +1; }
+				
+				bypasscode_s += bpcode +",";
+				var comm = document.getElementById("bypassedcom_" + i).value + " --- bypassed with code "+ bpcode;
+	
+				updateBypassComm(i,comm,bpcode,listno);
+			} 
+			//3/16/2010 Jesse, add 'working' option 
+			if(element != null && element == "w"){
+				var w_comm = document.getElementById("bypassedcom_" + i).value + " --- working on it ";
+				stepid_w += i + ",";
+				totalWorking++;
+	
+				updateBypassComm(i,w_comm,"w",listno);	
+			}
+			//4/8/2008 Jesse, user's comment on each task
+			if(element != null && element == "i"){
+				var userComm = document.getElementById("bypassedcom_" + i).value;
+				updateBypassComm(i,userComm,bpcode,listno);
+			}
+		} //loop
+		
+		var totalMissed = 0;
+		for(var comma = 0;comma <  dueIddd.length;comma++){
+			if(	dueIddd.charAt(comma) == ','){
+				totalMissed++;		
+			}
+		}
+		
+		//2019.01.3 
+		var avgActualTimeTask = 0; 
+		if(actualTimeSpent == null || actualTimeSpent == "" || actualTimeSpent == " " || actualTimeSpent == 0)
+		{   //some tasks marked C or W, actual hours are required. //2019.01.3  
+			if(totalCompleted*1 + totalWorking*1 > 0) {			
+				alert("The Actual Time is required, please enter a valid number!\n\n If this is not your first time to submit this checklist (or worksheet), \n please just enter an additional time, DO NOT add it to your previous input.");
+				document.all.fldActualTime.focus();
+				document.all.fldActualTime.select();
+				
+				return;
+			}
+		}else{ 
+			if(totalCompleted*1 + totalWorking*1 + totalBypassed*1 > 0) {
+				//average hours spent per task 
+				avgActualTimeTask = new Number(actualTimeSpent*1/(totalCompleted*1+totalWorking*1+totalBypassed*1)).toFixed(3);
+			}else{
+				avgActualTimeTask = 0;	
+			}
+		}
+		
+		//average hours spent per task 
+		//var avgActualTimeTask = new Number(actualTimeSpent*1/(totalCompleted*1+totalBypassed*1+totalWorking*1)).toFixed(3);
+		
+	/*	  this warning message causes the IE slower, and even freezes
+		if(totalMissed > 0)
+		{
+			dueIddd = dueIddd.substr(0,dueIddd.length-1); //remove the last ','
+			var submitWarningStr = "There are still "+totalMissed +" more task(s):\n\nNo."+dueIddd+" \n\nwhich are due and have not been completed.\n\n\nDo you still wish to proceed? \n"; 
+			if(!window.confirm(submitWarningStr))	{ 
+				return false; 
+			}else {	
+				var tempStr = "";
+				var tempPos = 90;
+				while(dueIddd.length > 90){
+					while(dueIddd.charAt(tempPos) != ','){
+						tempPos += 1;	
+					}
+					tempStr += dueIddd.substr(0,tempPos+1) + '<br />';
+					dueIddd = dueIddd.substr(tempPos+1);
+				}
+				dueIddd = tempStr + dueIddd;
+				
+				//var returnVal = window.showModalDialog("/emars-html/warning_before_submit.html",totalMissed+ " <br />("+ dueIddd +")<br />","dialogHeight: 700px; dialogWidth: 900px; dialogTop: 150px; dialogLeft: 150px; edge: Sunken; center: Yes; resizable: No; status: No;");
+				//"+vReportUserIdMapping+" 
+				//if(returnVal != "yes") { return false; }					
+			}
+			//debug
+			//return;    
+		}  */
+		
+		var tempS = 
+		'<div style="background-color: #DCDCDC; font-size:20; color:black; font-weight: bold; text-align: center;">PM Activity Card </div>(eCBM Checklist No. '+ listno+')'+
+		'<table border="1" width="100%">'+
+		'<tr bgcolor="grey"><td align="center" colspan="2">Transaction Summary</td></tr>'+
+		'<tr bgcolor="lightgrey"><th align="left" width="30%">Number of Tasks Planned:</th><td>'+document.all.taskNum.value+'</td></tr>'+
+		'<tr bgcolor="lightgrey"><th align="left"  width="30%">Tasks Completed:</th><td>';
+		if(stepid_c != "")
+		{
+			//remove the last ',' from stepid string
+			stepid_c = stepid_c.substr(0, stepid_c.length-1); 
+			
+			tem = updateTaskCompleted(listno,trim(stepid_c), avgActualTimeTask);
+			tempS += tem;		
+		}else{
+			tempS += ' --- ';
+		}
+		tempS += '</td></tr><tr bgcolor="lightgrey"><th align="left"  width="30%">Number of Tasks Completed:</th><td align="left">'+totalCompleted;
+		tempS += '</td></tr><tr bgcolor="lightgrey"><th align="left"  width="30%">Tasks Bypassed:</th><td align="left">';
+		if(stepid_b != ""){
+			//remove the last ',' from stepid string
+			stepid_b = stepid_b.substr(0, stepid_b.length-1);
+					
+			//deal with bypasscode string accordingly
+			bypasscode_s = bypasscode_s.substr(0, bypasscode_s.length-1);
+			
+			tem = updateTaskBypassed(listno,trim(stepid_b),trim(bypasscode_s),avgActualTimeTask);//update database
+			tempS += tem;		
+	
+		}else{
+			tempS += ' --- ';
+		}
+		if(stepid_w != ""){
+			//remove the last ',' from stepid string
+			stepid_w = stepid_w.substr(0, stepid_w.length-1);
+			tem = updateTaskWorking(listno,trim(stepid_w),avgActualTimeTask);//update database	 
+		}
+		tempS += '</td></tr><tr bgcolor="lightgrey"><th align="left"  width="30%">Number of Tasks Bypassed:</th><td align="left">'+totalBypassed;		
+		if(totalMissed > 0){
+		    tempS += '</td></tr><tr bgcolor="yellow"><th align=""  width="30%"></th><td  align="left">There are still '+totalMissed + ' more tasks, which are due today and have not been completed.</td>';
+		    tempS += '</td></tr><tr bgcolor="yellow"><th align="left"  width="30%">Tasks Missed</th><td align="left"> No. '+dueItemno;
+		}
+		tempS += '</td></tr><tr bgcolor="lightgrey"><th align="left"  width="30%">Est. Time Required:</th><td>'+new Number(document.all.totalTimeEst.value*1/60).toFixed(2)+ ' hours' + 
+			'</td></tr>'+
+			'<tr bgcolor="lightgrey"><th align="left"  width="30%">Actual Time Spent:</th><td>'+new Number(document.all.fldActualTime.value*1).toFixed(3)+' hours</td></tr>'+
+			'</table>';
+			
+		tempS += '<table cellspacing="0" cellpadding="0" border="1" rules="none" align="center" width="100%"> '+
+			'<tr  bgcolor="lightgrey"><th width="10%" align="left">Crew No.:</th><td width="30%">'+worksheet_crew+'</td><th width="10%" align="left">Employee Name:</th><td width="20%">'+worksheet_empName+'</td><th width="10%" align="left">Time :</th><td width="20%">' + getServerTime() + 
+			'</td></tr>' +
+			'<tr  bgcolor="lightgrey"><td colspan="6">&nbsp;</td></tr>'+
+			'<tr  bgcolor="lightgrey"><th width="10%" align="left">Employee Signature : </th><td width="30%" align="left"><u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</u></td>'+
+			'<th width="10%" align="left">Supv Init :</th><td width="20%" align="left">'+worksheet_supervisor+'</td>'+
+			'<th width="10%" align="left">M/C Init : </th><td width="20%" align="left"><u>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </u></td>'+
+			'</tr></table>';
+			
+		document.all.divMachInfo.innerHTML = strheader;
+		document.all.divOpenlist.innerHTML = tempS;	
+		document.all.divNewlist.innerHTML ="Please print this card for your record. Thank you for your contribution! ";
+		document.getElementById('btnSubmit').style.display='none';
+		document.getElementById('btnPrint').style.display='block';
+		
+		//save who submit the tasks
+		var currentUserName = new String(currentUserFirstName + " " +currentUserLastName);
+		if(currentUserName.length > 50){
+			currentUserName = currentUserName.substr(1,50);
+		} 
+		var insertion = "insert into ecbm.ecbm_submitchecklist values('"+listno+"','"+worksheet_empName+"',sysdate";
+		var insertion2 = ",null,'"+totalCompleted+"','"+totalBypassed+"','"+actualTimeSpent+"',null,'"+currentSite+"','"+currentWhepFacID+"')";
+		saveSubmitter(insertion,insertion2,currentSite);
+		
+		//1/8/2008 Jesse update the labor transaction to eMARS
+		var time_spent_hour = new Number(actualTimeSpent*1).toFixed(2);
+		var insert_labor = "INSERT INTO em_wo_labor_t(site_id,wo_lab_ptr,wo_ptr,emp_id,sched_date,subsite_id,reg_no,time_spent,work_sheet_no,work_date,labor_cost,status,create_user,create_date,mod_date,mod_user,equipment_ptr,emp_level_code,ldc_code,qty_comp,reason_1,reason_7,reason_8,reason_9) "; 
+		var insert_labor2 = " VALUES ("+currentSite+",em_wo_lab_ptr_seq.nextval,"+worksheet_wo_ptr+","+worksheet_empid+",trunc(to_date('"+request_date+"','DD-MON-YYYY HH:MI:SS')),'"+currentSubsiteID+"','000',"+time_spent_hour+",'"+worksheet_no+"',trunc(to_date('"+request_date+"','DD-MON-YYYY HH:MI:SS')),"+new Number(worksheet_empavgsalary*time_spent_hour).toFixed(2)+",'P',"+currentUser+",sysdate,sysdate,"+currentUser+","+currentMachinePtr+",'"+worksheet_emp_level_code+"','"+worksheet_emp_ldc_code+"',"+totalCompleted+","+totalBypassed1+","+totalBypassed7+","+totalBypassed8+","+totalBypassed9+")";
+		
+		/*if(currentSite == 303) {
+					prompt('?',insert_labor); prompt('??',insert_labor2); 
+		} */
+		var ttt = saveLabor(insert_labor,insert_labor2,worksheet_wo_ptr,time_spent_hour,new Number(worksheet_empavgsalary*time_spent_hour).toFixed(2),worksheet_no,currentSite);
+		alert(ttt);	
+		
+		if(totalMissed > 0){
+			var submitWarningStr = "There are still "+totalMissed +" more task(s):\n\nNo."+dueItemno+"  \n\nwhich are due and have not been completed."; 
+	         alert(submitWarningStr);
+		}
+		
+	// 2019.10.3 } //if the actual time is not null
+		
+}
+
+function saveSubmitter(sqlStr,sqlStr2,siteid)
+{			
+  	var objHTTP=new ActiveXObject('microsoft.XMLHTTP');	
+	var urlStr=getServerPath()+'ecbm.ECBM_CHECKLIST.saveSubmitter?p_sql='+sqlStr+'&p_sql2='+sqlStr2+'&p_site='+siteid;
+	
+   objHTTP.open('GET', urlStr, false);
+   objHTTP.send();
+	
+	return objHTTP.responseText;
+}
+
+function saveLabor(sqlStr, sqlStr2,woptr,hoursspent,laborcost,wsno,siteid)
+{			
+  	var objHTTP=new ActiveXObject('microsoft.XMLHTTP');	
+	var urlStr=getServerPath()+'ecbm.ECBM_CHECKLIST.saveLabor?p_sql='+sqlStr+'&p_sql2='+sqlStr2+'&p_woptr='+woptr+'&p_hoursspent='+hoursspent+'&p_laborcost='+laborcost+'&p_wsno='+wsno+'&p_site='+siteid+'&p_emp_id='+worksheet_empid+'&p_user_id='+currentUser;
+	
+   objHTTP.open('GET', urlStr, false);
+   objHTTP.send();
+	
+	return objHTTP.responseText;
+}
+
+function update_workorder(wo_ptr,listid,est_hours,est_hours_due){
+	var objHTTP=new ActiveXObject('microsoft.XMLHTTP');	
+	var urlStr=getServerPath()+'ecbm.ECBM_CHECKLIST.updateWorkorder?p_site='+currentSite+'&p_woptr='+wo_ptr+'&p_trackno='+listid+'&p_esthours='+est_hours+'&p_user_id='+currentUser+'&p_esthours_due='+est_hours_due;
+	
+   objHTTP.open('GET', urlStr, false);
+   objHTTP.send();
+	
+	return objHTTP.responseText;
+}
+
+function generateAChecklist(newTrackno,woPtr){
+	var objHTTP=new ActiveXObject('microsoft.XMLHTTP');	
+	var urlStr=getServerPath()+'ecbm.ECBM_CHECKLIST.createAChecklist?p_site_id='+currentSite+'&p_equipment_ptr='+currentMachinePtr+'&p_acronym='+currentMachineType+'&p_class_code='+currentMachineClassCode+'&p_newTrackno='+newTrackno+'&p_username='+currentUserFirstName+' '+currentUserLastName+'&p_user_id='+currentUser+'&p_woptr='+woPtr;
+	
+   objHTTP.open('GET', urlStr, false);
+   objHTTP.send();
+	
+	return objHTTP.responseText;
+}
+
+function updateBypassComm(stepid, comment, code, tno)
+{
+	var currentUserName = new String(currentUserFirstName + " " +currentUserLastName);
+	if(currentUserName.length > 30){
+			currentUserName = currentUserName.substr(1,30);
+	} 
+			
+    var objHTTP=new ActiveXObject('microsoft.XMLHTTP');
+	
+	var urlStr=getServerPath()+'ecbm.ECBM_CHECKLIST.updateBypassComment?p_trackno='+tno+'&p_stepid='+stepid+'&p_comment='+comment+'&p_machineid='+currentMachinePtr+'&p_facid='+currentWhepFacID+'&p_site='+currentSite+'&p_user='+currentUserName+'&p_user_id='+currentUser+'&p_empid='+worksheet_empid;
+	
+    objHTTP.open('GET', urlStr, false);
+    objHTTP.send();
+	
+	return objHTTP.responseText;
+}
+
+function updateTaskCompleted(listno, stepids, actualTime)
+{
+	var currentUserName = new String(currentUserFirstName + " " +currentUserLastName);
+	if(currentUserName.length > 30){
+		currentUserName = currentUserName.substr(1,30);
+	} 
+		
+  	var objHTTP=new ActiveXObject('microsoft.XMLHTTP');
+	
+	var urlStr=getServerPath()+'ecbm.ECBM_CHECKLIST.updateTaskCompleted?p_trackno='+listno+'&p_stepid='+stepids+'&p_actualtime='+actualTime+'&p_user='+currentUserName+'&p_machineid='+currentMachinePtr+'&p_machinetype='+currentMachineType+'&p_classcode='+currentMachineClassCode+'&p_site='+currentSite+'&p_user_id='+currentUser+'&p_empid='+worksheet_empid;
+	
+   objHTTP.open('GET', urlStr, false);
+   objHTTP.send();
+	return objHTTP.responseText;
+}
+
+function updateTaskBypassed(listno, stepids, bpcodes, actualTime)
+{	
+	var currentUserName = new String(currentUserFirstName + " " +currentUserLastName);
+	if(currentUserName.length > 30){
+		currentUserName = currentUserName.substr(1,30);
+	} 
+  var objHTTP=new ActiveXObject('microsoft.XMLHTTP');
+  var urlStr=getServerPath()+'ecbm.ECBM_CHECKLIST.updateTaskBypassed?p_trackno='+listno+'&p_stepid='+stepids+'&p_bpcode='+bpcodes+'&p_actualtime='+actualTime+'&p_user='+currentUserName+'&p_machinetype='+currentMachineType+'&p_classcode='+currentMachineClassCode+'&p_site='+currentSite+'&p_user_id='+currentUser+'&p_empid='+worksheet_empid;
+	
+   objHTTP.open('GET', urlStr, false);
+   objHTTP.send();
+	return objHTTP.responseText;
+}
+
+function updateTaskWorking(listno, stepids, actualTime)
+{	
+	var currentUserName = new String(currentUserFirstName + " " +currentUserLastName);
+	if(currentUserName.length > 30){
+		currentUserName = currentUserName.substr(1,30);
+	} 
+	
+  var objHTTP=new ActiveXObject('microsoft.XMLHTTP');
+  var urlStr=getServerPath()+'ecbm.ECBM_CHECKLIST.updateTaskWorking?p_trackno='+listno+'&p_stepid='+stepids+'&p_actualtime='+actualTime+'&p_user='+currentUserName+'&p_machinetype='+currentMachineType+'&p_classcode='+currentMachineClassCode+'&p_site='+currentSite+'&p_user_id='+currentUser+'&p_empid='+worksheet_empid;	
+   objHTTP.open('GET', urlStr, false);
+   objHTTP.send();
+	return objHTTP.responseText;
+}
+
+//after 'back' button in the page of submitting checklist
+function back_OnClick()
+{
+	bodyOnLoad();
+	
+	document.getElementById('btnPrint').style.display='none';
+	document.getElementById('btnSubmit').style.display='none';
+	document.getElementById('btnBack').style.display='none';	
+	document.getElementById('divNewlist').style.display='block';
+	document.getElementById('divNewlist').style.height ='200';
+	document.getElementById('divOpenlist').style.height ='185';	
+}
+
+function verifyNum(field)
+{
+		var str = field.value;
+		if(str == "" || str == " "){
+				alert("This field is required, please enter a valid number!");
+				field.focus();
+				field.select();
+				return;
+		}else{
+			if(isNaN(str))	{
+					alert("Please enter a valid number!");
+					field.focus();
+					field.select();
+					return;
+			}
+		}
+			
+		if(str <= 0)
+		{
+			alert("Please enter a positive number!");
+			field.focus();
+			field.select();
+			return;
+		}	
+		
+		if(field.name = 'fldActualTime'){ 
+			if(str >= 12){
+				alert("The Time Spent must be between 0 and 12 hours."); 
+				field.focus();
+				field.select();
+			}else{
+				   field.value = (new Number(str).valueOf()).toFixed(3);
+				var myConfirm=newConfirm('Actual Hours','Hold on,\n\nYou just entered  ' + str +'  hours, please make sure it is correct.\n\n'
+								        +'Would you like to submit it now?',1,1,0);
+				if (myConfirm) {
+ 	    			//field.value = (new Number(str).valueOf()).toFixed(3);	
+					document.all.btnSubmit.disabled = true; 
+					submit_onClick(); 
+					document.all.btnSubmit.disabled = false; 
+				}else{	
+					//field.value = 0; field.select();	
+					document.all.btnSubmit.focus();						
+				}									
+			}
+			return;
+		}
+}
+
+function showcom(strstepid){
+			
+		var idname = "bypassedcom_" + strstepid + "div";
+		var textidname = "bypassedcom_" + strstepid;
+		var obj = document.getElementById(idname);
+		var objtext = document.getElementById(textidname);
+		//if (reasonnum == 3 || reasonnum == 99){
+			obj.style.display = "block";
+			objtext.select();
+			objtext.focus();
+		//}
+		//else{
+		//	obj.style.display = "none";
+		//}
+}
+
+function hidecom(strstepid){
+		var idname = "bypassedcom_" + strstepid + "div";
+		var obj = document.getElementById(idname);
+		obj.style.display = "none";
+}
+
+// add a button which leads to show the safety Tasks 
+function btn_safetyTask_onClick()
+{
+	var newWin = window.open("","SafyetyTasks","status,height=600,width=800,resizable,scrollbars,top=0,left=0",true);
+	var taskList = getSafetyTasks();
+	showSafetyTasks(taskList,newWin);
+}
+
+function showSafetyTasks(safetyTaskList,newWin)
+{
+	var minutesPerTask = 0;  //time required for each task
+	var minutesReqt = 0;     //total time required for all tasks
+	
+	newWin.document.write(header);	
+	newWin.document.write(bodier);
+	newWin.document.write(btnClose+'<br>');
+	
+	newWin.document.write('<p bgcolor="white"align="center"><b>'+currentMachineType+' PM Warnings</b></p>');
+	//header of the task table
+	var taskHeader2 = '<table cellspacing="0" cellpadding="0" border="2" rules="all" align="center" width="600">'+
+	'<tr><th width="5%" align="center" height="100%">Task ID</th>'+
+		'<th width="" align="center" height="100%">Part or Component</th>'+	
+		'<th width="" align="center" height="100%">Task Statement and Instruction <br>(Comply with all current safety precautions)</th>'+
+		'<th width="5%" align="center" height="100%">Est. Time Req`d (min)</th>'+
+		'<th width="5%" align="center" height="100%">Min. Skill Level</th>'+
+	'</tr>';
+	newWin.document.write(taskHeader2);
+	
+	for(var off=0;off<safetyTaskList.length;off++)
+	{	
+		var childList = safetyTaskList(off).childNodes;	
+		var t1 = '<tr bgcolor="#FFFF66">';
+		if(childList[1].text.toUpperCase() != "FINAL-CLEANUP"){
+			t1 += '<td width="5%" height="100%" align="center">W'+childList[6].text+'</td>';
+		}else{
+			t1 += '<td width="5%" height="100%" align="center">C'+childList[6].text+'</td>';
+			
+		}
+		t1 += '<td width="15%" height="100%" align="center">'+childList[1].text+'</td>'+	
+							'<td width="70%" height="100%" align="left">'+childList[2].text+'</td>'+
+							'<td width="5%" height="100%" align="center">'+childList[3].text+'</td>'+
+							'<td width="5%" height="100%" align="center">'+childList[4].text+'</td>'+
+						'</tr>';
+		minutesReqt += new Number(childList[3].text).valueOf();
+		newWin.document.write(t1);	
+	} //loop  
+	
+	newWin.document.write('<tr bgcolor="white"><th colspan="5" align="left">Total time requried:'+minutesReqt+' minutes</th></tr>');
+	
+	newWin.document.write('</table>');
+	newWin.document.write('<br>'+btnClose+'<br>');
+	newWin.document.write(footer); //</body></html>
+	newWin.document.close();
+	newWin.focus();
+}
+
+function getSafetyTasks()
+{
+	var objAcroList = null;
+	var objAcros=new ActiveXObject('microsoft.XMLDOM');
+   	objAcros.async=false;
+		
+	// get all safety tasks and clean-up tasks for this kind of equipment - currentMachineType and currentMachineClassCode 
+   objAcros.load("ecbm.ecbm_checklist.getSafetyTasks?p_machinetype="+currentMachineType+'&p_classcode='+currentMachineClassCode);
+   
+   if (objAcros.parsed) {
+      objAcroList=objAcros.getElementsByTagName("ROW");
+	  
+	  return objAcroList;
+   }
+ 	return null;  
+}
+
+//get the acronym_t-->ecbm_view_only, 
+//return 'Y' or 'N'
+function isECBMViewOnly()
+{
+	var YorN = 'Y';
+
+	var objAcroList = null;
+	var objAcros=new ActiveXObject('microsoft.XMLDOM');
+   	objAcros.async=false;
+	
+	// get the system environment variable  
+   objAcros.load('ecbm.ecbm_machine_lists.getEquipClassView?p_site_id='+currentSite+'&p_equip_ptr='+currentMachinePtr);
+   
+   if (objAcros.parsed) {
+      objAcroList=objAcros.getElementsByTagName("ROW");
+	  
+	 for(i=0;i<objAcroList.length;i++)
+	  { 
+	  	childList=objAcroList(i).childNodes;
+		YorN = childList[2].text;
+	  }	  	  
+   } 
+   
+}	
+
+/*
+	para url, location of a SQL procedure or a static file.
+	para xmlTagName, name of XML tag in the returned XML file.
+	
+	return the text value of the specific tag. 
+	
+	for example 
+	//var url = getServerPath() + 'ecbm.ecbm_machine_lists.getEquipClassView?p_site_id='+currentSite+'&p_equip_ptr='+currentMachinePtr;
+	//object.responseText : 
+		htp.p('<?xml version="1.0"?>');
+		htp.p('<ROWSET>');
+			htp.p('<ROW>');
+				htp.p('<EQUIP_PTR>1234567</EQUIP_PTR>');
+				htp.p('<CLASS>AA</CLASS>');
+				htp.p('<VIEW>N</VIEW>');
+				htp.p('<MMO_NO>MMO-015-14</MMO_NO>');
+			htp.p('</ROW>');
+		htp.p('</ROWSET>');
+*/
+function getAjaxResponseText(url,xmlTagName) {
+	//jesse,  to use AjAX call 
+	var xmlObj = null;
+	var xmlResult = null;
+	var returnText = null;
+	
+	if (window.XMLHttpRequest) { // Mozilla, Safari, ...
+      xmlObj = new XMLHttpRequest();
+	  //alert('create request XMLHttpRequest()');
+    } else if (window.ActiveXObject) { // IE
+      try {
+        xmlObj = new ActiveXObject("Msxml2.XMLHTTP");
+		//alert('create request ActiveXObject("Msxml2.XMLHTTP")');
+      } catch (e) {
+        try {
+          xmlObj = new ActiveXObject("Microsoft.XMLHTTP");
+		 // alert('create request ActiveXObject("Microsoft.XMLHTTP")');
+        } catch (e) {
+			alert('Ooops :(,  Cannot create an XMLHTTP instance');
+		}
+      }
+    }
+	
+	if (!xmlObj) {
+      alert('Giving up :( Cannot create an XMLHTTP instance');
+      return false;
+    }
+	
+	xmlObj.onreadystatechange=function(){
+		if (xmlObj.readyState==4 && xmlObj.status==200)
+		{ 
+			//alert('xmlObj.responseText : ' + xmlObj.responseText);
+			if (window.DOMParser) {
+				//not working for IE 8, IE 9 supports this
+				parser=new DOMParser();
+				xmlResult = parser.parserFromString(xmlObj.responseText,"text/xml");
+				//alert('1 DOMParser() ');
+			} else {
+				//not working for IE 8, , IE 9 supports this
+				//xmlResult = CreateMSXMLDocumentObject();
+				
+				xmlResult = new ActiveXObject("Microsoft.XMLDOM");
+				xmlResult.async = false;
+				
+                if (!xmlResult) {
+                    alert ("Cannot create XMLDocument object");
+                    return false;
+                }else{
+					xmlResult.loadXML(xmlObj.responseText);
+					//alert('2 ActiveXObject()');
+				}
+			}
+			
+			if (xmlResult) {
+                //returnText = xmlResult.getElementsByTagName("ROW")(0).childNodes[2].text; 
+				//returnText = xmlResult.getElementsByTagName("VIEW")(0).childNodes[0].text;
+				returnText = xmlResult.getElementsByTagName(xmlTagName)(0).childNodes[0].nodeValue;
+				//alert('getAjaxResponseText(url,xmlTagName) -- returnText :' + returnText); 
+				
+				return returnText;
+            }		
+			
+		}
+	};
+	
+	/* for example 
+	//var url = getServerPath() + 'ecbm.ecbm_machine_lists.getEquipClassView?p_site_id='+currentSite+'&p_equip_ptr='+currentMachinePtr;
+	//object.responseText : 
+		htp.p('<?xml version="1.0"?>');
+		htp.p('<ROWSET>');
+			htp.p('<ROW>');
+				htp.p('<EQUIP_PTR>1234567</EQUIP_PTR>');
+				htp.p('<CLASS>AA</CLASS>');
+				htp.p('<VIEW>N</VIEW>');
+				htp.p('<MMO_NO>MMO-015-14</MMO_NO>');
+			htp.p('</ROW>');
+		htp.p('</ROWSET>');
+	
+	//xmlObj.open('GET','http://emarss15.eng.usps.gov/emars-html/testxml.xml',true); 
+	*/
+	xmlObj.open('GET',url,true);
+		
+	//for "POST" method, need the following, and co-operation from server-side procedure
+	//xmlObj.setRequestHeader('Content-Type', 'application/xml');
+	//xmlObj.setRequestHeader('Cache-Control', 'no-cache');
+	
+	xmlObj.send(null);
+	
+}
+
+/*
+	para url, location of a SQL procedure or a static file.
+	para xmlTagName, name of XML tag in the returned XML file.
+	
+	return the first DOM object (child node list) of the specific tag. 
+	
+	for example 
+	//var url = getServerPath() + 'ecbm.ecbm_machine_lists.getEquipClassView?p_site_id='+currentSite+'&p_equip_ptr='+currentMachinePtr;
+	//object.responseText : 
+		htp.p('<?xml version="1.0"?>');
+		htp.p('<ROWSET>');
+			htp.p('<ROW>');
+				htp.p('<EQUIP_PTR>1234567</EQUIP_PTR>');
+				htp.p('<CLASS>AA</CLASS>');
+				htp.p('<VIEW>N</VIEW>');
+				htp.p('<MMO_NO>MMO-015-14</MMO_NO>');
+			htp.p('</ROW>');
+		htp.p('</ROWSET>');
+*/
+function getAjaxResponseObject(url,xmlTagName) {
+	//jesse,  to use AjAX call 
+	var xmlObj = null;
+	var xmlResult = null;
+	var returnObj = null;
+	
+	if (window.XMLHttpRequest) { // Mozilla, Safari, ...
+      xmlObj = new XMLHttpRequest();
+	  //alert('create request XMLHttpRequest()');
+    } else if (window.ActiveXObject) { // IE
+      try {
+        xmlObj = new ActiveXObject("Msxml2.XMLHTTP");
+		//alert('create request ActiveXObject("Msxml2.XMLHTTP")');
+      } catch (e) {
+        try {
+          xmlObj = new ActiveXObject("Microsoft.XMLHTTP");
+		 // alert('create request ActiveXObject("Microsoft.XMLHTTP")');
+        } catch (e) {
+			alert('Ooops :(,  Cannot create an XMLHTTP instance');
+		}
+      }
+    }
+	
+	if (!xmlObj) {
+      alert('Giving up :( Cannot create an XMLHTTP instance');
+      return false;
+    }
+	
+	xmlObj.onreadystatechange=function(){
+		if (xmlObj.readyState==4 && xmlObj.status==200)
+		{ 
+			alert('xmlObj.responseText : ' + xmlObj.responseText);
+			if (window.DOMParser) {
+				//not working for IE 8, IE 9 supports this
+				parser=new DOMParser();
+				xmlResult = parser.parserFromString(xmlObj.responseText,"text/xml");
+				//alert('1 DOMParser() ');
+			} else {
+				//not working for IE 8, , IE 9 supports this
+				//xmlResult = CreateMSXMLDocumentObject();
+				
+				xmlResult = new ActiveXObject("Microsoft.XMLDOM");
+				xmlResult.async = false;
+				
+                if (!xmlResult) {
+                    alert ("Cannot create XMLDocument object");
+                    return false;
+                }else{
+					xmlResult.loadXML(xmlObj.responseText);
+					//alert('2 ActiveXObject()');
+				}
+			}
+			
+			if (xmlResult) {
+                //returnObj = xmlResult.getElementsByTagName("ROW"); 
+				//returnObj= xmlResult.getElementsByTagName("VIEW");
+				returnObj = xmlResult.getElementsByTagName(xmlTagName);		
+				alert('returnObj(0).childNodes[0].text ?');
+				alert('returnObj(0).childNodes[0].text :' + returnObj(0).childNodes[0].text); 				
+					
+				//return the first node list
+				return returnObj(0).childNodes;
+			
+            }		
+			
+		}
+	};
+	
+	/* for example 
+	//var url = getServerPath() + 'ecbm.ecbm_machine_lists.getEquipClassView?p_site_id='+currentSite+'&p_equip_ptr='+currentMachinePtr;
+	//object.responseText : 
+		htp.p('<?xml version="1.0"?>');
+		htp.p('<ROWSET>');
+			htp.p('<ROW>');
+				htp.p('<EQUIP_PTR>1234567</EQUIP_PTR>');
+				htp.p('<CLASS>AA</CLASS>');
+				htp.p('<VIEW>N</VIEW>');
+				htp.p('<MMO_NO>MMO-015-14</MMO_NO>');
+			htp.p('</ROW>');
+		htp.p('</ROWSET>');
+	
+	//xmlObj.open('GET','http://emarss15.eng.usps.gov/emars-html/testxml.xml',true); 
+	*/
+	xmlObj.open('GET',url,true);
+		
+	//for "POST" method, need the following, and co-operation from server-side procedure
+	//xmlObj.setRequestHeader('Content-Type', 'application/xml');
+	//xmlObj.setRequestHeader('Cache-Control', 'no-cache');
+	
+	xmlObj.send(null);
+
+}
+
+/*
+function btnExit_onClick()
+{ 
+	window.close(); 
+	
+	if (window.parent.ECBM_SUBMIT_LIST != null){
+		window.parent.ECBM_SUBMIT_LIST = 'undefined'; 
+		window.parent.ECBM_SUBMIT_LIST = null;
+		alert("window.parent.ECBM_SUBMIT_LIST != null");	
+	}
+	
+}  */
