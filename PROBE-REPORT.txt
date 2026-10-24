@@ -1,4 +1,8 @@
+So the flow is select "eCBM" then ECBM_MAIN_001 opens. It takes this URL: http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pSiteID=345&pUser=1601089&pModule=ECBM_MAIN_001
 
+and an even smaller window opens where we select the subsite. Then we continue. Then we select Select the machine acronym from a drop down thne the machine number from a drop down. Then we press the checklist button and another window opens up:http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=ECBM_SUBMIT_LIST
+
+Then form there we select "print checklist with task details" then the about:blank page that comes up is where we copy the HTML from for the Import checklist button.
 
 This error came up as well:
 
