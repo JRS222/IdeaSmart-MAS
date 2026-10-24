@@ -1,4 +1,22 @@
-﻿============================================================
+
+
+This error came up as well:
+
+SECTION 1 — Baseline sanity (cookieless home page)
+------------------------------------------------------------
+  GET http://emarssu3.eng.usps.gov/pemars/vm_hompage_prc?p_user=1601089&p_site=345
+        OK   10,014 chars
+Cannot overwrite variable HOME because it is read-only or constant.
+At C:\Users\YYQTP0\Desktop\Reports.ps1:194 char:1
++ $home = Fetch -url $homeUrl -label 'home'
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : WriteError: (HOME:String) [], SessionStateUnauthorizedAccessException
+    + FullyQualifiedErrorId : VariableNotWritable
+
+        ABORT: cookieless access not working. Check site/user IDs.
+
+
+============================================================
   eMARS PM CHECKLIST PROBE — CONSOLIDATED
 ============================================================
 
