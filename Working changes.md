@@ -1,267 +1,484 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-    Fetches ECBM PM checklists directly from the Oracle procedures,
-    bypassing the module shell.
+    eMARS PM checklist discovery — single cohesive probe.
+.DESCRIPTION
+    Runs every test we've built up so far plus new probes for the specific
+    "Task Statement and Instruction" checklist format your parser expects.
+
+    Read-only. No writes to eMARS. Safe to re-run.
+.PARAMETER UserId
+    eMARS user ID (from the p_user= param in your home page URL)
+.PARAMETER SiteId
+    eMARS site ID  (from the p_site= param)
 .PARAMETER Acronym
-    Machine type (e.g. DBCS, CIOSS, APPS)
-.PARAMETER Site
-    eMARS site ID
-.PARAMETER Subsite
-    ECBM subsite ID (leave blank to try without)
+    Machine type to probe (DBCS/CIOSS/APPS/...)
+.PARAMETER MachinePtr
+    machineid of one DBCS machine (default: 827433 = DBCS 16)
+.PARAMETER TrackNo
+    A known checklist number to probe against
+.PARAMETER OutDir
+    Where to save output (default: Desktop\emars-pm-probe-<timestamp>)
 #>
+[CmdletBinding()]
 param(
-    [string]$Acronym = 'DBCS',
-    [string]$Site    = '345',
-    [string]$Subsite = '',
-    [string]$Origin  = 'http://emarssu3.eng.usps.gov',
-    [string]$OutDir  = (Join-Path $env:USERPROFILE ("Desktop\ecbm-fetch-" + (Get-Date -Format 'yyyyMMdd-HHmmss')))
+    [string]$UserId     = '1601089',
+    [string]$SiteId     = '345',
+    [string]$Acronym    = 'DBCS',
+    [string]$MachinePtr = '827433',
+    [string]$TrackNo    = '37900603',
+    [string]$Origin     = 'http://emarssu3.eng.usps.gov',
+    [string]$OutDir     = (Join-Path $env:USERPROFILE ("Desktop\emars-pm-probe-" + (Get-Date -Format 'yyyyMMdd-HHmmss')))
 )
 
-$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Continue'
 $ProgressPreference    = 'SilentlyContinue'
 
+# ---------------------------------------------------------------
+# Setup
+# ---------------------------------------------------------------
 if (-not (Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir -Force | Out-Null }
-
-function Say {
-    param([string]$m, [string]$c = 'Gray')
-    Write-Host $m -ForegroundColor $c
-}
-
-function Fetch {
-    param([string]$url)
-    try {
-        $r = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 25 -ErrorAction Stop
-        return [PSCustomObject]@{ Ok = $true; Status = $r.StatusCode; Body = $r.Content; Url = $url }
-    } catch {
-        return [PSCustomObject]@{
-            Ok = $false; Status = -1; Body = ''
-            Url = $url; Error = $_.Exception.Message
-        }
-    }
-}
-
-function Show-Snippet {
-    param([string]$s, [int]$n = 400)
-    if ([string]::IsNullOrEmpty($s)) { return '' }
-    $len = [Math]::Min($n, $s.Length)
-    return $s.Substring(0, $len)
-}
+$reportPath = Join-Path $OutDir 'PROBE-REPORT.txt'
+$script:lines = New-Object System.Collections.ArrayList
+$script:findings = New-Object System.Collections.ArrayList
 
 $base = "$Origin/pemars"
 
-Say "============================================================" 'Cyan'
-Say "  ECBM CHECKLIST FETCH — DIRECT PROC TEST" 'Cyan'
-Say "============================================================" 'Cyan'
-Say ""
-Say ("  Site:    {0}" -f $Site)
-Say ("  Acronym: {0}" -f $Acronym)
-Say ("  Subsite: {0}" -f $(if ($Subsite) { $Subsite } else { '(blank)' }))
-Say ("  Output:  {0}" -f $OutDir)
-Say ""
+# Format markers — if any of these appear in a response, it's the checklist format your parser expects
+$magicMarkers = @(
+    'Task Statement and Instruction'
+    'Est for All Open Tasks'
+    'Est for Tasks Due Today'
+    'Power Off'
+    'Power On'
+    'Min Skill'
+    'Bypass Code'
+)
 
-# ---------------------------------------------------------------
-# 1. getAllChecklists
-# ---------------------------------------------------------------
-Say "--- 1. getAllChecklists ---" 'Cyan'
-$url1 = "$base/ecbm.ecbm_report_j.getAllChecklists?pSiteID=$Site&pSubsiteID=$Subsite&pAcronym=$Acronym"
-Say ("  GET {0}" -f $url1)
-$r1 = Fetch $url1
-
-if (-not $r1.Ok) {
-    Say ("  FAILED: {0}" -f $r1.Error) 'Red'
-    Say '  Trying without subsite param...' 'Yellow'
-    $url1b = "$base/ecbm.ecbm_report_j.getAllChecklists?pSiteID=$Site&pAcronym=$Acronym"
-    Say ("  GET {0}" -f $url1b)
-    $r1 = Fetch $url1b
-    if ($r1.Ok) { $url1 = $url1b }
+function Say {
+    param([string]$msg = '', [string]$color = 'Gray')
+    Write-Host $msg -ForegroundColor $color
+    [void]$script:lines.Add($msg)
 }
 
-if ($r1.Ok) {
-    Say ("  status: {0}  length: {1}" -f $r1.Status, $r1.Body.Length) 'Green'
-    $r1.Body | Set-Content (Join-Path $OutDir '01-getAllChecklists.xml') -Encoding UTF8
-
-    $machines = [regex]::Matches($r1.Body, '(?is)<ROW>(.*?)</ROW>')
-    Say ("  {0} machine row(s)" -f $machines.Count) 'Green'
-
-    $machineList = @()
-    foreach ($m in $machines) {
-        $fields = [regex]::Matches($m.Groups[1].Value, '(?is)<([A-Z0-9_]+)>(.*?)</\1>')
-        $row = [ordered]@{}
-        foreach ($f in $fields) { $row[$f.Groups[1].Value] = $f.Groups[2].Value }
-        $machineList += [PSCustomObject]$row
-    }
-
-    # Show first few machines with whatever column names exist
-    if ($machineList.Count -gt 0) {
-        Say "  Sample machine rows (first 3):" 'Cyan'
-        $cols = $machineList[0].PSObject.Properties.Name
-        Say ("    Columns: {0}" -f ($cols -join ', '))
-        foreach ($row in ($machineList | Select-Object -First 3)) {
-            $vals = ($cols | ForEach-Object { "$_=$($row.$_)" }) -join ' | '
-            Say ("    {0}" -f $vals) 'DarkGray'
-        }
-    }
-} else {
-    Say ("  FAILED: {0}" -f $r1.Error) 'Red'
-    $machineList = @()
+function Save-Blob {
+    param([string]$name, [string]$content)
+    if ([string]::IsNullOrEmpty($content)) { return }
+    $p = Join-Path $OutDir $name
+    [System.IO.File]::WriteAllText($p, $content, (New-Object System.Text.UTF8Encoding($false)))
 }
 
-# ---------------------------------------------------------------
-# 2. getChecklists2 for each machine
-# ---------------------------------------------------------------
-Say ""
-Say "--- 2. getChecklists2 (per machine) ---" 'Cyan'
-
-$allChecklists = @()
-
-if ($machineList.Count -gt 0) {
-    # Try to find the machine ptr field — could be named differently
-    $sample = $machineList[0]
-    $ptrField = $null
-    foreach ($name in $sample.PSObject.Properties.Name) {
-        if ($name -match '(?i)ptr|id|machine') { $ptrField = $name; break }
+function Test-Markers {
+    param([string]$content)
+    if ([string]::IsNullOrEmpty($content)) { return $null }
+    $hit = @()
+    foreach ($m in $magicMarkers) {
+        if ($content -match [regex]::Escape($m)) { $hit += $m }
     }
-    if (-not $ptrField) { $ptrField = $sample.PSObject.Properties.Name[0] }
-
-    Say ("  Using field '{0}' as machine ptr" -f $ptrField) 'Gray'
-
-    $tried = 0
-    foreach ($machine in $machineList) {
-        if ($tried -ge 5) { Say '  (stopping after 5 machines)' 'DarkGray'; break }
-        $tried++
-
-        $ptr = $machine.$ptrField
-        if ([string]::IsNullOrWhiteSpace($ptr)) { continue }
-
-        $url2 = "$base/ecbm.ecbm_report_j.getChecklists2?p_machineid=$ptr&pSiteID=$Site"
-        Say ("  GET {0}" -f $url2)
-        $r2 = Fetch $url2
-
-        if ($r2.Ok) {
-            $rows2 = [regex]::Matches($r2.Body, '(?is)<ROW>(.*?)</ROW>')
-            Say ("    {0} checklist(s)" -f $rows2.Count) 'Green'
-
-            foreach ($m2 in $rows2) {
-                $fields2 = [regex]::Matches($m2.Groups[1].Value, '(?is)<([A-Z0-9_]+)>(.*?)</\1>')
-                $row2 = [ordered]@{}
-                foreach ($f2 in $fields2) { $row2[$f2.Groups[1].Value] = $f2.Groups[2].Value }
-                $row2['_machinePtr'] = $ptr
-                $row2['_acronym']    = $Acronym
-                $allChecklists += [PSCustomObject]$row2
-            }
-        } else {
-            Say ("    FAILED: {0}" -f $r2.Error) 'DarkGray'
-        }
-    }
-} else {
-    Say '  (skipped — no machines from step 1)' 'DarkGray'
+    if ($hit.Count -eq 0) { return $null }
+    return $hit
 }
 
-if ($allChecklists.Count -gt 0) {
-    Say ""
-    Say ("  Total checklists found across all machines: {0}" -f $allChecklists.Count) 'Green'
-    Say "  Sample checklist rows (first 5):" 'Cyan'
-    $ckcols = $allChecklists[0].PSObject.Properties.Name
-    Say ("    Columns: {0}" -f ($ckcols -join ', '))
-    foreach ($row in ($allChecklists | Select-Object -First 5)) {
-        $vals = ($ckcols | ForEach-Object { "$_=$($row.$_)" }) -join ' | '
-        Say ("    {0}" -f $vals) 'DarkGray'
+function Fetch {
+    param(
+        [Parameter(Mandatory)][string]$url,
+        [string]$label = '',
+        [switch]$Quiet
+    )
+    $obj = [PSCustomObject]@{
+        Url     = $url
+        Ok      = $false
+        Status  = -1
+        Length  = 0
+        Content = $null
+        Error   = $null
+        Markers = $null
+        Label   = $label
     }
-}
-
-# ---------------------------------------------------------------
-# 3. getChecklistDetailsForIframe — the actual popup HTML
-# ---------------------------------------------------------------
-Say ""
-Say "--- 3. getChecklistDetailsForIframe (the actual checklist HTML) ---" 'Cyan'
-
-if ($allChecklists.Count -eq 0) {
-    Say '  SKIP: no checklists found from step 2.' 'Yellow'
-    Say ''
-    Say '  Workaround: try a direct fetch if you know a checklist number:' 'Yellow'
-    Say '  $detailUrl = "$base/ecbm.ecbm_report_j.getChecklistDetailsForIframe?p_trackno=<YOUR_CHECKLIST_NO>&p_site=345&p_fac=345&p_mtype=DBCS&p_mno=<equip>&p_classcode=<class>"'
-} else {
-    # Build field names from a sample checklist row — try to identify the checklist number field
-    $sample = $allChecklists[0]
-    $checklistNoField = $null
-    foreach ($name in $sample.PSObject.Properties.Name) {
-        if ($name -match '(?i)checklist|trackno|track_no|checklist_no|checklistno') {
-            $checklistNoField = $name; break
-        }
-    }
-
-    if (-not $checklistNoField) {
-        Say "  Could not identify checklist number field." 'Yellow'
-        Say ("  Available: {0}" -f ($sample.PSObject.Properties.Name -join ', ')) 'Yellow'
-    } else {
-        Say ("  Using field '{0}' as checklist number" -f $checklistNoField) 'Gray'
-
-        # Try to fetch first 3 checklists
-        $attempts = 0
-        foreach ($ck in $allChecklists) {
-            if ($attempts -ge 3) { break }
-            $attempts++
-
-            $trackno = $ck.$checklistNoField
-            if ([string]::IsNullOrWhiteSpace($trackno)) { continue }
-
-            # The JS also passes p_fac, p_mtype, p_mno, p_classcode. We'll try:
-            #  p_fac = site (345) — best guess; falls back to empty if needed
-            #  p_mtype, p_mno, p_classcode = whatever we have in the checklist row
-            $fac      = $Site
-            $mtype    = $Acronym
-            $mno      = if ($ck.PSObject.Properties['machineno']) { $ck.machineno }
-                        elseif ($ck.PSObject.Properties['MachineNo']) { $ck.MachineNo }
-                        else { '' }
-            $classcd  = if ($ck.PSObject.Properties['classcode']) { $ck.classcode }
-                        elseif ($ck.PSObject.Properties['ClassCode']) { $ck.ClassCode }
-                        else { '' }
-
-            $detailUrl = "$base/ecbm.ecbm_report_j.getChecklistDetailsForIframe" +
-                         "?p_trackno=$trackno" +
-                         "&p_site=$Site" +
-                         "&p_fac=$fac" +
-                         "&p_mtype=$mtype" +
-                         "&p_mno=$mno" +
-                         "&p_classcode=$classcd"
-
-            Say ("  GET {0}" -f $detailUrl)
-            $r3 = Fetch $detailUrl
-
-            if ($r3.Ok) {
-                $isChecklist = ($r3.Body -match '(?i)Checklist No\.' -and $r3.Body -match '(?i)Task Statement')
-                $suffix = if ($isChecklist) { ' CHECKLIST ✓' } else { ' (not a checklist)' }
-                $color  = if ($isChecklist) { 'Green' } else { 'Yellow' }
-                Say ("    status: {0}  length: {1}{2}" -f $r3.Status, $r3.Body.Length, $suffix) $color
-
-                $safeName = "03-checklist-$trackno.html"
-                $r3.Body | Set-Content (Join-Path $OutDir $safeName) -Encoding UTF8
-                Say ("    saved: {0}" -f $safeName) 'DarkGray'
-
-                if ($isChecklist) {
-                    Say ""
-                    Say "  ✓ SUCCESS — checklist HTML fetched cookieless!" 'Green'
-                    Say "  Next: import this into the app with Import-PmChecklist" 'Green'
-                    break
-                }
+    try {
+        $r = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 20 -ErrorAction Stop
+        $obj.Ok      = $true
+        $obj.Status  = $r.StatusCode
+        $obj.Length  = $r.Content.Length
+        $obj.Content = $r.Content
+        $obj.Markers = Test-Markers -content $r.Content
+        if (-not $Quiet) {
+            if ($obj.Markers) {
+                Say ("        OK  {0,7:N0} chars  ***MARKER:{1}***" -f $obj.Length, ($obj.Markers -join '|')) 'Green'
             } else {
-                Say ("    FAILED: {0}" -f $r3.Error) 'DarkGray'
+                Say ("        OK  {0,7:N0} chars" -f $obj.Length) 'Gray'
             }
+        }
+    } catch {
+        $obj.Error = $_.Exception.Message
+        if (-not $Quiet) { Say ("        FAIL  {0}" -f $obj.Error) 'DarkGray' }
+    }
+    return $obj
+}
+
+function Scan-Js-For-Urls {
+    param([string]$js, [string]$label)
+    if ([string]::IsNullOrEmpty($js)) { return }
+
+    $patterns = @(
+        '(?:ecbm|em_[a-z_]+)\.[a-z_]+_[a-z_]+\.[a-zA-Z0-9_]+'
+        'getChecklist[a-zA-Z0-9_]*'
+        'getPM[a-zA-Z0-9_]*'
+        'printChecklist[a-zA-Z0-9_]*'
+        'getTask[a-zA-Z0-9_]*'
+        'openSwilWin\s*\(\s*[''"][A-Z0-9_]+[''"]'
+        'p_checklist[a-zA-Z0-9_]*'
+        'p_trackno'
+    )
+
+    $hits = New-Object System.Collections.Generic.List[string]
+    foreach ($pat in $patterns) {
+        $ms = [regex]::Matches($js, $pat, 'IgnoreCase')
+        foreach ($m in $ms) { $hits.Add($m.Value) }
+    }
+
+    if ($hits.Count -eq 0) {
+        Say ("  [{0}] no URL patterns" -f $label) 'DarkGray'
+        return
+    }
+
+    Say ("  [{0}] {1} distinct hit(s):" -f $label, ($hits | Sort-Object -Unique).Count) 'Cyan'
+    $hits | Sort-Object -Unique | ForEach-Object {
+        Say ("    {0}" -f $_) 'DarkGray'
+    }
+
+    # Also dump lines mentioning checklist-related tokens
+    $lines = $js -split "`r?`n"
+    $i = 0
+    $n = 0
+    Say ("  [{0}] lines mentioning checklist/PM/task URLs:" -f $label) 'Cyan'
+    foreach ($ln in $lines) {
+        $i++
+        if ($ln -match '(?i)checklist|pm_|task.*(?:url|proc|details)|print') {
+            Say ("    [{0,5}] {1}" -f $i, $ln.Trim()) 'DarkGray'
+            $n++
+            if ($n -ge 20) {
+                Say ("    ... more suppressed (see saved file)") 'DarkGray'
+                break
+            }
+        }
+    }
+    if ($n -eq 0) { Say '    (none)' 'DarkGray' }
+}
+
+# ---------------------------------------------------------------
+# Banner
+# ---------------------------------------------------------------
+Say '============================================================' 'Cyan'
+Say '  eMARS PM CHECKLIST PROBE — CONSOLIDATED' 'Cyan'
+Say '============================================================' 'Cyan'
+Say ''
+Say ("  Origin:     {0}" -f $Origin)
+Say ("  UserId:     {0}" -f $UserId)
+Say ("  SiteId:     {0}" -f $SiteId)
+Say ("  Acronym:    {0}" -f $Acronym)
+Say ("  MachinePtr: {0}" -f $MachinePtr)
+Say ("  TrackNo:    {0}" -f $TrackNo)
+Say ("  Output:     {0}" -f $OutDir)
+Say ''
+
+# ---------------------------------------------------------------
+# Section 1: Baseline sanity
+# ---------------------------------------------------------------
+Say '------------------------------------------------------------' 'Cyan'
+Say 'SECTION 1 — Baseline sanity (cookieless home page)' 'Cyan'
+Say '------------------------------------------------------------' 'Cyan'
+
+$homeUrl = "$base/vm_hompage_prc?p_user=$UserId&p_site=$SiteId"
+Say ("  GET {0}" -f $homeUrl)
+$home = Fetch -url $homeUrl -label 'home'
+if ($home.Ok) {
+    Save-Blob '01-home.html' $home.Content
+    $hasPmBtn = $home.Content -match 'EM_PREV_MAINT_001'
+    Say ("        has PM button: {0}" -f $hasPmBtn) $(if ($hasPmBtn) { 'Green' } else { 'Yellow' })
+} else {
+    Say '        ABORT: cookieless access not working. Check site/user IDs.' 'Red'
+}
+
+# ---------------------------------------------------------------
+# Section 2: eCBM chain verification
+# ---------------------------------------------------------------
+Say ''
+Say '------------------------------------------------------------' 'Cyan'
+Say 'SECTION 2 — eCBM chain verification' 'Cyan'
+Say '------------------------------------------------------------' 'Cyan'
+
+Say '  2a. getAllChecklists'
+$url2a = "$base/ecbm.ecbm_report_j.getAllChecklists?pSiteID=$SiteId&pAcronym=$Acronym"
+Say ("      GET {0}" -f $url2a)
+$r2a = Fetch -url $url2a -label 'getAllChecklists'
+if ($r2a.Ok) { Save-Blob '02a-getAllChecklists.xml' $r2a.Content }
+
+Say '  2b. getChecklists2'
+$url2b = "$base/ecbm.ecbm_report_j.getChecklists2?p_machineid=$MachinePtr&pSiteID=$SiteId"
+Say ("      GET {0}" -f $url2b)
+$r2b = Fetch -url $url2b -label 'getChecklists2'
+if ($r2b.Ok) { Save-Blob '02b-getChecklists2.xml' $r2b.Content }
+
+Say '  2c. getChecklistDetailsForIframe (baseline — should be the WRONG format)'
+$url2c = "$base/ecbm.ecbm_report_j.getChecklistDetailsForIframe?p_trackno=$TrackNo&p_site=$SiteId&p_fac=$SiteId&p_mtype=$Acronym&p_mno=16&p_classcode=CK"
+Say ("      GET {0}" -f $url2c)
+$r2c = Fetch -url $url2c -label 'getChecklistDetailsForIframe'
+if ($r2c.Ok) {
+    Save-Blob '02c-getChecklistDetailsForIframe.html' $r2c.Content
+    if ($r2c.Markers) {
+        Say ("        MARKER HIT: {0}" -f ($r2c.Markers -join '|')) 'Green'
+        [void]$script:findings.Add([PSCustomObject]@{ Kind = 'URL'; Url = $url2c; Markers = $r2c.Markers; Note = 'getChecklistDetailsForIframe' })
+    } else {
+        Say '        (wrong format — MMO Item No / Run Hours style, as expected)' 'Yellow'
+    }
+}
+
+# ---------------------------------------------------------------
+# Section 3: Fetch related JS files
+# ---------------------------------------------------------------
+Say ''
+Say '------------------------------------------------------------' 'Cyan'
+Say 'SECTION 3 — Fetch related JS files' 'Cyan'
+Say '------------------------------------------------------------' 'Cyan'
+
+$jsCandidates = @(
+    'ECBM_MAIN_001.js'
+    'ECBM_CHECKLISTS.js'
+    'ECBM_TASK_DETAILS.js'
+    'ECBM_WORK_001.js'
+    'ECBM_PM_001.js'
+    'ECBM_PM_CHECKLIST_001.js'
+    'EM_WORK_MAINT_001.js'
+    'EM_REACT_MAINT_001.js'
+    'EM_MAINT_REPORTS_001.js'
+    'em_dialog.js'
+    'vmdialogs.js'
+)
+
+$loadedJs = @{}
+foreach ($js in $jsCandidates) {
+    $url = "$Origin/emars-script/$js"
+    Say ("  GET {0}" -f $url)
+    $r = Fetch -url $url -label $js -Quiet
+    if ($r.Ok) {
+        Say ("        OK  {0,7:N0} chars" -f $r.Length) 'Green'
+        Save-Blob ("03-$js") $r.Content
+        $loadedJs[$js] = $r.Content
+    } else {
+        Say '        miss' 'DarkGray'
+    }
+}
+
+# ---------------------------------------------------------------
+# Section 4: Scan loaded JS for URL patterns
+# ---------------------------------------------------------------
+Say ''
+Say '------------------------------------------------------------' 'Cyan'
+Say 'SECTION 4 — Scan JS for URL patterns' 'Cyan'
+Say '------------------------------------------------------------' 'Cyan'
+
+foreach ($name in $loadedJs.Keys) {
+    Scan-Js-For-Urls -js $loadedJs[$name] -label $name
+}
+
+# ---------------------------------------------------------------
+# Section 5: Probe candidate URLs
+# ---------------------------------------------------------------
+Say ''
+Say '------------------------------------------------------------' 'Cyan'
+Say 'SECTION 5 — Probe candidate URLs for the RIGHT format' 'Cyan'
+Say '------------------------------------------------------------' 'Cyan'
+Say '  (marker = {0})' 'Cyan'
+foreach ($m in $magicMarkers) { Say ("    {0}" -f $m) 'DarkGray' }
+Say ''
+
+$candidates = @()
+
+# --- eCBM task detail variants ---
+$candidates += @(
+    @{ N='ecbm getTaskDetails'; U="$base/ecbm.ecbm_report_j.getTaskDetails?p_trackno=$TrackNo&p_site=$SiteId&p_taskid=0" }
+    @{ N='ecbm getTaskDetail';  U="$base/ecbm.ecbm_report_j.getTaskDetail?p_trackno=$TrackNo&p_site=$SiteId&p_taskid=0" }
+    @{ N='ecbm getChecklistTasks'; U="$base/ecbm.ecbm_report_j.getChecklistTasks?p_trackno=$TrackNo&p_site=$SiteId" }
+    @{ N='ecbm getPMChecklist'; U="$base/ecbm.ecbm_report_j.getPMChecklist?p_trackno=$TrackNo&p_site=$SiteId" }
+    @{ N='ecbm getChecklistDetails'; U="$base/ecbm.ecbm_report_j.getChecklistDetails?p_trackno=$TrackNo&p_site=$SiteId&p_fac=$SiteId&p_mtype=$Acronym&p_mno=16&p_classcode=CK" }
+    @{ N='ecbm getChecklistForPrint'; U="$base/ecbm.ecbm_report_j.getChecklistForPrint?p_trackno=$TrackNo&p_site=$SiteId&p_fac=$SiteId&p_mtype=$Acronym&p_mno=16&p_classcode=CK" }
+    @{ N='ecbm printChecklist'; U="$base/ecbm.ecbm_report_j.printChecklist?p_trackno=$TrackNo&p_site=$SiteId" }
+    @{ N='ecbm getChecklistPM'; U="$base/ecbm.ecbm_report_j.getChecklistPM?p_trackno=$TrackNo&p_site=$SiteId" }
+    @{ N='ecbm getChecklistPMDetails'; U="$base/ecbm.ecbm_report_j.getChecklistPMDetails?p_trackno=$TrackNo&p_site=$SiteId" }
+    @{ N='ecbm getPmTaskDetails'; U="$base/ecbm.ecbm_report_j.getPmTaskDetails?p_trackno=$TrackNo&p_site=$SiteId&p_taskid=0" }
+)
+
+# --- PM module print variants ---
+$candidates += @(
+    @{ N='pm print_pm_checklist'; U="$base/em_prevent_maint_pkg.print_pm_checklist?p_trackno=$TrackNo&p_site_id=$SiteId" }
+    @{ N='pm em_print_checklist'; U="$base/em_prevent_maint_pkg.em_print_checklist?p_trackno=$TrackNo&p_site_id=$SiteId" }
+    @{ N='pm get_pm_checklist';   U="$base/em_prevent_maint_pkg.get_pm_checklist?p_trackno=$TrackNo&p_site_id=$SiteId" }
+    @{ N='pm getPMChecklist';     U="$base/em_prevent_maint_pkg.getPMChecklist?p_trackno=$TrackNo&p_site_id=$SiteId" }
+    @{ N='pm em_get_checklist';   U="$base/em_prevent_maint_pkg.em_get_checklist?p_trackno=$TrackNo&p_site_id=$SiteId" }
+    @{ N='pm em_print_pm_checklist'; U="$base/em_prevent_maint_pkg.em_print_pm_checklist?p_trackno=$TrackNo&p_site_id=$SiteId" }
+)
+
+# --- Work module print variants ---
+$candidates += @(
+    @{ N='work print_checklist'; U="$base/em_work_pkg.print_checklist?p_trackno=$TrackNo&p_site=$SiteId" }
+    @{ N='work em_print_checklist'; U="$base/em_work_pkg.em_print_checklist?p_trackno=$TrackNo&p_site_id=$SiteId" }
+    @{ N='work get_checklist_details'; U="$base/em_work_pkg.get_checklist_details?p_trackno=$TrackNo&p_site=$SiteId" }
+    @{ N='work em_get_checklist'; U="$base/em_work_pkg.em_get_checklist?p_trackno=$TrackNo&p_site_id=$SiteId" }
+    @{ N='work em_checklist_details'; U="$base/em_work_pkg.em_checklist_details?p_trackno=$TrackNo&p_site_id=$SiteId" }
+)
+
+# --- Report endpoint variants ---
+$xmlKey = "<KEYLIST><TRACKNO>$TrackNo</TRACKNO></KEYLIST>"
+$xmlEnc = [System.Uri]::EscapeDataString($xmlKey)
+$candidates += @(
+    @{ N='report em_show_report'; U="$base/em_show_report?pReportID=PM_CHECKLIST&pUser=$UserId&pSite=$SiteId&pParamXML=$xmlEnc" }
+    @{ N='report em_show_report v2'; U="$base/em_show_report?pReportID=CHECKLIST&pUser=$UserId&pSite=$SiteId&pParamXML=$xmlEnc" }
+    @{ N='report em_show_report v3'; U="$base/em_show_report?pReportID=MAINT_CHECKLIST&pUser=$UserId&pSite=$SiteId&pParamXML=$xmlEnc" }
+    @{ N='report em_show_report v4'; U="$base/em_show_report?pReportID=WO_CHECKLIST&pUser=$UserId&pSite=$SiteId&pParamXML=$xmlEnc" }
+    @{ N='report em_show_report v5'; U="$base/em_show_report?pReportID=PM_CHECKLIST_PRINT&pUser=$UserId&pSite=$SiteId&pParamXML=$xmlEnc" }
+)
+
+# --- Try module shells for task details (may or may not be gated) ---
+$candidates += @(
+    @{ N='shell ECBM_TASK_DETAILS'; U="$base/!vm_main_pkg.main?pSiteID=$SiteId&pUser=$UserId&pModule=ECBM_TASK_DETAILS" }
+    @{ N='shell ECBM_TASK_DETAILS+taskid'; U="$base/!vm_main_pkg.main?pSiteID=$SiteId&pUser=$UserId&pModule=ECBM_TASK_DETAILS&p_taskid=0" }
+)
+
+# --- Try getChecklistDetailsForIframe with different param combos ---
+$candidates += @(
+    @{ N='iframe no-classcode'; U="$base/ecbm.ecbm_report_j.getChecklistDetailsForIframe?p_trackno=$TrackNo&p_site=$SiteId&p_fac=$SiteId&p_mtype=$Acronym&p_mno=16" }
+    @{ N='iframe minimal'; U="$base/ecbm.ecbm_report_j.getChecklistDetailsForIframe?p_trackno=$TrackNo&p_site=$SiteId" }
+    @{ N='iframe with user'; U="$base/ecbm.ecbm_report_j.getChecklistDetailsForIframe?p_trackno=$TrackNo&p_site=$SiteId&p_fac=$SiteId&p_mtype=$Acronym&p_mno=16&p_classcode=CK&p_user=$UserId" }
+)
+
+$index = 0
+foreach ($c in $candidates) {
+    $index++
+    Say ("  [{0,2}] {1}" -f $index, $c.N) 'Cyan'
+    Say ("        {0}" -f $c.U) 'DarkGray'
+    $r = Fetch -url $c.U -label $c.N
+
+    if ($r.Ok) {
+        $safeName = "05-{0:00}-{1}.txt" -f $index, ($c.N -replace '[^\w]', '_')
+        Save-Blob $safeName $r.Content
+
+        if ($r.Markers) {
+            Say ("        *** MATCH: {0} ***" -f ($r.Markers -join '|')) 'Green'
+            [void]$script:findings.Add([PSCustomObject]@{
+                Kind    = 'URL'
+                Url     = $c.U
+                Markers = $r.Markers
+                Note    = $c.N
+            })
         }
     }
 }
 
 # ---------------------------------------------------------------
-# Summary
+# Section 6: Also try ECBM_TASK_DETAILS.js URLs directly
 # ---------------------------------------------------------------
-Say ""
-Say "============================================================" 'Cyan'
-Say "  DONE" 'Cyan'
-Say "============================================================" 'Cyan'
-Say ("  Files saved to: {0}" -f $OutDir)
-Say ""
-Say '  What to send back:' 'Cyan'
-Say '    - 01-getAllChecklists.xml (first 500 chars of console output is fine)'
-Say '    - The sample "Machine rows" and "checklist rows" printed above'
-Say '    - Whether step 3 says CHECKLIST ✓ or (not a checklist)'
+Say ''
+Say '------------------------------------------------------------' 'Cyan'
+Say 'SECTION 6 — Probe URLs found inside ECBM_TASK_DETAILS.js' 'Cyan'
+Say '------------------------------------------------------------' 'Cyan'
+
+if ($loadedJs.ContainsKey('ECBM_TASK_DETAILS.js')) {
+    $tdJs = $loadedJs['ECBM_TASK_DETAILS.js']
+
+    # Look for getServerPath() + 'something'
+    $urlBuilders = [regex]::Matches($tdJs, "(?i)getServerPath\s*\(\s*\)\s*\+\s*['""]((?:ecbm|em_)[a-zA-Z0-9_.?=&+]+)")
+    $found = New-Object System.Collections.Generic.List[string]
+    foreach ($m in $urlBuilders) { $found.Add($m.Groups[1].Value) }
+
+    if ($found.Count -eq 0) {
+        Say '  No getServerPath()+ URLs found in ECBM_TASK_DETAILS.js' 'Yellow'
+
+        # Alternative: look for objHTTP.open patterns
+        $opens = [regex]::Matches($tdJs, "(?i)objHTTP\.open\s*\(\s*['""][A-Z]+['""]\s*,\s*getServerPath\(\)\s*\+\s*['""]([^'""]+)")
+        foreach ($m in $opens) { $found.Add($m.Groups[1].Value) }
+    }
+
+    if ($found.Count -gt 0) {
+        Say ("  Found {0} candidate URL(s):" -f $found.Count) 'Green'
+        foreach ($u in ($found | Sort-Object -Unique)) {
+            Say ("    {0}" -f $u) 'DarkGray'
+            $fullUrl = "$base/$u"
+            Say ("    GET {0}" -f $fullUrl)
+            $r = Fetch -url $fullUrl -label "TASK_DETAILS: $u"
+            if ($r.Ok) {
+                if ($r.Markers) {
+                    Say ("        *** MATCH: {0} ***" -f ($r.Markers -join '|')) 'Green'
+                    [void]$script:findings.Add([PSCustomObject]@{
+                        Kind    = 'URL'
+                        Url     = $fullUrl
+                        Markers = $r.Markers
+                        Note    = "from ECBM_TASK_DETAILS.js"
+                    })
+                }
+            }
+        }
+    }
+} else {
+    Say '  ECBM_TASK_DETAILS.js not loaded — skipping' 'Yellow'
+}
+
+# ---------------------------------------------------------------
+# Section 7: Summary
+# ---------------------------------------------------------------
+Say ''
+Say '============================================================' 'Cyan'
+Say '  PROBE COMPLETE — SUMMARY' 'Cyan'
+Say '============================================================' 'Cyan'
+Say ''
+
+if ($script:findings.Count -gt 0) {
+    Say '  ✓ FOUND URLs returning the EXPECTED checklist format:' 'Green'
+    Say ''
+    foreach ($f in $script:findings) {
+        Say ("    [{0}]" -f $f.Note) 'Green'
+        Say ("         {0}" -f $f.Url) 'Gray'
+        Say ("         Markers: {0}" -f ($f.Markers -join ', ')) 'Gray'
+        Say ''
+    }
+    Say '  → Paste back: this report + the matching file from the output folder.' 'Cyan'
+    Say '  → Next step: wire the winning URL into a Fetch button in UI-Script.ps1' 'Cyan'
+} else {
+    Say '  ✗ No URL returned the expected format markers.' 'Yellow'
+    Say ''
+    Say '  This means the format your parser expects is NOT served by any' 'Yellow'
+    Say '  of the URLs the app exposes directly. The most likely explanations:' 'Yellow'
+    Say ''
+    Say '    1. The format you paste comes from a UI flow we haven'"'"'t traced,' 'Yellow'
+    Say '       e.g. clicking a specific task inside eCBM opens a deeper detail view.' 'Yellow'
+    Say '    2. The format is generated client-side by IE from data we can fetch.' 'Yellow'
+    Say '    3. It comes from a report endpoint that requires login state.' 'Yellow'
+    Say ''
+    Say '  Next steps:' 'Cyan'
+    Say '    a) In IE, reproduce the manual popup one more time.' 'Cyan'
+    Say '       When it opens: right-click → View Source → Ctrl+A, Ctrl+C' 'Cyan'
+    Say '       → paste the first ~500 chars here.' 'Cyan'
+    Say '    b) OR in the popup: F12 → Network → clear → click the button again' 'Cyan'
+    Say '       → look for the request whose response contains "Task Statement"' 'Cyan'
+    Say '       → paste that URL.' 'Cyan'
+    Say ''
+    Say '  Meanwhile: the clipboard watcher remains the working solution.' 'Cyan'
+    Say '  It works today. Ship it, iterate on full automation in parallel.' 'Cyan'
+}
+
+Say ''
+Say ("  Output folder: {0}" -f $OutDir) 'Cyan'
+Say ("  Full report:   {0}" -f $reportPath) 'Cyan'
+Say '============================================================' 'Cyan'
+
+# ---------------------------------------------------------------
+# Write report
+# ---------------------------------------------------------------
+$script:lines | Set-Content -Path $reportPath -Encoding UTF8
+
+Write-Host ''
+Write-Host "Saved to: $OutDir" -ForegroundColor Cyan
+Write-Host ''
+Get-ChildItem -Path $OutDir -File | Sort-Object Name | ForEach-Object {
+    Write-Host ("  {0,-50}  {1,10:N0} bytes" -f $_.Name, $_.Length) -ForegroundColor DarkGray
+}
