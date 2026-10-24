@@ -1,0 +1,164 @@
+<META HTTP-EQUIV="x-ua-compatible" CONTENT="IE=EmulateIE8; charset=UTF-8">
+<!DOCTYPE html>
+<html>
+<head>
+<META HTTP-EQUIV="Pragma" CONTENT="no-cache" />
+<META HTTP-EQUIV="Expires" CONTENT="0" />
+<title>EMARS Login Screen</title>
+<style>
+    BODY, TD, DIV, SPAN, P , LI { font-family: arial; FONT-SIZE: 12px; } 
+    BODY { background-color: white; font-weight: bold; margin: 2px; cursor: wait; }
+    INPUT {font-size: 12px; text-transform: uppercase }
+    TEXT {font-size: 12px ; word-spacing: 10 }
+    TABLE { background-color: white; border: 2px outset white; font-weight: bold; font-size: 12px; }
+    td { white-space: pre } 
+    th { background-color: NAVY; text-align: left; font-weight: bold; font-size: 12px; color: white;}
+    select { text-transform:uppercase }
+    BUTTON { width: 100px; font-family: arial; font-weight: bold; text-transform: uppercase; padding-left: 8px; padding-right: 8px; }
+    .calButtonOn { background: #DDDDDD; margin: 0px; width:56; height:52; color:red; font-family: arial black, arial; font-size: 16px; }
+    .calButtonOff { background: #DDDDDD; margin: 0px; width:56; height:52; color: BLACK; font-family: arial black, arial; font-size: 16px; }
+    .calButtonDisabled { background: #DDDDDD; margin: 0px; width:56; height:52; color: #AAAAAA; font-family: arial black, arial; font-size: 16px; }
+    .reportRadio { font-size: 12px; }
+</style>
+<style>
+body {
+top: 0px;
+left: 0px;
+border: 2px solid #000000;
+}
+</style>
+<SCRIPT language="JavaScript" src="/emars-script/em_dialog.js"></SCRIPT>
+<script>
+function submitTheForm(field,evt) {
+            var keyCode = document.layers ? evt.which : document.all ? evt.keyCode : evt.keyCode;
+            if (keyCode == 13) {chkValue(0);}}
+</script>
+</head>
+<body onbeforeunload="closePrompt();" onload="bodyOnLoad()" style="margin: 0px;">
+<form id="loginForm">
+<table BGCOLOR="#EEEEEE" width="342" align="center" valign="middle" cellpadding="0" cellspacing="0" style="margin: 0px; border: 0px;">
+<tr>
+<td colspan=4 style="padding: 0px; background: #FFFFFF;">
+<IMG SRC="/emars-img/sp_login.gif" WIDTH="355" HEIGHT="128">
+</td>
+</tr>
+<tr>
+<td colspan="3" align="center" style="padding: 4px;">
+<span style="font-weight: bold; text-transform: uppercase;color: RED;">Login</span>
+</td>
+</tr>
+<tr>
+<td>
+<div style="width:20"></div>
+</td>
+<td colspan="2">
+<font style="text-transform:none">
+<input type="checkbox" name="chkGuest" onClick="guestLogin()">Login for Catalog Finder Only 
+</font>
+</td>
+</tr>
+<tr>
+<td colspan="3" align="center">
+<hr width="200">
+</td>
+</tr>
+<tr>
+<td align="right" style="padding: 4px;">
+<nobr>ACE Logon ID</nobr>
+</td>
+<td style="padding: 4px;">
+<input type="text" alt="Guest users have catalog and notes access only." name="p_user_logon" value="" maxlength="12" size="12" onFocus="onFocusField(this)" onBlur="onBlurField(this)">
+</td>
+<td style="padding: 4px;" rowspan="2">
+<span style="color: red; font-weight: bold; font-size: 9pt; font-style: italic;">NOTE:<BR>Passwords are</span>
+<BR>
+<span style="color: red; font-weight: bold; font-size: 9pt;">CaSe-sEnSitIVe!</span>
+</td>
+</tr>
+<tr>
+<td align="right" style="padding: 4px;">Password</td>
+<td style="padding: 4px;">
+<input type="password" name="p_user_password" value="" maxlength="40" size="30" onFocus="onFocusField(this)" onBlur="onBlurField(this)" onKeyPress="submitForm()">
+</td>
+</tr>
+<tr>
+<td colspan="3">
+<div name="siteDiv" id="siteDiv" style="visibility:hidden">
+<table  width:0; height: 0; align="center" valign="middle" cellpadding="0" cellspacing="0" style="margin: 0px; border: 0px;">
+<tr>
+<td align="right" style="padding: 4px;">Site</td>
+<td style="padding: 4px;">
+<select name="p_fedstrip" size="1" onFocus="onFocusField(this)" onKeyPress="typeAhead(); submitTheForm(this,event);" onBlur="onBlurField(this)"></select>
+</td>
+</tr>
+</table>
+</div>
+</td>
+</tr>
+<tr>
+<td colspan="4" align="center" style="padding: 4px;">
+<INPUT type="button" style="width:100;" Value="OK" OnClick="chkValue(0)">
+<span style="width:40"></span>
+<INPUT type="button" style="width:100;" Value="CANCEL" OnClick="self.close()">
+</td>
+</tr>
+</table>
+</form>
+<SCRIPT language="JavaScript" src="/emars-script/EM_USER_LOGIN.js"></SCRIPT>
+</body>
+<script language="javascript">
+
+            function getServerPath(){
+               //alert("SSL_TRUE");
+               //JK 10-07-2025
+               //JK 10-26-2025  var thisURL=document.location.hostname+":4444/"+document.location.pathname;
+               //var thisURL="emarssu3.eng.usps.gov/"+document.location.pathname;
+               var thisURL="emarssu3.eng.usps.gov:4444/"+document.location.pathname;
+               // poodle remedy 10-07-2025           var thisURL=document.location.hostname+":80/"+document.location.pathname;
+               thisURL=thisURL.substring(0, thisURL.lastIndexOf("/"));
+               if (thisURL.indexOf("//") > 0) {
+                    thisURL=document.location.hostname+":"+document.location.port+document.location.pathname;
+                    thisURL=thisURL.substring(0, thisURL.lastIndexOf("/"));
+                }
+                //JK 10-26-2025 temporary hardocded to address page error reported by the filed
+                return "https://"+thisURL+"/";
+                //return "https://emarssu3.eng.usps.gov:4444/pemars/em_user_login_pkg.em_view_user_login";
+                return "https://emarssu3.eng.usps.gov:4444/pemars/";
+                // poodle remedy 10-07-2025                return "http://"+thisURL+"/";
+            }
+            function loadList(pList, pQuery, pBlank) {
+                //alert(pList+"\n"+pQuery+"\n"+pBlank)
+                objLDoc = new ActiveXObject("microsoft.XMLDOM");
+                objLDoc.async=false;
+                objLDoc.load(pQuery);
+                if (objLDoc.parsed) {
+                    var objDocList=objLDoc.getElementsByTagName("ROW");
+                }
+                else {
+                    return;
+                }
+                var i;
+                document.all[pList].options.length=0;
+                try {
+                    for (i=0; i < objDocList.length; i++)
+                    {
+                        var childList=objDocList(i).childNodes;
+                        var objEntry = document.createElement("OPTION");
+                        objEntry.value=childList(0).text;
+                        objEntry.text=childList(1).text;
+                        document.all[pList].options.add(objEntry, i);
+                    }
+                }
+                catch(e) {
+                    return;
+                }
+                if (pBlank=='Y') {
+                    addBlankItem(pList);
+                }
+                objLDoc=null;
+            }
+      
+</script language="javascript">
+<META HTTP-EQUIV="Pragma" CONTENT="no-cache" />
+<META HTTP-EQUIV="Expires" CONTENT="-1" />
+</html>
