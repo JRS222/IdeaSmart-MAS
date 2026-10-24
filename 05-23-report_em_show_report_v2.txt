@@ -1,0 +1,98 @@
+<META HTTP-EQUIV="x-ua-compatible" CONTENT="IE=EmulateIE8; charset=UTF-8">
+<HTML>
+<HEAD>
+<TITLE>Report Options - checklist</TITLE>
+<style>
+<style>
+    BODY, TD, DIV, SPAN, P , LI { font-family: arial; FONT-SIZE: 12px; } 
+    BODY { background-color: white; font-weight: bold; margin: 2px; cursor: wait; }
+    INPUT {font-size: 12px; text-transform: uppercase }
+    TEXT {font-size: 12px ; word-spacing: 10 }
+    TABLE { background-color: white; border: 2px outset white; font-weight: bold; font-size: 12px; }
+    td { white-space: pre } 
+    th { background-color: NAVY; text-align: left; font-weight: bold; font-size: 12px; color: white;}
+    select { text-transform:uppercase }
+    BUTTON { width: 100px; font-family: arial; font-weight: bold; text-transform: uppercase; padding-left: 8px; padding-right: 8px; }
+    .calButtonOn { background: #DDDDDD; margin: 0px; width:56; height:52; color:red; font-family: arial black, arial; font-size: 16px; }
+    .calButtonOff { background: #DDDDDD; margin: 0px; width:56; height:52; color: BLACK; font-family: arial black, arial; font-size: 16px; }
+    .calButtonDisabled { background: #DDDDDD; margin: 0px; width:56; height:52; color: #AAAAAA; font-family: arial black, arial; font-size: 16px; }
+    .reportRadio { font-size: 12px; }
+</style>
+</style>
+</HEAD>
+<BODY style="background:#336699">
+<FORM>
+<TABLE style="background:SILVER;border:0" width=100%>
+<TR>
+<TD>
+<TABLE style="background:SILVER;border:0" width=100%>
+<TR>
+<TD align="center">
+<img src="/emars-img/questionMark1.png" alt="Picture of a Question Mark">
+</img>
+</TD>
+<TD valign="bottom" align="center">
+<h5>Select Options for Report</h5>
+</TD>
+</TR>
+</table>
+<TABLE style="background:SILVER;border:0" width=100%>
+<TR>
+<TD align=left>
+<INPUT TYPE="radio" NAME="format" VALUE="PDF" CHECKED /> <span class="reportRadio">PDF</span>
+</TD>
+<TD align=left>
+<INPUT TYPE="radio" NAME="format" VALUE="HTML" /> <span class="reportRadio">HTML</span>
+</TD>
+<TD align=left>
+<INPUT TYPE="radio" NAME="format" VALUE="XLS" /> <span class="reportRadio">EXCEL</span>
+</TD>
+</TR>
+<TR>
+<TD align=left>
+<INPUT TYPE="radio" NAME="format" VALUE="XLS2" /> <span class="reportRadio">SPREADSHEET</span>
+</TD>
+<TD colspan = 3>
+<INPUT TYPE="checkbox" NAME="email" VALUE="EMAIL" /> <span class="reportRadio">EMAIL</span>
+</TD>
+</TR>
+</table>
+<TABLE style="background:SILVER;border:0;" width=100%>
+<TR>
+<TD align="center">
+<BUTTON TYPE="" NAME="ACTION" VALUE="RUNREPORT" onclick="runReport()">RUN REPORT</BUTTON>
+</TD>
+<TD>
+&nbsp;
+</TD>
+<TD align="center">
+<BUTTON TYPE="reset" NAME="ACTION" VALUE="CANCEL" onclick="cancelWindow();">CANCEL</BUTTON>
+</TD>
+</TR>
+</TABLE>
+</TD>
+</TR>
+</TABLE>
+</FORM>
+</BODY>
+<script>
+document.body.style.cursor='default'
+</script>
+</HTML>
+<script language="JavaScript">
+function cancelWindow() {
+this.window.close();
+}
+function runReport(format) {
+for(var i = 0; i < 4; i++){
+if (document.forms[0].format[i].checked){
+if (document.forms[0].email.checked){
+alert("The email feature is disabled for now");
+}
+else {
+window.open('http://emarssu3.eng.usps.gov:80/pemars/!em_run_report_vm?pApplication=EMARS&pReportType=REPORT60&p_report=checklist.rdf&p_site_id=345&p_user_id=1601089&email=N&desformat='+document.forms[0].format[i].value,'repRun');
+}
+}
+}
+}
+</script>

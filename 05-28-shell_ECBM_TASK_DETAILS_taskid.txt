@@ -1,0 +1,166 @@
+<html>
+<head>
+<META HTTP-EQUIV="x-ua-compatible" CONTENT="IE=EmulateIE8; charset=UTF-8">
+<!DOCTYPE html>
+<META HTTP-EQUIV="Pragma" CONTENT="no-cache" />
+<META HTTP-EQUIV="Expires" CONTENT="-1" />
+<title>eMars</title>
+<style>
+   window { margin-left: 0; margin-top: 0 }
+   body,p,td,div,span { font-family: Tahoma, Arial; font-size: 11px; }
+   .statusMessage { padding-left: 10px; padding-right: 10px; } 
+   #sysadmintoolbar {
+      position: absolute;
+      top: 56px;
+      left: 100px;
+      text-align: center;
+   }
+   #sysadmintoolbar span {
+      background: SILVER;
+      border-style: outset;
+      border-width: 1px;
+      padding: 0px;
+      width: 190px;
+      text-align: center;
+   }
+   #sysadmintoolbar span fieldset {
+      width: 184px;
+      margin: 0px;
+   }
+</style>
+<SCRIPT language=javascript>
+           var timer;
+           var childWindows=[];
+
+           function bodyonLoad() {
+              window.focus();
+           }
+
+
+           window.onunload=function() {
+            for (var i=0,len=childWindows.length;i<len;i++) {
+                if (childWindows[i] && !childWindows[i].closed) childWindows[i].close();
+            }
+           }
+
+           function closeChildWindows() {
+            for (var i=0,len=childWindows.length;i<len;i++) {
+                if (childWindows[i] && !childWindows[i].closed) childWindows[i].close();
+            }
+           }
+
+           function minimizeWin() {
+              window.blur();
+              try {
+                opener.focus();
+              } catch(e){}
+           }
+
+          </SCRIPT>
+<script language="javascript" src="/emars-script/vmdialogs.js"></script>
+<SCRIPT language=javascript src="/emars-script/progress.js"></SCRIPT>
+</head>
+<body onload="bodyonLoad()" style="margin-left: 0; margin-top: 0; margin-right: 0; margin-bottom: 0; padding-bottom: 0">
+<table  id="mainTable" name="mainTable" width="100%" height="100%" border="0" cellpadding="0" cellspacing="0">
+<tr>
+<td height="1%" vAlign="top">
+<fieldset>
+<table  width="100%" border="0" cellpadding="1" cellspacing="0" bgcolor="SILVER">
+<tr>
+<td><div id="em_main_btns"><img name="EM_FINDER_001" src="http://emarssu3.eng.usps.gov:80/emars-img/finder.png" onClick="javascript:main('EM_FINDER_001', 800, 600, this)" style="border-style: outset; border-width: 2; cursor: hand;"></img><img name="EM_WL_SCHED_001" src="http://emarssu3.eng.usps.gov:80/emars-img/sched_off.png" style="border-style: outset; border-width: 2;"></img><img name="EM_MAINT_REPORTS_001" src="http://emarssu3.eng.usps.gov:80/emars-img/report_off.png" style="border-style: outset; border-width: 2;"></img><img name="EM_ADMIN" src="http://emarssu3.eng.usps.gov:80/emars-img/admin_off.png" style="border-style: outset; border-width: 2;"></img><img name="EM_REACT_MAINT_001" src="http://emarssu3.eng.usps.gov:80/emars-img/react_off.png" style="border-style: outset; border-width: 2;"></img><img name="EM_COMP_OPERATED_004" src="http://emarssu3.eng.usps.gov:80/emars-img/cact_off.png" style="border-style: outset; border-width: 2;"></img><img name="EM_INV" src="http://emarssu3.eng.usps.gov:80/emars-img/inv_off.png" style="border-style: outset; border-width: 2;"></img><img name="EM_WORK_MAINT_001" src="http://emarssu3.eng.usps.gov:80/emars-img/work_off.png" style="border-style: outset; border-width: 2;"></img><img name="EM_PREV_MAINT_001" src="http://emarssu3.eng.usps.gov:80/emars-img/pm_off.png" style="border-style: outset; border-width: 2;"></img><img name="EM_EQUIP_INV_001" src="http://emarssu3.eng.usps.gov:80/emars-img/equip_off.png" style="border-style: outset; border-width: 2;"></img><img name="EM_VENDOR_001" src="http://emarssu3.eng.usps.gov:80/emars-img/vendors_off.png" style="border-style: outset; border-width: 2;"></img><img name="EM_PROJECT_001" src="http://emarssu3.eng.usps.gov:80/emars-img/project_off.png" style="border-style: outset; border-width: 2;"></img><img name="EM_LIFT_001" src="http://emarssu3.eng.usps.gov:80/emars-img/lift_off.png" style="border-style: outset; border-width: 2;"></img><img name="EM_CREW_001" src="http://emarssu3.eng.usps.gov:80/emars-img/crews_off.png" style="border-style: outset; border-width: 2;"></img><img name="EM_PERS_001" src="http://emarssu3.eng.usps.gov:80/emars-img/pers_off.png" style="border-style: outset; border-width: 2;"></img><img name="EM_TOOLBOX_001" src="http://emarssu3.eng.usps.gov:80/emars-img/toolbox_off.png" style="border-style: outset; border-width: 2;" TITLE="Manage Toolboxes"></img><img name="EM_EWP_001" src="http://emarssu3.eng.usps.gov:80/emars-img/safetygloves_off.png" style="border-style: outset; border-width: 2;" TITLE="Manage Gloves"></img><img name="EM_SAFETY_COMP_001" src="http://emarssu3.eng.usps.gov:80/emars-img/safetycompliance_off.png" style="border-style: outset; border-width: 2;" TITLE="Safety Compliance"></img><img name="EM_AIRLEAK_001" src="http://emarssu3.eng.usps.gov:80/emars-img/airleak_off.png" style="border-style: outset; border-width: 2;"></img><img name="EM_EXT_LIGHT" src="http://emarssu3.eng.usps.gov:80/emars-img/exlight_off.png" style="border-style: outset; border-width: 2;"></img><img name="EM_NOTES_001" src="http://emarssu3.eng.usps.gov:80/emars-img/notes_off.png" style="border-style: outset; border-width: 2;"></img><img name="ECBM_MAIN_001" src="http://emarssu3.eng.usps.gov:80/emars-img/eCBM_off.png" style="border-style: outset; border-width: 2;"></img><img name="EM_STAFFING_001" src="http://emarssu3.eng.usps.gov:80/emars-img/staffing_off.png" style="border-style: outset; border-width: 2;"></img><img name="EM_EXIT" src="http://emarssu3.eng.usps.gov:80/emars-img/exit.png" onClick="window.close()" style="border-style: outset; border-width: 2; cursor: hand;"></img></div></td>
+</tr>
+</table>
+</fieldset>
+</td>
+</tr>
+<tr>
+<td valign="top" height="100%">
+<table  border="0" width="100%" height="100%" cellpadding="0" cellspacing="0" background="http://emarssu3.eng.usps.gov:80/emars-img/_bg.png";>
+<tr>
+<td valign="top"><div id="invtoolbar" name="invtoolbar" width="10%" bgcolor="SILVER" style="border-style: outset; border-width: 1;" cellpadding="1" cellspacing="1" align="right" valign="top" style="display: none">
+<fieldset>
+<table  bgcolor="SILVER" border="0" width="100%" height="100%" align="right" cellpadding="1" cellspacing="0">
+<tr>
+<td>
+<table  bgcolor="silver" border="0" width="100%" height="100%" align="right" cellpadding="0" cellspacing="0">
+<tr height="1%">
+<td valign="top" style="border-style: outset; border-width: 0;"><img src="/emars-img/issues_off.png" style="border-style: outset; border-width: 2;"></img></td>
+</tr>
+<tr height="1%">
+<td valign="top" style="border-style: outset; border-width: 0;"><img src="/emars-img/orders_off.png" style="border-style: outset; border-width: 2;"></img></td>
+</tr>
+<tr height="1%">
+<td valign="top" style="border-style: outset; border-width: 0;"><img src="/emars-img/receipts_off.png" style="border-style: outset; border-width: 2;"></img></td>
+</tr>
+<tr height="1%">
+<td valign="top" style="border-style: outset; border-width: 0;"><img src="/emars-img/updates_off.png" style="border-style: outset; border-width: 2;"></img></td>
+</tr>
+<tr height="1%">
+<td valign="top" style="border-style: outset; border-width: 0;"><img src="/emars-img/misp_off.png" style="border-style: outset; border-width: 2;"></img></td>
+</tr>
+<tr height="1%">
+<td valign="top" style="border-style: outset; border-width: 0;"><img src="/emars-img/loantools_off.png" style="border-style: outset; border-width: 2;"></img></td>
+</tr>
+<tr height="1%">
+<td valign="top"  align="right" style="border-style: outset; border-width: 0;"><img  src="/emars-img/exitRightbar.png"  onClick="showInvToolbar(document.all['EM_INV'])" style="border-style: outset; border-width: 2; cursor: hand;"></img></td>
+</tr>
+<tr height="1%">
+<td valign="top" align="right">;</td>
+</tr>
+</table>
+</td>
+</tr>
+</table>
+</fieldset>
+</div></td>
+<td width="100%" id="midCell" name="midCell">
+<!-- This is the splash screen -->
+<div align="center" id="splash" style="Z-INDEX: 3; LEFT: 0px; visibility: hidden;">
+   <img src="http://emarssu3.eng.usps.gov:80/emars-img/sp1.gif" style="border: 2px solid #000000;" WIDTH="352" HEIGHT="286" align="center" valign="middle">
+</div>
+<!-- End of splash screen -->
+</td>
+<td valign="top"><div id="admintoolbar" name="admintoolbar" bgcolor="SILVER" width="5%" style="border-style: outset; border-width: 1;" align="left" valign="top" style="display: none">
+<fieldset>
+<table  border="0" bgcolor="silver" width="100%" height="100%" align="center" cellpadding="0" cellspacing="0">
+<tr height="1%">
+<td valign="top" style="border-style: outset; border-width: 0;"><img src="/emars-img/code_tables_off.png" style="border-style: outset; border-width: 2;"></img></td>
+</tr>
+<tr height="1%">
+<td valign="top" style="border-style: outset; border-width: 0;"><img src="/emars-img/email_reports_off.png" style="border-style: outset; border-width: 2;"></img></td>
+</tr>
+<tr height="1%">
+<td valign="top" style="border-style: outset; border-width: 0;"><img src="/emars-img/office_off.png" style="border-style: outset; border-width: 2;"></img></td>
+</tr>
+<tr height="1%">
+</tr>
+<tr height="1%">
+<td valign="top" style="border-style: outset; border-width: 0;"><img  src="/emars-img/exitLeftbar.png" onclick="showAdminToolbar(document.all['EM_ADMIN'])"  style="border-style: outset; border-width: 2; cursor: hand;"></img></td>
+</tr>
+<tr height="1%">
+<td valign="top">;</td>
+</tr>
+</table>
+</fieldset>
+</div></td>
+</tr>
+</table>
+</td>
+</tr>
+<tr height="1">
+<td valign="bottom">
+<FIELDSET>
+<table  height="20" bgcolor="SILVER" width="100%" cellpadding="0" cellspacing="0" bgcolor="silver" style="border-style: outset; border-width: 1">
+<tr>
+<td width="80%"><div id="statusMsg" class="statusMessage">&nbsp;</div></td>
+</tr>
+</table>
+</FIELDSET>
+</td>
+</tr>
+</table>
+<span name="sysadmintoolbar" id="sysadmintoolbar"></span>
+</body>
+<SCRIPT language=javascript src="/emars-script/vm_hompage_prc.js"></SCRIPT>
+<META HTTP-EQUIV="Pragma" CONTENT="no-cache" />
+</html>
