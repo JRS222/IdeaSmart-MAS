@@ -1,340 +1,280 @@
-So the flow is select "eCBM" then ECBM_MAIN_001 opens. It takes this URL: http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pSiteID=345&pUser=1601089&pModule=ECBM_MAIN_001
+#Requires -Version 5.1
+<#
+.SYNOPSIS
+    eMARS PM checklist probe v3 — ECBM_SUBMIT_LIST focus.
+.DESCRIPTION
+    Your actual flow is:
+      eCBM → ECBM_MAIN_001 → subsite → acronym+machine → [Checklist] btn
+          → ECBM_SUBMIT_LIST → "print checklist with task details" → about:blank
 
-and an even smaller window opens where we select the subsite. Then we continue. Then we select Select the machine acronym from a drop down thne the machine number from a drop down. Then we press the checklist button and another window opens up:http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=ECBM_SUBMIT_LIST
+    That "print checklist with task details" handler lives in
+    ECBM_SUBMIT_LIST.js — which we have never fetched. That file is the
+    last missing piece. This probe:
+      - Fetches it and dumps every URL string it contains.
+      - Probes getTaskDetails / getEORData with correct params.
+      - Inspects em_show_report?pReportID=CHECKLIST (returned 3,270 chars last run).
+#>
+[CmdletBinding()]
+param(
+    [string]$UserId     = '1601089',
+    [string]$SiteId     = '345',
+    [string]$Acronym    = 'DBCS',
+    [string]$MachinePtr = '827433',
+    [string]$MachineNo  = '16',
+    [string]$ClassCode  = 'CK',
+    [string]$TrackNo    = '37900603',
+    [string]$Subsite    = '01',
+    [string]$Origin     = 'http://emarssu3.eng.usps.gov',
+    [string]$OutDir     = (Join-Path $env:USERPROFILE ("Desktop\emars-pm-probe-" + (Get-Date -Format 'yyyyMMdd-HHmmss')))
+)
 
-Then form there we select "print checklist with task details" then the about:blank page that comes up is where we copy the HTML from for the Import checklist button.
+$ErrorActionPreference = 'Continue'
+$ProgressPreference    = 'SilentlyContinue'
 
-This error came up as well:
+if (-not (Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir -Force | Out-Null }
+$reportPath = Join-Path $OutDir 'PROBE-REPORT.txt'
+$script:lines = New-Object System.Collections.ArrayList
+$script:hits  = New-Object System.Collections.ArrayList
+$base = "$Origin/pemars"
 
-SECTION 1 — Baseline sanity (cookieless home page)
-------------------------------------------------------------
-  GET http://emarssu3.eng.usps.gov/pemars/vm_hompage_prc?p_user=1601089&p_site=345
-        OK   10,014 chars
-Cannot overwrite variable HOME because it is read-only or constant.
-At C:\Users\YYQTP0\Desktop\Reports.ps1:194 char:1
-+ $home = Fetch -url $homeUrl -label 'home'
-+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : WriteError: (HOME:String) [], SessionStateUnauthorizedAccessException
-    + FullyQualifiedErrorId : VariableNotWritable
+$markers = @(
+    @{ Name = 'Task Statement and Instruction'; Rx = 'Task Statement and Instruction' }
+    @{ Name = 'Checklist No.';                  Rx = 'Checklist No\.' }
+    @{ Name = 'Est for All Open Tasks';         Rx = 'Est for All Open Tasks' }
+    @{ Name = 'Est for Tasks Due Today';        Rx = 'Est for Tasks Due Today' }
+    @{ Name = 'Min Skill';                      Rx = 'Min Skill' }
+    @{ Name = 'Bypass Code';                    Rx = 'Bypass Code' }
+    @{ Name = 'Power Off';                      Rx = 'Power Off' }
+    @{ Name = 'Power On';                       Rx = 'Power On' }
+)
 
-        ABORT: cookieless access not working. Check site/user IDs.
+function Say { param([string]$m = '', [string]$c = 'Gray') Write-Host $m -ForegroundColor $c; [void]$script:lines.Add($m) }
+function Save-Blob { param([string]$n, [string]$c) if (-not [string]::IsNullOrEmpty($c)) { [System.IO.File]::WriteAllText((Join-Path $OutDir $n), $c, (New-Object System.Text.UTF8Encoding($false))) } }
 
+function Test-Markers {
+    param([string]$c)
+    if ([string]::IsNullOrEmpty($c)) { return $null }
+    $found = @()
+    foreach ($m in $markers) { if ($c -match $m.Rx) { $found += $m.Name } }
+    if ($found.Count -eq 0) { return $null }
+    return $found
+}
 
-============================================================
-  eMARS PM CHECKLIST PROBE — CONSOLIDATED
-============================================================
+function Fetch {
+    param([string]$url, [string]$label = 'probe', [switch]$Quiet)
+    $o = [PSCustomObject]@{ Url = $url; Ok = $false; Status = -1; Length = 0; Content = $null; Error = $null; Markers = $null }
+    try {
+        $r = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 20 -ErrorAction Stop
+        $o.Ok = $true; $o.Status = $r.StatusCode; $o.Length = $r.Content.Length; $o.Content = $r.Content
+        $o.Markers = Test-Markers $r.Content
+        if (-not $Quiet) {
+            if ($o.Markers) { Say ("      OK  {0,7:N0} chars  ***MARKERS: {1}***" -f $o.Length, ($o.Markers -join ', ')) 'Green' }
+            else            { Say ("      OK  {0,7:N0} chars" -f $o.Length) 'Gray' }
+        }
+        if ($o.Markers) {
+            [void]$script:hits.Add([PSCustomObject]@{ Url = $url; Label = $label; Markers = $o.Markers; Length = $o.Length })
+        }
+    } catch {
+        $o.Error = $_.Exception.Message
+        if (-not $Quiet) { Say ("      FAIL  {0}" -f $o.Error) 'DarkGray' }
+    }
+    return $o
+}
 
-  Origin:     http://emarssu3.eng.usps.gov
-  UserId:     1601089
-  SiteId:     345
-  Acronym:    DBCS
-  MachinePtr: 827433
-  TrackNo:    37900603
-  Output:     C:\Users\YYQTP0\Desktop\emars-pm-probe-20261024-140133
+Say '============================================================' 'Cyan'
+Say '  eMARS PM CHECKLIST PROBE v3 — ECBM_SUBMIT_LIST focus' 'Cyan'
+Say '============================================================' 'Cyan'
+Say ''
+Say ("  User:{0}  Site:{1}  Subsite:{2}" -f $UserId, $SiteId, $Subsite)
+Say ("  Machine:{0} {1}  ptr={2}  class={3}" -f $Acronym, $MachineNo, $MachinePtr, $ClassCode)
+Say ("  TrackNo:{0}" -f $TrackNo)
+Say ("  Output:{0}" -f $OutDir)
+Say ''
 
-------------------------------------------------------------
-SECTION 1 — Baseline sanity (cookieless home page)
-------------------------------------------------------------
-  GET http://emarssu3.eng.usps.gov/pemars/vm_hompage_prc?p_user=1601089&p_site=345
-        OK   10,014 chars
-        ABORT: cookieless access not working. Check site/user IDs.
+# ---------------------------------------------------------------
+# Section 1 — sanity (fixed $home -> $homeResp)
+# ---------------------------------------------------------------
+Say '------------------------------------------------------------' 'Cyan'
+Say 'SECTION 1 — Sanity (fixed $home bug)' 'Cyan'
+Say '------------------------------------------------------------' 'Cyan'
 
-------------------------------------------------------------
-SECTION 2 — eCBM chain verification
-------------------------------------------------------------
-  2a. getAllChecklists
-      GET http://emarssu3.eng.usps.gov/pemars/ecbm.ecbm_report_j.getAllChecklists?pSiteID=345&pAcronym=DBCS
-        FAIL  The remote server returned an error: (400) Bad Request.
-  2b. getChecklists2
-      GET http://emarssu3.eng.usps.gov/pemars/ecbm.ecbm_report_j.getChecklists2?p_machineid=827433&pSiteID=345
-        OK    6,548 chars
-  2c. getChecklistDetailsForIframe (baseline — should be the WRONG format)
-      GET http://emarssu3.eng.usps.gov/pemars/ecbm.ecbm_report_j.getChecklistDetailsForIframe?p_trackno=37900603&p_site=345&p_fac=345&p_mtype=DBCS&p_mno=16&p_classcode=CK
-        OK   11,218 chars
-        (wrong format — MMO Item No / Run Hours style, as expected)
+$homeUrl = "$base/vm_hompage_prc?p_user=$UserId&p_site=$SiteId"
+Say ("  GET {0}" -f $homeUrl)
+$homeResp = Fetch -url $homeUrl -label 'home'
+if ($homeResp.Ok) {
+    Save-Blob '01-home.html' $homeResp.Content
+    Say ("  has EM_PREV_MAINT button: {0}" -f ($homeResp.Content -match 'EM_PREV_MAINT_001')) 'Green'
+} else {
+    Say '  ABORT: cookieless access failing.' 'Red'
+}
 
-------------------------------------------------------------
-SECTION 3 — Fetch related JS files
-------------------------------------------------------------
-  GET http://emarssu3.eng.usps.gov/emars-script/ECBM_MAIN_001.js
-        OK   36,833 chars
-  GET http://emarssu3.eng.usps.gov/emars-script/ECBM_CHECKLISTS.js
-        OK   10,035 chars
-  GET http://emarssu3.eng.usps.gov/emars-script/ECBM_TASK_DETAILS.js
-        OK   10,733 chars
-  GET http://emarssu3.eng.usps.gov/emars-script/ECBM_WORK_001.js
-        miss
-  GET http://emarssu3.eng.usps.gov/emars-script/ECBM_PM_001.js
-        miss
-  GET http://emarssu3.eng.usps.gov/emars-script/ECBM_PM_CHECKLIST_001.js
-        miss
-  GET http://emarssu3.eng.usps.gov/emars-script/EM_WORK_MAINT_001.js
-        OK  115,555 chars
-  GET http://emarssu3.eng.usps.gov/emars-script/EM_REACT_MAINT_001.js
-        OK   49,940 chars
-  GET http://emarssu3.eng.usps.gov/emars-script/EM_MAINT_REPORTS_001.js
-        OK    1,074 chars
-  GET http://emarssu3.eng.usps.gov/emars-script/em_dialog.js
-        OK   59,942 chars
-  GET http://emarssu3.eng.usps.gov/emars-script/vmdialogs.js
-        OK    7,340 chars
+# ---------------------------------------------------------------
+# Section 2 — THE KEY FILE
+# ---------------------------------------------------------------
+Say ''
+Say '------------------------------------------------------------' 'Cyan'
+Say 'SECTION 2 — ECBM_SUBMIT_LIST.js (the module your flow actually opens)' 'Cyan'
+Say '------------------------------------------------------------' 'Cyan'
 
-------------------------------------------------------------
-SECTION 4 — Scan JS for URL patterns
-------------------------------------------------------------
-  [ECBM_CHECKLISTS.js] 9 distinct hit(s):
-    ecbm.ecbm_report_j.getAllChecklists
-    ecbm.ecbm_report_j.getChecklistDetailsForIframe
-    ecbm.ecbm_report_j.getChecklists2
-    ecbm.ecbm_report_j.getMachineClassCode
-    getChecklistDetailsForIframe
-    getChecklists
-    getChecklists2
-    openSwilWin('ECBM_TASK_DETAILS'
-    p_trackno
-  [ECBM_CHECKLISTS.js] lines mentioning checklist/PM/task URLs:
-    [   20] document.getElementById('btn_print2').style.display='none';
-    [   23] document.getElementById('div_list').innerHTML = getChecklists();
-    [   26] function getChecklists()
-    [   33] objAcros.load("ecbm.ecbm_report_j.getAllChecklists?pSiteID="+currentSite+"&pSubsiteID="+currentECBMSubsite+"&pAcronym="+currentMachineType);
-    [   41] htmlStr += '<tr><th colspan="6">There is not any checklist available.</th></tr>';
-    [   55] htmlStr += '<td><input type="button" value="'+childList[j].text +'" name="btnMachineno"  id="btnMachineno" onClick="showChecklists('+childList[0].text +',\''+childList[1].text +'\',\''+childList[2].text +'\',\''+childList[3].text +'\',\''+childList[4].text +'\')"  /></td>';
-    [   63] htmlStr+= '<tr bgcolor="lightgrey"><td colspan="6"><font color="#000000" size="-2">click on an equipment ID to see the checklists</font></td></tr>';
-    [   69] return 'The list (XML) of checklists cannot be parsed.';
-    [   73] //display all checklist of a specific machine
-    [   78] function showChecklists(machineid,machineno,machinetype,classcode,facility)
-    [   88] document.getElementById('div_list').innerHTML = "Loading ... checklists for machine " + machineid;
-    [   94] /* get the checklist*/
-    [   95] objAcros1.load("ecbm.ecbm_report_j.getChecklists2?p_machineid=" +machineid+"&pSiteID="+currentSite);
-    [  114] htmlStr += '<tr><th colspan="3">There is not any checklist available.</th></tr>';
-    [  116] htmlStr += '<tr><th>Checklist No.</tH><th>Creating Date</th><th>Creator</th></tr>';
-    [  127] htmlStr += '<td><input type="button" value="'+childList[j].text +'" name="btnTrackno"  id="btnTrackno" onClick="showAChecklist(' + childList[0].text + ',' + machineid +',' + childList[3].text + ',' + childList[4].text +',\'' +machinetype+'\',\''+machineno+'\',\''+classcode+'\',\''+facility+'\');"  /></td>';
-    [  135] htmlStr+= '<tr bgcolor="lightgrey"><td colspan="3"><font color="#000000" size="-2">click on a checklist no. to see the details</font></td>';
-    [  142] document.getElementById('div_list').innerHTML = 'The list (XML) of checklists cannot be parsed';
-    [  148] //display all steps of a specific checklist
-    [  156] function showAChecklist(trackno,machineid,siteid,facid,mtype,mno,classcode,fac)
-    ... more suppressed (see saved file)
-  [em_dialog.js] no URL patterns
-  [ECBM_MAIN_001.js] 39 distinct hit(s):
-    ecbm.ecbm_login.getUserInfo
-    ecbm.ECBM_MACHINE_LISTs.copyPmtasks
-    ecbm.ecbm_machine_lists.getEquipClassView
-    ecbm.ecbm_machine_lists.getMachineNoList
-    ecbm.ecbm_machine_lists.getMachineSize
-    ecbm.ecbm_machine_lists.getMachineTypeList
-    ecbm.ecbm_machine_lists.getNoOfUnits
-    ecbm.ECBM_MACHINE_LISTs.getSiteName
-    ecbm.ECBM_MACHINE_LISTs.getUserLevel
-    ecbm.ECBM_MACHINE_LISTs.verifyMachineReq
-    openSwilWin('ECBM_AFCS_CONFIG'
-    openSwilWin('ECBM_ALL_LOCAL_TASKS'
-    openSwilWin('ECBM_ALL_SENIORS_DUE'
-    openSwilWin('ECBM_APPS_AWORKLOAD'
-    openSwilWin('ECBM_APPS_CONFIG'
-    openSwilWin('ECBM_APPS_DWORKLOAD'
-    openSwilWin('ECBM_BYPASSED_TASK'
-    openSwilWin('ECBM_CHECKLIST_HOURS'
-    openSwilWin('ECBM_CHECKLISTS'
-    openSwilWin('ECBM_CIOSS_CONFIG'
-    openSwilWin('ECBM_COMPLETION_RATE'
-    openSwilWin('ECBM_COMPLETIONS'
-    openSwilWin('ECBM_EOR_DATA'
-    openSwilWin('ECBM_EPPS_CONFIG'
-    openSwilWin('ECBM_FORECAST'
-    openSwilWin('ECBM_HOPS_CONFIG'
-    openSwilWin('ECBM_HTPS_CONFIG'
-    openSwilWin('ECBM_LOCAL_TASK'
-    openSwilWin('ECBM_LOCAL_TASK_LIST'
-    openSwilWin('ECBM_MAINT_WIN'
-    openSwilWin('ECBM_PM_HISTORY'
-    openSwilWin('ECBM_PSM_CONFIG'
-    openSwilWin('ECBM_RUNNINGDAY'
-    openSwilWin('ECBM_SHEDULING'
-    openSwilWin('ECBM_SPBS_CONFIG'
-    openSwilWin('ECBM_SUBMIT_LIST'
-    openSwilWin('ECBM_SUSPEND_TASK1'
-    openSwilWin('ECBM_TASK_COMPLETED'
-    openSwilWin('ECBM_TASK_THRESHOLD'
-  [ECBM_MAIN_001.js] lines mentioning checklist/PM/task URLs:
-    [  263] '<td valign="top" colspan="3"><input type="button" onClick=doMenu("AllChecklists") style="width: 270; height:40; color: blue; font-weight:bold" value="ALL Checklists" /></td>'+
-    [  278] '<td valign="top" colspan="3"><input type="button" onClick=doMenu("ChecklistHours") style="width: 270; height:40; color: blue; font-weight:bold" value="Checklist Estimated Hours" /></td>'+
-    [  280] //<input type="button" onClick=doMenu("ChecklistHours") style="width: 319; height:40; color: blue; font-weight:bold" value="All Tasks Due" /></td>'+
-    [  757] '<input type="button" onClick=doMenu("Checklist") style="width: 319; height:40; color: blue; font-weight:bold" value="Checklist" /></td>'+
-    [  876] //alert("debug: --- before open window of Checklist");
-    [  894] if(val=="AnnualEstimate" || val=="DailyEstimate" || val=="AllChecklists" || val=="CompletionReports" || val=="AllLocalTasks" || val=="AllSeniorTasksDue" || val=="ChecklistHours")
-    [  903] //checklist module, everybody can access
-    [  904] if (val=="Checklist") {
-    [  922] if (val=="PMHistory") {w_report = openSwilWin('ECBM_PM_HISTORY');}
-    [ 1056] if (val=="AllChecklists") { w_report = openSwilWin('ECBM_CHECKLISTS');}
-    [ 1060] if (val=="ChecklistHours") { w_report = openSwilWin('ECBM_CHECKLIST_HOURS');}
-    [ 1061] //alert("debug: --- after open window of Checklist");
-  [EM_REACT_MAINT_001.js] 1 distinct hit(s):
-    openSwilWin('EM_REACT_EQ_FINDER'
-  [EM_REACT_MAINT_001.js] lines mentioning checklist/PM/task URLs:
-    (none)
-  [ECBM_TASK_DETAILS.js] 7 distinct hit(s):
-    ecbm.ecbm_checklist.getEnvironmentVar
-    ecbm.ecbm_checklist.getEORData
-    ecbm.ecbm_forecast.getTaskEstTime
-    ecbm.ecbm_machine_lists.getMachineSize
-    ecbm.ecbm_report_j.getTaskDetails
-    getTaskDetails
-    getTaskEstTime
-  [ECBM_TASK_DETAILS.js] lines mentioning checklist/PM/task URLs:
-    [   94] /* get the checklist*/
-    [   95] objAcros.load("ecbm.ecbm_report_j.getTaskDetails?p_machinetype=" + currentMachineType + "&p_classcode=" + currentMachineClassCode+ "&p_taskid=" + currentTaskID+ "&p_machineid=" +currentMachinePtr+ "&p_site=" + currentSite);
-    [  141] {  //find the position of multiplier in database procedure, see procedure ecbm_checklist.getEORData(...)
-    [  209] //get the checklist
-    [  210] objAcros.load('ecbm.ecbm_checklist.getEORData?p_machineid='+currentMachinePtr+'&p_machinetype='+currentMachineType+'&p_classcode='+currentMachineClassCode);
-    [  221] function btn_print_onClick()
-    [  228] newWin.print();
-    [  248] objAcros.load("ecbm.ecbm_checklist.getEnvironmentVar");
-  [EM_WORK_MAINT_001.js] no URL patterns
-  [vmdialogs.js] no URL patterns
-  [EM_MAINT_REPORTS_001.js] no URL patterns
+$submitJsUrl = "$Origin/emars-script/ECBM_SUBMIT_LIST.js"
+Say ("  GET {0}" -f $submitJsUrl)
+$submitJs = Fetch -url $submitJsUrl -label 'ECBM_SUBMIT_LIST.js'
 
-------------------------------------------------------------
-SECTION 5 — Probe candidate URLs for the RIGHT format
-------------------------------------------------------------
-  (marker = {0})
-    Task Statement and Instruction
-    Est for All Open Tasks
-    Est for Tasks Due Today
-    Power Off
-    Power On
-    Min Skill
-    Bypass Code
+if ($submitJs.Ok) {
+    Save-Blob '02-ECBM_SUBMIT_LIST.js' $submitJs.Content
+    $js = $submitJs.Content
 
-  [ 1] ecbm getTaskDetails
-        http://emarssu3.eng.usps.gov/pemars/ecbm.ecbm_report_j.getTaskDetails?p_trackno=37900603&p_site=345&p_taskid=0
-        FAIL  The remote server returned an error: (400) Bad Request.
-  [ 2] ecbm getTaskDetail
-        http://emarssu3.eng.usps.gov/pemars/ecbm.ecbm_report_j.getTaskDetail?p_trackno=37900603&p_site=345&p_taskid=0
-        FAIL  The remote server returned an error: (400) Bad Request.
-  [ 3] ecbm getChecklistTasks
-        http://emarssu3.eng.usps.gov/pemars/ecbm.ecbm_report_j.getChecklistTasks?p_trackno=37900603&p_site=345
-        FAIL  The remote server returned an error: (400) Bad Request.
-  [ 4] ecbm getPMChecklist
-        http://emarssu3.eng.usps.gov/pemars/ecbm.ecbm_report_j.getPMChecklist?p_trackno=37900603&p_site=345
-        FAIL  The remote server returned an error: (400) Bad Request.
-  [ 5] ecbm getChecklistDetails
-        http://emarssu3.eng.usps.gov/pemars/ecbm.ecbm_report_j.getChecklistDetails?p_trackno=37900603&p_site=345&p_fac=345&p_mtype=DBCS&p_mno=16&p_classcode=CK
-        FAIL  The remote server returned an error: (400) Bad Request.
-  [ 6] ecbm getChecklistForPrint
-        http://emarssu3.eng.usps.gov/pemars/ecbm.ecbm_report_j.getChecklistForPrint?p_trackno=37900603&p_site=345&p_fac=345&p_mtype=DBCS&p_mno=16&p_classcode=CK
-        FAIL  The remote server returned an error: (400) Bad Request.
-  [ 7] ecbm printChecklist
-        http://emarssu3.eng.usps.gov/pemars/ecbm.ecbm_report_j.printChecklist?p_trackno=37900603&p_site=345
-        FAIL  The remote server returned an error: (400) Bad Request.
-  [ 8] ecbm getChecklistPM
-        http://emarssu3.eng.usps.gov/pemars/ecbm.ecbm_report_j.getChecklistPM?p_trackno=37900603&p_site=345
-        FAIL  The remote server returned an error: (400) Bad Request.
-  [ 9] ecbm getChecklistPMDetails
-        http://emarssu3.eng.usps.gov/pemars/ecbm.ecbm_report_j.getChecklistPMDetails?p_trackno=37900603&p_site=345
-        FAIL  The remote server returned an error: (400) Bad Request.
-  [10] ecbm getPmTaskDetails
-        http://emarssu3.eng.usps.gov/pemars/ecbm.ecbm_report_j.getPmTaskDetails?p_trackno=37900603&p_site=345&p_taskid=0
-        FAIL  The remote server returned an error: (400) Bad Request.
-  [11] pm print_pm_checklist
-        http://emarssu3.eng.usps.gov/pemars/em_prevent_maint_pkg.print_pm_checklist?p_trackno=37900603&p_site_id=345
-        FAIL  The remote server returned an error: (400) Bad Request.
-  [12] pm em_print_checklist
-        http://emarssu3.eng.usps.gov/pemars/em_prevent_maint_pkg.em_print_checklist?p_trackno=37900603&p_site_id=345
-        FAIL  The remote server returned an error: (400) Bad Request.
-  [13] pm get_pm_checklist
-        http://emarssu3.eng.usps.gov/pemars/em_prevent_maint_pkg.get_pm_checklist?p_trackno=37900603&p_site_id=345
-        FAIL  The remote server returned an error: (400) Bad Request.
-  [14] pm getPMChecklist
-        http://emarssu3.eng.usps.gov/pemars/em_prevent_maint_pkg.getPMChecklist?p_trackno=37900603&p_site_id=345
-        FAIL  The remote server returned an error: (400) Bad Request.
-  [15] pm em_get_checklist
-        http://emarssu3.eng.usps.gov/pemars/em_prevent_maint_pkg.em_get_checklist?p_trackno=37900603&p_site_id=345
-        FAIL  The remote server returned an error: (400) Bad Request.
-  [16] pm em_print_pm_checklist
-        http://emarssu3.eng.usps.gov/pemars/em_prevent_maint_pkg.em_print_pm_checklist?p_trackno=37900603&p_site_id=345
-        FAIL  The remote server returned an error: (400) Bad Request.
-  [17] work print_checklist
-        http://emarssu3.eng.usps.gov/pemars/em_work_pkg.print_checklist?p_trackno=37900603&p_site=345
-        FAIL  The remote server returned an error: (400) Bad Request.
-  [18] work em_print_checklist
-        http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_print_checklist?p_trackno=37900603&p_site_id=345
-        FAIL  The remote server returned an error: (400) Bad Request.
-  [19] work get_checklist_details
-        http://emarssu3.eng.usps.gov/pemars/em_work_pkg.get_checklist_details?p_trackno=37900603&p_site=345
-        FAIL  The remote server returned an error: (400) Bad Request.
-  [20] work em_get_checklist
-        http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_get_checklist?p_trackno=37900603&p_site_id=345
-        FAIL  The remote server returned an error: (400) Bad Request.
-  [21] work em_checklist_details
-        http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_checklist_details?p_trackno=37900603&p_site_id=345
-        FAIL  The remote server returned an error: (400) Bad Request.
-  [22] report em_show_report
-        http://emarssu3.eng.usps.gov/pemars/em_show_report?pReportID=PM_CHECKLIST&pUser=1601089&pSite=345&pParamXML=%3CKEYLIST%3E%3CTRACKNO%3E37900603%3C%2FTRACKNO%3E%3C%2FKEYLIST%3E
-        FAIL  The remote server returned an error: (400) Bad Request.
-  [23] report em_show_report v2
-        http://emarssu3.eng.usps.gov/pemars/em_show_report?pReportID=CHECKLIST&pUser=1601089&pSite=345&pParamXML=%3CKEYLIST%3E%3CTRACKNO%3E37900603%3C%2FTRACKNO%3E%3C%2FKEYLIST%3E
-        OK    3,270 chars
-  [24] report em_show_report v3
-        http://emarssu3.eng.usps.gov/pemars/em_show_report?pReportID=MAINT_CHECKLIST&pUser=1601089&pSite=345&pParamXML=%3CKEYLIST%3E%3CTRACKNO%3E37900603%3C%2FTRACKNO%3E%3C%2FKEYLIST%3E
-        FAIL  The remote server returned an error: (400) Bad Request.
-  [25] report em_show_report v4
-        http://emarssu3.eng.usps.gov/pemars/em_show_report?pReportID=WO_CHECKLIST&pUser=1601089&pSite=345&pParamXML=%3CKEYLIST%3E%3CTRACKNO%3E37900603%3C%2FTRACKNO%3E%3C%2FKEYLIST%3E
-        FAIL  The remote server returned an error: (400) Bad Request.
-  [26] report em_show_report v5
-        http://emarssu3.eng.usps.gov/pemars/em_show_report?pReportID=PM_CHECKLIST_PRINT&pUser=1601089&pSite=345&pParamXML=%3CKEYLIST%3E%3CTRACKNO%3E37900603%3C%2FTRACKNO%3E%3C%2FKEYLIST%3E
-        FAIL  The remote server returned an error: (400) Bad Request.
-  [27] shell ECBM_TASK_DETAILS
-        http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pSiteID=345&pUser=1601089&pModule=ECBM_TASK_DETAILS
-        OK   10,014 chars
-  [28] shell ECBM_TASK_DETAILS+taskid
-        http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pSiteID=345&pUser=1601089&pModule=ECBM_TASK_DETAILS&p_taskid=0
-        OK   10,014 chars
-  [29] iframe no-classcode
-        http://emarssu3.eng.usps.gov/pemars/ecbm.ecbm_report_j.getChecklistDetailsForIframe?p_trackno=37900603&p_site=345&p_fac=345&p_mtype=DBCS&p_mno=16
-        FAIL  The remote server returned an error: (400) Bad Request.
-  [30] iframe minimal
-        http://emarssu3.eng.usps.gov/pemars/ecbm.ecbm_report_j.getChecklistDetailsForIframe?p_trackno=37900603&p_site=345
-        FAIL  The remote server returned an error: (400) Bad Request.
-  [31] iframe with user
-        http://emarssu3.eng.usps.gov/pemars/ecbm.ecbm_report_j.getChecklistDetailsForIframe?p_trackno=37900603&p_site=345&p_fac=345&p_mtype=DBCS&p_mno=16&p_classcode=CK&p_user=1601089
-        FAIL  The remote server returned an error: (400) Bad Request.
+    Say ''
+    Say '  === All procedure / module URLs found ===' 'Cyan'
+    $urlRx = [regex]'(?i)(?:ecbm\.[a-z_]+\.[a-zA-Z0-9_]+|em_[a-z_]+_pkg\.[a-zA-Z0-9_]+|vm_main_pkg\.[a-zA-Z0-9_]+|openSwilWin\s*\(\s*[''"][A-Z0-9_]+[''"])'
+    $found = New-Object System.Collections.Generic.List[string]
+    foreach ($m in $urlRx.Matches($js)) { if (-not $found.Contains($m.Value)) { $found.Add($m.Value) } }
+    if ($found.Count -eq 0) { Say '    (none)' 'Yellow' }
+    else { foreach ($u in ($found | Sort-Object)) { Say ("    {0}" -f $u) 'Green' } }
 
-------------------------------------------------------------
-SECTION 6 — Probe URLs found inside ECBM_TASK_DETAILS.js
-------------------------------------------------------------
-  Found 2 candidate URL(s):
-    ecbm.ecbm_forecast.getTaskEstTime?p_site=
-    GET http://emarssu3.eng.usps.gov/pemars/ecbm.ecbm_forecast.getTaskEstTime?p_site=
-        FAIL  The remote server returned an error: (400) Bad Request.
-    ecbm.ecbm_machine_lists.getMachineSize?p_machineid=
-    GET http://emarssu3.eng.usps.gov/pemars/ecbm.ecbm_machine_lists.getMachineSize?p_machineid=
-        FAIL  The remote server returned an error: (400) Bad Request.
+    Say ''
+    Say '  === Lines mentioning print / checklist / task / document.write ===' 'Cyan'
+    $lines = $js -split "`r?`n"
+    $i = 0; $shown = 0
+    foreach ($ln in $lines) {
+        $i++
+        if ($ln -match '(?i)print|checklist|task.*detail|document\.write|window\.open|newWin') {
+            Say ("    [{0,5}] {1}" -f $i, $ln.Trim()) 'DarkGray'
+            $shown++
+            if ($shown -ge 50) { Say '    ... (more suppressed)' 'DarkGray'; break }
+        }
+    }
+    if ($shown -eq 0) { Say '    (none)' 'Yellow' }
 
-============================================================
-  PROBE COMPLETE — SUMMARY
-============================================================
+    Say ''
+    Say '  === All string literals that look like URLs ===' 'Cyan'
+    $strRx = [regex]'(?i)[''"]([^''"]*(?:ecbm\.|em_[a-z_]+_pkg\.|vm_main_pkg|getChecklist|getTask|printChecklist|openSwilWin|getEOR)[^''"]*)[''"]'
+    $strs = New-Object System.Collections.Generic.List[string]
+    foreach ($m in $strRx.Matches($js)) { if (-not $strs.Contains($m.Groups[1].Value)) { $strs.Add($m.Groups[1].Value) } }
+    if ($strs.Count -eq 0) { Say '    (none)' 'Yellow' }
+    else { foreach ($s in ($strs | Sort-Object)) { Say ("    {0}" -f $s) 'Cyan' } }
+} else {
+    Say '  ECBM_SUBMIT_LIST.js not found — trying module shell' 'Yellow'
+    $shellUrl = "$base/!vm_main_pkg.main?pSiteID=$SiteId&pUser=$UserId&pModule=ECBM_SUBMIT_LIST"
+    Say ("  GET {0}" -f $shellUrl)
+    $shell = Fetch -url $shellUrl -label 'ECBM_SUBMIT_LIST shell'
+    if ($shell.Ok) { Save-Blob '02-shell.html' $shell.Content }
+}
 
-  ✗ No URL returned the expected format markers.
+# ---------------------------------------------------------------
+# Section 3 — getTaskDetails with correct params
+# ---------------------------------------------------------------
+Say ''
+Say '------------------------------------------------------------' 'Cyan'
+Say 'SECTION 3 — getTaskDetails (params from ECBM_TASK_DETAILS.js L95)' 'Cyan'
+Say '------------------------------------------------------------' 'Cyan'
 
-  This means the format your parser expects is NOT served by any
-  of the URLs the app exposes directly. The most likely explanations:
+foreach ($tid in @('0','1','2','100','1000','10000')) {
+    $url = "$base/ecbm.ecbm_report_j.getTaskDetails?p_machinetype=$Acronym&p_classcode=$ClassCode&p_taskid=$tid&p_machineid=$MachinePtr&p_site=$SiteId"
+    Say ("  [taskid=$tid]")
+    Say ("    GET {0}" -f $url)
+    $r = Fetch -url $url -label "getTaskDetails tid=$tid"
+    if ($r.Ok) { Save-Blob ("03-getTaskDetails-$tid.txt") $r.Content }
+}
 
-    1. The format you paste comes from a UI flow we haven
-       e.g. clicking a specific task inside eCBM opens a deeper detail view.
-    2. The format is generated client-side by IE from data we can fetch.
-    3. It comes from a report endpoint that requires login state.
+# ---------------------------------------------------------------
+# Section 4 — getEORData with correct params
+# ---------------------------------------------------------------
+Say ''
+Say '------------------------------------------------------------' 'Cyan'
+Say 'SECTION 4 — getEORData (params from ECBM_TASK_DETAILS.js L210)' 'Cyan'
+Say '------------------------------------------------------------' 'Cyan'
 
-  Next steps:
-    a) In IE, reproduce the manual popup one more time.
-       When it opens: right-click → View Source → Ctrl+A, Ctrl+C
-       → paste the first ~500 chars here.
-    b) OR in the popup: F12 → Network → clear → click the button again
-       → look for the request whose response contains "Task Statement"
-       → paste that URL.
+$eorUrl = "$base/ecbm.ecbm_checklist.getEORData?p_machineid=$MachinePtr&p_machinetype=$Acronym&p_classcode=$ClassCode"
+Say ("  GET {0}" -f $eorUrl)
+$eorResp = Fetch -url $eorUrl -label 'getEORData'
+if ($eorResp.Ok) { Save-Blob '04-getEORData.txt' $eorResp.Content }
 
-  Meanwhile: the clipboard watcher remains the working solution.
-  It works today. Ship it, iterate on full automation in parallel.
+# ---------------------------------------------------------------
+# Section 5 — getAllChecklists with subsite
+# ---------------------------------------------------------------
+Say ''
+Say '------------------------------------------------------------' 'Cyan'
+Say 'SECTION 5 — getAllChecklists with subsite' 'Cyan'
+Say '------------------------------------------------------------' 'Cyan'
 
-  Output folder: C:\Users\YYQTP0\Desktop\emars-pm-probe-20261024-140133
-  Full report:   C:\Users\YYQTP0\Desktop\emars-pm-probe-20261024-140133\PROBE-REPORT.txt
-============================================================
+$worked = $false
+foreach ($ss in @($Subsite, '1', '00', '0')) {
+    if ([string]::IsNullOrEmpty($ss)) { continue }
+    $url = "$base/ecbm.ecbm_report_j.getAllChecklists?pSiteID=$SiteId&pSubsiteID=$ss&pAcronym=$Acronym"
+    Say ("  [subsite=$ss]  GET {0}" -f $url)
+    $r = Fetch -url $url -label "getAllChecklists ss=$ss"
+    if ($r.Ok) {
+        Save-Blob ("05-getAllChecklists-ss$ss.xml") $r.Content
+        $worked = $true
+        break
+    }
+}
+if (-not $worked) { Say '  all subsite variants failed' 'Yellow' }
+
+# ---------------------------------------------------------------
+# Section 6 — em_show_report?pReportID=CHECKLIST inspection
+# ---------------------------------------------------------------
+Say ''
+Say '------------------------------------------------------------' 'Cyan'
+Say 'SECTION 6 — em_show_report?pReportID=CHECKLIST (returned 3,270 chars)' 'Cyan'
+Say '------------------------------------------------------------' 'Cyan'
+
+$xmlKey = "<KEYLIST><TRACKNO>$TrackNo</TRACKNO></KEYLIST>"
+$xmlEnc = [System.Uri]::EscapeDataString($xmlKey)
+$url6   = "$base/em_show_report?pReportID=CHECKLIST&pUser=$UserId&pSite=$SiteId&pParamXML=$xmlEnc"
+Say ("  GET {0}" -f $url6)
+$r6 = Fetch -url $url6 -label 'em_show_report CHECKLIST'
+if ($r6.Ok) {
+    Save-Blob '06-em_show_report-CHECKLIST.html' $r6.Content
+    Say ''
+    Say '  First 800 chars:' 'Cyan'
+    $snip = $r6.Content; if ($snip.Length -gt 800) { $snip = $snip.Substring(0, 800) }
+    foreach ($ln in ($snip -split "`r?`n")) { Say ("    {0}" -f $ln) 'DarkGray' }
+}
+
+# ---------------------------------------------------------------
+# Section 7 — marker hits summary
+# ---------------------------------------------------------------
+Say ''
+Say '------------------------------------------------------------' 'Cyan'
+Say 'SECTION 7 — Every request that returned expected markers' 'Cyan'
+Say '------------------------------------------------------------' 'Cyan'
+
+if ($script:hits.Count -eq 0) {
+    Say '  none.' 'Yellow'
+} else {
+    Say ("  {0} hit(s):" -f $script:hits.Count) 'Green'
+    foreach ($h in $script:hits) {
+        Say ''
+        Say ("  [{0}]" -f $h.Label) 'Green'
+        Say ("    URL:      {0}" -f $h.Url)
+        Say ("    Markers:  {0}" -f ($h.Markers -join ', '))
+        Say ("    Length:   {0}" -f $h.Length)
+    }
+}
+
+Say ''
+Say '============================================================' 'Cyan'
+Say '  PROBE COMPLETE' 'Cyan'
+Say '============================================================' 'Cyan'
+Say ''
+Say '  Send back:' 'Cyan'
+Say '    - This report'
+Say '    - 02-ECBM_SUBMIT_LIST.js  (whole file — THE key file)' 'Cyan'
+Say '    - 06-em_show_report-CHECKLIST.html  (if saved)' 'Cyan'
+Say ''
+if ($script:hits.Count -gt 0) {
+    Say '  ✓ A URL with the correct format was found. Integration ready.' 'Green'
+} else {
+    Say '  ✗ No marker hits, but 02-ECBM_SUBMIT_LIST.js must contain' 'Yellow'
+    Say '    the "print checklist with task details" URL. Send it back.' 'Yellow'
+}
+
+$script:lines | Set-Content -Path $reportPath -Encoding UTF8
+
+Write-Host ''
+Write-Host "Saved to: $OutDir" -ForegroundColor Cyan
+Get-ChildItem -Path $OutDir -File | Sort-Object Name | ForEach-Object {
+    Write-Host ("  {0,-45}  {1,10:N0} bytes" -f $_.Name, $_.Length) -ForegroundColor DarkGray
+}
