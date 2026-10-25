@@ -907,9 +907,17 @@ function Apply-UiTheme {
     # Native chrome (title bar / frame / scrollbars) for top-level windows.
     if ($Root -is [System.Windows.Forms.Form]) {
         try {
+            # Capture the function as a CommandInfo local BEFORE the closure.
+            # Inside .GetNewClosure() the $script: scope is empty, so a bare
+            # call to Set-ThemeWindowChrome would not resolve at fire time.
+            $chromeFn = Get-Command -Name Set-ThemeWindowChrome -CommandType Function -ErrorAction SilentlyContinue
+
             if (-not $script:themeBase[$Root].ChromeWired) {
                 $Root.Add_HandleCreated({
-                    Set-ThemeWindowChrome -Form $Root
+                    param($sender, $e)
+                    try {
+                        if ($null -ne $chromeFn) { & $chromeFn -Form $sender }
+                    } catch { }
                 }.GetNewClosure())
                 $script:themeBase[$Root] | Add-Member -NotePropertyName 'ChromeWired' -NotePropertyValue $true -Force
             }
@@ -1128,6 +1136,11 @@ function New-DefaultConfigObject {
             PmChecklistsDirectory      = 'Work Tracking/PM Checklists'
             ReportsDirectory           = 'Work Tracking/Reports'
             eDacUrl                    = ''
+            EmarsOrigin                = 'http://emarssu3.eng.usps.gov'
+            EmarsUser                  = ''
+            EmarsSite                  = ''
+            EmarsSubsite               = '01'
+            EmarsFacId                 = ''
             ReactiveToWorkOrderMinutes = 15
             TechnicianName             = ''
             WorkBudget                 = [ordered]@{
@@ -1161,6 +1174,15 @@ function Initialize-Config {
             $config | Add-Member -NotePropertyName 'WorkTracking' -NotePropertyValue $defaults.WorkTracking
             Write-Log "Backfilled missing WorkTracking key."
         }
+        if ($config.WorkTracking) {
+            $wtDefaults = (New-DefaultConfigObject -Root $config.RootDirectory -ScriptsDir $PSScriptRoot).WorkTracking
+            foreach ($wtKey in @('EmarsOrigin', 'EmarsUser', 'EmarsSite', 'EmarsSubsite', 'EmarsFacId')) {
+                if (-not ($config.WorkTracking.PSObject.Properties.Name -contains $wtKey)) {
+                    $config.WorkTracking | Add-Member -NotePropertyName $wtKey -NotePropertyValue $wtDefaults.$wtKey
+                    Write-Log "Backfilled missing WorkTracking.$wtKey key."
+                }
+            }
+        }
         if (-not ($config.PSObject.Properties.Name -contains 'SupervisorEmail')) {
             $config | Add-Member -NotePropertyName 'SupervisorEmail' -NotePropertyValue 'default@example.com'
             Write-Log "Backfilled missing SupervisorEmail key."
@@ -1179,6 +1201,7 @@ function Initialize-Config {
 }
 
 $config = Initialize-Config
+$global:PMConfig = $config
 if ($config.PSObject.Properties['UiTheme'] -and "$($config.UiTheme)" -ne '') {
     $script:theme = "$($config.UiTheme)"
     # Migration: the old WindowsXP theme became the Postal theme.
@@ -1301,11 +1324,69 @@ function Test-WildcardMatch {
     return $result
 }
 
+function Get-SectionsForBook {
+    param([string]$BookName)
+
+    $out = @()
+    if ([string]::IsNullOrWhiteSpace($BookName)) { return ,$out }
+    # Read from the global so calls inside .GetNewClosure() see it.
+    $cfg = if ($global:PMConfig) { $global:PMConfig } else { $script:config }
+    if (-not $cfg -or -not $cfg.Books) { return ,$out }
+
+    $bookProp = $cfg.Books.PSObject.Properties[$BookName]
+    if (-not $bookProp) { return ,$out }
+
+    $volumesCsvPath = $bookProp.Value.VolumesToUrlCsvPath
+    $bookDir = if ($volumesCsvPath) { Split-Path -Path $volumesCsvPath -Parent }
+               else { Join-Path $cfg.PartsBooksDirectory $BookName }
+
+    $combinedDir = Join-Path $bookDir "CombinedSections"
+    if (-not (Test-Path $combinedDir)) { return ,$out }
+
+    $sectionNames = @{}
+    $sectionNamesFile = Join-Path $bookDir "SectionNames.txt"
+    if (Test-Path $sectionNamesFile) {
+        foreach ($line in (Get-Content -Path $sectionNamesFile)) {
+            if ($line -match '^Section\s+(\d+)\s+(.*)$') {
+                $sectionNames["Section $($matches[1])"] = $line.Trim()
+            }
+        }
+    }
+
+    $files = Get-ChildItem -Path $combinedDir -Filter "Section *.csv" -File |
+             Sort-Object -Property @{ Expression = {
+                 if ($_.BaseName -match '^Section (\d+)$') { [int]$matches[1] } else { 9999 }
+             }}
+
+    foreach ($f in $files) {
+        $key = $f.BaseName
+        $display = if ($sectionNames.ContainsKey($key)) { $sectionNames[$key] } else { $key }
+        $out += [PSCustomObject]@{ Key = $key; Display = $display; FilePath = $f.FullName }
+    }
+    return ,$out
+}
+
+function Get-SearchableBooks {
+    $books = @()
+    if (-not $script:config -or -not $script:config.Books) { return ,$books }
+    foreach ($bp in $script:config.Books.PSObject.Properties) {
+        $volumesCsvPath = $bp.Value.VolumesToUrlCsvPath
+        $bookDir = if ($volumesCsvPath) { Split-Path -Path $volumesCsvPath -Parent }
+                   else { Join-Path $script:config.PartsBooksDirectory $bp.Name }
+        if (Test-Path (Join-Path $bookDir "CombinedSections")) {
+            $books += $bp.Name
+        }
+    }
+    return ,$books
+}
+
 # Simple helper function to search parts
 function Search-Parts {
     param(
         [string]$NSN,
-        [string]$Description
+        [string]$Description,
+        [string]$BookFilter = '',
+        [string]$SectionFilter = ''
     )
 
     $results = @()
@@ -1347,7 +1428,8 @@ function Search-Parts {
     }
 
     # 1. Local Parts Room
-    $localFiles = Get-ChildItem -Path (Join-Path $config.PartsRoomDirectory "*.csv") -File
+    $cfg = if ($global:PMConfig) { $global:PMConfig } else { $config }
+    $localFiles = Get-ChildItem -Path (Join-Path $cfg.PartsRoomDirectory "*.csv") -File
     foreach ($f in $localFiles) {
         foreach ($row in (Import-Csv -Path $f.FullName)) {
             if ([int]$row.QTY -le 0) { continue }
@@ -1364,7 +1446,7 @@ function Search-Parts {
     }
 
     # 2. Same Day Parts Room
-    $sameDayDir = Join-Path $config.PartsRoomDirectory "Same Day Parts Room"
+    $sameDayDir = Join-Path $cfg.PartsRoomDirectory "Same Day Parts Room"
     if (Test-Path $sameDayDir) {
         foreach ($f in (Get-ChildItem -Path (Join-Path $sameDayDir "*.csv") -File)) {
             $siteName = [System.IO.Path]::GetFileNameWithoutExtension($f.Name)
@@ -1378,6 +1460,48 @@ function Search-Parts {
                     Location = $row.Location
                     OEMNumber = $row.'OEM 1'
                     Source = "$siteName (Same Day)"
+                }
+            }
+        }
+    }
+
+    # 3. Scoped Cross Reference (new)
+    if (-not [string]::IsNullOrWhiteSpace($BookFilter) -and
+        -not [string]::IsNullOrWhiteSpace($SectionFilter)) {
+
+        $crossTester = {
+            param($row)
+            $nsnOk = $true
+            if ($nsnPattern) {
+                $rowNSN = ([string]$row.'STOCK NO.') -replace '[^0-9]', ''
+                $nsnOk = $rowNSN -match $nsnPattern
+            }
+            $descOk = $true
+            if ($descTokens.Count -gt 0) {
+                $rowDesc = (([string]$row.'PART DESCRIPTION' -replace '[^A-Za-z0-9]', ' ').ToLower() -replace '\s+', ' ').Trim()
+                foreach ($t in $descTokens) {
+                    if (-not $rowDesc.Contains($t)) { $descOk = $false; break }
+                }
+            }
+            $nsnOk -and $descOk
+        }
+
+        $secs = Get-SectionsForBook -BookName $BookFilter
+        $match = $secs | Where-Object { $_.Key -eq $SectionFilter } | Select-Object -First 1
+        if ($match) {
+            try { $sectionData = Import-Csv -Path $match.FilePath }
+            catch { $sectionData = @() }
+
+            foreach ($row in @($sectionData)) {
+                if (-not (& $crossTester $row)) { continue }
+                $qty = 0; [void][int]::TryParse("$($row.QTY)", [ref]$qty)
+                $results += [PSCustomObject]@{
+                    PartNumber  = "$($row.'STOCK NO.')"
+                    Description = "$($row.'PART DESCRIPTION')"
+                    Quantity    = $qty
+                    Location    = "$($row.Location)"
+                    OEMNumber   = "$($row.'PART NO.')"
+                    Source      = "Book: $BookFilter / $SectionFilter"
                 }
             }
         }
@@ -5606,6 +5730,744 @@ function Import-PmChecklist {
     }
 }
 
+# ============================================================
+# Work Tracking — PM Checklist auto-fetch from eMARS (eCBM)
+# ============================================================
+#
+# The eCBM "print checklist with task details" popup is assembled
+# client-side (ECBM_SUBMIT_LIST.js) from several XML endpoints.
+# These helpers call the same endpoints directly and build the
+# identical canonical { Meta, Tasks } object that the paste parser
+# (ConvertFrom-PmChecklist) produces, so the rest of the PM pipeline
+# is unchanged.
+#
+# All calls below are plain GETs and read-only — nothing is ever
+# written back to eMARS.  Creating a checklist (when none is open)
+# is still done by the technician in eCBM, one click per machine.
+
+function Get-EmarsSetting {
+    # Reads one WorkTracking eMARS setting, '' when missing.
+    param([string]$Name)
+    $cfg = if ($global:PMConfig) { $global:PMConfig } else { $script:config }
+    if ($null -eq $cfg) { return '' }
+    $wt = $cfg.WorkTracking
+    if ($null -eq $wt) { return '' }
+    $p = $wt.PSObject.Properties[$Name]
+    if ($null -eq $p) { return '' }
+    return "$($p.Value)".Trim()
+}
+
+function Get-EmarsBaseUrl {
+    # eCBM lives under <origin>/pemars.
+    $origin = Get-EmarsSetting -Name 'EmarsOrigin'
+    if ([string]::IsNullOrWhiteSpace($origin)) { $origin = 'http://emarssu3.eng.usps.gov' }
+    return "$($origin.TrimEnd('/'))/pemars"
+}
+
+function Invoke-EmarsXmlGet {
+    # GETs an eCBM endpoint and parses the ROWSET XML.  Throws a
+    # friendly error when the endpoint is unreachable or returns
+    # something that isn't XML (sign-in page, error page, ...).
+    param(
+        [Parameter(Mandatory)][string]$Proc,   # e.g. 'ecbm.ecbm_checklist.getAChecklist'
+        [string]$Query,                        # e.g. 'p_machineid=827433&p_site=345'
+        [string]$Label = ''
+    )
+
+    $base = Get-EmarsBaseUrl
+    $url  = "$base/$Proc"
+    if (-not [string]::IsNullOrWhiteSpace($Query)) { $url += "?$Query" }
+    if ([string]::IsNullOrWhiteSpace($Label)) { $Label = $Proc }
+
+    $content = Invoke-PmHttpGet -Url $url -TimeoutSec 25
+    $content = "$content".Trim()
+
+    if ([string]::IsNullOrWhiteSpace($content)) {
+        throw "eMARS returned an empty response for $Label."
+    }
+    if ($content -notmatch '^\s*<\?xml' -and $content -notmatch '^\s*<\s*ROWSET') {
+        # HTML error page or redirect — keep it for diagnosis.
+        Save-DebugHtml -Html $content -Tag ("emars-" + ($Proc -replace '[^\w]', '_'))
+        throw "eMARS endpoint '$Label' did not return XML (response saved to Debug Dumps)."
+    }
+
+    $xml = New-Object System.Xml.XmlDocument
+    try {
+        $xml.LoadXml($content)
+    } catch {
+        Save-DebugHtml -Html $content -Tag ("emars-" + ($Proc -replace '[^\w]', '_'))
+        throw "Could not parse the XML returned by '$Label': $($_.Exception.Message)"
+    }
+    return $xml
+}
+
+function Get-EmarsRows {
+    # All ROW elements of a ROWSET document (or element).
+    # The unary comma preserves the array for single-row results
+    # (otherwise PowerShell unwraps it to the bare element).
+    param($Doc)
+    if ($null -eq $Doc) { return ,@() }
+    return ,@($Doc.SelectNodes('//ROW'))
+}
+
+function Get-EmarsElementText {
+    # Text of the Nth ELEMENT child of a ROW.  Whitespace text nodes
+    # are skipped, mirroring MSXML's default behaviour that
+    # ECBM_SUBMIT_LIST.js relies on for its childList[n] indexing.
+    param($Row, [int]$Index)
+    $i = 0
+    foreach ($child in $Row.ChildNodes) {
+        if ($child.NodeType -eq [System.Xml.XmlNodeType]::Element) {
+            if ($i -eq $Index) { return "$($child.InnerText)".Trim() }
+            $i++
+        }
+    }
+    return ''
+}
+
+function Get-EmarsFieldNode {
+    # Returns the element node for a field: by tag name when one of
+    # $Names matches, otherwise by child position ($Index), the same
+    # order eCBM's own JS uses.
+    param($Row, [string[]]$Names, [int]$Index)
+    foreach ($n in $Names) {
+        $node = $Row.SelectSingleNode("./$n")
+        if ($null -ne $node) { return $node }
+    }
+    $i = 0
+    foreach ($child in $Row.ChildNodes) {
+        if ($child.NodeType -eq [System.Xml.XmlNodeType]::Element) {
+            if ($i -eq $Index) { return $child }
+            $i++
+        }
+    }
+    return $null
+}
+
+function Get-EmarsField {
+    # Text of a field (see Get-EmarsFieldNode).
+    param($Row, [string[]]$Names, [int]$Index)
+    $node = Get-EmarsFieldNode -Row $Row -Names $Names -Index $Index
+    if ($null -eq $node) { return '' }
+    return "$($node.InnerText)".Trim()
+}
+
+function Get-EmarsMachineList {
+    # ecbm.ecbm_report_j.getAllChecklists -> machines for site+acronym.
+    # Returns PSCustomObjects {Ptr,No,Acronym,ClassCode,SiteName}.
+    # Several subsite values are tried because not every site uses '01'.
+    param([string]$Acronym)
+
+    $site = Get-EmarsSetting -Name 'EmarsSite'
+    if ([string]::IsNullOrWhiteSpace($site)) {
+        throw "eMARS Site ID is not configured. Set it under Settings -> Work Tracking."
+    }
+
+    $subsites = @()
+    $ss = Get-EmarsSetting -Name 'EmarsSubsite'
+    if (-not [string]::IsNullOrWhiteSpace($ss)) { $subsites += $ss }
+    foreach ($extra in @('01', '1', '00', '0')) {
+        if ($subsites -notcontains $extra) { $subsites += $extra }
+    }
+
+    $lastError = $null
+    foreach ($candidate in $subsites) {
+        try {
+            $xml = Invoke-EmarsXmlGet -Proc 'ecbm.ecbm_report_j.getAllChecklists' `
+                -Query "pSiteID=$site&pSubsiteID=$candidate&pAcronym=$Acronym" `
+                -Label "getAllChecklists($Acronym, subsite $candidate)"
+            $rows = Get-EmarsRows -Doc $xml
+            if ($rows.Count -eq 0) { continue }
+
+            $machines = @()
+            foreach ($r in $rows) {
+                $ptr      = Get-EmarsField -Row $r -Names @('machineid', 'MACHINEID', 'PTR') -Index 0
+                $no       = Get-EmarsField -Row $r -Names @('machineno', 'MACHINENO', 'NO') -Index 1
+                $acr      = Get-EmarsField -Row $r -Names @('machinetype', 'MACHINETYPE', 'ACRONYM') -Index 2
+                $cls      = Get-EmarsField -Row $r -Names @('classcode', 'CLASSCODE') -Index 3
+                $siteName = Get-EmarsField -Row $r -Names @('sitename', 'SITENAME') -Index 4
+                if ([string]::IsNullOrWhiteSpace($ptr)) { continue }
+                $machines += [PSCustomObject]@{
+                    Ptr       = $ptr
+                    No        = $no
+                    Acronym   = $acr
+                    ClassCode = $cls
+                    SiteName  = $siteName
+                }
+            }
+            if ($machines.Count -gt 0) { return $machines }
+        } catch {
+            $lastError = $_.Exception.Message
+            Write-Log "Get-EmarsMachineList: subsite $candidate failed — $lastError"
+        }
+    }
+    throw "Could not load the machine list for acronym '$Acronym'. $lastError"
+}
+
+function Get-EmarsUserList {
+    param([string]$SiteId = '')
+
+    if ([string]::IsNullOrWhiteSpace($SiteId)) { $SiteId = Get-EmarsSetting -Name 'EmarsSite' }
+    if ([string]::IsNullOrWhiteSpace($SiteId)) { throw "eMARS Site ID is not set." }
+
+    # Preferred path: ask eMARS.  This endpoint is a placeholder — if it
+    # 404s or returns HTML, we fall back to EmarsUsers.csv (below).
+    $users = @()
+    try {
+        $xml = Invoke-EmarsXmlGet -Proc 'ecbm.ecbm_user.getUsers' `
+            -Query "p_site=$SiteId" `
+            -Label "getUsers(site $SiteId)"
+        foreach ($row in (Get-EmarsRows -Doc $xml)) {
+            $userId = Get-EmarsField -Row $row -Names @('USERID','USER_ID','P_USER') -Index 0
+            $name   = Get-EmarsField -Row $row -Names @('USERNAME','FULLNAME','NAME') -Index 1
+            if ([string]::IsNullOrWhiteSpace($userId)) { continue }
+            $users += [PSCustomObject]@{
+                UserId = $userId
+                Name   = if ($name) { $name } else { $userId }
+            }
+        }
+        if ($users.Count -gt 0) { return ,$users }
+    } catch {
+        Write-Log "Get-EmarsUserList: eMARS endpoint failed — $($_.Exception.Message); trying CSV fallback."
+    }
+
+    # Fallback path: Dropdown CSVs\EmarsUsers.csv with header
+    #   Site ID,User ID,Full Name
+    $cfg = if ($global:PMConfig) { $global:PMConfig } else { $script:config }
+    if ($cfg) {
+        $csvPath = Join-Path $cfg.DropdownCsvsDirectory 'EmarsUsers.csv'
+        if (Test-Path $csvPath) {
+            try {
+                $rows = Import-Csv -Path $csvPath
+                foreach ($r in @($rows | Where-Object { "$($_.'Site ID')" -eq $SiteId })) {
+                    $uid = "$($r.'User ID')".Trim()
+                    if ([string]::IsNullOrWhiteSpace($uid)) { continue }
+                    $users += [PSCustomObject]@{
+                        UserId = $uid
+                        Name   = if ("$($r.'Full Name')".Trim()) { "$($r.'Full Name')".Trim() } else { $uid }
+                    }
+                }
+                if ($users.Count -gt 0) {
+                    Write-Log "Get-EmarsUserList: loaded $($users.Count) user(s) from EmarsUsers.csv for site $SiteId."
+                } else {
+                    Write-Log "Get-EmarsUserList: EmarsUsers.csv has no rows for site $SiteId."
+                }
+            } catch {
+                Write-Log "Get-EmarsUserList: EmarsUsers.csv read failed — $($_.Exception.Message)"
+            }
+        }
+    }
+    return ,$users
+}
+
+function Get-EmarsOpenChecklist {
+    # ecbm.ecbm_checklist.getOpenlist -> the machine's open checklist.
+    # Row children (per ECBM_SUBMIT_LIST.js): [0]=trackno, [4]=open_yn,
+    # [7]=created date.  Returns $null when no checklist is open.
+    # Tries a few p_facid values because the WHEP facility id is not
+    # always the same as the site id.
+    param([string]$MachinePtr, [string]$Acronym, [string]$ClassCode)
+
+    $site = Get-EmarsSetting -Name 'EmarsSite'
+    $fac  = Get-EmarsSetting -Name 'EmarsFacId'
+    if ([string]::IsNullOrWhiteSpace($fac)) { $fac = $site }
+
+    $queries = @()
+    $queries += "p_machine_id=$MachinePtr&p_site=$site&p_facid=$fac"
+    if ($fac -ne $site) { $queries += "p_machine_id=$MachinePtr&p_site=$site&p_facid=$site" }
+    $queries += "p_machine_id=$MachinePtr&p_site=$site"
+
+    $lastError = $null
+    foreach ($q in $queries) {
+        try {
+            $xml  = Invoke-EmarsXmlGet -Proc 'ecbm.ecbm_checklist.getOpenlist' -Query $q -Label "getOpenlist($MachinePtr)"
+            $rows = Get-EmarsRows -Doc $xml
+            if ($rows.Count -eq 0) { return $null }
+
+            $r       = $rows[0]
+            $trackno = Get-EmarsField -Row $r -Names @('TRACKNO', 'LISTNO', 'CHECKLIST_NO') -Index 0
+            $openYn  = Get-EmarsField -Row $r -Names @('OPEN_YN', 'OPENYN') -Index 4
+            $created = Get-EmarsField -Row $r -Names @('DATE_CREATED', 'CREATED', 'REQUEST_DATE', 'CHKLST_DATE') -Index 7
+
+            if ([string]::IsNullOrWhiteSpace($trackno)) { return $null }
+            if ($openYn -eq '0') { return $null }   # row exists but checklist is closed
+
+            return [PSCustomObject]@{
+                TrackNo     = $trackno
+                OpenYn      = $openYn
+                CreatedDate = $created
+            }
+        } catch {
+            $lastError = $_.Exception.Message
+            Write-Log "Get-EmarsOpenChecklist: query '$q' failed — $lastError"
+        }
+    }
+    throw "Could not query open checklists for machine $MachinePtr. $lastError"
+}
+
+function Get-EmarsMachineDesc {
+    # ecbm.ECBM_CHECKLIST.getMachineDesc -> plain-text equipment name.
+    param([string]$MachinePtr, [string]$Acronym, [string]$ClassCode)
+
+    $site = Get-EmarsSetting -Name 'EmarsSite'
+    $url  = "$(Get-EmarsBaseUrl)/ecbm.ECBM_CHECKLIST.getMachineDesc" +
+            "?p_machineid=$MachinePtr&p_siteid=$site&p_acronym=$Acronym&p_classcode=$ClassCode"
+    $content = Invoke-PmHttpGet -Url $url -TimeoutSec 25
+
+    $desc = "$content".Trim()
+    $desc = $desc -replace '(?s)<[^>]+>', ' '          # may come back as an HTML fragment
+    $desc = [System.Net.WebUtility]::HtmlDecode($desc)
+    $desc = ($desc -replace '\s+', ' ').Trim()
+    return $desc
+}
+
+function Test-EmarsConnection {
+    # Smoke-tests the eCBM endpoints used by the PM checklist fetch
+    # (all read-only GETs).  Returns an array of result lines and
+    # logs each step — handy for a first run from the USPS intranet.
+    $results = @()
+
+    $site = Get-EmarsSetting -Name 'EmarsSite'
+    if ([string]::IsNullOrWhiteSpace($site)) {
+        return ,@("eMARS Site ID is not set — fill it in (and save) first.")
+    }
+
+    # 1) bypass codes — parameterless, pure reachability check.
+    try {
+        $xml = Invoke-EmarsXmlGet -Proc 'ecbm.ecbm_checklist.getBypassCodes' -Label 'getBypassCodes (test)'
+        $n = (Get-EmarsRows -Doc $xml).Count
+        $results += "getBypassCodes: OK ($n code(s))"
+    } catch {
+        $results += "getBypassCodes: FAILED — $($_.Exception.Message)"
+    }
+
+    # 2) machine list — needs Site + Subsite + an acronym.
+    $acr = 'DBCS'
+    try {
+        $machinesCsv = $script:config.PrerequisiteFiles.Machines
+        if ([string]::IsNullOrWhiteSpace($machinesCsv)) {
+            $machinesCsv = Join-Path $script:config.DropdownCsvsDirectory 'Machines.csv'
+        }
+        if (Test-Path $machinesCsv) {
+            $first = Import-Csv -Path $machinesCsv | Select-Object -First 1
+            $a = "$($first.'Machine Acronym')".Trim()
+            if ($a) { $acr = $a.ToUpper() }
+        }
+    } catch {
+        Write-Log "Test-EmarsConnection: could not read Machines.csv ($($_.Exception.Message))"
+    }
+
+    try {
+        $machines = @(Get-EmarsMachineList -Acronym $acr)
+        $results += "getAllChecklists($acr): OK ($($machines.Count) machine(s))"
+
+        $m = $machines | Select-Object -First 1
+        if ($null -ne $m) {
+            # 3) open checklist for the first machine.
+            try {
+                $open = Get-EmarsOpenChecklist -MachinePtr $m.Ptr -Acronym $m.Acronym -ClassCode $m.ClassCode
+                if ($null -eq $open) {
+                    $results += "getOpenlist($($m.Acronym) $($m.No)): OK (no open checklist right now — normal)"
+                } else {
+                    $results += "getOpenlist($($m.Acronym) $($m.No)): OK (checklist $($open.TrackNo))"
+
+                    # 4) task rows for that checklist (full chain).
+                    try {
+                        $siteId = Get-EmarsSetting -Name 'EmarsSite'
+                        $tXml = Invoke-EmarsXmlGet -Proc 'ecbm.ecbm_checklist.getAChecklist' `
+                            -Query "p_machineid=$($m.Ptr)&p_machinetype=$($m.Acronym)&p_classcode=$($m.ClassCode)&p_site=$siteId&p_trackno=$($open.TrackNo)" `
+                            -Label "getAChecklist($($open.TrackNo)) (test)"
+                        $tRows = Get-EmarsRows -Doc $tXml
+                        $results += "getAChecklist($($open.TrackNo)): OK ($($tRows.Count) task(s))"
+                    } catch {
+                        $results += "getAChecklist($($open.TrackNo)): FAILED — $($_.Exception.Message)"
+                    }
+                }
+            } catch {
+                $results += "getOpenlist($($m.Acronym) $($m.No)): FAILED — $($_.Exception.Message)"
+            }
+        }
+    } catch {
+        $results += "getAllChecklists($acr): FAILED — $($_.Exception.Message)"
+    }
+
+    return ,$results
+}
+
+function ConvertTo-PmDateStamp {
+    # Normalizes eCBM date strings to 'yyyy-MM-dd'; $null when the
+    # text cannot be parsed.
+    param([string]$Text)
+    $t = "$Text".Trim()
+    if ([string]::IsNullOrWhiteSpace($t)) { return $null }
+
+    $formats = @('M/d/yyyy', 'MM/dd/yyyy', 'yyyy-MM-dd', 'M/d/yy', 'yyyyMMdd')
+    try { return ([DateTime]$t).ToString('yyyy-MM-dd') } catch {}
+    foreach ($f in $formats) {
+        try {
+            return [DateTime]::ParseExact($t, $f, [System.Globalization.CultureInfo]::InvariantCulture).ToString('yyyy-MM-dd')
+        } catch {}
+    }
+    return $null
+}
+
+function ConvertFrom-EmarsChecklistXml {
+    # Converts getAChecklist ROW nodes to the canonical
+    # { Meta, Tasks } shape produced by ConvertFrom-PmChecklist.
+    #
+    # Field order mirrors ECBM_SUBMIT_LIST.js buildPMTasksNew():
+    #   [0]=stepid  [1]=component  [2]=instruction html  [3]=-
+    #   [4]=note    [5]=minutes    [6]=-                 [7]=skill
+    #   [8]=power on/off  [9]=preroute  [10]=due date    [11]=status
+    #   [12]=D2L    [13]=route type [14]=per-unit  [15]=item no
+    #   [16]=category  [17]=critical
+    param(
+        [object[]]$Rows,
+        [string]$Acronym,
+        [string]$MachinePtr,
+        [string]$MachineNo,
+        [string]$ClassCode,
+        [string]$SiteName,
+        [string]$TrackNo,
+        [string]$CreatedDate,
+        [string]$MachineDesc
+    )
+
+    # Bypass codes are shown comma-joined on every row of the real
+    # popup; fetch the same list (best effort — not fatal if it fails).
+    $bypassCodes = ''
+    try {
+        $bcXml = Invoke-EmarsXmlGet -Proc 'ecbm.ecbm_checklist.getBypassCodes' -Label 'getBypassCodes'
+        $codes = @()
+        foreach ($bcRow in (Get-EmarsRows -Doc $bcXml)) {
+            $code = Get-EmarsElementText -Row $bcRow -Index 0
+            if (-not [string]::IsNullOrWhiteSpace($code)) { $codes += $code }
+        }
+        $bypassCodes = ($codes -join ',')
+    } catch {
+        Write-Log "PM fetch: bypass codes unavailable ($($_.Exception.Message))"
+    }
+
+    $tasks   = @()
+    $estOpen = 0.0
+    $estDue  = 0.0
+
+    foreach ($r in $Rows) {
+        $rowStatus = (Get-EmarsField -Row $r -Names @('STATUS', 'TASKSTATUS') -Index 11).ToLower()
+
+        $minutes = 0
+        $minTxt  = Get-EmarsField -Row $r -Names @('MINUTES', 'ESTMINUTES') -Index 5
+        if ($minTxt -match '[\d.]+') { $minutes = [int][double]$matches[0] }
+
+        $d2l = 9999
+        $d2lTxt = Get-EmarsField -Row $r -Names @('D2L', 'DAYSTOLIVE') -Index 12
+        if ($d2lTxt -match '[\d.-]+') { $d2l = [double]$matches[0] }
+
+        # Est totals count pending tasks only, like the eCBM popup.
+        if ($rowStatus -eq 'pending') {
+            $estOpen += $minutes
+            if ($d2l -le 1) { $estDue += $minutes }
+        }
+
+        $powerRaw = (Get-EmarsField -Row $r -Names @('POWERONOFF') -Index 8).ToUpper()
+        $power = 'Power Off'
+        if ($powerRaw -match 'ON') { $power = 'Power On' }
+
+        # Instruction: the STEP element holds HTML-encoded markup.
+        # InnerText resolves the entities while keeping the markup.
+        $instNode = Get-EmarsFieldNode -Row $r -Names @('STEP', 'INSTRUCTION') -Index 2
+        $instHtml = ''
+        if ($null -ne $instNode) {
+            $instHtml = $instNode.InnerText
+            if ($instHtml -notmatch '<') {
+                $instHtml = [System.Net.WebUtility]::HtmlDecode($instNode.InnerXml)
+            }
+            $instHtml = $instHtml -replace '&#0?39;', "'"
+        }
+
+        $instText = $instHtml -replace '(?i)<br\s*/?>', "`n"
+        $instText = $instText -replace '(?i)</(p|li|ol|ul|div|h\d)>', "`n"
+        $instText = $instText -replace '(?s)<[^>]+>', ''
+        $instText = [System.Net.WebUtility]::HtmlDecode($instText)
+        $instText = $instText -replace '[ \t]+', ' '
+        $instText = ($instText -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne '' }) -join "`n"
+
+        # The popup shows "COMPONENT - CATEGORY" in one cell.
+        $component = Get-EmarsField -Row $r -Names @('COMPONENT', 'PARTDESC', 'COMPONENTDESC') -Index 1
+        $cat       = Get-EmarsField -Row $r -Names @('CAT', 'CATEGORY') -Index 16
+        if (-not [string]::IsNullOrWhiteSpace($cat) -and $component -notmatch ([regex]::Escape(" - $cat") + '$')) {
+            $component = "$component - $cat"
+        }
+
+        $itemNo   = Get-EmarsField -Row $r -Names @('ITEMNO', 'MMOITEMNO', 'TASKITEMNO') -Index 15
+        $skill    = Get-EmarsField -Row $r -Names @('SKILLDESC', 'SKILL') -Index 7
+        $dueDate  = Get-EmarsField -Row $r -Names @('DATE_DUE', 'DUEDATE') -Index 10
+
+        $tasks += [PSCustomObject]@{
+            PowerState      = $power
+            ItemNo          = $itemNo
+            Component       = $component
+            EstTimeMin      = $minutes
+            MinSkillLevel   = $skill
+            BypassCode      = $bypassCodes
+            DueDate         = $dueDate
+            InstructionText = $instText
+            InstructionHtml = $instHtml
+        }
+    }
+
+    $checklistDate = ConvertTo-PmDateStamp -Text $CreatedDate
+    if ([string]::IsNullOrWhiteSpace($checklistDate)) {
+        $checklistDate = (Get-Date).ToString('yyyy-MM-dd')
+    }
+
+    $meta = [PSCustomObject]@{
+        ChecklistNo      = "$TrackNo"
+        Skills           = 'All'
+        GeneratedOn      = (Get-Date).ToString('MM/dd/yyyy HH:mm:ss')
+        WorkCode         = '24'
+        Acronym          = "$Acronym"
+        ClassCode        = "$ClassCode"
+        IdNumber         = "$MachinePtr"
+        Type             = 'Preventive Maintenance'
+        EquipmentNo      = "$MachineNo"
+        SiteName         = "$SiteName"
+        ChecklistDate    = $checklistDate
+        EstOpenHours     = [Math]::Round($estOpen / 60.0, 2)
+        EstDueTodayHours = [Math]::Round($estDue / 60.0, 2)
+    }
+
+    return [PSCustomObject]@{
+        Meta  = $meta
+        Tasks = $tasks
+    }
+}
+
+function ConvertTo-EmarsChecklistHtml {
+    # Renders the canonical checklist back into popup-style HTML that
+    # mirrors the eCBM "print checklist with task details" window.
+    # The archived .html file stays human-readable and re-parses
+    # through the same paste parser if it ever needs to.
+    param($Meta, $Tasks)
+
+    function Escape-Html {
+        param([string]$S)
+        $S = "$S" -replace '&', '&amp;'
+        $S = $S -replace '<', '&lt;'
+        $S = $S -replace '>', '&gt;'
+        return $S
+    }
+
+    $sb = New-Object System.Text.StringBuilder
+    [void]$sb.AppendLine('<html><head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head><body>')
+    [void]$sb.AppendLine('<table align="center" width="790">')
+    [void]$sb.AppendLine("<tr id=`"title`"><th align=`"center`">$($Meta.Acronym) PM Checklist</th></tr>")
+    [void]$sb.AppendLine("<tr align=`"center`" style=`"font-size:80%;`"><td>(<b>Checklist No. :</b> $($Meta.ChecklistNo), <b>Skill(s) :</b> $($Meta.Skills), <b>Time :</b>$($Meta.GeneratedOn))</td></tr>")
+    [void]$sb.AppendLine('</table>')
+    [void]$sb.AppendLine('<br>')
+
+    # --- formal MMO header (mirrors buildFormalHeader in eCBM) ---
+    [void]$sb.AppendLine('<table cellspacing="0" cellpadding="0" border="1" rules="none" align="center" width="790">')
+    [void]$sb.AppendLine('<tr><td width="40%" align="center" height="100%">' +
+        '<table cellspacing="0" cellpadding="0" border="1" rules="none" align="center" height="100%" width="100%">' +
+        '<tr align="center"><td valign="top">U.S. Postal Service</td></tr>' +
+        '<tr align="center"><td valign="middle"><H3>Maintenance Checklist</h3></td></tr>' +
+        '</table></td>' +
+        '<td align="center" width="60%" height="100%">' +
+        '<table cellspacing="0" cellpadding="0" border="1" rules="" align="center" height="100%" width="100%">' +
+        '<tr align="center"><td colspan="5">IDENTIFICATION</td></tr>' +
+        '<tr align="center"><td>Work Code</td><td>Equipment Acronym</td><td>Class Code</td><td>ID</td><td>Type</td></tr>' +
+        "<tr align=`"center`"><th>$($Meta.WorkCode)</th><th>$($Meta.Acronym)</th><th>$($Meta.ClassCode)</th><th>$($Meta.IdNumber)</th><th>$($Meta.Type)</th></tr>" +
+        '</table></td></tr>')
+    [void]$sb.AppendLine('<tr><td width="40%" align="center" height="100%">' +
+        '<table cellspacing="0" cellpadding="0" border="1" rules="none" align="center" height="100%" width="100%">' +
+        '<tr align="left"><td valign="top">Equipment Nomenclature</td></tr>' +
+        "<tr align=`"center`"><td valign=`"bottom`"><H5>$($Meta.Type)</h5></td></tr>" +
+        '</table></td>' +
+        '<td align="center" width="60%" height="100%">' +
+        '<table cellspacing="0" cellpadding="0" border="1" rules="cols" align="center" height="100%" width="100%">' +
+        '<tr align="left" valign="top"><td>Eq`t No.</td><td>Site Name</td><td>Checklist Date</td></tr>' +
+        "<tr align=`"center`"><th>$($Meta.EquipmentNo)</th><th>$($Meta.SiteName)</th><th>$($Meta.ChecklistDate)</th></tr>" +
+        '</table></td></tr>')
+    [void]$sb.AppendLine('</table>')
+    [void]$sb.AppendLine('<br>')
+
+    # --- task tables (Power Off, then Power On) ---
+    $taskHeader = '<table cellspacing="0" cellpadding="0" border="2" rules="all" align="center" width="790">' +
+        '<tr><th width="5%" align="center" height="100%">Item No</th>' +
+        '<th width="10%" align="center" height="100%">Part or Component</th>' +
+        '<th width="5%" align="center" height="100%">Est. Time Req`d (min)</th>' +
+        '<th width="5%" align="center" height="100%">Min. Skill Level</th>' +
+        '<th width="5%" align="center" height="100%">Task Bypass Code</th>' +
+        '<th width="5%" align="center" height="100%">Due Date</th>' +
+        '<th width="65%" align="center" height="100%">Task Statement and Instruction <br>(Comply with all current safety precautions)</th></tr>'
+
+    foreach ($power in @('Power Off', 'Power On')) {
+        $subset = @($Tasks | Where-Object { $_.PowerState -eq $power })
+        [void]$sb.AppendLine($taskHeader)
+        if ($subset.Count -eq 0) {
+            [void]$sb.AppendLine("<tr align=`"center`"><th colspan=`"7`">No $($power.ToLower()) tasks required at this time.</th></tr>")
+        } else {
+            foreach ($t in $subset) {
+                [void]$sb.AppendLine("<tr bgcolor=`"#E6E6E6`" valign=`"top`">" +
+                    "<td width=`"5%`" align=`"right`">$(Escape-Html $t.ItemNo)</td>" +
+                    "<td width=`"10%`" height=`"100%`" align=`"left`">$(Escape-Html $t.Component)</td>" +
+                    "<td width=`"5%`" align=`"right`">$($t.EstTimeMin)</td>" +
+                    "<td width=`"5%`" align=`"left`">$(Escape-Html $t.MinSkillLevel)</td>" +
+                    "<td width=`"5%`" align=`"left`">$(Escape-Html $t.BypassCode)</td>" +
+                    "<td width=`"5%`" height=`"100%`" align=`"right`">$(Escape-Html $t.DueDate)</td>" +
+                    "<td width=`"65%`" align=`"left`">$($t.InstructionHtml)</td>" +
+                    '</tr>')
+            }
+        }
+        [void]$sb.AppendLine('</table>')
+        [void]$sb.AppendLine('<br>')
+    }
+
+    # --- totals (mirrors the userInfo block) ---
+    [void]$sb.AppendLine('<table cellspacing="2" cellpadding="3" border="0" align="center" width="600">')
+    [void]$sb.AppendLine("<tr valign=`"middle`"><td><b>Est. Time Req`d  <br />    for All Open Tasks:</b>&nbsp;$($Meta.EstOpenHours) (hours) &nbsp;" +
+        "<br /><b>Est. Time Req`d  <br />    for Tasks Due Today:</b> &nbsp;$($Meta.EstDueTodayHours) (hours) &nbsp;</td>" +
+        '<td><b>Actual Time Spent: ________</b>(hours)</td></tr>')
+    [void]$sb.AppendLine('</table>')
+    [void]$sb.AppendLine('</body></html>')
+
+    return $sb.ToString()
+}
+
+function Import-PmChecklistFromEmars {
+    # Fetches one machine's PM checklist from eMARS (read-only),
+    # converts it to the canonical structure and archives it exactly
+    # like Import-PmChecklist does.  Returns the same summary shape.
+    #
+    # Resolution order for the checklist to fetch:
+    #   1. $TrackNo when given — the Weekly Worksheet's "Reg-WO No"
+    #      column holds the PM checklist number, so a worksheet row's
+    #      WorkOrderNo value is used first.
+    #   2. The machine's open checklist (getOpenlist).
+    param(
+        [Parameter(Mandatory)][object]$Machine,   # {Ptr,No,Acronym,ClassCode,SiteName}
+        [string]$TrackNo = '',
+        [string]$WorksheetChecklistNo = ''
+    )
+
+    $acr  = "$($Machine.Acronym)".Trim().ToUpper()
+    $ptr  = "$($Machine.Ptr)".Trim()
+    $cls  = "$($Machine.ClassCode)".Trim()
+    $mno  = "$($Machine.No)".Trim()
+    $site = "$($Machine.SiteName)".Trim()
+
+    if ([string]::IsNullOrWhiteSpace($acr) -or [string]::IsNullOrWhiteSpace($ptr)) {
+        throw "Machine row is missing acronym or machine id."
+    }
+
+    $siteId = Get-EmarsSetting -Name 'EmarsSite'
+
+    $open = $null
+
+    # 1a) Explicit checklist number from the worksheet's Reg-WO No column.
+    $wsNo = "$TrackNo".Trim()
+    if ($wsNo -match '^\d+$') {
+        try {
+            $xml = Invoke-EmarsXmlGet -Proc 'ecbm.ecbm_checklist.getAChecklist' `
+                -Query "p_machineid=$ptr&p_machinetype=$acr&p_classcode=$cls&p_site=$siteId&p_trackno=$wsNo" `
+                -Label "getAChecklist($wsNo)"
+            $wsRows = Get-EmarsRows -Doc $xml
+            if ($wsRows.Count -gt 0) {
+                $open = [PSCustomObject]@{ TrackNo = $wsNo; CreatedDate = ''; Rows = $wsRows; Source = 'worksheet' }
+            }
+        } catch {
+            Write-Log "Import-PmChecklistFromEmars: worksheet no $wsNo failed — $($_.Exception.Message)"
+        }
+    }
+
+    # 1b) Fall back to the machine's open checklist.
+    if ($null -eq $open) {
+        $openList = Get-EmarsOpenChecklist -MachinePtr $ptr -Acronym $acr -ClassCode $cls
+        if ($null -ne $openList) {
+            $open = [PSCustomObject]@{ TrackNo = $openList.TrackNo; CreatedDate = $openList.CreatedDate; Rows = $null; Source = 'open' }
+        }
+    }
+
+    if ($null -eq $open) {
+        if ("$WorksheetChecklistNo".Trim() -eq '000') {
+            throw "No checklist for $acr $mno yet (worksheet shows Checklist No. 000).`r`n`r`nOpen eCBM, click [Checklist] for this machine once,`r`nthen fetch again. This app never creates checklists on eMARS."
+        }
+        throw "No open checklist for $acr $mno in eMARS.`r`n`r`nOpen eCBM, click [Checklist] for this machine (one click),`r`nthen fetch again. This app never creates checklists on eMARS."
+    }
+
+    # 2) Task rows for that checklist.
+    if ($null -eq $open.Rows) {
+        $xml = Invoke-EmarsXmlGet -Proc 'ecbm.ecbm_checklist.getAChecklist' `
+            -Query "p_machineid=$ptr&p_machinetype=$acr&p_classcode=$cls&p_site=$siteId&p_trackno=$($open.TrackNo)" `
+            -Label "getAChecklist($($open.TrackNo))"
+        $rows = Get-EmarsRows -Doc $xml
+    } else {
+        $rows = $open.Rows
+    }
+    if ($rows.Count -eq 0) {
+        throw "Checklist $($open.TrackNo) for $acr $mno contains no task rows."
+    }
+
+    # Diagnostic: log the actual element order of a getAChecklist row.
+    # If the positional mapping ever drifts from eCBM's JS, this line
+    # in UI.log shows the real field names immediately.
+    $rowFields = @($rows[0].ChildNodes | Where-Object { $_.NodeType -eq [System.Xml.XmlNodeType]::Element } | ForEach-Object { $_.Name }) -join ','
+    Write-Log "getAChecklist($($open.TrackNo)) ROW field order: $rowFields"
+
+    # 3) Machine description (best effort — not fatal).
+    $desc = ''
+    try {
+        $desc = Get-EmarsMachineDesc -MachinePtr $ptr -Acronym $acr -ClassCode $cls
+    } catch {
+        Write-Log "PM fetch: machine description unavailable ($($_.Exception.Message))"
+    }
+
+    # 4) Canonical object + archive (same layout as Import-PmChecklist).
+    $parsed = ConvertFrom-EmarsChecklistXml -Rows $rows -Acronym $acr -MachinePtr $ptr `
+        -MachineNo $mno -ClassCode $cls -SiteName $site -TrackNo $open.TrackNo `
+        -CreatedDate $open.CreatedDate -MachineDesc $desc
+
+    $dateStamp = "$($parsed.Meta.ChecklistDate)"
+    if ([string]::IsNullOrWhiteSpace($dateStamp)) { $dateStamp = (Get-Date).ToString('yyyy-MM-dd') }
+
+    $archiveDir = Get-PmArchiveDir   # flat
+
+    $acrSafe = ($acr -replace '[^\w]', '')
+    $mnoSafe = ($mno -replace '[^\w]', '')
+    $cnSafe  = ("$($parsed.Meta.ChecklistNo)" -replace '[^\w]', '')
+    if ([string]::IsNullOrWhiteSpace($acrSafe)) { $acrSafe = 'UNKNOWN' }
+    if ([string]::IsNullOrWhiteSpace($mnoSafe)) { $mnoSafe = '0' }
+    if ([string]::IsNullOrWhiteSpace($cnSafe))  { $cnSafe  = '0' }
+
+    $baseName = "${acrSafe}_${mnoSafe}_${cnSafe}_${dateStamp}"
+    $htmlPath = Join-Path $archiveDir "$baseName.html"
+    $jsonPath = Join-Path $archiveDir "$baseName.json"
+
+    $html = ConvertTo-EmarsChecklistHtml -Meta $parsed.Meta -Tasks $parsed.Tasks
+    [System.IO.File]::WriteAllText($htmlPath, $html, (New-Object System.Text.UTF8Encoding($false)))
+    $parsed | ConvertTo-Json -Depth 12 | Set-Content -Path $jsonPath -Encoding UTF8
+
+    Write-Log "Imported PM Checklist from eMARS: $baseName -> $archiveDir"
+
+    return [PSCustomObject]@{
+        MachineId     = "$($parsed.Meta.Acronym) $($parsed.Meta.EquipmentNo)"
+        Acronym       = $parsed.Meta.Acronym
+        Mno           = $parsed.Meta.EquipmentNo
+        ChecklistNo   = $parsed.Meta.ChecklistNo
+        ChecklistDate = $parsed.Meta.ChecklistDate
+        DateStamp     = $dateStamp
+        GeneratedOn   = $parsed.Meta.GeneratedOn
+        Skills        = $parsed.Meta.Skills
+        EstOpen       = $parsed.Meta.EstOpenHours
+        EstDueToday   = $parsed.Meta.EstDueTodayHours
+        TaskCount     = @($parsed.Tasks).Count
+        HtmlPath      = $htmlPath
+        JsonPath      = $jsonPath
+        Parsed        = $parsed
+    }
+}
+
 function Load-PmMachines {
     # Scans the flat archive for all *.json, returns everything sorted by
     # checklist date desc (newest first).  Each entry carries a real
@@ -6032,6 +6894,30 @@ function Show-PmTaskTimerForm {
     $cancelTimerBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
     $cancelTimerBtn.Visible = $false
     $form.Controls.Add($cancelTimerBtn)
+	
+	$startBtn = New-Object System.Windows.Forms.Button
+	$startBtn.Text = "Start Timer"
+	$startBtn.Size = New-Object System.Drawing.Size(140, 44)
+	$startBtn.Location = New-Object System.Drawing.Point(180, 246)
+	$startBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+	$startBtn.FlatAppearance.BorderSize = 0
+	$startBtn.BackColor = [System.Drawing.Color]::FromArgb(52,152,219)
+	$startBtn.ForeColor = [System.Drawing.Color]::White
+	$startBtn.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+	$startBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+	$startBtn.Visible = $false
+	$form.Controls.Add($startBtn)
+
+	$startBtn.Add_Click({
+		try {
+			$curEntry = $Machine.State[$taskId]
+			if ((Get-PmTaskTimerState -Entry $curEntry) -eq 'idle') {
+				Start-PmTaskTimer -Machine $Machine -Task $Task
+				Refresh-PmTaskRow -Machine $Machine -Task $Task
+			}
+			& $refreshDisplay
+		} catch { Write-Log "PM Start Timer error: $($_.Exception.Message)" }
+	}.GetNewClosure())
 
     $lblHint = New-Object System.Windows.Forms.Label
     $lblHint.Text = "Closing this window keeps the timer running — click the timer column again to reopen. Finish logs the time; Cancel discards it."
@@ -6077,6 +6963,7 @@ function Show-PmTaskTimerForm {
                 $pauseResumeBtn.Text = "Pause"; $pauseResumeBtn.BackColor = [System.Drawing.Color]::FromArgb(243,156,18)
                 $pauseResumeBtn.Visible = $true; $finishBtn.Visible = $true
                 $resetBtn.Visible = $false; $cancelTimerBtn.Visible = $true
+				$startBtn.Visible = $false
             }
             'paused' {
                 $lblState.Text = "Paused"; $lblState.ForeColor = [System.Drawing.Color]::FromArgb(243,156,18)
@@ -6084,19 +6971,22 @@ function Show-PmTaskTimerForm {
                 $pauseResumeBtn.Text = "Resume"; $pauseResumeBtn.BackColor = [System.Drawing.Color]::FromArgb(52,152,219)
                 $pauseResumeBtn.Visible = $true; $finishBtn.Visible = $true
                 $resetBtn.Visible = $false; $cancelTimerBtn.Visible = $true
+				$startBtn.Visible = $false
             }
             'finished' {
                 $lblState.Text = "Finished"; $lblState.ForeColor = [System.Drawing.Color]::FromArgb(39,174,96)
                 $lblElapsed.ForeColor = [System.Drawing.Color]::FromArgb(90,100,115)
                 $pauseResumeBtn.Visible = $false; $finishBtn.Visible = $false
                 $resetBtn.Visible = $true; $cancelTimerBtn.Visible = $false
+				$startBtn.Visible = $false
             }
-            default {
-                $lblState.Text = "Idle"; $lblState.ForeColor = [System.Drawing.Color]::FromArgb(120,130,145)
-                $lblElapsed.ForeColor = [System.Drawing.Color]::FromArgb(160,160,160)
-                $pauseResumeBtn.Visible = $false; $finishBtn.Visible = $false
-                $resetBtn.Visible = $false; $cancelTimerBtn.Visible = $false
-            }
+			default {
+				$lblState.Text = "Idle — not started"; $lblState.ForeColor = [System.Drawing.Color]::FromArgb(120,130,145)
+				$lblElapsed.ForeColor = [System.Drawing.Color]::FromArgb(160,160,160)
+				$pauseResumeBtn.Visible = $false; $finishBtn.Visible = $false
+				$resetBtn.Visible = $false; $cancelTimerBtn.Visible = $false
+				$startBtn.Visible = $true
+			}
         }
 
         $info = @()
@@ -7470,6 +8360,9 @@ function Show-BreakEditor {
 function Get-JobById {
     param([string]$JobId)
     if ([string]::IsNullOrWhiteSpace($JobId)) { return $null }
+    if ($script:wtJobs) {
+        foreach ($j in @($script:wtJobs)) { if ("$($j.id)" -eq $JobId) { return $j } }
+    }
     foreach ($j in @(Get-Jobs)) { if ("$($j.id)" -eq $JobId) { return $j } }
     return $null
 }
@@ -7632,16 +8525,10 @@ function Show-JobTimerForm {
             $existing.WindowState = 'Normal'; $existing.Activate(); $existing.BringToFront(); return
         }
     }
-    $job = Get-JobById -JobId $JobId
-    if ($null -eq $job) { return }
-    # Opening the window always means the timer should be live (same behavior
-    # as the PM task timer). If it is idle, start it now so the Pause / Finish
-    # / Cancel controls are all available.
-    if ((Get-JobTimerState -Job $job) -eq 'idle') {
-        Start-JobTimer -JobId $JobId
-        $job = Get-JobById -JobId $JobId
-    }
-    $kindLabel = if ("$($job.kind)" -eq 'workorder') { 'Work Order' } else { 'Reactive Call' }
+	$job = Get-JobById -JobId $JobId
+	if ($null -eq $job) { return }
+	# Do NOT auto-start. The user clicks Start Timer inside the form.
+	$kindLabel = if ("$($job.kind)" -eq 'workorder') { 'Work Order' } else { 'Reactive Call' }
 
     $form = New-Object System.Windows.Forms.Form
     $form.Text = "Timer — $($job.machineId) ($kindLabel)"
@@ -8223,12 +9110,8 @@ function Setup-JobLogSubTab {
                     $existing.WindowState = 'Normal'; $existing.Activate(); $existing.BringToFront(); return
                 }
             }
-            if ((Get-JobTimerState -Job $job) -eq 'idle') {
-                Start-JobTimer -JobId $jobId
-                Refresh-WorkBudget
-            }
-            Write-Log "Job timer column clicked: id=$jobId"
-            Show-JobTimerForm -JobId $jobId
+			Write-Log "Job timer column clicked: id=$jobId"
+			Show-JobTimerForm -JobId $jobId
         } catch {
             Write-Log "Job timer column click error: $($_.Exception.Message)"
         }
@@ -8609,6 +9492,310 @@ function Show-PmChecklistPasteDialog {
     return $form.Tag
 }
 
+function Get-WorksheetPmRows {
+    # PM rows of the Weekly Worksheet for a date: RowType A/B with a
+    # numeric equipment number.  Returns an array of row objects
+    # (preserving the array even when empty).
+    param([DateTime]$Date)
+
+    $ws = Get-WeeklyWorksheet -Date $Date
+    if ($null -eq $ws) { return ,@() }
+
+    $rows = @()
+    foreach ($row in @($ws.Rows)) {
+        if ("$($row.RowType)" -notin @('A', 'B')) { continue }
+        $mno = "$($row.Equipment)".Trim()
+        $mnoInt = 0
+        if (-not [int]::TryParse($mno, [ref]$mnoInt)) { continue }
+        $rows += $row
+    }
+    return ,$rows
+}
+
+function Show-PmFetchEmarsDialog {
+    # Worksheet-driven picker.  Reads the Weekly Worksheet for the PM
+    # tab's selected date, matches its PM rows (RowType A/B) against
+    # the eMARS machine list, and fetches those checklists (read-only).
+    # The checklist number comes from the worksheet's "Reg-WO No"
+    # column (stored as WorkOrderNo); when that number does not
+    # resolve, the machine's open checklist is used instead.
+    # Returns the Import-PmChecklistFromEmars summary (single fetch),
+    # an ARRAY of summaries (bulk fetch), or $null on cancel.
+    if ([string]::IsNullOrWhiteSpace((Get-EmarsSetting -Name 'EmarsSite'))) {
+        [System.Windows.Forms.MessageBox]::Show(
+            "eMARS Site ID is not configured.`r`n`r`nSet it under Settings -> Work Tracking -> eMARS (PM Checklist Fetch).",
+            "Fetch from eMARS", "OK", "Information")
+        return $null
+    }
+
+    # Only machines listed on the Weekly Worksheet for the date the
+    # PM Checklist tab is currently showing are gathered.
+    $filterDate = (Get-Date).Date
+    if ($script:pmDatePicker) { $filterDate = $script:pmDatePicker.Value.Date }
+    $filterDateStr = $filterDate.ToString('yyyy-MM-dd')
+
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = "Fetch PM Checklists from eMARS (Weekly Worksheet)"
+    $form.Size = New-Object System.Drawing.Size(880, 560)
+    $form.MinimumSize = New-Object System.Drawing.Size(700, 460)
+    $form.StartPosition = 'CenterParent'
+    $form.FormBorderStyle = 'Sizable'
+    $form.MaximizeBox = $false
+    $form.MinimizeBox = $false
+    $form.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $form.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+
+    # --- top bar -------------------------------------------------------
+    $topBar = New-Object System.Windows.Forms.Panel
+    $topBar.Dock = 'Top'
+    $topBar.Height = 104
+    $topBar.BackColor = [System.Drawing.Color]::White
+    $topBar.Padding = New-Object System.Windows.Forms.Padding(12, 10, 12, 0)
+    $form.Controls.Add($topBar)
+
+    $loadBtn = New-Object System.Windows.Forms.Button
+    $loadBtn.Text = "Load Worksheet PMs"
+    $loadBtn.Location = New-Object System.Drawing.Point(12, 10)
+    $loadBtn.Size = New-Object System.Drawing.Size(180, 30)
+    $loadBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $loadBtn.FlatAppearance.BorderSize = 0
+    $loadBtn.BackColor = [System.Drawing.Color]::FromArgb(52,152,219)
+    $loadBtn.ForeColor = [System.Drawing.Color]::White
+    $loadBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $loadBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $topBar.Controls.Add($loadBtn)
+
+    $hint = New-Object System.Windows.Forms.Label
+    $hint.Text = "PM rows of the Weekly Worksheet for $filterDateStr, matched against eMARS. Fetch Selected fetches one machine; Fetch All Listed gathers every machine below."
+    $hint.Location = New-Object System.Drawing.Point(12, 46)
+    $hint.Size = New-Object System.Drawing.Size(840, 22)
+    $hint.ForeColor = [System.Drawing.Color]::FromArgb(120,130,145)
+    $topBar.Controls.Add($hint)
+
+    $status = New-Object System.Windows.Forms.Label
+    $status.Text = ""
+    $status.Location = New-Object System.Drawing.Point(12, 70)
+    $status.Size = New-Object System.Drawing.Size(840, 24)
+    $status.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $status.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $topBar.Controls.Add($status)
+
+    # --- worksheet PM machine list ---------------------------------------
+    $lv = New-Object System.Windows.Forms.ListView
+    $lv.Dock = 'Fill'
+    Set-ListViewStyle -ListView $lv
+    $lv.Columns.Add("Equip", 60)      | Out-Null
+    $lv.Columns.Add("Acronym", 90)    | Out-Null
+    $lv.Columns.Add("Class", 60)      | Out-Null
+    $lv.Columns.Add("Reg-WO No", 120) | Out-Null
+    $lv.Columns.Add("Machine ID", 110)| Out-Null
+    $lv.Columns.Add("Site", 300)      | Out-Null
+    $lv.FullRowSelect = $true
+    $form.Controls.Add($lv)
+
+    # --- bottom bar ------------------------------------------------------
+    $btnBar = New-Object System.Windows.Forms.Panel
+    $btnBar.Dock = 'Bottom'
+    $btnBar.Height = 52
+    $form.Controls.Add($btnBar)
+
+    $fetchBtn = New-Object System.Windows.Forms.Button
+    $fetchBtn.Text = "Fetch Selected"
+    $fetchBtn.Size = New-Object System.Drawing.Size(140, 32)
+    $fetchBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $fetchBtn.FlatAppearance.BorderSize = 0
+    $fetchBtn.BackColor = [System.Drawing.Color]::FromArgb(39,174,96)
+    $fetchBtn.ForeColor = [System.Drawing.Color]::White
+    $fetchBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $fetchBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $fetchBtn.Location = New-Object System.Drawing.Point(12, 10)
+    $fetchBtn.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left
+    $fetchBtn.Enabled = $false
+    $btnBar.Controls.Add($fetchBtn)
+
+    $fetchAllBtn = New-Object System.Windows.Forms.Button
+    $fetchAllBtn.Text = "Fetch All Listed"
+    $fetchAllBtn.Size = New-Object System.Drawing.Size(160, 32)
+    $fetchAllBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $fetchAllBtn.FlatAppearance.BorderSize = 0
+    $fetchAllBtn.BackColor = [System.Drawing.Color]::FromArgb(39,174,96)
+    $fetchAllBtn.ForeColor = [System.Drawing.Color]::White
+    $fetchAllBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $fetchAllBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $fetchAllBtn.Location = New-Object System.Drawing.Point(160, 10)
+    $fetchAllBtn.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Left
+    $fetchAllBtn.Enabled = $false
+    $btnBar.Controls.Add($fetchAllBtn)
+
+    $cancelBtn = New-Object System.Windows.Forms.Button
+    $cancelBtn.Text = "Cancel"
+    $cancelBtn.Size = New-Object System.Drawing.Size(90, 32)
+    $cancelBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $cancelBtn.FlatAppearance.BorderSize = 0
+    $cancelBtn.BackColor = [System.Drawing.Color]::FromArgb(189,195,199)
+    $cancelBtn.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $cancelBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $cancelBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $cancelBtn.Location = New-Object System.Drawing.Point(760, 10)
+    $cancelBtn.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
+    $cancelBtn.Add_Click({ $form.Tag = $null; $form.Close() })
+    $btnBar.Controls.Add($cancelBtn)
+
+    # --- wiring ----------------------------------------------------------
+    $doFetchOne = {
+        $sel = $lv.SelectedItems
+        if ($sel.Count -eq 0) { return }
+        $entry = $sel[0].Tag          # @{ Row = <worksheet row>; Machine = <eMARS machine> }
+        if ($null -eq $entry) { return }
+        $m = $entry.Machine
+        $status.Text = "Fetching checklist for $($m.Acronym) $($m.No) ..."
+        $form.Refresh()
+        try {
+            $summary = Import-PmChecklistFromEmars -Machine $m `
+                -TrackNo "$($entry.Row.WorkOrderNo)" `
+                -WorksheetChecklistNo "$($entry.Row.ChecklistNo)"
+            $form.Tag = $summary
+            $form.Close()
+        } catch {
+            Write-Log "Show-PmFetchEmarsDialog: fetch failed — $($_.Exception.Message)"
+            [System.Windows.Forms.MessageBox]::Show(
+                "Fetch failed:`r`n$($_.Exception.Message)",
+                "Fetch from eMARS", "OK", "Error")
+            $status.Text = "Fetch failed — see message above."
+        }
+    }
+
+    $doFetchAll = {
+        $entries = @()
+        foreach ($item in $lv.Items) { $entries += $item.Tag }
+        if ($entries.Count -eq 0) {
+            $status.Text = "No machines listed. Click Load Worksheet PMs first."
+            return
+        }
+
+        $imported = @()
+        $skipped  = @()
+        $failed   = @()
+        foreach ($entry in $entries) {
+            $m = $entry.Machine
+            $label = "$($m.Acronym) $($m.No)"
+            $status.Text = "Fetching checklist for $label ..."
+            $form.Refresh()
+            try {
+                $imported += (Import-PmChecklistFromEmars -Machine $m `
+                    -TrackNo "$($entry.Row.WorkOrderNo)" `
+                    -WorksheetChecklistNo "$($entry.Row.ChecklistNo)")
+            } catch {
+                $msg = $_.Exception.Message
+                Write-Log "Show-PmFetchEmarsDialog: $label failed — $msg"
+                if ($msg -match 'Checklist No\. 000') {
+                    $skipped += "$label (not created yet)"
+                } elseif ($msg -match 'No open checklist') {
+                    $skipped += "$label (none open)"
+                } else {
+                    $failed += "$label — $msg"
+                }
+            }
+        }
+
+        $lines = @()
+        if ($imported.Count -gt 0) { $lines += "Imported: $($imported.Count)" }
+        if ($skipped.Count  -gt 0) { $lines += "Skipped: $($skipped -join ', ')" }
+        if ($failed.Count   -gt 0) { $lines += "Failed: $($failed -join '; ')" }
+        [System.Windows.Forms.MessageBox]::Show(($lines -join "`r`n"), "Fetch All Complete", "OK", "Information")
+        $status.Text = ($lines -join '  |  ')
+
+        if ($imported.Count -gt 0) {
+            $form.Tag = ,@($imported)
+            $form.Close()
+        }
+    }
+
+    $loadBtn.Add_Click({
+        $status.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+        $status.Text = "Reading Weekly Worksheet for $filterDateStr ..."
+        $form.Refresh()
+
+        $pmRows = Get-WorksheetPmRows -Date $filterDate
+        if ($pmRows.Count -eq 0) {
+            $status.Text = "No PM rows on the Weekly Worksheet for $filterDateStr.`r`nFetch the worksheet first (Work Tracking -> Weekly Worksheet -> Fetch from eDAC), then load again."
+            $status.ForeColor = [System.Drawing.Color]::FromArgb(231,76,60)
+            $lv.Items.Clear()
+            $fetchBtn.Enabled    = $false
+            $fetchAllBtn.Enabled = $false
+            return
+        }
+
+        # Machine list per acronym (cached; one GET per acronym)
+        $machineCache = @{}
+        $listed   = 0
+        $unmatched = 0
+        $lv.Items.Clear()
+        $fetchBtn.Enabled    = $false
+        $fetchAllBtn.Enabled = $false
+
+        foreach ($row in $pmRows) {
+            $acr = "$($row.Acronym)".Trim().ToUpper()
+            if ([string]::IsNullOrWhiteSpace($acr)) { $unmatched++; continue }
+            $eq = 0
+            if (-not [int]::TryParse("$($row.Equipment)".Trim(), [ref]$eq)) { $unmatched++; continue }
+
+            if (-not $machineCache.ContainsKey($acr)) {
+                try {
+                    $status.Text = "Loading eMARS machine list for $acr ..."
+                    $form.Refresh()
+                    $machineCache[$acr] = @(Get-EmarsMachineList -Acronym $acr)
+                } catch {
+                    Write-Log "Show-PmFetchEmarsDialog: $acr machine list failed — $($_.Exception.Message)"
+                    $machineCache[$acr] = @()
+                }
+            }
+
+            $machine = $null
+            foreach ($m in $machineCache[$acr]) {
+                $mNo = 0
+                if (-not [int]::TryParse("$($m.No)", [ref]$mNo)) { continue }
+                if ($mNo -eq $eq) { $machine = $m; break }
+            }
+            if ($null -eq $machine) { $unmatched++; continue }
+
+            $it = New-Object System.Windows.Forms.ListViewItem("$eq")
+            $it.SubItems.Add("$acr")                   | Out-Null
+            $it.SubItems.Add("$($machine.ClassCode)")  | Out-Null
+            $it.SubItems.Add("$($row.WorkOrderNo)")    | Out-Null
+            $it.SubItems.Add("$($machine.Ptr)")        | Out-Null
+            $it.SubItems.Add("$($machine.SiteName)")   | Out-Null
+            $it.Tag = @{ Row = $row; Machine = $machine }
+            $lv.Items.Add($it) | Out-Null
+            $listed++
+        }
+
+        $fetchAllBtn.Enabled = ($listed -gt 0)
+
+        if ($listed -eq 0) {
+            $status.Text = "No worksheet PM machines matched the eMARS machine list ($unmatched unmatched)."
+            $status.ForeColor = [System.Drawing.Color]::FromArgb(231,76,60)
+        } else {
+            $status.Text = "$listed worksheet PM machine(s) listed"
+            if ($unmatched -gt 0) { $status.Text += "  ($unmatched could not be matched to eMARS)" }
+            $status.Text += ". Select one and Fetch Selected, or Fetch All Listed."
+        }
+    })
+
+    $lv.Add_ItemSelectionChanged({
+        $fetchBtn.Enabled = ($lv.SelectedItems.Count -gt 0)
+    })
+
+    $lv.Add_DoubleClick($doFetchOne)
+    $fetchBtn.Add_Click($doFetchOne)
+    $fetchAllBtn.Add_Click($doFetchAll)
+    $form.AcceptButton = $fetchBtn
+    $form.CancelButton = $cancelBtn
+
+    $form.ShowDialog() | Out-Null
+    return $form.Tag
+}
+
 function Update-PmMachineTabTotals {
     param($Machine, [System.Windows.Forms.Control]$Tab)
     if (-not $Machine -or -not $Machine.State) { return }
@@ -8730,9 +9917,9 @@ function Refresh-PmMachineTabs {
         $emptyTab.AutoScroll = $true
         $dateStr = $selected.ToString("yyyy-MM-dd")
         $hint = if ($all.Count -gt 0) {
-            "No PM Checklists for $dateStr.`r`n`r`n$($all.Count) archived checklist(s) exist on other dates.`r`nTry a different date, click 'Scan Archive', or '+ Import PM Checklist'."
+            "No PM Checklists for $dateStr.`r`n`r`n$($all.Count) archived checklist(s) exist on other dates.`r`nTry a different date, click 'Scan Archive', '+ Fetch from eMARS', or '+ Import PM Checklist'."
         } else {
-            "No PM Checklists for $dateStr.`r`n`r`nClick 'Scan Archive' to look for HTML files,`r`nor '+ Import PM Checklist' to paste one in."
+            "No PM Checklists for $dateStr.`r`n`r`nClick '+ Fetch from eMARS' to download today's open checklist,`r`nclick 'Scan Archive' to look for HTML files,`r`nor '+ Import PM Checklist' to paste one in."
         }
         $msg = New-Object System.Windows.Forms.Label
         $msg.Text = $hint
@@ -8960,6 +10147,42 @@ function Setup-PmChecklistSubTab {
     } -Style 'Primary' -Width 200 -Height 32 -TextAlign MiddleCenter
     $importBtn.Margin = New-Object System.Windows.Forms.Padding(0,0,6,0)
     $toolbar.Controls.Add($importBtn)
+
+    # Import (fetch from eMARS — read-only; no paste needed)
+    $fetchBtn = New-Button "+ Fetch from eMARS" {
+        $result = Show-PmFetchEmarsDialog
+        if ($null -eq $result) { return }
+        try {
+            $isBulk    = ($result -is [System.Array])
+            $summaries = @($result)
+            if ($summaries.Count -eq 0) { return }
+
+            # Ensure the date picker matches the fetched checklist's date
+            # (single fetch only; bulk keeps the worksheet date).
+            $importDate = (Get-Date).Date
+            if (-not $isBulk -and -not [string]::IsNullOrWhiteSpace($summaries[0].DateStamp)) {
+                try { $importDate = [DateTime]$summaries[0].DateStamp } catch {}
+            }
+            if ($script:pmDatePicker) { $script:pmDatePicker.Value = $importDate }
+
+            $script:pmMachines = Load-PmMachines
+            Refresh-PmMachineTabs
+
+            if (-not $isBulk) {
+                $summary = $summaries[0]
+                [System.Windows.Forms.MessageBox]::Show(
+                    "Fetched $($summary.MachineId)  ($($summary.DateStamp))`r`n$($summary.TaskCount) tasks`r`nArchived to:`r`n$($summary.HtmlPath)",
+                    "Fetch Complete", "OK", "Information")
+            } else {
+                Write-Log "Fetch from eMARS (bulk): imported $($summaries.Count) checklist(s)."
+            }
+        } catch {
+            Write-Log "Fetch from eMARS failed: $($_.Exception.Message)"
+            [System.Windows.Forms.MessageBox]::Show("Fetch from eMARS failed:`r`n$($_.Exception.Message)", "Error", "OK", "Error")
+        }
+    } -Style 'Primary' -Width 200 -Height 32 -TextAlign MiddleCenter
+    $fetchBtn.Margin = New-Object System.Windows.Forms.Padding(0,0,6,0)
+    $toolbar.Controls.Add($fetchBtn)
 
     # Scan archive for new raw HTML files
     $scanBtn = New-Button "Scan Archive" {
@@ -10701,8 +11924,13 @@ function Test-JobFields {
     $m = Format-MachineId "$($Job.machineId)"
     if ($null -eq $m) { $errs += 'Machine ID must look like "DBCS 49".' }
 
+    # A running or paused timer legitimately has no end time yet.
+    $timerActive = (Get-JobTimerState -Job $Job) -in @('running','paused')
+
     if ([string]::IsNullOrWhiteSpace($Job.startTime)) { $errs += 'Start time is required.' }
-    if ([string]::IsNullOrWhiteSpace($Job.endTime))   { $errs += 'End time is required.' }
+    if (-not $timerActive -and [string]::IsNullOrWhiteSpace($Job.endTime)) {
+        $errs += 'End time is required.'
+    }
 
     $h = Get-JobHours $Job
     if ($null -ne $h -and $h -le 0) { $errs += 'End time must be after start time.' }
@@ -11083,66 +12311,97 @@ function Show-JobEditor {
         $form.Close()
     })
 
-    $startTimerBtn.Add_Click({
-        # Toggle: when the job's timer is already active, this button STOPS it
-        # (so a running timer can always be stopped from the editor popup).
-        if ((Get-JobTimerState -Job $Job) -in @('running','paused')) {
-            $answer = [System.Windows.Forms.MessageBox]::Show(
-                "Stop this timer?`r`n`r`nElapsed time will NOT be recorded — the timer resets to idle.",
-                "Stop Timer",
-                [System.Windows.Forms.MessageBoxButtons]::YesNo,
-                [System.Windows.Forms.MessageBoxIcon]::Warning)
-            if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
-            Reset-JobTimer -JobId "$($Job.id)"
-            $form.Tag = [PSCustomObject]@{ Action = 'stop' }
-            $form.Close()
-            return
-        }
+	$startTimerBtn.Add_Click({
+		# ---- Stop branch: reset ONLY the timer, keep the user's other edits ----
+		if ((Get-JobTimerState -Job $Job) -in @('running','paused')) {
+			$answer = [System.Windows.Forms.MessageBox]::Show(
+				"Stop this timer?`r`n`r`nThe elapsed time will NOT be recorded.`r`nYour other edits (description, WO#, parts) will be saved.",
+				"Stop Timer",
+				[System.Windows.Forms.MessageBoxButtons]::YesNo,
+				[System.Windows.Forms.MessageBoxIcon]::Warning)
+			if ($answer -ne [System.Windows.Forms.DialogResult]::Yes) { return }
 
-        $candidate = [PSCustomObject]@{
-            id              = $Job.id
-            kind            = $Job.kind
-            machineId       = $txtMachine.Text.Trim()
-            startTime       = $dtpStart.Value.ToString('HH:mm')
-            endTime         = $dtpEnd.Value.ToString('HH:mm')
-            hoursOverride   = $Job.hoursOverride
-            description     = $txtDesc.Text.Trim()
-            workOrderNo     = $txtWo.Text.Trim()
-            parts           = $script:__je_parts
-            createdAt       = $Job.createdAt
-            sentToHistorian = $Job.sentToHistorian
-            sentAt          = $Job.sentAt
-            timerState              = if ($Job.PSObject.Properties['timerState'])              { $Job.timerState }              else { 'idle' }
-            timerStartedAt          = if ($Job.PSObject.Properties['timerStartedAt'])          { $Job.timerStartedAt }          else { $null }
-            timerPausedAt           = if ($Job.PSObject.Properties['timerPausedAt'])           { $Job.timerPausedAt }           else { $null }
-            timerPausedTotalSeconds = if ($Job.PSObject.Properties['timerPausedTotalSeconds']) { $Job.timerPausedTotalSeconds } else { 0 }
-            timerEndedAt            = if ($Job.PSObject.Properties['timerEndedAt'])            { $Job.timerEndedAt }            else { $null }
-            timerComputedHours      = if ($Job.PSObject.Properties['timerComputedHours'])      { $Job.timerComputedHours }      else { $null }
-        }
+			$reset = [PSCustomObject]@{
+				id              = $Job.id
+				kind            = $Job.kind
+				machineId       = $txtMachine.Text.Trim()
+				startTime       = ''
+				endTime         = ''
+				hoursOverride   = $Job.hoursOverride
+				description     = $txtDesc.Text.Trim()
+				workOrderNo     = $txtWo.Text.Trim()
+				parts           = $script:__je_parts
+				createdAt       = $Job.createdAt
+				sentToHistorian = $Job.sentToHistorian
+				sentAt          = $Job.sentAt
+				timerState              = 'idle'
+				timerStartedAt          = $null
+				timerPausedAt           = $null
+				timerPausedTotalSeconds = 0
+				timerEndedAt            = $null
+				timerComputedHours      = $null
+			}
 
-        $errs = Test-JobFields -Job $candidate
-        if ($errs.Count -gt 0) { $lblVal.Text = "! " + $errs[0]; return }
-        $lblVal.Text = ''
+			$m = Format-MachineId $reset.machineId
+			if ($m) {
+				$reset.machineId = $m.Canonical
+				if ($m.IsNamed) { Register-MachineIfNew -Acronym $m.Acronym -Mno $m.Mno }
+			}
 
-        $m = Format-MachineId $candidate.machineId
-        $candidate.machineId = $m.Canonical
-        if ($m.IsNamed) { Register-MachineIfNew -Acronym $m.Acronym -Mno $m.Mno }
+			$form.Tag = [PSCustomObject]@{ Action = 'save'; Job = $reset }
+			$form.Close()
+			return
+		}
 
-        if ((Get-JobTimerState -Job $Job) -notin @('running','paused','finished')) {
-            $now = Get-Date
-            $candidate.startTime               = $now.ToString('HH:mm')
-            $candidate.endTime                 = $null
-            $candidate.timerState              = 'running'
-            $candidate.timerStartedAt          = $now.ToString("o")
-            $candidate.timerPausedAt           = $null
-            $candidate.timerPausedTotalSeconds = 0
-            $candidate.timerEndedAt            = $null
-            $candidate.timerComputedHours      = $null
-        }
+		# ---- Start branch: enter running state FIRST, then validate ----
+		$candidate = [PSCustomObject]@{
+			id              = $Job.id
+			kind            = $Job.kind
+			machineId       = $txtMachine.Text.Trim()
+			startTime       = $dtpStart.Value.ToString('HH:mm')
+			endTime         = $dtpEnd.Value.ToString('HH:mm')
+			hoursOverride   = $Job.hoursOverride
+			description     = $txtDesc.Text.Trim()
+			workOrderNo     = $txtWo.Text.Trim()
+			parts           = $script:__je_parts
+			createdAt       = $Job.createdAt
+			sentToHistorian = $Job.sentToHistorian
+			sentAt          = $Job.sentAt
+			timerState              = if ($Job.PSObject.Properties['timerState'])              { $Job.timerState }              else { 'idle' }
+			timerStartedAt          = if ($Job.PSObject.Properties['timerStartedAt'])          { $Job.timerStartedAt }          else { $null }
+			timerPausedAt           = if ($Job.PSObject.Properties['timerPausedAt'])           { $Job.timerPausedAt }           else { $null }
+			timerPausedTotalSeconds = if ($Job.PSObject.Properties['timerPausedTotalSeconds']) { $Job.timerPausedTotalSeconds } else { 0 }
+			timerEndedAt            = if ($Job.PSObject.Properties['timerEndedAt'])            { $Job.timerEndedAt }            else { $null }
+			timerComputedHours      = if ($Job.PSObject.Properties['timerComputedHours'])      { $Job.timerComputedHours }      else { $null }
+		}
 
-        $form.Tag = [PSCustomObject]@{ Action = 'save'; Job = $candidate; StartTimer = $true }
-        $form.Close()
-    })
+		if ((Get-JobTimerState -Job $Job) -notin @('running','paused','finished')) {
+			$now = Get-Date
+			$candidate.startTime               = $now.ToString('HH:mm')
+			$candidate.endTime                 = $null
+			$candidate.timerState              = 'running'
+			$candidate.timerStartedAt          = $now.ToString("o")
+			$candidate.timerPausedAt           = $null
+			$candidate.timerPausedTotalSeconds = 0
+			$candidate.timerEndedAt            = $null
+			$candidate.timerComputedHours      = $null
+		}
+
+		$errs = Test-JobFields -Job $candidate
+		if ($errs.Count -gt 0) { $lblVal.Text = "! " + $errs[0]; return }
+		$lblVal.Text = ''
+
+		$m = Format-MachineId $candidate.machineId
+		if ($null -eq $m) {
+			$lblVal.Text = "! Machine ID must look like 'DBCS 49'."
+			return
+		}
+		$candidate.machineId = $m.Canonical
+		if ($m.IsNamed) { Register-MachineIfNew -Acronym $m.Acronym -Mno $m.Mno }
+
+		$form.Tag = [PSCustomObject]@{ Action = 'save'; Job = $candidate; StartTimer = $true }
+		$form.Close()
+	})
 
     $deleteBtn.Add_Click({
         $answer = [System.Windows.Forms.MessageBox]::Show(
@@ -11210,8 +12469,8 @@ function Show-PartPicker {
 
     $form = New-Object System.Windows.Forms.Form
     $form.Text = "Add Parts"
-    $form.Size = New-Object System.Drawing.Size(880, 700)
-    $form.MinimumSize = New-Object System.Drawing.Size(880, 700)
+	$form.Size = New-Object System.Drawing.Size(880, 760)
+	$form.MinimumSize = New-Object System.Drawing.Size(880, 760)
     $form.StartPosition = 'CenterParent'
     $form.FormBorderStyle = 'FixedDialog'
     $form.MaximizeBox = $false
@@ -11251,11 +12510,11 @@ function Show-PartPicker {
     $btnBar.Controls.Add($okBtn)
 
     # ---------- search panel ----------
-    $searchPanel = New-Object System.Windows.Forms.Panel
-    $searchPanel.Location = New-Object System.Drawing.Point(10, 10)
-    $searchPanel.Size = New-Object System.Drawing.Size(850, 70)
-    $searchPanel.BackColor = [System.Drawing.Color]::White
-    $form.Controls.Add($searchPanel)
+	$searchPanel = New-Object System.Windows.Forms.Panel
+	$searchPanel.Location = New-Object System.Drawing.Point(10, 10)
+	$searchPanel.Size = New-Object System.Drawing.Size(850, 130)
+	$searchPanel.BackColor = [System.Drawing.Color]::White
+	$form.Controls.Add($searchPanel)
 
     $lblNSN = New-Object System.Windows.Forms.Label
     $lblNSN.Text = "Part/NSN:"
@@ -11292,6 +12551,57 @@ function Show-PartPicker {
     $searchBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
     $searchBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
     $searchPanel.Controls.Add($searchBtn)
+	
+	# --- Book dropdown ---
+	$lblBook = New-Object System.Windows.Forms.Label
+	$lblBook.Text = "Book:"
+	$lblBook.Location = New-Object System.Drawing.Point(14, 46)
+	$lblBook.Size = New-Object System.Drawing.Size(80, 22)
+	$lblBook.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+	$searchPanel.Controls.Add($lblBook)
+
+	$cmbBook = New-Object System.Windows.Forms.ComboBox
+	$cmbBook.Location = New-Object System.Drawing.Point(96, 44)
+	$cmbBook.Size = New-Object System.Drawing.Size(180, 24)
+	$cmbBook.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
+	$searchPanel.Controls.Add($cmbBook)
+	foreach ($b in (Get-SearchableBooks)) { [void]$cmbBook.Items.Add($b) }
+
+	# --- Section dropdown ---
+	$lblSection = New-Object System.Windows.Forms.Label
+	$lblSection.Text = "Section:"
+	$lblSection.Location = New-Object System.Drawing.Point(290, 46)
+	$lblSection.Size = New-Object System.Drawing.Size(84, 22)
+	$lblSection.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+	$searchPanel.Controls.Add($lblSection)
+
+	$cmbSection = New-Object System.Windows.Forms.ComboBox
+	$cmbSection.Location = New-Object System.Drawing.Point(376, 44)
+	$cmbSection.Size = New-Object System.Drawing.Size(260, 24)
+	$cmbSection.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
+	$searchPanel.Controls.Add($cmbSection)
+
+	# Search button moves down to the second row
+	$searchBtn.Location = New-Object System.Drawing.Point(650, 44)
+
+	$script:ppSectionKeyMap = @{}
+	$cmbBook.Add_SelectedIndexChanged({
+		$cmbSection.Items.Clear()
+		$cmbSection.SelectedIndex = -1
+		$script:ppSectionKeyMap = @{}
+		$b = "$($cmbBook.SelectedItem)"
+		if ([string]::IsNullOrWhiteSpace($b)) { return }
+		foreach ($sec in (Get-SectionsForBook -BookName $b)) {
+			[void]$cmbSection.Items.Add($sec.Display)
+			$script:ppSectionKeyMap[$sec.Display] = $sec.Key
+		}
+		if ($cmbSection.Items.Count -gt 0) { $cmbSection.SelectedIndex = 0 }
+		$searchBtn.Enabled = ($cmbBook.SelectedIndex -ge 0 -and $cmbSection.SelectedIndex -ge 0)
+	}.GetNewClosure())
+
+	$cmbSection.Add_SelectedIndexChanged({
+		$searchBtn.Enabled = ($cmbBook.SelectedIndex -ge 0 -and $cmbSection.SelectedIndex -ge 0)
+	}.GetNewClosure())
 
     # ---------- results ----------
     $lblResults = New-Object System.Windows.Forms.Label
@@ -11381,27 +12691,38 @@ function Show-PartPicker {
     & $renderChosen
 
     # ---------- events ----------
-    $searchBtn.Add_Click({
-        $lvResults.Items.Clear()
-        $nsn = $txtNSN.Text.Trim()
-        $dsc = $txtDesc.Text.Trim()
-        try {
-            $found = Search-Parts -NSN $nsn -Description $dsc
-        } catch {
-            [System.Windows.Forms.MessageBox]::Show("Search failed: $($_.Exception.Message)", "Error", "OK", "Error")
-            return
-        }
-        foreach ($part in @($found)) {
-            $it = New-Object System.Windows.Forms.ListViewItem("$($part.PartNumber)")
-            $it.SubItems.Add("$($part.Description)") | Out-Null
-            $it.SubItems.Add("$($part.Quantity)")    | Out-Null
-            $it.SubItems.Add("$($part.Location)")    | Out-Null
-            $it.SubItems.Add("$($part.OEMNumber)")   | Out-Null
-            $it.SubItems.Add("$($part.Source)")      | Out-Null
-            $it.Tag = $part
-            $lvResults.Items.Add($it) | Out-Null
-        }
-    })
+	$searchBtn.Add_Click({
+		$bookName       = "$($cmbBook.SelectedItem)".Trim()
+		$sectionDisplay = "$($cmbSection.SelectedItem)".Trim()
+		$sectionKey     = $script:ppSectionKeyMap[$sectionDisplay]
+
+		if ([string]::IsNullOrWhiteSpace($bookName) -or [string]::IsNullOrWhiteSpace($sectionKey)) {
+			[System.Windows.Forms.MessageBox]::Show(
+				"Select a Parts Book and a Section first.",
+				"Add Parts", "OK", "Information")
+			return
+		}
+
+		$lvResults.Items.Clear()
+		$nsn = $txtNSN.Text.Trim()
+		$dsc = $txtDesc.Text.Trim()
+		try {
+			$found = Search-Parts -NSN $nsn -Description $dsc -BookFilter $bookName -SectionFilter $sectionKey
+		} catch {
+			[System.Windows.Forms.MessageBox]::Show("Search failed: $($_.Exception.Message)", "Error", "OK", "Error")
+			return
+		}
+		foreach ($part in @($found)) {
+			$it = New-Object System.Windows.Forms.ListViewItem("$($part.PartNumber)")
+			$it.SubItems.Add("$($part.Description)") | Out-Null
+			$it.SubItems.Add("$($part.Quantity)")    | Out-Null
+			$it.SubItems.Add("$($part.Location)")    | Out-Null
+			$it.SubItems.Add("$($part.OEMNumber)")   | Out-Null
+			$it.SubItems.Add("$($part.Source)")      | Out-Null
+			$it.Tag = $part
+			$lvResults.Items.Add($it) | Out-Null
+		}
+	}.GetNewClosure())
 
     $addSelBtn.Add_Click({
         foreach ($it in $lvResults.CheckedItems) {
@@ -12097,6 +13418,11 @@ function Load-WtSettingsValues {
     $c.TechNameBox.Text   = if ($wt.TechnicianName)       { "$($wt.TechnicianName)" }       else { '' }
     $c.EmailBox.Text      = if ($script:config.SupervisorEmail) { "$($script:config.SupervisorEmail)" } else { '' }
     $c.EdacUrlBox.Text    = if ($wt.eDacUrl)              { "$($wt.eDacUrl)" }              else { '' }
+    $c.EmarsOriginBox.Text  = if ($wt.EmarsOrigin)        { "$($wt.EmarsOrigin)" }         else { 'http://emarssu3.eng.usps.gov' }
+    $c.EmarsUserBox.Text    = if ($wt.EmarsUser)          { "$($wt.EmarsUser)" }           else { '' }
+    $c.EmarsSiteBox.Text    = if ($wt.EmarsSite)          { "$($wt.EmarsSite)" }           else { '' }
+    $c.EmarsSubsiteBox.Text = if ($wt.EmarsSubsite)       { "$($wt.EmarsSubsite)" }        else { '01' }
+    $c.EmarsFacBox.Text     = if ($wt.EmarsFacId)         { "$($wt.EmarsFacId)" }          else { '' }
     $c.ThresholdBox.Value = if ($wt.ReactiveToWorkOrderMinutes) { [int]$wt.ReactiveToWorkOrderMinutes } else { 15 }
     if ($c.ThemeBox) {
         $c.ThemeBox.SelectedItem = if ("$script:theme" -in @('Dark','Postal')) { "$script:theme" } else { 'Default' }
@@ -12231,6 +13557,121 @@ function Setup-SettingsTab {
     $thresholdBox.Maximum = 600
     New-SettingRow -Parent $gWorkTrack -Top 62 -LabelText "Reactive -> WO threshold (min):" -InputControl $thresholdBox
 
+    # --- eMARS group (PM Checklist auto-fetch) ---
+    $gEmars = New-Object System.Windows.Forms.GroupBox
+    $gEmars.Text = "eMARS (PM Checklist Fetch)"
+    $gEmars.Width = 720
+    $gEmars.Height = 40 + (6 * 34)
+    $gEmars.Padding = New-Object System.Windows.Forms.Padding(12)
+    $gEmars.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $gEmars.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $gEmars.Margin = New-Object System.Windows.Forms.Padding(0, 0, 0, 12)
+    $body.Controls.Add($gEmars)
+
+    $emarsOriginBox = New-Object System.Windows.Forms.TextBox
+    $emarsOriginBox.Size = New-Object System.Drawing.Size(440, 24)
+    New-SettingRow -Parent $gEmars -Top 28 -LabelText "eMARS origin (host):" -InputControl $emarsOriginBox
+
+	$emarsUserBox = New-Object System.Windows.Forms.ComboBox
+	$emarsUserBox.Size = New-Object System.Drawing.Size(440, 24)
+	# DropDown (editable) so a saved ID survives even when the endpoint or
+	# EmarsUsers.csv cannot supply the current list.  User picks from the list
+	# when it works, types freely when it doesn't.
+	$emarsUserBox.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDown
+	New-SettingRow -Parent $gEmars -Top 62 -LabelText "eMARS User ID (p_user):" -InputControl $emarsUserBox
+
+	# Refresh the list whenever the site box changes.
+	# (Attach after $emarsSiteBox is created and after $script:wtSettings is set.)
+	$refreshEmarsUsers = {
+		try {
+			$box = $script:wtSettings.EmarsUserBox
+			# Remember whatever text is currently visible — that is either the
+			# user's last selection or a manually-typed ID that must survive.
+			$keepText = "$($box.Text)".Trim()
+
+			$box.Items.Clear()
+			$site = "$($script:wtSettings.EmarsSiteBox.Text)".Trim()
+			if (-not [string]::IsNullOrWhiteSpace($site)) {
+				$list = @(Get-EmarsUserList -SiteId $site)
+				foreach ($u in $list) {
+					[void]$box.Items.Add("$($u.UserId)  —  $($u.Name)")
+				}
+				Write-Log "refreshEmarsUsers: site='$site', loaded $($list.Count) user(s)"
+			}
+
+			# Prefer the saved config value if nothing is currently in the box.
+			if ([string]::IsNullOrWhiteSpace($keepText)) {
+				$cfg = if ($global:PMConfig) { $global:PMConfig } else { $script:config }
+				if ($cfg) { $keepText = "$($cfg.WorkTracking.EmarsUser)".Trim() }
+			}
+
+			if (-not [string]::IsNullOrWhiteSpace($keepText)) {
+				# If an entry matching the ID exists, select it.
+				$matched = $false
+				for ($i = 0; $i -lt $box.Items.Count; $i++) {
+					if ("$($box.Items[$i])".StartsWith("$keepText ")) {
+						$box.SelectedIndex = $i
+						$matched = $true
+						break
+					}
+				}
+				# Otherwise type it into the editable box so it survives Save.
+				if (-not $matched) { $box.Text = $keepText }
+			}
+		} catch {
+			Write-Log "Get-EmarsUserList failed: $($_.Exception.Message)"
+		}
+	}.GetNewClosure()
+    $emarsSiteBox = New-Object System.Windows.Forms.TextBox
+    $emarsSiteBox.Size = New-Object System.Drawing.Size(440, 24)
+    New-SettingRow -Parent $gEmars -Top 96 -LabelText "eMARS Site ID (p_site):" -InputControl $emarsSiteBox
+
+    $emarsSubsiteBox = New-Object System.Windows.Forms.TextBox
+    $emarsSubsiteBox.Size = New-Object System.Drawing.Size(440, 24)
+    New-SettingRow -Parent $gEmars -Top 130 -LabelText "eMARS Subsite ID (usually 01):" -InputControl $emarsSubsiteBox
+
+    $emarsFacBox = New-Object System.Windows.Forms.TextBox
+    $emarsFacBox.Size = New-Object System.Drawing.Size(440, 24)
+    New-SettingRow -Parent $gEmars -Top 164 -LabelText "eMARS Facility ID (blank = Site ID):" -InputControl $emarsFacBox
+
+    $emarsTestBtn = New-Object System.Windows.Forms.Button
+    $emarsTestBtn.Text = "Test eMARS Connection"
+    $emarsTestBtn.Size = New-Object System.Drawing.Size(200, 26)
+    $emarsTestBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $emarsTestBtn.FlatAppearance.BorderSize = 0
+    $emarsTestBtn.BackColor = [System.Drawing.Color]::FromArgb(52,152,219)
+    $emarsTestBtn.ForeColor = [System.Drawing.Color]::White
+    $emarsTestBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $emarsTestBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    New-SettingRow -Parent $gEmars -Top 198 -LabelText "Connectivity check:" -InputControl $emarsTestBtn
+
+	$emarsTestBtn.Add_Click({
+		try {
+			$c = $script:wtSettings
+			if (-not $c) { throw "Settings controls are not initialized yet." }
+
+			$cfg = $script:config
+			$global:PMConfig = $script:config
+			$cfg.WorkTracking.EmarsOrigin  = "$($c.EmarsOriginBox.Text)".Trim()
+			$cfg.WorkTracking.EmarsUser    = "$($c.EmarsUserBox.Text)".Trim()
+			$cfg.WorkTracking.EmarsSite    = "$($c.EmarsSiteBox.Text)".Trim()
+			$cfg.WorkTracking.EmarsSubsite = "$($c.EmarsSubsiteBox.Text)".Trim()
+			$cfg.WorkTracking.EmarsFacId   = "$($c.EmarsFacBox.Text)".Trim()
+			($cfg | ConvertTo-Json -Depth 12) | Set-Content -Path $script:configPath -Encoding UTF8
+			$script:config = $cfg
+
+			Write-Log "Test eMARS Connection: values applied and saved; running endpoint checks..."
+			$results = Test-EmarsConnection
+			foreach ($line in $results) { Write-Log "Test eMARS Connection: $line" }
+			[System.Windows.Forms.MessageBox]::Show(
+				("eMARS connectivity check:`r`n`r`n" + ($results -join "`r`n") + "`r`n`r`n(Details are also in UI.log)"),
+				"eMARS Test", "OK", "Information")
+		} catch {
+			Write-Log "Test eMARS Connection failed: $($_.Exception.Message)"
+			[System.Windows.Forms.MessageBox]::Show("Test failed: $($_.Exception.Message)", "eMARS Test", "OK", "Error")
+		}
+	})
+
     # --- Work Budget group ---
     $gBudget = New-Object System.Windows.Forms.GroupBox
     $gBudget.Text = "Work Budget"
@@ -12317,6 +13758,7 @@ function Setup-SettingsTab {
         if ($ok) {
             try {
                 $script:config = Get-Content -Path $script:configPath -Raw | ConvertFrom-Json
+				$global:PMConfig = $script:config
                 $currentRootLabel.Text = "Current root: $($script:config.RootDirectory)"
                 Load-WtSettingsValues
             } catch {
@@ -12404,6 +13846,11 @@ function Setup-SettingsTab {
         EdacUrlBox   = $edacUrlBox
         ThresholdBox = $thresholdBox
         ThemeBox     = $themeBox
+        EmarsOriginBox  = $emarsOriginBox
+        EmarsUserBox    = $emarsUserBox
+        EmarsSiteBox    = $emarsSiteBox
+        EmarsSubsiteBox = $emarsSubsiteBox
+        EmarsFacBox     = $emarsFacBox
         DayLenBox    = $dayLenBox
         LunchBox     = $lunchBox
         WashupBox    = $washupBox
@@ -12421,14 +13868,59 @@ function Setup-SettingsTab {
         $box.Add_ValueChanged({ Update-WorkTargetDisplay })
     }
 
+    # Capture script state + functions as locals BEFORE creating the closure.
+    # (.GetNewClosure() gets an empty $script: scope in PS 5.1 — the file's
+    #  own comment near Initialize-ResponsiveLayout explains this.)
+    $wt          = $script:wtSettings
+    $getUsersFn  = Get-Command -Name Get-EmarsUserList -CommandType Function
+    $logFn       = Get-Command -Name Write-Log        -CommandType Function
+    $cfgForUsers = $script:config
+
+    $refreshEmarsUsers = {
+        try {
+            $box = $wt.EmarsUserBox
+            $keepText = "$($box.Text)".Trim()
+            $box.Items.Clear()
+            $site = "$($wt.EmarsSiteBox.Text)".Trim()
+            if (-not [string]::IsNullOrWhiteSpace($site)) {
+                $list = @(& $getUsersFn -SiteId $site)
+                foreach ($u in $list) {
+                    [void]$box.Items.Add("$($u.UserId)  —  $($u.Name)")
+                }
+                & $logFn "refreshEmarsUsers: site='$site', loaded $($list.Count) user(s)"
+            }
+
+            if ([string]::IsNullOrWhiteSpace($keepText)) {
+                $src = if ($global:PMConfig) { $global:PMConfig } else { $cfgForUsers }
+                if ($src) { $keepText = "$($src.WorkTracking.EmarsUser)".Trim() }
+            }
+            if (-not [string]::IsNullOrWhiteSpace($keepText)) {
+                $matched = $false
+                for ($i = 0; $i -lt $box.Items.Count; $i++) {
+                    if ("$($box.Items[$i])".StartsWith("$keepText ")) {
+                        $box.SelectedIndex = $i; $matched = $true; break
+                    }
+                }
+                if (-not $matched) { $box.Text = $keepText }
+            }
+        } catch {
+            & $logFn "Get-EmarsUserList failed: $($_.Exception.Message)"
+        }
+    }.GetNewClosure()
+
     # --- Initial load ---
     Load-WtSettingsValues
+
+    # Attach the user-list refresh at setup time.
+    $emarsSiteBox.Add_TextChanged($refreshEmarsUsers)
+    & $refreshEmarsUsers
 
     # --- Save handler ---
     $saveBtn.Add_Click({
         try {
             $c   = $script:wtSettings
             $cfg = $script:config
+			$global:PMConfig = $script:config
             if (-not $cfg.WorkTracking) { throw "WorkTracking section missing from config." }
 
             $techName  = "$($c.TechNameBox.Text)".Trim()
@@ -12436,12 +13928,27 @@ function Setup-SettingsTab {
             $edacUrl   = "$($c.EdacUrlBox.Text)".Trim()
             $threshold = [int]$c.ThresholdBox.Value
 
+            $emarsOrigin  = "$($c.EmarsOriginBox.Text)".Trim()
+			# Combo can carry "USERID  —  Full Name" (from list selection) or
+			# just "USERID" (typed).  Split off the display suffix either way.
+			$emarsUserRaw = "$($c.EmarsUserBox.Text)".Trim()
+			$emarsUser    = ($emarsUserRaw -split '\s+—\s+', 2)[0].Trim()
+			if ([string]::IsNullOrWhiteSpace($emarsUser)) { $emarsUser = $emarsUserRaw }
+            $emarsSite    = "$($c.EmarsSiteBox.Text)".Trim()
+            $emarsSubsite = "$($c.EmarsSubsiteBox.Text)".Trim()
+            $emarsFac     = "$($c.EmarsFacBox.Text)".Trim()
+
             Write-Log "Save: path='$script:configPath' techName='$techName' email='$email'"
 
             $cfg.WorkTracking.TechnicianName             = $techName
             $cfg.SupervisorEmail                         = $email
             $cfg.WorkTracking.eDacUrl                    = $edacUrl
             $cfg.WorkTracking.ReactiveToWorkOrderMinutes = $threshold
+            $cfg.WorkTracking.EmarsOrigin                = $emarsOrigin
+            $cfg.WorkTracking.EmarsUser                  = $emarsUser
+            $cfg.WorkTracking.EmarsSite                  = $emarsSite
+            $cfg.WorkTracking.EmarsSubsite               = $emarsSubsite
+            $cfg.WorkTracking.EmarsFacId                 = $emarsFac
             $cfg.UiTheme                                 = "$script:theme"
 
             $cfg.WorkTracking.WorkBudget.DayLengthHours        = [double]$c.DayLenBox.Value
@@ -12480,12 +13987,13 @@ function Setup-SettingsTab {
 
             $fresh = $raw | ConvertFrom-Json
             $script:config = $fresh
+			$global:PMConfig = $script:config
 
             $techRead = "$($script:config.WorkTracking.TechnicianName)"
             Write-Log "Reload: parsed techName='$techRead'"
 
             Load-WtSettingsValues
-
+            & $refreshEmarsUsers
             Write-Log "Reload: UI updated"
             [System.Windows.Forms.MessageBox]::Show("Settings reloaded.", "Settings", "OK", "Information")
         } catch {
@@ -12572,6 +14080,64 @@ function Setup-SearchTab {
     $script:textBoxDescription.Size = New-Object System.Drawing.Size(250, 25)
     $script:textBoxDescription.Font = New-Object System.Drawing.Font("Segoe UI", 9)
     $topPanel.Controls.Add($script:textBoxDescription)
+	
+	# --- Book dropdown ---
+	$labelBook = New-Object System.Windows.Forms.Label
+	$labelBook.Text = "Book:"
+	$labelBook.Location = New-Object System.Drawing.Point(520, 18)
+	$labelBook.Size = New-Object System.Drawing.Size(60, 22)
+	$labelBook.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+	$labelBook.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+	$topPanel.Controls.Add($labelBook)
+
+	$script:comboBook = New-Object System.Windows.Forms.ComboBox
+	$script:comboBook.Location = New-Object System.Drawing.Point(590, 15)
+	$script:comboBook.Size = New-Object System.Drawing.Size(190, 25)
+	$script:comboBook.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
+	$script:comboBook.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+	[void]$script:comboBook.Items.Add('(All Books)')
+	foreach ($b in (Get-SearchableBooks)) { [void]$script:comboBook.Items.Add($b) }
+	$topPanel.Controls.Add($script:comboBook)
+
+	# --- Section dropdown ---
+	$labelSection = New-Object System.Windows.Forms.Label
+	$labelSection.Text = "Section:"
+	$labelSection.Location = New-Object System.Drawing.Point(520, 52)
+	$labelSection.Size = New-Object System.Drawing.Size(60, 22)
+	$labelSection.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+	$labelSection.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+	$topPanel.Controls.Add($labelSection)
+
+	$script:comboSection = New-Object System.Windows.Forms.ComboBox
+	$script:comboSection.Location = New-Object System.Drawing.Point(590, 49)
+	$script:comboSection.Size = New-Object System.Drawing.Size(190, 25)
+	$script:comboSection.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
+	$script:comboSection.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+	[void]$script:comboSection.Items.Add('(All Sections)')
+	$topPanel.Controls.Add($script:comboSection)
+
+	$script:searchSectionKeyMap = @{}
+
+	# Populate sections on book change.
+	$script:comboBook.Add_SelectedIndexChanged({
+		$script:comboSection.Items.Clear()
+		[void]$script:comboSection.Items.Add('(All Sections)')
+		$script:comboSection.SelectedIndex = 0
+		$script:searchSectionKeyMap = @{}
+		$bookName = "$($script:comboBook.SelectedItem)"
+		if ([string]::IsNullOrWhiteSpace($bookName) -or $bookName -eq '(All Books)') { return }
+		foreach ($sec in (Get-SectionsForBook -BookName $bookName)) {
+			[void]$script:comboSection.Items.Add($sec.Display)
+			$script:searchSectionKeyMap[$sec.Display] = $sec.Key
+		}
+	})
+
+	# Default to (All Books) / (All Sections) so search works immediately.
+	$script:comboBook.SelectedIndex = 0
+	$script:comboSection.SelectedIndex = 0
+
+
+	
 
     # Search button
     $searchButton = New-Object System.Windows.Forms.Button
@@ -12585,6 +14151,19 @@ function Setup-SearchTab {
     $searchButton.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
     $searchButton.Cursor = [System.Windows.Forms.Cursors]::Hand
     $topPanel.Controls.Add($searchButton)
+	
+	$updateSearchEnabled = {
+	$searchButton.Enabled = $true
+	}.GetNewClosure()
+
+	$script:comboBook.Add_SelectedIndexChanged($updateSearchEnabled)
+	$script:comboSection.Add_SelectedIndexChanged($updateSearchEnabled)
+
+	# Pre-select first book so the tab is usable as soon as it opens.
+	if ($script:comboBook.Items.Count -gt 0) {
+		$script:comboBook.SelectedIndex = 0
+	}
+	$searchButton.Enabled = ($script:comboBook.SelectedIndex -ge 0 -and $script:comboSection.SelectedIndex -ge 0)
 
     # Tooltips
     $tooltip = New-Object System.Windows.Forms.ToolTip
@@ -13055,71 +14634,25 @@ tr.pm-highlight-row, tr.pm-highlight-row td {
             Write-Log "Same Day Parts Room directory not found at $sameDayPartsDir"
         }
 
-        # ---- 3) CROSS REFERENCE ----
+        # ---- 3) CROSS REFERENCE — scoped to selected book + section ----
         $crossRefResults = @()
-        if ($config.Books) {
-            foreach ($book in $config.Books.PSObject.Properties) {
-                $bookName = $book.Name
-                $volumesCsvPath = $book.Value.VolumesToUrlCsvPath
-                if ($volumesCsvPath) {
-                    $bookDir = Split-Path -Path $volumesCsvPath -Parent
-                } else {
-                    $bookDir = Join-Path $config.PartsBooksDirectory $bookName
-                }
+        $selectedBookName       = "$($script:comboBook.SelectedItem)".Trim()
+        $selectedSectionDisplay = "$($script:comboSection.SelectedItem)".Trim()
+        $selectedSectionKey     = $script:searchSectionKeyMap[$selectedSectionDisplay]
 
-                $combinedSectionsDir = Join-Path $bookDir "CombinedSections"
-                $sectionNamesFile    = Join-Path $bookDir "SectionNames.txt"
+        # "(All Books)" means: search every book.  "(All Sections)" means:
+        # search every section within the chosen book.  Empty means: no scope.
+        $scopeAll = [string]::IsNullOrWhiteSpace($selectedBookName) -or $selectedBookName -eq '(All Books)'
 
-                $sectionNameMapping = @{}
-                if (Test-Path $sectionNamesFile) {
-                    $sectionNames = Get-Content -Path $sectionNamesFile
-                    foreach ($line in $sectionNames) {
-                        if ($line -match '^Section\s+(\d+)\s+(.*)$') {
-                            $sectionNumber   = $Matches[1]
-                            $sectionFullName = $line.Trim()
-                            $sectionNameMapping["Section $sectionNumber"] = $sectionFullName
-                        }
-                    }
-                    Write-Log "Loaded $($sectionNameMapping.Count) section names for $bookName"
-                } else {
-                    Write-Log "SectionNames.txt not found for $bookName"
-                }
+        if ($scopeAll) {
+            # Scan every searchable book across every section.
+            foreach ($bookName in (Get-SearchableBooks)) {
+                foreach ($sec in (Get-SectionsForBook -BookName $bookName)) {
+                    try { $sectionData = Import-Csv -Path $sec.FilePath }
+                    catch { $sectionData = @() }
 
-                if (-not (Test-Path $combinedSectionsDir)) {
-                    Write-Log "CombinedSections directory not found for $bookName"
-                    continue
-                }
-
-                $sectionCsvFiles = Get-ChildItem -Path $combinedSectionsDir -Filter "*.csv" -File
-                Write-Log "Found $($sectionCsvFiles.Count) CSV files in $bookName"
-
-                foreach ($csvFile in $sectionCsvFiles) {
-                    $sectionFileName = [IO.Path]::GetFileNameWithoutExtension($csvFile.Name)
-                    $csvFilePath = $csvFile.FullName
-
-                    if ($sectionFileName -match '^Section\s+(\d+)$') {
-                        $sectionNumber = $Matches[1]
-                        if ($sectionNameMapping.ContainsKey("Section $sectionNumber")) {
-                            $sectionName = $sectionNameMapping["Section $sectionNumber"]
-                        } else {
-                            $sectionName = "Section $sectionNumber"
-                        }
-                    } else {
-                        $sectionName = $sectionFileName
-                    }
-
-                    try {
-                        $sectionData = Import-Csv -Path $csvFilePath
-                        Write-Log "Processed $($sectionData.Count) rows from $($csvFile.Name)"
-                    } catch {
-                        Write-Log "Failed to read CSV file $csvFilePath. Error: $_"
-                        continue
-                    }
-
-                    if ($nsnNoMatch -or $oemNoMatch) {
-                        $filteredSectionData = @()
-                    } else {
-                        $filteredSectionData = @($sectionData | Where-Object {
+                    if ($nsnNoMatch -or $oemNoMatch) { $filtered = @() } else {
+                        $filtered = @($sectionData | Where-Object {
                             $nsnOk = $true
                             if ($nsnActive) {
                                 $rowStock = ([string]$_.'STOCK NO.') -replace '[^0-9]', ''
@@ -13141,17 +14674,83 @@ tr.pm-highlight-row, tr.pm-highlight-row td {
                         })
                     }
 
-                    foreach ($item in $filteredSectionData) {
-                        $item | Add-Member -NotePropertyName 'Handbook'     -NotePropertyValue $bookName    -Force
-                        $item | Add-Member -NotePropertyName 'Section Name' -NotePropertyValue $sectionName -Force
+                    foreach ($item in @($filtered)) {
+                        $item | Add-Member -NotePropertyName 'Handbook'     -NotePropertyValue $bookName -Force
+                        $item | Add-Member -NotePropertyName 'Section Name' -NotePropertyValue $sec.Display -Force
                         $crossRefResults += $item
                     }
                 }
             }
+        } elseif (-not [string]::IsNullOrWhiteSpace($selectedSectionKey)) {
+            # A specific book + specific section was chosen.
+            $secs = Get-SectionsForBook -BookName $selectedBookName
+            $match = $secs | Where-Object { $_.Key -eq $selectedSectionKey } | Select-Object -First 1
+            if ($match) {
+                try { $sectionData = Import-Csv -Path $match.FilePath }
+                catch { $sectionData = @() }
+                if ($nsnNoMatch -or $oemNoMatch) { $filtered = @() } else {
+                    $filtered = @($sectionData | Where-Object {
+                        $nsnOk = $true
+                        if ($nsnActive) {
+                            $rowStock = ([string]$_.'STOCK NO.') -replace '[^0-9]', ''
+                            $nsnOk = $rowStock -match $nsnPattern
+                        }
+                        $oemOk = $true
+                        if ($oemActive) {
+                            $rowPart = ([string]$_.'PART NO.' -replace '[^A-Za-z0-9]', '').ToUpper()
+                            $oemOk = ($rowPart -and ($rowPart -match $oemPattern))
+                        }
+                        $descOk = $true
+                        if ($descActive) {
+                            $rowDesc = (([string]$_.'PART DESCRIPTION' -replace '[^A-Za-z0-9]', ' ').ToLower() -replace '\s+', ' ').Trim()
+                            foreach ($token in $descTokens) {
+                                if (-not $rowDesc.Contains($token)) { $descOk = $false; break }
+                            }
+                        }
+                        $nsnOk -and $oemOk -and $descOk
+                    })
+                }
+                foreach ($item in @($filtered)) {
+                    $item | Add-Member -NotePropertyName 'Handbook'     -NotePropertyValue $selectedBookName       -Force
+                    $item | Add-Member -NotePropertyName 'Section Name' -NotePropertyValue $selectedSectionDisplay -Force
+                    $crossRefResults += $item
+                }
+            }
         } else {
-            Write-Log "No books defined in configuration."
-        }
-
+            # Specific book, "(All Sections)" — scan every section of that book.
+            foreach ($sec in (Get-SectionsForBook -BookName $selectedBookName)) {
+                try { $sectionData = Import-Csv -Path $sec.FilePath }
+                catch { $sectionData = @() }
+                if ($nsnNoMatch -or $oemNoMatch) { $filtered = @() } else {
+                    $filtered = @($sectionData | Where-Object {
+                        $nsnOk = $true
+                        if ($nsnActive) {
+                            $rowStock = ([string]$_.'STOCK NO.') -replace '[^0-9]', ''
+                            $nsnOk = $rowStock -match $nsnPattern
+                        }
+                        $oemOk = $true
+                        if ($oemActive) {
+                            $rowPart = ([string]$_.'PART NO.' -replace '[^A-Za-z0-9]', '').ToUpper()
+                            $oemOk = ($rowPart -and ($rowPart -match $oemPattern))
+                        }
+                        $descOk = $true
+                        if ($descActive) {
+                            $rowDesc = (([string]$_.'PART DESCRIPTION' -replace '[^A-Za-z0-9]', ' ').ToLower() -replace '\s+', ' ').Trim()
+                            foreach ($token in $descTokens) {
+                                if (-not $rowDesc.Contains($token)) { $descOk = $false; break }
+                            }
+                        }
+                        $nsnOk -and $oemOk -and $descOk
+                    })
+                }
+                foreach ($item in @($filtered)) {
+                    $item | Add-Member -NotePropertyName 'Handbook'     -NotePropertyValue $selectedBookName -Force
+                    $item | Add-Member -NotePropertyName 'Section Name' -NotePropertyValue $sec.Display -Force
+                    $crossRefResults += $item
+                }
+            }
+        } 
+		
         Write-Log "Found $($crossRefResults.Count) matching records in Cross Reference."
 
         $script:listViewCrossRef.Items.Clear()
@@ -14608,6 +16207,7 @@ function Show-MainForm {
         $ok = Show-InstallationWizard -InitialRoot $suggested
         if (-not $ok) { return }
         $script:config = Get-Content -Path $script:configPath -Raw | ConvertFrom-Json
+		$global:PMConfig = $script:config
     }
 
     $form = New-Object System.Windows.Forms.Form
