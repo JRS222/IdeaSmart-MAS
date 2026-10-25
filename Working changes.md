@@ -1,130 +1,197 @@
-Two syntax errors, both in Search-Parts. They came from the B5 patch you applied — the copy/paste left a stray ) and an orphaned }.
+PS C:\Users\YYQTP0\Desktop> .\UI-Script.ps1
+2026-10-25 12:44:58 - Config loaded successfully
+2026-10-25 12:44:58 - Active UI theme: Default
+2026-10-25 12:45:00 - Get-Jobs: read 45 job(s) from C:\Users\YYQTP0\Desktop\PartsMgmt\Work Tracking\Jobs.json
+2026-10-25 12:45:01 - Get-Jobs: read 45 job(s) from C:\Users\YYQTP0\Desktop\PartsMgmt\Work Tracking\Jobs.json
+2026-10-25 12:45:01 - Get-Jobs: read 45 job(s) from C:\Users\YYQTP0\Desktop\PartsMgmt\Work Tracking\Jobs.json
+2026-10-25 12:45:01 - Job Log sub-tab setup completed.
+2026-10-25 12:45:02 - Sync-PmArchive: processed=0 removed=0
+2026-10-25 12:45:02 - Load-PmMachines: dir=C:\Users\YYQTP0\Desktop\PartsMgmt\Work Tracking\PM Checklists fileCount=55
+2026-10-25 12:45:03 - Refresh-PmMachineTabs: selected=2026-10-25 all=55 shown=2
+2026-10-25 12:45:06 - Get-Jobs: read 45 job(s) from C:\Users\YYQTP0\Desktop\PartsMgmt\Work Tracking\Jobs.json
+2026-10-25 12:45:06 - PM Checklist sub-tab setup completed.
+2026-10-25 12:45:07 - Weekly Worksheet sub-tab setup completed.
+[Historian] machine filter: kind='All' -> 20 machine(s): ATU 1, ATU 2, ATU 3, ATU 4, DBCS 25, DBCS 28, DBCS 30, DBCS 31, DBCS 32, DBCS 33, DBCS 34, DBCS 35, DBCS 49, DBCS 58, DBCS 59, DBCS 61, DBCS 62, DBCS 63, DBCS 64, WORKSHEET
+2026-10-25 12:45:13 - Historian sub-tab setup completed.
+2026-10-25 12:45:13 - Processing Books from config:
+2026-10-25 12:45:13 - Checking file: C:\Users\YYQTP0\Desktop\PartsMgmt\Parts Books\MS-229 Delivery Bar Code Sorter Phase 4 - DBCS (Vol. E)\MS-229 Delivery Bar Code Sorter Phase 4 - DBCS (Vol. E).xlsx
+2026-10-25 12:45:13 - Added file: MS-229 Delivery Bar Code Sorter Phase 4 - DBCS Vol E
+2026-10-25 12:45:13 - Checking file: C:\Users\YYQTP0\Desktop\PartsMgmt\Parts Books\MS-298 DELIVERY BAR CODE SORTER Phase 3-5 LAU PH2 - DBCS 3-5 LAU PH2 (Vol. C)\MS-298 DELIVERY BAR CODE SORTER Phase 3-5 LAU PH2 - DBCS 3-5 LAU PH2 (Vol. C).xlsx
+2026-10-25 12:45:13 - Added file: MS-298 DELIVERY BAR CODE SORTER Phase 3-5 LAU PH2 - DBCS 3-5 LAU PH2 Vol C
+2026-10-25 12:45:13 - Checking file: C:\Users\YYQTP0\Desktop\PartsMgmt\Parts Books\MS-212 Wide Field Of View Camera - WFOV (Vol. B)\MS-212 Wide Field Of View Camera - WFOV (Vol. B).xlsx
+2026-10-25 12:45:13 - Added file: MS-212 Wide Field Of View Camera - WFOV Vol B
+2026-10-25 12:45:13 - Checking file: C:\Users\YYQTP0\Desktop\PartsMgmt\Parts Books\MS-243 Automatic Tray Unsleever - ATU (Vol. B)\MS-243 Automatic Tray Unsleever - ATU (Vol. B).xlsx
+2026-10-25 12:45:13 - Added file: MS-243 Automatic Tray Unsleever - ATU Vol B
+2026-10-25 12:45:13 - Checking file: C:\Users\YYQTP0\Desktop\PartsMgmt\Parts Books\MS-242 Enhanced Airline Assignment - EAA (Vol. B)\MS-242 Enhanced Airline Assignment - EAA (Vol. B).xlsx
+2026-10-25 12:45:13 - Added file: MS-242 Enhanced Airline Assignment - EAA Vol B
+2026-10-25 12:45:13 - Checking file: C:\Users\YYQTP0\Desktop\PartsMgmt\Parts Books\MS-313 High Speed Tray Sorter - HSTS (Vol. B)\MS-313 High Speed Tray Sorter - HSTS (Vol. B).xlsx
+2026-10-25 12:45:13 - Added file: MS-313 High Speed Tray Sorter - HSTS Vol B
+2026-10-25 12:45:14 - Checking file: C:\Users\YYQTP0\Desktop\PartsMgmt\Parts Books\MS-178 Automated Flat Sorting Machine 100 - Automatic Induction - AFSM 100-ai (Vol. G2)\MS-178 Automated Flat Sorting Machine 100 - Automatic Induction - AFSM 100-ai (Vol. G2).xlsx
+2026-10-25 12:45:14 - Added file: MS-178 Automated Flat Sorting Machine 100 - Automatic Induction - AFSM 100-ai Vol G2
+2026-10-25 12:45:14 - Setting up Search tab...
+The property 'Enabled' cannot be found on this object. Verify that the property exists and can be set.
+At C:\Users\YYQTP0\Desktop\UI-Script.ps1:14015 char:3
++         $searchButton.Enabled = (
++         ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : PropertyNotFound
 
-Fix 1 — line 1379, extra close paren
+The property 'Enabled' cannot be found on this object. Verify that the property exists and can be set.
+At C:\Users\YYQTP0\Desktop\UI-Script.ps1:14015 char:3
++         $searchButton.Enabled = (
++         ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : PropertyNotFound
 
-Find this (line ~1374–1379):
+The property 'Enabled' cannot be found on this object. Verify that the property exists and can be set.
+At C:\Users\YYQTP0\Desktop\UI-Script.ps1:14028 char:2
++     $searchButton.Enabled = ($script:comboBook.SelectedIndex -ge 0 -a ...
++     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : PropertyNotFound
 
-```powershell
-function Search-Parts {
-    param(
-        [string]$NSN,
-        [string]$Description,
-        [string]$BookFilter = '',
-        [string]$SectionFilter = ''
-    ))
-```
+2026-10-25 12:45:15 - Search tab setup completed.
+2026-10-25 12:45:15 - Setting up Settings tab...
+2026-10-25 12:45:18 - Load-WtSettingsValues: configPath='C:\Users\YYQTP0\Desktop\PartsMgmt\Config.json'
+2026-10-25 12:45:18 - Load-WtSettingsValues: techName='Joseph Shaw' email='default@example.com'
+2026-10-25 12:45:18 - Settings tab setup completed.
+2026-10-25 12:45:18 - UI setup completed
+2026-10-25 12:45:19 - Theme applied: Default
+Set-ThemeWindowChrome : The term 'Set-ThemeWindowChrome' is not recognized as the name of a cmdlet, function, script
+file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct
+and try again.
+At C:\Users\YYQTP0\Desktop\UI-Script.ps1:912 char:21
++                     Set-ThemeWindowChrome -Form $Root
++                     ~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (Set-ThemeWindowChrome:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
 
-Change )) to ):
+The property 'Enabled' cannot be found on this object. Verify that the property exists and can be set.
+At C:\Users\YYQTP0\Desktop\UI-Script.ps1:14015 char:3
++         $searchButton.Enabled = (
++         ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : PropertyNotFound
 
-```powershell
-function Search-Parts {
-    param(
-        [string]$NSN,
-        [string]$Description,
-        [string]$BookFilter = '',
-        [string]$SectionFilter = ''
-    )
-```
+The property 'Enabled' cannot be found on this object. Verify that the property exists and can be set.
+At C:\Users\YYQTP0\Desktop\UI-Script.ps1:14015 char:3
++         $searchButton.Enabled = (
++         ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : PropertyNotFound
 
-That's the Unexpected token ')' at 1379.
+The property 'Enabled' cannot be found on this object. Verify that the property exists and can be set.
+At C:\Users\YYQTP0\Desktop\UI-Script.ps1:14015 char:3
++         $searchButton.Enabled = (
++         ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : PropertyNotFound
 
-Fix 2 — line ~1499–1500, orphaned close brace
+The property 'Enabled' cannot be found on this object. Verify that the property exists and can be set.
+At C:\Users\YYQTP0\Desktop\UI-Script.ps1:14015 char:3
++         $searchButton.Enabled = (
++         ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : PropertyNotFound
 
-Find the end of Search-Parts:
+The property 'Enabled' cannot be found on this object. Verify that the property exists and can be set.
+At C:\Users\YYQTP0\Desktop\UI-Script.ps1:14015 char:3
++         $searchButton.Enabled = (
++         ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : PropertyNotFound
 
-```powershell
-    return $results
-}
-}
-# Data retrieval logic
-function Search-CrossReferenceData {
-```
+The property 'Enabled' cannot be found on this object. Verify that the property exists and can be set.
+At C:\Users\YYQTP0\Desktop\UI-Script.ps1:14015 char:3
++         $searchButton.Enabled = (
++         ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : PropertyNotFound
 
-Delete the second } so it reads:
+The property 'Enabled' cannot be found on this object. Verify that the property exists and can be set.
+At C:\Users\YYQTP0\Desktop\UI-Script.ps1:14015 char:3
++         $searchButton.Enabled = (
++         ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : PropertyNotFound
 
-```powershell
-    return $results
-}
-# Data retrieval logic
-function Search-CrossReferenceData {
-```
+The property 'Enabled' cannot be found on this object. Verify that the property exists and can be set.
+At C:\Users\YYQTP0\Desktop\UI-Script.ps1:14015 char:3
++         $searchButton.Enabled = (
++         ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : PropertyNotFound
 
-That's the Unexpected token '}' at 1499/1500. The Missing closing '}' at line 1373 is PowerShell's report location — it can't match the brace because of the )) a few lines below, so it flags the function keyword.
+The property 'Enabled' cannot be found on this object. Verify that the property exists and can be set.
+At C:\Users\YYQTP0\Desktop\UI-Script.ps1:14015 char:3
++         $searchButton.Enabled = (
++         ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : PropertyNotFound
 
-Verify
+The property 'Enabled' cannot be found on this object. Verify that the property exists and can be set.
+At C:\Users\YYQTP0\Desktop\UI-Script.ps1:14015 char:3
++         $searchButton.Enabled = (
++         ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : PropertyNotFound
 
-Quick check before running the app:
+The property 'Enabled' cannot be found on this object. Verify that the property exists and can be set.
+At C:\Users\YYQTP0\Desktop\UI-Script.ps1:14015 char:3
++         $searchButton.Enabled = (
++         ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : PropertyNotFound
 
-```powershell
-$ast = [System.Management.Automation.Language.Parser]::ParseFile("$PWD\UI-Script.ps1", [ref]$null, [ref]$errs)
-if ($errs) { $errs | ForEach-Object { "$($_.Extent.StartLineNumber): $($_.Message)" } } else { "OK" }
-```
+The property 'Enabled' cannot be found on this object. Verify that the property exists and can be set.
+At C:\Users\YYQTP0\Desktop\UI-Script.ps1:14015 char:3
++         $searchButton.Enabled = (
++         ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : PropertyNotFound
 
-Should print OK.
+The property 'Enabled' cannot be found on this object. Verify that the property exists and can be set.
+At C:\Users\YYQTP0\Desktop\UI-Script.ps1:14015 char:3
++         $searchButton.Enabled = (
++         ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : PropertyNotFound
 
----
+The property 'Enabled' cannot be found on this object. Verify that the property exists and can be set.
+At C:\Users\YYQTP0\Desktop\UI-Script.ps1:14015 char:3
++         $searchButton.Enabled = (
++         ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : PropertyNotFound
 
-Two runtime issues you'll hit right after the parse fix
+The property 'Enabled' cannot be found on this object. Verify that the property exists and can be set.
+At C:\Users\YYQTP0\Desktop\UI-Script.ps1:14015 char:3
++         $searchButton.Enabled = (
++         ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : PropertyNotFound
 
-Not parse errors, but both block startup once the script parses:
+The property 'Enabled' cannot be found on this object. Verify that the property exists and can be set.
+At C:\Users\YYQTP0\Desktop\UI-Script.ps1:14015 char:3
++         $searchButton.Enabled = (
++         ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : PropertyNotFound
 
-A. $searchButton referenced before it exists (in Setup-SearchTab)
+The property 'Enabled' cannot be found on this object. Verify that the property exists and can be set.
+At C:\Users\YYQTP0\Desktop\UI-Script.ps1:14015 char:3
++         $searchButton.Enabled = (
++         ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : PropertyNotFound
 
-The $updateSearchEnabled closure at line ~1334 references $searchButton, but $searchButton isn't created until ~line 1360. .GetNewClosure() captures $null, then the pre-select below fires the event and writes $null.Enabled = ..., which errors.
+The property 'Enabled' cannot be found on this object. Verify that the property exists and can be set.
+At C:\Users\YYQTP0\Desktop\UI-Script.ps1:14015 char:3
++         $searchButton.Enabled = (
++         ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidOperation: (:) [], RuntimeException
+    + FullyQualifiedErrorId : PropertyNotFound
 
-Fix: move the enable-logic + pre-select block to after $searchButton is created (i.e. after $topPanel.Controls.Add($searchButton)). Move this entire chunk down:
-
-```powershell
-    $updateSearchEnabled = {
-        $searchButton.Enabled = (
-            $script:comboBook.SelectedIndex    -ge 0 -and
-            $script:comboSection.SelectedIndex -ge 0
-        )
-    }.GetNewClosure()
-
-    $script:comboBook.Add_SelectedIndexChanged($updateSearchEnabled)
-    $script:comboSection.Add_SelectedIndexChanged($updateSearchEnabled)
-
-    if ($script:comboBook.Items.Count -gt 0) {
-        $script:comboBook.SelectedIndex = 0
-    }
-    $searchButton.Enabled = ($script:comboBook.SelectedIndex -ge 0 -and $script:comboSection.SelectedIndex -ge 0)
-```
-
-…so it sits between $topPanel.Controls.Add($searchButton) and the tooltip creation.
-
-B. $startBtn handler in Show-PmTaskTimerForm calls the wrong timer
-
-The Start button you added in Show-PmTaskTimerForm (line ~4130ish) has:
-
-```powershell
-$startBtn.Add_Click({
-    try {
-        Start-JobTimer -JobId $JobId        # <-- wrong function, wrong variable
-        Refresh-JobLogList                  # <-- not relevant here
-        Refresh-WorkBudget
-        & $refreshDisplay
-    } catch { Write-Log "Start Timer error: $($_.Exception.Message)" }
-}.GetNewClosure())
-```
-
-$JobId and Start-JobTimer belong to the Job timer, not the PM task timer. $JobId is undefined here → silent null error at click time.
-
-Replace with:
-
-```powershell
-$startBtn.Add_Click({
-    try {
-        $curEntry = $Machine.State[$taskId]
-        if ((Get-PmTaskTimerState -Entry $curEntry) -eq 'idle') {
-            Start-PmTaskTimer -Machine $Machine -Task $Task
-            Refresh-PmTaskRow -Machine $Machine -Task $Task
-        }
-        & $refreshDisplay
-    } catch { Write-Log "PM Start Timer error: $($_.Exception.Message)" }
-}.GetNewClosure())
-```
-
-$Machine, $Task, $taskId, and $refreshDisplay are all already captured correctly in that form — the only wrong lines are the three inside the try block.
-
-The analogous Start-button handler in Show-JobTimerForm (if you're adding it there too per A6) is correct as written — it uses $JobId, Start-JobTimer, Refresh-JobLogList, Refresh-WorkBudget, all of which exist in that scope.
+Cancel
+2026-10-25 12:45:47 - Application closed
+PS C:\Users\YYQTP0\Desktop>
