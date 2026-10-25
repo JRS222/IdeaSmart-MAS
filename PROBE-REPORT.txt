@@ -1,280 +1,48 @@
-#Requires -Version 5.1
-<#
-.SYNOPSIS
-    eMARS PM checklist probe v3 — ECBM_SUBMIT_LIST focus.
-.DESCRIPTION
-    Your actual flow is:
-      eCBM → ECBM_MAIN_001 → subsite → acronym+machine → [Checklist] btn
-          → ECBM_SUBMIT_LIST → "print checklist with task details" → about:blank
-
-    That "print checklist with task details" handler lives in
-    ECBM_SUBMIT_LIST.js — which we have never fetched. That file is the
-    last missing piece. This probe:
-      - Fetches it and dumps every URL string it contains.
-      - Probes getTaskDetails / getEORData with correct params.
-      - Inspects em_show_report?pReportID=CHECKLIST (returned 3,270 chars last run).
-#>
-[CmdletBinding()]
-param(
-    [string]$UserId     = '1601089',
-    [string]$SiteId     = '345',
-    [string]$Acronym    = 'DBCS',
-    [string]$MachinePtr = '827433',
-    [string]$MachineNo  = '16',
-    [string]$ClassCode  = 'CK',
-    [string]$TrackNo    = '37900603',
-    [string]$Subsite    = '01',
-    [string]$Origin     = 'http://emarssu3.eng.usps.gov',
-    [string]$OutDir     = (Join-Path $env:USERPROFILE ("Desktop\emars-pm-probe-" + (Get-Date -Format 'yyyyMMdd-HHmmss')))
-)
-
-$ErrorActionPreference = 'Continue'
-$ProgressPreference    = 'SilentlyContinue'
-
-if (-not (Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir -Force | Out-Null }
-$reportPath = Join-Path $OutDir 'PROBE-REPORT.txt'
-$script:lines = New-Object System.Collections.ArrayList
-$script:hits  = New-Object System.Collections.ArrayList
-$base = "$Origin/pemars"
-
-$markers = @(
-    @{ Name = 'Task Statement and Instruction'; Rx = 'Task Statement and Instruction' }
-    @{ Name = 'Checklist No.';                  Rx = 'Checklist No\.' }
-    @{ Name = 'Est for All Open Tasks';         Rx = 'Est for All Open Tasks' }
-    @{ Name = 'Est for Tasks Due Today';        Rx = 'Est for Tasks Due Today' }
-    @{ Name = 'Min Skill';                      Rx = 'Min Skill' }
-    @{ Name = 'Bypass Code';                    Rx = 'Bypass Code' }
-    @{ Name = 'Power Off';                      Rx = 'Power Off' }
-    @{ Name = 'Power On';                       Rx = 'Power On' }
-)
-
-function Say { param([string]$m = '', [string]$c = 'Gray') Write-Host $m -ForegroundColor $c; [void]$script:lines.Add($m) }
-function Save-Blob { param([string]$n, [string]$c) if (-not [string]::IsNullOrEmpty($c)) { [System.IO.File]::WriteAllText((Join-Path $OutDir $n), $c, (New-Object System.Text.UTF8Encoding($false))) } }
-
-function Test-Markers {
-    param([string]$c)
-    if ([string]::IsNullOrEmpty($c)) { return $null }
-    $found = @()
-    foreach ($m in $markers) { if ($c -match $m.Rx) { $found += $m.Name } }
-    if ($found.Count -eq 0) { return $null }
-    return $found
-}
-
-function Fetch {
-    param([string]$url, [string]$label = 'probe', [switch]$Quiet)
-    $o = [PSCustomObject]@{ Url = $url; Ok = $false; Status = -1; Length = 0; Content = $null; Error = $null; Markers = $null }
-    try {
-        $r = Invoke-WebRequest -Uri $url -UseBasicParsing -TimeoutSec 20 -ErrorAction Stop
-        $o.Ok = $true; $o.Status = $r.StatusCode; $o.Length = $r.Content.Length; $o.Content = $r.Content
-        $o.Markers = Test-Markers $r.Content
-        if (-not $Quiet) {
-            if ($o.Markers) { Say ("      OK  {0,7:N0} chars  ***MARKERS: {1}***" -f $o.Length, ($o.Markers -join ', ')) 'Green' }
-            else            { Say ("      OK  {0,7:N0} chars" -f $o.Length) 'Gray' }
-        }
-        if ($o.Markers) {
-            [void]$script:hits.Add([PSCustomObject]@{ Url = $url; Label = $label; Markers = $o.Markers; Length = $o.Length })
-        }
-    } catch {
-        $o.Error = $_.Exception.Message
-        if (-not $Quiet) { Say ("      FAIL  {0}" -f $o.Error) 'DarkGray' }
-    }
-    return $o
-}
-
-Say '============================================================' 'Cyan'
-Say '  eMARS PM CHECKLIST PROBE v3 — ECBM_SUBMIT_LIST focus' 'Cyan'
-Say '============================================================' 'Cyan'
-Say ''
-Say ("  User:{0}  Site:{1}  Subsite:{2}" -f $UserId, $SiteId, $Subsite)
-Say ("  Machine:{0} {1}  ptr={2}  class={3}" -f $Acronym, $MachineNo, $MachinePtr, $ClassCode)
-Say ("  TrackNo:{0}" -f $TrackNo)
-Say ("  Output:{0}" -f $OutDir)
-Say ''
-
-# ---------------------------------------------------------------
-# Section 1 — sanity (fixed $home -> $homeResp)
-# ---------------------------------------------------------------
-Say '------------------------------------------------------------' 'Cyan'
-Say 'SECTION 1 — Sanity (fixed $home bug)' 'Cyan'
-Say '------------------------------------------------------------' 'Cyan'
-
-$homeUrl = "$base/vm_hompage_prc?p_user=$UserId&p_site=$SiteId"
-Say ("  GET {0}" -f $homeUrl)
-$homeResp = Fetch -url $homeUrl -label 'home'
-if ($homeResp.Ok) {
-    Save-Blob '01-home.html' $homeResp.Content
-    Say ("  has EM_PREV_MAINT button: {0}" -f ($homeResp.Content -match 'EM_PREV_MAINT_001')) 'Green'
-} else {
-    Say '  ABORT: cookieless access failing.' 'Red'
-}
-
-# ---------------------------------------------------------------
-# Section 2 — THE KEY FILE
-# ---------------------------------------------------------------
-Say ''
-Say '------------------------------------------------------------' 'Cyan'
-Say 'SECTION 2 — ECBM_SUBMIT_LIST.js (the module your flow actually opens)' 'Cyan'
-Say '------------------------------------------------------------' 'Cyan'
-
-$submitJsUrl = "$Origin/emars-script/ECBM_SUBMIT_LIST.js"
-Say ("  GET {0}" -f $submitJsUrl)
-$submitJs = Fetch -url $submitJsUrl -label 'ECBM_SUBMIT_LIST.js'
-
-if ($submitJs.Ok) {
-    Save-Blob '02-ECBM_SUBMIT_LIST.js' $submitJs.Content
-    $js = $submitJs.Content
-
-    Say ''
-    Say '  === All procedure / module URLs found ===' 'Cyan'
-    $urlRx = [regex]'(?i)(?:ecbm\.[a-z_]+\.[a-zA-Z0-9_]+|em_[a-z_]+_pkg\.[a-zA-Z0-9_]+|vm_main_pkg\.[a-zA-Z0-9_]+|openSwilWin\s*\(\s*[''"][A-Z0-9_]+[''"])'
-    $found = New-Object System.Collections.Generic.List[string]
-    foreach ($m in $urlRx.Matches($js)) { if (-not $found.Contains($m.Value)) { $found.Add($m.Value) } }
-    if ($found.Count -eq 0) { Say '    (none)' 'Yellow' }
-    else { foreach ($u in ($found | Sort-Object)) { Say ("    {0}" -f $u) 'Green' } }
-
-    Say ''
-    Say '  === Lines mentioning print / checklist / task / document.write ===' 'Cyan'
-    $lines = $js -split "`r?`n"
-    $i = 0; $shown = 0
-    foreach ($ln in $lines) {
-        $i++
-        if ($ln -match '(?i)print|checklist|task.*detail|document\.write|window\.open|newWin') {
-            Say ("    [{0,5}] {1}" -f $i, $ln.Trim()) 'DarkGray'
-            $shown++
-            if ($shown -ge 50) { Say '    ... (more suppressed)' 'DarkGray'; break }
-        }
-    }
-    if ($shown -eq 0) { Say '    (none)' 'Yellow' }
-
-    Say ''
-    Say '  === All string literals that look like URLs ===' 'Cyan'
-    $strRx = [regex]'(?i)[''"]([^''"]*(?:ecbm\.|em_[a-z_]+_pkg\.|vm_main_pkg|getChecklist|getTask|printChecklist|openSwilWin|getEOR)[^''"]*)[''"]'
-    $strs = New-Object System.Collections.Generic.List[string]
-    foreach ($m in $strRx.Matches($js)) { if (-not $strs.Contains($m.Groups[1].Value)) { $strs.Add($m.Groups[1].Value) } }
-    if ($strs.Count -eq 0) { Say '    (none)' 'Yellow' }
-    else { foreach ($s in ($strs | Sort-Object)) { Say ("    {0}" -f $s) 'Cyan' } }
-} else {
-    Say '  ECBM_SUBMIT_LIST.js not found — trying module shell' 'Yellow'
-    $shellUrl = "$base/!vm_main_pkg.main?pSiteID=$SiteId&pUser=$UserId&pModule=ECBM_SUBMIT_LIST"
-    Say ("  GET {0}" -f $shellUrl)
-    $shell = Fetch -url $shellUrl -label 'ECBM_SUBMIT_LIST shell'
-    if ($shell.Ok) { Save-Blob '02-shell.html' $shell.Content }
-}
-
-# ---------------------------------------------------------------
-# Section 3 — getTaskDetails with correct params
-# ---------------------------------------------------------------
-Say ''
-Say '------------------------------------------------------------' 'Cyan'
-Say 'SECTION 3 — getTaskDetails (params from ECBM_TASK_DETAILS.js L95)' 'Cyan'
-Say '------------------------------------------------------------' 'Cyan'
-
-foreach ($tid in @('0','1','2','100','1000','10000')) {
-    $url = "$base/ecbm.ecbm_report_j.getTaskDetails?p_machinetype=$Acronym&p_classcode=$ClassCode&p_taskid=$tid&p_machineid=$MachinePtr&p_site=$SiteId"
-    Say ("  [taskid=$tid]")
-    Say ("    GET {0}" -f $url)
-    $r = Fetch -url $url -label "getTaskDetails tid=$tid"
-    if ($r.Ok) { Save-Blob ("03-getTaskDetails-$tid.txt") $r.Content }
-}
-
-# ---------------------------------------------------------------
-# Section 4 — getEORData with correct params
-# ---------------------------------------------------------------
-Say ''
-Say '------------------------------------------------------------' 'Cyan'
-Say 'SECTION 4 — getEORData (params from ECBM_TASK_DETAILS.js L210)' 'Cyan'
-Say '------------------------------------------------------------' 'Cyan'
-
-$eorUrl = "$base/ecbm.ecbm_checklist.getEORData?p_machineid=$MachinePtr&p_machinetype=$Acronym&p_classcode=$ClassCode"
-Say ("  GET {0}" -f $eorUrl)
-$eorResp = Fetch -url $eorUrl -label 'getEORData'
-if ($eorResp.Ok) { Save-Blob '04-getEORData.txt' $eorResp.Content }
-
-# ---------------------------------------------------------------
-# Section 5 — getAllChecklists with subsite
-# ---------------------------------------------------------------
-Say ''
-Say '------------------------------------------------------------' 'Cyan'
-Say 'SECTION 5 — getAllChecklists with subsite' 'Cyan'
-Say '------------------------------------------------------------' 'Cyan'
-
-$worked = $false
-foreach ($ss in @($Subsite, '1', '00', '0')) {
-    if ([string]::IsNullOrEmpty($ss)) { continue }
-    $url = "$base/ecbm.ecbm_report_j.getAllChecklists?pSiteID=$SiteId&pSubsiteID=$ss&pAcronym=$Acronym"
-    Say ("  [subsite=$ss]  GET {0}" -f $url)
-    $r = Fetch -url $url -label "getAllChecklists ss=$ss"
-    if ($r.Ok) {
-        Save-Blob ("05-getAllChecklists-ss$ss.xml") $r.Content
-        $worked = $true
-        break
-    }
-}
-if (-not $worked) { Say '  all subsite variants failed' 'Yellow' }
-
-# ---------------------------------------------------------------
-# Section 6 — em_show_report?pReportID=CHECKLIST inspection
-# ---------------------------------------------------------------
-Say ''
-Say '------------------------------------------------------------' 'Cyan'
-Say 'SECTION 6 — em_show_report?pReportID=CHECKLIST (returned 3,270 chars)' 'Cyan'
-Say '------------------------------------------------------------' 'Cyan'
-
-$xmlKey = "<KEYLIST><TRACKNO>$TrackNo</TRACKNO></KEYLIST>"
-$xmlEnc = [System.Uri]::EscapeDataString($xmlKey)
-$url6   = "$base/em_show_report?pReportID=CHECKLIST&pUser=$UserId&pSite=$SiteId&pParamXML=$xmlEnc"
-Say ("  GET {0}" -f $url6)
-$r6 = Fetch -url $url6 -label 'em_show_report CHECKLIST'
-if ($r6.Ok) {
-    Save-Blob '06-em_show_report-CHECKLIST.html' $r6.Content
-    Say ''
-    Say '  First 800 chars:' 'Cyan'
-    $snip = $r6.Content; if ($snip.Length -gt 800) { $snip = $snip.Substring(0, 800) }
-    foreach ($ln in ($snip -split "`r?`n")) { Say ("    {0}" -f $ln) 'DarkGray' }
-}
-
-# ---------------------------------------------------------------
-# Section 7 — marker hits summary
-# ---------------------------------------------------------------
-Say ''
-Say '------------------------------------------------------------' 'Cyan'
-Say 'SECTION 7 — Every request that returned expected markers' 'Cyan'
-Say '------------------------------------------------------------' 'Cyan'
-
-if ($script:hits.Count -eq 0) {
-    Say '  none.' 'Yellow'
-} else {
-    Say ("  {0} hit(s):" -f $script:hits.Count) 'Green'
-    foreach ($h in $script:hits) {
-        Say ''
-        Say ("  [{0}]" -f $h.Label) 'Green'
-        Say ("    URL:      {0}" -f $h.Url)
-        Say ("    Markers:  {0}" -f ($h.Markers -join ', '))
-        Say ("    Length:   {0}" -f $h.Length)
-    }
-}
-
-Say ''
-Say '============================================================' 'Cyan'
-Say '  PROBE COMPLETE' 'Cyan'
-Say '============================================================' 'Cyan'
-Say ''
-Say '  Send back:' 'Cyan'
-Say '    - This report'
-Say '    - 02-ECBM_SUBMIT_LIST.js  (whole file — THE key file)' 'Cyan'
-Say '    - 06-em_show_report-CHECKLIST.html  (if saved)' 'Cyan'
-Say ''
-if ($script:hits.Count -gt 0) {
-    Say '  ✓ A URL with the correct format was found. Integration ready.' 'Green'
-} else {
-    Say '  ✗ No marker hits, but 02-ECBM_SUBMIT_LIST.js must contain' 'Yellow'
-    Say '    the "print checklist with task details" URL. Send it back.' 'Yellow'
-}
-
-$script:lines | Set-Content -Path $reportPath -Encoding UTF8
-
-Write-Host ''
-Write-Host "Saved to: $OutDir" -ForegroundColor Cyan
-Get-ChildItem -Path $OutDir -File | Sort-Object Name | ForEach-Object {
-    Write-Host ("  {0,-45}  {1,10:N0} bytes" -f $_.Name, $_.Length) -ForegroundColor DarkGray
-}
+PS C:\Users\YYQTP0\Desktop> .\test-emars-layer.ps1
+At C:\Users\YYQTP0\Desktop\test-emars-layer.ps1:53 char:22
++     if ($Url -match 'getAChecklist') {
++                      ~~~~~~~~~~~~~~~~~
+Unexpected token 'getAChecklist') {
+        if ($Url -match 'p_trackno=99999') { return '<?xml' in expression or statement.
+At C:\Users\YYQTP0\Desktop\test-emars-layer.ps1:63 char:11
++     <STEP>&#60;p&#62;&#60;b&#62;Vacuum&#47;clean&#32;top&#32;of&#32;R ...
++           ~
+The ampersand (&) character is not allowed. The & operator is reserved for future use; wrap an ampersand in double
+quotation marks ("&") to pass it as part of a string.
+At C:\Users\YYQTP0\Desktop\test-emars-layer.ps1:83 char:11
++     <STEP>&#60;p&#62;&#60;b&#62;Run&#32;system.&#60;&#47;b&#62;&#60;& ...
++           ~
+The ampersand (&) character is not allowed. The & operator is reserved for future use; wrap an ampersand in double
+quotation marks ("&") to pass it as part of a string.
+At C:\Users\YYQTP0\Desktop\test-emars-layer.ps1:103 char:11
++     <STEP>&#60;p&#62;&#60;b&#62;Grease&#32;bearings.&#60;&#47;b&#62;& ...
++           ~
+The ampersand (&) character is not allowed. The & operator is reserved for future use; wrap an ampersand in double
+quotation marks ("&") to pass it as part of a string.
+At C:\Users\YYQTP0\Desktop\test-emars-layer.ps1:128 char:9
++     <C2>&#60;p&#62;&#60;b&#62;Vacuum&#47;clean&#32;top&#32;of&#32;Rea ...
++         ~
+The ampersand (&) character is not allowed. The & operator is reserved for future use; wrap an ampersand in double
+quotation marks ("&") to pass it as part of a string.
+At C:\Users\YYQTP0\Desktop\test-emars-layer.ps1:135 char:9
++     <C2>&#60;p&#62;&#60;b&#62;Run&#32;system.&#60;&#47;b&#62;&#60;&#4 ...
++         ~
+The ampersand (&) character is not allowed. The & operator is reserved for future use; wrap an ampersand in double
+quotation marks ("&") to pass it as part of a string.
+At C:\Users\YYQTP0\Desktop\test-emars-layer.ps1:142 char:9
++     <C2>&#60;p&#62;&#60;b&#62;Grease&#32;bearings.&#60;&#47;b&#62;&#6 ...
++         ~
+The ampersand (&) character is not allowed. The & operator is reserved for future use; wrap an ampersand in double
+quotation marks ("&") to pass it as part of a string.
+At C:\Users\YYQTP0\Desktop\test-emars-layer.ps1:151 char:22
++     if ($Url -match 'getBypassCodes') {
++                      ~~~~~~~~~~~~~~~~~~
+Unexpected token 'getBypassCodes') {
+        return @'' in expression or statement.
+At C:\Users\YYQTP0\Desktop\test-emars-layer.ps1:162 char:22
++     if ($Url -match 'getMachineDesc') {
++                      ~~~~~~~~~~~~~~~~~~
+Unexpected token 'getMachineDesc') {
+        return 'DBCS' in expression or statement.
+    + CategoryInfo          : ParserError: (:) [], ParseException
+    + FullyQualifiedErrorId : UnexpectedToken
