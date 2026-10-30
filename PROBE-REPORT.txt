@@ -1,46 +1,600 @@
-Windows PowerShell
-Copyright (C) Microsoft Corporation. All rights reserved.
-                                                                                                                        Loading personal and system profiles took 616ms.                                                                        PS C:\Users\YYQTP0> cd .\Desktop\                                                                                       PS C:\Users\YYQTP0\Desktop> .\WO.ps1                                                                                    2026-10-30 12:30:47 - Loading config from C:\Users\YYQTP0\Desktop\PartsMgmt\Config.json
-2026-10-30 12:30:47 - Window: 2026-10-23 .. 2026-10-30   Filter: Closed
-2026-10-30 12:30:47 - Statuses: E,A,B,C,D,W   Site: 345   Register filter: '<none>'
-2026-10-30 12:30:47 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWOData?pSite=345&pWOStatus=E&pRegNo=&pWONo=
-2026-10-30 12:31:03 - GET done in 16s -- 20556456 bytes
-2026-10-30 12:31:03 - ConvertFrom-WoSearchResponse[empty_E]: 20556455 bytes
-2026-10-30 12:31:04 - ConvertFrom-WoSearchResponse[empty_E]: 144205 <param> element(s) in 436ms
-2026-10-30 12:31:04 - ConvertFrom-WoSearchResponse[empty_E]: columns = Reg No | WO No | WC | Acronym | CC | Equip No | Stts | Crew | Dt Issued | Dt Due | WO Description
-2026-10-30 12:31:04 - FATAL: Specified argument was out of the range of valid values.
-Parameter name: index
-FATAL: Specified argument was out of the range of valid values.
-Parameter name: index
-PS C:\Users\YYQTP0\Desktop> .\WO.ps1 -From 2026-10-23 -To 2026-10-30 -Status E -FilterBy Due -MaxRows 500
-2026-10-30 13:11:46 - Loading config from C:\Users\YYQTP0\Desktop\PartsMgmt\Config.json
-2026-10-30 13:11:46 - Window: 2026-10-23 .. 2026-10-30   Filter: Due
-2026-10-30 13:11:46 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWOData?pSite=345&pWOStatus=E&pRegNo=&pWONo=
-2026-10-30 13:12:05 - GET done in 19s -- 20556723 bytes
-2026-10-30 13:12:05 - ConvertFrom-WoSearchResponse[empty_E]: 20556722 bytes
-2026-10-30 13:12:06 - ConvertFrom-WoSearchResponse[empty_E]: 144207 <param> element(s) in 738ms
-2026-10-30 13:12:06 - ConvertFrom-WoSearchResponse[empty_E]: columns = Reg No | WO No | WC | Acronym | CC | Equip No | Stts | Crew | Dt Issued | Dt Due | WO Description
-2026-10-30 13:12:08 - ConvertFrom-WoSearchResponse[empty_E]: 144189 data row(s), 11 column(s)
-2026-10-30 13:12:08 - ConvertFrom-WoSearchResponse[empty_E]: non-row params = archive, cabbase, rowheight, linecolor, highlightcolor, gridattributes, headerattributes, rowheader, flags, numcols, colwidths, sortcolumns, sortcolumncolor, cellsreleasedfunction, urlframe, clickFunction, numrows
-2026-10-30 13:12:41 - ConvertFrom-WoSearchResponse[empty_E]: processed 10000 / 144189 row(s), kept so far: 0
-2026-10-30 13:13:13 - ConvertFrom-WoSearchResponse[empty_E]: processed 20000 / 144189 row(s), kept so far: 0
-2026-10-30 13:13:45 - ConvertFrom-WoSearchResponse[empty_E]: processed 30000 / 144189 row(s), kept so far: 0
-2026-10-30 13:14:18 - ConvertFrom-WoSearchResponse[empty_E]: processed 40000 / 144189 row(s), kept so far: 0
-2026-10-30 13:14:50 - ConvertFrom-WoSearchResponse[empty_E]: processed 50000 / 144189 row(s), kept so far: 0
-2026-10-30 13:15:21 - ConvertFrom-WoSearchResponse[empty_E]: processed 60000 / 144189 row(s), kept so far: 0
-2026-10-30 13:15:56 - ConvertFrom-WoSearchResponse[empty_E]: processed 70000 / 144189 row(s), kept so far: 0
-2026-10-30 13:16:30 - ConvertFrom-WoSearchResponse[empty_E]: processed 80000 / 144189 row(s), kept so far: 0
-2026-10-30 13:17:01 - ConvertFrom-WoSearchResponse[empty_E]: processed 90000 / 144189 row(s), kept so far: 0
-2026-10-30 13:17:34 - ConvertFrom-WoSearchResponse[empty_E]: processed 100000 / 144189 row(s), kept so far: 0
-2026-10-30 13:18:06 - ConvertFrom-WoSearchResponse[empty_E]: processed 110000 / 144189 row(s), kept so far: 0
-2026-10-30 13:18:32 - ConvertFrom-WoSearchResponse[empty_E]: processed 120000 / 144189 row(s), kept so far: 0
-2026-10-30 13:19:06 - ConvertFrom-WoSearchResponse[empty_E]: processed 130000 / 144189 row(s), kept so far: 0
-2026-10-30 13:19:43 - ConvertFrom-WoSearchResponse[empty_E]: processed 140000 / 144189 row(s), kept so far: 318
-2026-10-30 13:20:02 - ConvertFrom-WoSearchResponse[empty_E]: kept 571 row(s) after pre-filter (dropped 143618)
-2026-10-30 13:20:02 - Get-EmarsWorkOrdersAll: empty-reg status 'E' -> 571 WO(s) after pre-filter
-2026-10-30 13:20:02 - Total distinct WOs after search + pre-filter: 545
-2026-10-30 13:20:02 - Local Jobs.json hours per WO in window: 10 WO(s)
-2026-10-30 13:20:02 - [1/545] detail for WO #14137 (wo_ptr='')
-2026-10-30 13:20:02 - FATAL: Cannot bind argument to parameter 'WoPtr' because it is an empty string.
-FATAL: Cannot bind argument to parameter 'WoPtr' because it is an empty string.
+PS C:\Users\YYQTP0\Desktop> .\WO.ps1 -From 2026-10-23 -To 2026-10-30 -Status E -SkipDetail
+2026-10-30 13:31:18 - Loading config from C:\Users\YYQTP0\Desktop\PartsMgmt\Config.json
+2026-10-30 13:31:18 - Window: 2026-10-23 .. 2026-10-30   Filter: Due
+2026-10-30 13:31:18 - Statuses: E   Site: 345   Register: '<none>'   MaxRows: 200
+2026-10-30 13:31:18 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWOData?pSite=345&pWOStatus=E&pRegNo=&pWONo=
+2026-10-30 13:31:37 - GET done in 18s -- 20556852 bytes
+2026-10-30 13:31:37 - ConvertFrom-WoSearchResponse[empty_E]: 20556851 bytes
+2026-10-30 13:31:37 - ConvertFrom-WoSearchResponse[empty_E]: 144208 <param> in 568ms
+2026-10-30 13:31:39 - ConvertFrom-WoSearchResponse[empty_E]: headers = Reg No | WO No | WC | Acronym | CC | Equip No | Stts | Crew | Dt Issued | Dt Due | WO Description
+2026-10-30 13:31:39 -   applet numcols = '15'
+2026-10-30 13:31:39 -   applet numrows = '144190'
+2026-10-30 13:31:39 -   applet rowheader = '20'
+2026-10-30 13:31:39 -   applet colwidths = '30,65,30,80,30,80,35,45,70,70, 600,0,0,0,0'
+2026-10-30 13:31:41 - ConvertFrom-WoSearchResponse[empty_E]: delimiter = ','
+2026-10-30 13:31:42 -   --- FIRST ROW (15 cells) ---
+2026-10-30 13:31:42 -     [0] Reg No = '
+101'
+2026-10-30 13:31:42 -     [1] WO No = '1'
+2026-10-30 13:31:42 -     [2] WC = '16'
+2026-10-30 13:31:42 -     [3] Acronym = 'ADMIN'
+2026-10-30 13:31:42 -     [4] CC = 'AA'
+2026-10-30 13:31:42 -     [5] Equip No = 'CABLE'
+2026-10-30 13:31:42 -     [6] Stts = 'C'
+2026-10-30 13:31:42 -     [7] Crew = '017'
+2026-10-30 13:31:42 -     [8] Dt Issued = '09/26/2020'
+2026-10-30 13:31:42 -     [9] Dt Due = '09/24/2021'
+2026-10-30 13:31:42 -     [10] WO Description = 'INSTALL  DATA  CABLING'
+2026-10-30 13:31:42 -     [11] (hidden_11) = ''
+2026-10-30 13:31:42 -     [12] (hidden_12) = ''                                                                         2026-10-30 13:31:42 -     [13] (hidden_13) = ''                                                                         2026-10-30 13:31:42 -     [14] (hidden_14) = 'AApq5mADKAAAVeBAAF'                                                       2026-10-30 13:31:43 - ConvertFrom-WoSearchResponse[empty_E]: processed 50000 / 144190, kept 0                           2026-10-30 13:31:43 - ConvertFrom-WoSearchResponse[empty_E]: processed 100000 / 144190, kept 0
+2026-10-30 13:31:45 - ConvertFrom-WoSearchResponse[empty_E]: kept 571 / 144190 (dropped 143619 by date filter, 8s)
+2026-10-30 13:31:45 - Get-EmarsWorkOrdersAll: status 'E' -> 571 WO(s)
+2026-10-30 13:31:45 - Get-EmarsWorkOrdersAll: MaxRows (200) reached -- stopping
+2026-10-30 13:31:45 - Total distinct WOs after search: 200
+2026-10-30 13:31:45 - Local Jobs.json hours per WO in window: 10 WO(s)
+2026-10-30 13:31:56 - Rows after filter: 200
+2026-10-30 13:31:56 - Wrote detail CSV: C:\Users\YYQTP0\Desktop\PartsMgmt\Work Tracking\Reports\WorkOrderDetail_20261023_20261030.csv (200 rows)
+2026-10-30 13:31:56 - Wrote summary CSV: C:\Users\YYQTP0\Desktop\PartsMgmt\Work Tracking\Reports\WorkOrderSummary_20261023_20261030.csv (43 machines)
+2026-10-30 13:31:56 - Done.
+
+Detail CSV : C:\Users\YYQTP0\Desktop\PartsMgmt\Work Tracking\Reports\WorkOrderDetail_20261023_20261030.csv
+Summary CSV: C:\Users\YYQTP0\Desktop\PartsMgmt\Work Tracking\Reports\WorkOrderSummary_20261023_20261030.csv
+Work orders: 200   Machines: 43
+PS C:\Users\YYQTP0\Desktop> .\WO.ps1 -DiscoverEndpoints
+2026-10-30 13:32:21 - Loading config from C:\Users\YYQTP0\Desktop\PartsMgmt\Config.json
+2026-10-30 13:32:22 - === DiscoverEndpoints mode ===
+2026-10-30 13:32:22 -
+2026-10-30 13:32:22 - --- Search probe (status E, empty register) ---
+2026-10-30 13:32:22 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWOData?pSite=345&pWOStatus=E&pRegNo=&pWONo=
+2026-10-30 13:32:41 - GET done in 19s -- 20556852 bytes
+2026-10-30 13:32:41 - ConvertFrom-WoSearchResponse[probe]: 20556851 bytes
+2026-10-30 13:32:41 - ConvertFrom-WoSearchResponse[probe]: 144208 <param> in 750ms
+2026-10-30 13:32:43 - ConvertFrom-WoSearchResponse[probe]: headers = Reg No | WO No | WC | Acronym | CC | Equip No | Stts | Crew | Dt Issued | Dt Due | WO Description
+2026-10-30 13:32:43 -   applet numcols = '15'
+2026-10-30 13:32:43 -   applet numrows = '144190'
+2026-10-30 13:32:43 -   applet rowheader = '20'                                                                         2026-10-30 13:32:43 -   applet colwidths = '30,65,30,80,30,80,35,45,70,70, 600,0,0,0,0'                                 2026-10-30 13:32:46 - ConvertFrom-WoSearchResponse[probe]: delimiter = ','                                              2026-10-30 13:32:46 -   --- FIRST ROW (15 cells) ---                                                                    2026-10-30 13:32:46 -     [0] Reg No = '
+101'
+2026-10-30 13:32:46 -     [1] WO No = '1'
+2026-10-30 13:32:46 -     [2] WC = '16'
+2026-10-30 13:32:47 -     [3] Acronym = 'ADMIN'
+2026-10-30 13:32:47 -     [4] CC = 'AA'
+2026-10-30 13:32:47 -     [5] Equip No = 'CABLE'
+2026-10-30 13:32:47 -     [6] Stts = 'C'
+2026-10-30 13:32:47 -     [7] Crew = '017'
+2026-10-30 13:32:47 -     [8] Dt Issued = '09/26/2020'
+2026-10-30 13:32:47 -     [9] Dt Due = '09/24/2021'
+2026-10-30 13:32:47 -     [10] WO Description = 'INSTALL  DATA  CABLING'
+2026-10-30 13:32:47 -     [11] (hidden_11) = ''
+2026-10-30 13:32:47 -     [12] (hidden_12) = ''
+2026-10-30 13:32:47 -     [13] (hidden_13) = ''
+2026-10-30 13:32:47 -     [14] (hidden_14) = 'AApq5mADKAAAVeBAAF'
+2026-10-30 13:34:50 - ConvertFrom-WoSearchResponse[probe]: processed 50000 / 144190, kept 49999
+PS C:\Users\YYQTP0\Desktop> .\WO.ps1 -From 2026-10-23 -To 2026-10-30 -Status E -MaxRows 50
+2026-10-30 13:44:25 - Loading config from C:\Users\YYQTP0\Desktop\PartsMgmt\Config.json
+2026-10-30 13:44:25 - Window: 2026-10-23 .. 2026-10-30   Filter: Due
+2026-10-30 13:44:25 - Statuses: E   Site: 345   Register: '<none>'   MaxRows: 50
+2026-10-30 13:44:25 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWOData?pSite=345&pWOStatus=E&pRegNo=&pWONo=
+2026-10-30 13:44:47 - GET done in 22s -- 20557266 bytes
+2026-10-30 13:44:47 - ConvertFrom-WoSearchResponse[empty_E]: 20557265 bytes
+2026-10-30 13:44:47 - ConvertFrom-WoSearchResponse[empty_E]: 144211 <param> in 463ms
+2026-10-30 13:44:49 - ConvertFrom-WoSearchResponse[empty_E]: headers = Reg No | WO No | WC | Acronym | CC | Equip No | Stts | Crew | Dt Issued | Dt Due | WO Description
+2026-10-30 13:44:49 -   applet numcols = '15'
+2026-10-30 13:44:49 -   applet numrows = '144193'
+2026-10-30 13:44:49 -   applet rowheader = '20'
+2026-10-30 13:44:49 -   applet colwidths = '30,65,30,80,30,80,35,45,70,70, 600,0,0,0,0'
+2026-10-30 13:44:52 - ConvertFrom-WoSearchResponse[empty_E]: delimiter = ','
+2026-10-30 13:44:52 -   --- FIRST ROW (15 cells) ---                                                                    2026-10-30 13:44:52 -     [0] Reg No = '                                                                                101'                                                                                                                    2026-10-30 13:44:52 -     [1] WO No = '1'                                                                               2026-10-30 13:44:52 -     [2] WC = '16'                                                                                 2026-10-30 13:44:52 -     [3] Acronym = 'ADMIN'                                                                         2026-10-30 13:44:52 -     [4] CC = 'AA'                                                                                 2026-10-30 13:44:52 -     [5] Equip No = 'CABLE'                                                                        2026-10-30 13:44:52 -     [6] Stts = 'C'
+2026-10-30 13:44:52 -     [7] Crew = '017'
+2026-10-30 13:44:52 -     [8] Dt Issued = '09/26/2020'
+2026-10-30 13:44:52 -     [9] Dt Due = '09/24/2021'
+2026-10-30 13:44:53 -     [10] WO Description = 'INSTALL  DATA  CABLING'
+2026-10-30 13:44:53 -     [11] (hidden_11) = ''
+2026-10-30 13:44:53 -     [12] (hidden_12) = ''
+2026-10-30 13:44:53 -     [13] (hidden_13) = ''
+2026-10-30 13:44:53 -     [14] (hidden_14) = 'AApq5mADKAAAVeBAAF'
+2026-10-30 13:44:54 - ConvertFrom-WoSearchResponse[empty_E]: processed 50000 / 144193, kept 0
+2026-10-30 13:44:55 - ConvertFrom-WoSearchResponse[empty_E]: processed 100000 / 144193, kept 0
+2026-10-30 13:44:56 - ConvertFrom-WoSearchResponse[empty_E]: kept 571 / 144193 (dropped 143622 by date filter, 9s)
+2026-10-30 13:44:56 - Get-EmarsWorkOrdersAll: status 'E' -> 571 WO(s)
+2026-10-30 13:44:56 - Get-EmarsWorkOrdersAll: MaxRows (50) reached -- stopping
+2026-10-30 13:44:56 - Total distinct WOs after search: 50
+2026-10-30 13:44:56 - Local Jobs.json hours per WO in window: 12 WO(s)
+2026-10-30 13:44:56 - [1/50] detail for WO #14137 (wo_ptr='')
+2026-10-30 13:44:56 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_002&pparamxml=<KEY><WO_NO>14137</WO_NO></KEY>
+2026-10-30 13:44:56 - GET done in 0s -- 10014 bytes
+2026-10-30 13:44:56 - Detail SWIL EM_WORK_MAINT_002 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:44:56 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_001&pparamxml=<KEY><WO_NO>14137</WO_NO></KEY>
+2026-10-30 13:44:56 - GET done in 0s -- 10014 bytes
+2026-10-30 13:44:56 - Detail SWIL EM_WORK_MAINT_001 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:44:56 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=14137
+2026-10-30 13:44:56 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:44:56 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=14137&pRegNo=  2026-10-30 13:44:57 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:44:57 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?p_site_id=345&p_wo_no=14137    2026-10-30 13:44:57 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:44:57 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=14137                2026-10-30 13:44:57 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:44:57 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=14137&pRegNo=        2026-10-30 13:44:57 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:44:57 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?p_site_id=345&p_wo_no=14137
+2026-10-30 13:44:58 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:44:58 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=14137
+2026-10-30 13:44:58 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:44:58 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=14137&pRegNo=
+2026-10-30 13:44:58 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:44:58 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?p_site_id=345&p_wo_no=14137
+2026-10-30 13:44:58 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:44:58 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=14137
+2026-10-30 13:44:58 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:44:58 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=14137&pRegNo=
+2026-10-30 13:44:59 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:44:59 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?p_site_id=345&p_wo_no=14137
+2026-10-30 13:44:59 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:44:59 - Detail: no route succeeded for WO 14137
+2026-10-30 13:44:59 - [2/50] detail for WO #102 (wo_ptr='')
+2026-10-30 13:44:59 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_002&pparamxml=<KEY><WO_NO>102</WO_NO></KEY>
+2026-10-30 13:44:59 - GET done in 0s -- 10014 bytes
+2026-10-30 13:44:59 - Detail SWIL EM_WORK_MAINT_002 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:44:59 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_001&pparamxml=<KEY><WO_NO>102</WO_NO></KEY>
+2026-10-30 13:44:59 - GET done in 0s -- 10014 bytes
+2026-10-30 13:44:59 - Detail SWIL EM_WORK_MAINT_001 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:44:59 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=102
+2026-10-30 13:45:00 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:00 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=102&pRegNo=    2026-10-30 13:45:00 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:00 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?p_site_id=345&p_wo_no=102      2026-10-30 13:45:00 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:00 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=102                  2026-10-30 13:45:00 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:00 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=102&pRegNo=          2026-10-30 13:45:00 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:00 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?p_site_id=345&p_wo_no=102
+2026-10-30 13:45:01 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:01 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=102
+2026-10-30 13:45:01 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:01 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=102&pRegNo=
+2026-10-30 13:45:01 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:01 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?p_site_id=345&p_wo_no=102
+2026-10-30 13:45:01 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:01 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=102
+2026-10-30 13:45:01 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:01 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=102&pRegNo=
+2026-10-30 13:45:02 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:02 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?p_site_id=345&p_wo_no=102
+2026-10-30 13:45:02 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:02 - Detail: no route succeeded for WO 102
+2026-10-30 13:45:02 - [3/50] detail for WO #103 (wo_ptr='')
+2026-10-30 13:45:02 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_002&pparamxml=<KEY><WO_NO>103</WO_NO></KEY>
+2026-10-30 13:45:02 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:02 - Detail SWIL EM_WORK_MAINT_002 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:02 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_001&pparamxml=<KEY><WO_NO>103</WO_NO></KEY>
+2026-10-30 13:45:02 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:02 - Detail SWIL EM_WORK_MAINT_001 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:02 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=103
+2026-10-30 13:45:03 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:03 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=103&pRegNo=    2026-10-30 13:45:03 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:03 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?p_site_id=345&p_wo_no=103      2026-10-30 13:45:03 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:03 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=103                  2026-10-30 13:45:03 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:03 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=103&pRegNo=          2026-10-30 13:45:03 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:03 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?p_site_id=345&p_wo_no=103
+2026-10-30 13:45:04 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:04 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=103
+2026-10-30 13:45:04 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:04 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=103&pRegNo=
+2026-10-30 13:45:04 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:04 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?p_site_id=345&p_wo_no=103
+2026-10-30 13:45:04 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:04 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=103
+2026-10-30 13:45:04 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:05 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=103&pRegNo=
+2026-10-30 13:45:05 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:05 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?p_site_id=345&p_wo_no=103
+2026-10-30 13:45:05 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:05 - Detail: no route succeeded for WO 103
+2026-10-30 13:45:05 - [4/50] detail for WO #105 (wo_ptr='')
+2026-10-30 13:45:05 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_002&pparamxml=<KEY><WO_NO>105</WO_NO></KEY>
+2026-10-30 13:45:05 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:05 - Detail SWIL EM_WORK_MAINT_002 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:05 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_001&pparamxml=<KEY><WO_NO>105</WO_NO></KEY>
+2026-10-30 13:45:05 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:05 - Detail SWIL EM_WORK_MAINT_001 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:05 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=105
+2026-10-30 13:45:05 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:05 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=105&pRegNo=    2026-10-30 13:45:06 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:06 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?p_site_id=345&p_wo_no=105      2026-10-30 13:45:06 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:06 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=105                  2026-10-30 13:45:06 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:06 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=105&pRegNo=          2026-10-30 13:45:06 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:06 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?p_site_id=345&p_wo_no=105
+2026-10-30 13:45:06 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:06 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=105
+2026-10-30 13:45:07 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:07 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=105&pRegNo=
+2026-10-30 13:45:07 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:07 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?p_site_id=345&p_wo_no=105
+2026-10-30 13:45:07 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:07 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=105
+2026-10-30 13:45:07 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:07 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=105&pRegNo=
+2026-10-30 13:45:08 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:08 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?p_site_id=345&p_wo_no=105
+2026-10-30 13:45:08 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:08 - Detail: no route succeeded for WO 105
+2026-10-30 13:45:08 - [5/50] detail for WO #106 (wo_ptr='')
+2026-10-30 13:45:08 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_002&pparamxml=<KEY><WO_NO>106</WO_NO></KEY>
+2026-10-30 13:45:08 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:08 - Detail SWIL EM_WORK_MAINT_002 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:08 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_001&pparamxml=<KEY><WO_NO>106</WO_NO></KEY>
+2026-10-30 13:45:08 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:08 - Detail SWIL EM_WORK_MAINT_001 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:08 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=106
+2026-10-30 13:45:08 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:08 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=106&pRegNo=    2026-10-30 13:45:09 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:09 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?p_site_id=345&p_wo_no=106      2026-10-30 13:45:09 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:09 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=106                  2026-10-30 13:45:09 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:09 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=106&pRegNo=          2026-10-30 13:45:09 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:09 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?p_site_id=345&p_wo_no=106
+2026-10-30 13:45:09 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:09 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=106
+2026-10-30 13:45:10 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:10 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=106&pRegNo=
+2026-10-30 13:45:10 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:10 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?p_site_id=345&p_wo_no=106
+2026-10-30 13:45:10 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:10 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=106
+2026-10-30 13:45:10 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:10 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=106&pRegNo=
+2026-10-30 13:45:10 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:10 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?p_site_id=345&p_wo_no=106
+2026-10-30 13:45:10 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:10 - Detail: no route succeeded for WO 106
+2026-10-30 13:45:11 - [6/50] detail for WO #107 (wo_ptr='')
+2026-10-30 13:45:11 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_002&pparamxml=<KEY><WO_NO>107</WO_NO></KEY>
+2026-10-30 13:45:11 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:11 - Detail SWIL EM_WORK_MAINT_002 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:11 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_001&pparamxml=<KEY><WO_NO>107</WO_NO></KEY>
+2026-10-30 13:45:11 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:11 - Detail SWIL EM_WORK_MAINT_001 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:11 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=107
+2026-10-30 13:45:11 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:11 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=107&pRegNo=    2026-10-30 13:45:11 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:11 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?p_site_id=345&p_wo_no=107      2026-10-30 13:45:11 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:11 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=107                  2026-10-30 13:45:12 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:12 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=107&pRegNo=          2026-10-30 13:45:12 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:12 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?p_site_id=345&p_wo_no=107
+2026-10-30 13:45:12 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:12 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=107
+2026-10-30 13:45:12 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:12 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=107&pRegNo=
+2026-10-30 13:45:12 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:12 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?p_site_id=345&p_wo_no=107
+2026-10-30 13:45:13 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:13 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=107
+2026-10-30 13:45:13 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:13 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=107&pRegNo=
+2026-10-30 13:45:13 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:13 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?p_site_id=345&p_wo_no=107
+2026-10-30 13:45:13 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:13 - Detail: no route succeeded for WO 107
+2026-10-30 13:45:13 - [7/50] detail for WO #109 (wo_ptr='')
+2026-10-30 13:45:13 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_002&pparamxml=<KEY><WO_NO>109</WO_NO></KEY>
+2026-10-30 13:45:14 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:14 - Detail SWIL EM_WORK_MAINT_002 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:14 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_001&pparamxml=<KEY><WO_NO>109</WO_NO></KEY>
+2026-10-30 13:45:14 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:14 - Detail SWIL EM_WORK_MAINT_001 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:14 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=109
+2026-10-30 13:45:14 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:14 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=109&pRegNo=    2026-10-30 13:45:14 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:14 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?p_site_id=345&p_wo_no=109      2026-10-30 13:45:14 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:14 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=109                  2026-10-30 13:45:15 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:15 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=109&pRegNo=          2026-10-30 13:45:15 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:15 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?p_site_id=345&p_wo_no=109
+2026-10-30 13:45:15 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:15 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=109
+2026-10-30 13:45:15 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:15 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=109&pRegNo=
+2026-10-30 13:45:15 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:15 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?p_site_id=345&p_wo_no=109
+2026-10-30 13:45:16 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:16 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=109
+2026-10-30 13:45:16 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:16 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=109&pRegNo=
+2026-10-30 13:45:16 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:16 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?p_site_id=345&p_wo_no=109
+2026-10-30 13:45:16 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:16 - Detail: no route succeeded for WO 109
+2026-10-30 13:45:16 - [8/50] detail for WO #110 (wo_ptr='')
+2026-10-30 13:45:17 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_002&pparamxml=<KEY><WO_NO>110</WO_NO></KEY>
+2026-10-30 13:45:17 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:17 - Detail SWIL EM_WORK_MAINT_002 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:17 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_001&pparamxml=<KEY><WO_NO>110</WO_NO></KEY>
+2026-10-30 13:45:17 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:17 - Detail SWIL EM_WORK_MAINT_001 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:17 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=110
+2026-10-30 13:45:17 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:17 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=110&pRegNo=    2026-10-30 13:45:18 - GET failed after 1s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:18 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?p_site_id=345&p_wo_no=110      2026-10-30 13:45:19 - GET failed after 1s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:19 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=110                  2026-10-30 13:45:20 - GET failed after 1s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:20 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=110&pRegNo=          2026-10-30 13:45:20 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:20 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?p_site_id=345&p_wo_no=110
+2026-10-30 13:45:20 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:20 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=110
+2026-10-30 13:45:20 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:20 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=110&pRegNo=
+2026-10-30 13:45:21 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:21 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?p_site_id=345&p_wo_no=110
+2026-10-30 13:45:21 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:21 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=110
+2026-10-30 13:45:21 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:21 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=110&pRegNo=
+2026-10-30 13:45:21 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:21 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?p_site_id=345&p_wo_no=110
+2026-10-30 13:45:22 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:22 - Detail: no route succeeded for WO 110
+2026-10-30 13:45:22 - [9/50] detail for WO #111 (wo_ptr='')
+2026-10-30 13:45:22 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_002&pparamxml=<KEY><WO_NO>111</WO_NO></KEY>
+2026-10-30 13:45:22 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:22 - Detail SWIL EM_WORK_MAINT_002 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:22 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_001&pparamxml=<KEY><WO_NO>111</WO_NO></KEY>
+2026-10-30 13:45:22 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:22 - Detail SWIL EM_WORK_MAINT_001 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:22 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=111
+2026-10-30 13:45:22 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:22 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=111&pRegNo=    2026-10-30 13:45:23 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:23 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?p_site_id=345&p_wo_no=111      2026-10-30 13:45:23 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:23 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=111                  2026-10-30 13:45:23 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:23 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=111&pRegNo=          2026-10-30 13:45:23 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:23 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?p_site_id=345&p_wo_no=111
+2026-10-30 13:45:23 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:23 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=111
+2026-10-30 13:45:24 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:24 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=111&pRegNo=
+2026-10-30 13:45:24 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:24 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?p_site_id=345&p_wo_no=111
+2026-10-30 13:45:24 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:24 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=111
+2026-10-30 13:45:24 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:24 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=111&pRegNo=
+2026-10-30 13:45:25 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:25 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?p_site_id=345&p_wo_no=111
+2026-10-30 13:45:25 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:25 - Detail: no route succeeded for WO 111
+2026-10-30 13:45:25 - [10/50] detail for WO #112 (wo_ptr='')
+2026-10-30 13:45:25 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_002&pparamxml=<KEY><WO_NO>112</WO_NO></KEY>
+2026-10-30 13:45:25 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:25 - Detail SWIL EM_WORK_MAINT_002 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:25 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_001&pparamxml=<KEY><WO_NO>112</WO_NO></KEY>
+2026-10-30 13:45:25 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:25 - Detail SWIL EM_WORK_MAINT_001 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:25 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=112
+2026-10-30 13:45:26 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:26 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=112&pRegNo=    2026-10-30 13:45:26 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:26 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?p_site_id=345&p_wo_no=112      2026-10-30 13:45:26 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:26 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=112                  2026-10-30 13:45:26 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:26 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=112&pRegNo=          2026-10-30 13:45:26 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:26 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?p_site_id=345&p_wo_no=112
+2026-10-30 13:45:27 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:27 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=112
+2026-10-30 13:45:27 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:27 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=112&pRegNo=
+2026-10-30 13:45:27 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:27 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?p_site_id=345&p_wo_no=112
+2026-10-30 13:45:27 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:27 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=112
+2026-10-30 13:45:27 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:27 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=112&pRegNo=
+2026-10-30 13:45:28 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:28 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?p_site_id=345&p_wo_no=112
+2026-10-30 13:45:28 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:28 - Detail: no route succeeded for WO 112
+2026-10-30 13:45:28 - [11/50] detail for WO #113 (wo_ptr='')
+2026-10-30 13:45:28 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_002&pparamxml=<KEY><WO_NO>113</WO_NO></KEY>
+2026-10-30 13:45:28 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:28 - Detail SWIL EM_WORK_MAINT_002 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:28 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_001&pparamxml=<KEY><WO_NO>113</WO_NO></KEY>
+2026-10-30 13:45:28 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:28 - Detail SWIL EM_WORK_MAINT_001 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:28 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=113
+2026-10-30 13:45:28 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:28 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=113&pRegNo=    2026-10-30 13:45:29 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:29 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?p_site_id=345&p_wo_no=113      2026-10-30 13:45:29 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:29 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=113                  2026-10-30 13:45:29 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:29 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=113&pRegNo=          2026-10-30 13:45:29 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:29 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?p_site_id=345&p_wo_no=113
+2026-10-30 13:45:29 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:29 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=113
+2026-10-30 13:45:30 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:30 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=113&pRegNo=
+2026-10-30 13:45:30 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:30 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?p_site_id=345&p_wo_no=113
+2026-10-30 13:45:30 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:30 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=113
+2026-10-30 13:45:30 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:30 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=113&pRegNo=
+2026-10-30 13:45:31 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:31 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?p_site_id=345&p_wo_no=113
+2026-10-30 13:45:31 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:31 - Detail: no route succeeded for WO 113
+2026-10-30 13:45:31 - [12/50] detail for WO #115 (wo_ptr='')
+2026-10-30 13:45:31 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_002&pparamxml=<KEY><WO_NO>115</WO_NO></KEY>
+2026-10-30 13:45:31 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:31 - Detail SWIL EM_WORK_MAINT_002 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:31 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_001&pparamxml=<KEY><WO_NO>115</WO_NO></KEY>
+2026-10-30 13:45:31 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:31 - Detail SWIL EM_WORK_MAINT_001 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:31 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=115
+2026-10-30 13:45:32 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:32 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=115&pRegNo=    2026-10-30 13:45:32 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:32 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?p_site_id=345&p_wo_no=115      2026-10-30 13:45:32 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:32 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=115                  2026-10-30 13:45:32 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:32 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=115&pRegNo=          2026-10-30 13:45:32 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:32 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?p_site_id=345&p_wo_no=115
+2026-10-30 13:45:33 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:33 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=115
+2026-10-30 13:45:33 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:33 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=115&pRegNo=
+2026-10-30 13:45:33 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:33 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?p_site_id=345&p_wo_no=115
+2026-10-30 13:45:33 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:33 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=115
+2026-10-30 13:45:34 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:34 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=115&pRegNo=
+2026-10-30 13:45:34 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:34 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?p_site_id=345&p_wo_no=115
+2026-10-30 13:45:34 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:34 - Detail: no route succeeded for WO 115
+2026-10-30 13:45:34 - [13/50] detail for WO #117 (wo_ptr='')
+2026-10-30 13:45:34 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_002&pparamxml=<KEY><WO_NO>117</WO_NO></KEY>
+2026-10-30 13:45:34 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:34 - Detail SWIL EM_WORK_MAINT_002 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:34 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_001&pparamxml=<KEY><WO_NO>117</WO_NO></KEY>
+2026-10-30 13:45:35 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:35 - Detail SWIL EM_WORK_MAINT_001 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:35 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=117
+2026-10-30 13:45:35 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:35 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=117&pRegNo=    2026-10-30 13:45:35 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:35 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?p_site_id=345&p_wo_no=117      2026-10-30 13:45:35 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:35 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=117                  2026-10-30 13:45:35 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:35 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=117&pRegNo=          2026-10-30 13:45:36 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:36 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?p_site_id=345&p_wo_no=117
+2026-10-30 13:45:36 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:36 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=117
+2026-10-30 13:45:36 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:36 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=117&pRegNo=
+2026-10-30 13:45:36 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:36 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?p_site_id=345&p_wo_no=117
+2026-10-30 13:45:36 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:36 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=117
+2026-10-30 13:45:37 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:37 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=117&pRegNo=
+2026-10-30 13:45:37 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:37 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?p_site_id=345&p_wo_no=117
+2026-10-30 13:45:37 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:37 - Detail: no route succeeded for WO 117
+2026-10-30 13:45:37 - [14/50] detail for WO #119 (wo_ptr='')
+2026-10-30 13:45:37 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_002&pparamxml=<KEY><WO_NO>119</WO_NO></KEY>
+2026-10-30 13:45:37 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:37 - Detail SWIL EM_WORK_MAINT_002 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:37 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_001&pparamxml=<KEY><WO_NO>119</WO_NO></KEY>
+2026-10-30 13:45:38 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:38 - Detail SWIL EM_WORK_MAINT_001 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:38 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=119
+2026-10-30 13:45:38 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:38 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=119&pRegNo=    2026-10-30 13:45:38 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:38 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?p_site_id=345&p_wo_no=119      2026-10-30 13:45:38 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:38 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=119                  2026-10-30 13:45:38 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:38 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=119&pRegNo=          2026-10-30 13:45:39 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:39 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?p_site_id=345&p_wo_no=119
+2026-10-30 13:45:39 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:39 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=119
+2026-10-30 13:45:39 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:39 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=119&pRegNo=
+2026-10-30 13:45:39 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:39 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?p_site_id=345&p_wo_no=119
+2026-10-30 13:45:40 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:40 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=119
+2026-10-30 13:45:40 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:40 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=119&pRegNo=
+2026-10-30 13:45:40 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:40 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?p_site_id=345&p_wo_no=119
+2026-10-30 13:45:40 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:40 - Detail: no route succeeded for WO 119
+2026-10-30 13:45:40 - [15/50] detail for WO #120 (wo_ptr='')
+2026-10-30 13:45:40 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_002&pparamxml=<KEY><WO_NO>120</WO_NO></KEY>
+2026-10-30 13:45:41 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:41 - Detail SWIL EM_WORK_MAINT_002 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:41 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_001&pparamxml=<KEY><WO_NO>120</WO_NO></KEY>
+2026-10-30 13:45:41 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:41 - Detail SWIL EM_WORK_MAINT_001 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:41 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=120
+2026-10-30 13:45:41 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:41 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=120&pRegNo=    2026-10-30 13:45:41 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:41 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?p_site_id=345&p_wo_no=120      2026-10-30 13:45:41 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:41 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=120                  2026-10-30 13:45:42 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:42 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=120&pRegNo=          2026-10-30 13:45:42 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:42 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?p_site_id=345&p_wo_no=120
+2026-10-30 13:45:42 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:42 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=120
+2026-10-30 13:45:42 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:42 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=120&pRegNo=
+2026-10-30 13:45:43 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:43 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?p_site_id=345&p_wo_no=120
+2026-10-30 13:45:43 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:43 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=120
+2026-10-30 13:45:43 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:43 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=120&pRegNo=
+2026-10-30 13:45:43 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:43 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?p_site_id=345&p_wo_no=120
+2026-10-30 13:45:44 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:44 - Detail: no route succeeded for WO 120
+2026-10-30 13:45:44 - [16/50] detail for WO #121 (wo_ptr='')
+2026-10-30 13:45:44 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_002&pparamxml=<KEY><WO_NO>121</WO_NO></KEY>
+2026-10-30 13:45:44 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:44 - Detail SWIL EM_WORK_MAINT_002 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:44 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_001&pparamxml=<KEY><WO_NO>121</WO_NO></KEY>
+2026-10-30 13:45:44 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:44 - Detail SWIL EM_WORK_MAINT_001 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:44 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=121
+2026-10-30 13:45:44 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:44 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=121&pRegNo=    2026-10-30 13:45:45 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:45 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?p_site_id=345&p_wo_no=121      2026-10-30 13:45:45 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:45 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=121                  2026-10-30 13:45:45 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:45 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=121&pRegNo=          2026-10-30 13:45:45 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:45 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?p_site_id=345&p_wo_no=121
+2026-10-30 13:45:46 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:46 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=121
+2026-10-30 13:45:46 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:46 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=121&pRegNo=
+2026-10-30 13:45:46 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:46 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?p_site_id=345&p_wo_no=121
+2026-10-30 13:45:46 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:46 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=121
+2026-10-30 13:45:46 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:46 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=121&pRegNo=
+2026-10-30 13:45:47 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:47 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?p_site_id=345&p_wo_no=121
+2026-10-30 13:45:47 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:47 - Detail: no route succeeded for WO 121
+2026-10-30 13:45:47 - [17/50] detail for WO #122 (wo_ptr='')
+2026-10-30 13:45:47 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_002&pparamxml=<KEY><WO_NO>122</WO_NO></KEY>
+2026-10-30 13:45:47 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:47 - Detail SWIL EM_WORK_MAINT_002 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:47 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_001&pparamxml=<KEY><WO_NO>122</WO_NO></KEY>
+2026-10-30 13:45:47 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:47 - Detail SWIL EM_WORK_MAINT_001 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:47 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=122
+2026-10-30 13:45:47 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:48 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=122&pRegNo=    2026-10-30 13:45:48 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:48 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?p_site_id=345&p_wo_no=122      2026-10-30 13:45:48 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:48 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=122                  2026-10-30 13:45:48 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:48 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=122&pRegNo=          2026-10-30 13:45:48 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:48 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?p_site_id=345&p_wo_no=122
+2026-10-30 13:45:49 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:49 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=122
+2026-10-30 13:45:49 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:49 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=122&pRegNo=
+2026-10-30 13:45:49 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:49 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?p_site_id=345&p_wo_no=122
+2026-10-30 13:45:49 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:49 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=122
+2026-10-30 13:45:49 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:50 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=122&pRegNo=
+2026-10-30 13:45:50 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:50 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?p_site_id=345&p_wo_no=122
+2026-10-30 13:45:50 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:50 - Detail: no route succeeded for WO 122
+2026-10-30 13:45:50 - [18/50] detail for WO #123 (wo_ptr='')
+2026-10-30 13:45:50 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_002&pparamxml=<KEY><WO_NO>123</WO_NO></KEY>
+2026-10-30 13:45:50 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:50 - Detail SWIL EM_WORK_MAINT_002 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:50 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_001&pparamxml=<KEY><WO_NO>123</WO_NO></KEY>
+2026-10-30 13:45:50 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:50 - Detail SWIL EM_WORK_MAINT_001 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:50 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=123
+2026-10-30 13:45:51 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:51 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=123&pRegNo=    2026-10-30 13:45:51 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:51 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?p_site_id=345&p_wo_no=123      2026-10-30 13:45:51 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:51 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=123                  2026-10-30 13:45:51 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:51 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=123&pRegNo=          2026-10-30 13:45:51 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:51 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?p_site_id=345&p_wo_no=123
+2026-10-30 13:45:52 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:52 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=123
+2026-10-30 13:45:52 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:52 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=123&pRegNo=
+2026-10-30 13:45:52 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:52 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?p_site_id=345&p_wo_no=123
+2026-10-30 13:45:52 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:52 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=123
+2026-10-30 13:45:52 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:52 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=123&pRegNo=
+2026-10-30 13:45:53 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:53 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?p_site_id=345&p_wo_no=123
+2026-10-30 13:45:53 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:53 - Detail: no route succeeded for WO 123
+2026-10-30 13:45:53 - [19/50] detail for WO #124 (wo_ptr='')
+2026-10-30 13:45:53 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_002&pparamxml=<KEY><WO_NO>124</WO_NO></KEY>
+2026-10-30 13:45:53 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:53 - Detail SWIL EM_WORK_MAINT_002 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:53 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_001&pparamxml=<KEY><WO_NO>124</WO_NO></KEY>
+2026-10-30 13:45:53 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:53 - Detail SWIL EM_WORK_MAINT_001 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:53 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=124
+2026-10-30 13:45:53 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:53 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=124&pRegNo=    2026-10-30 13:45:54 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:54 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?p_site_id=345&p_wo_no=124      2026-10-30 13:45:54 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:54 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=124                  2026-10-30 13:45:54 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:54 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=124&pRegNo=          2026-10-30 13:45:54 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:54 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?p_site_id=345&p_wo_no=124
+2026-10-30 13:45:55 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:55 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=124
+2026-10-30 13:45:55 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:55 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=124&pRegNo=
+2026-10-30 13:45:55 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:55 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?p_site_id=345&p_wo_no=124
+2026-10-30 13:45:55 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:55 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=124
+2026-10-30 13:45:55 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:55 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=124&pRegNo=
+2026-10-30 13:45:56 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:56 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?p_site_id=345&p_wo_no=124
+2026-10-30 13:45:56 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:56 - Detail: no route succeeded for WO 124
+2026-10-30 13:45:56 - [20/50] detail for WO #125 (wo_ptr='')
+2026-10-30 13:45:56 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_002&pparamxml=<KEY><WO_NO>125</WO_NO></KEY>
+2026-10-30 13:45:56 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:56 - Detail SWIL EM_WORK_MAINT_002 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:56 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_001&pparamxml=<KEY><WO_NO>125</WO_NO></KEY>
+2026-10-30 13:45:56 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:56 - Detail SWIL EM_WORK_MAINT_001 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:57 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=125
+2026-10-30 13:45:57 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:57 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=125&pRegNo=    2026-10-30 13:45:57 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:57 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?p_site_id=345&p_wo_no=125      2026-10-30 13:45:57 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:57 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=125                  2026-10-30 13:45:57 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.                    2026-10-30 13:45:57 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=125&pRegNo=          2026-10-30 13:45:57 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:57 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?p_site_id=345&p_wo_no=125
+2026-10-30 13:45:58 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:58 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=125
+2026-10-30 13:45:58 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:58 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?pSite=345&pWONo=125&pRegNo=
+2026-10-30 13:45:58 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:58 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_loadWO?p_site_id=345&p_wo_no=125
+2026-10-30 13:45:58 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:58 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=125
+2026-10-30 13:45:58 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:59 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?pSite=345&pWONo=125&pRegNo=
+2026-10-30 13:45:59 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:59 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWorkOrder?p_site_id=345&p_wo_no=125
+2026-10-30 13:45:59 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:45:59 - Detail: no route succeeded for WO 125
+2026-10-30 13:45:59 - [21/50] detail for WO #126 (wo_ptr='')
+2026-10-30 13:45:59 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_002&pparamxml=<KEY><WO_NO>126</WO_NO></KEY>
+2026-10-30 13:45:59 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:59 - Detail SWIL EM_WORK_MAINT_002 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:59 - GET http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main?pUser=1601089&pSiteID=345&pModule=EM_WORK_MAINT_001&pparamxml=<KEY><WO_NO>126</WO_NO></KEY>
+2026-10-30 13:45:59 - GET done in 0s -- 10014 bytes
+2026-10-30 13:45:59 - Detail SWIL EM_WORK_MAINT_001 (WO_NO) -> only 0 widgets, skipping
+2026-10-30 13:45:59 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=126
+2026-10-30 13:46:00 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:46:00 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?pSite=345&pWONo=126&pRegNo=
+2026-10-30 13:46:00 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:46:00 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWODetail?p_site_id=345&p_wo_no=126
+2026-10-30 13:46:00 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:46:00 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=126
+2026-10-30 13:46:00 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:46:00 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?pSite=345&pWONo=126&pRegNo=
+2026-10-30 13:46:00 - GET failed after 0s -- The remote server returned an error: (400) Bad Request.
+2026-10-30 13:46:00 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWO?p_site_id=345&p_wo_no=126
 PS C:\Users\YYQTP0\Desktop>
