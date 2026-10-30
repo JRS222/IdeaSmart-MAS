@@ -1,105 +1,15 @@
-
-    Directory: C:\Users\YYQTP0\Desktop
-
-
-Mode                 LastWriteTime         Length Name
-----                 -------------         ------ ----
-d-----          8/1/2026   7:14 AM                ATU Notes
-d-----        10/15/2026   7:09 AM                DBCS Notes
-d-----        10/24/2026   2:01 PM                emars-pm-probe-20261024-140133
-d-----        10/24/2026   2:03 PM                emars-pm-probe-20261024-140340
-d-----        10/24/2026   2:03 PM                emars-pm-probe-20261024-140352
-d-----        10/24/2026   2:15 PM                emars-pm-probe-20261024-141529
-d-----         10/8/2026   7:34 AM                PartsBookManagerRootDirectory
-d-----         10/9/2026   6:45 AM                PartsMgmt
-d-----         9/18/2026  10:17 AM                Setup Folder
--a----         9/11/2026   1:22 PM       15957670 ASD Manual 1.pdf
--a----         9/11/2026   1:22 PM        8194772 ASD Manual 2.pdf
--a----        10/11/2026   9:17 AM         110429 Book Sample.txt
--a----          8/9/2026   1:32 PM            104 EMARS3.url
--a----         10/3/2026   6:52 AM          33162 historian.html
--a----        10/25/2026   6:52 AM          13975 pm-fetch-dialog.ps1
--a----        10/24/2026   2:15 PM          13076 Reports.ps1
--a----        10/25/2026   6:52 AM          13370 test-emars-layer.ps1
--a----        10/23/2026   8:33 AM         660838 UI-Script.ps1
--a----        10/23/2026   2:09 PM         660838 UI-Script.txt
--a----        10/24/2026   2:11 PM       27855316 UI.log
--a----        10/21/2026   2:10 PM          53672 WEBEOR.ps1
--a----         10/3/2026   6:45 AM          86261 Work Tracking.html
-
-
-PS C:\Users\YYQTP0\Desktop> cd .\emars-pm-probe-20261024-141529\
-PS C:\Users\YYQTP0\Desktop\emars-pm-probe-20261024-141529> ls
-
-
-    Directory: C:\Users\YYQTP0\Desktop\emars-pm-probe-20261024-141529
-
-
-Mode                 LastWriteTime         Length Name
-----                 -------------         ------ ----
--a----        10/24/2026   2:15 PM          10014 01-home.html
--a----        10/24/2026   2:15 PM         110334 02-ECBM_SUBMIT_LIST.js
--a----        10/24/2026   2:15 PM             41 03-getTaskDetails-0.txt
--a----        10/24/2026   2:15 PM             41 03-getTaskDetails-1.txt
--a----        10/24/2026   2:15 PM             41 03-getTaskDetails-100.txt
--a----        10/24/2026   2:15 PM             41 03-getTaskDetails-1000.txt
--a----        10/24/2026   2:15 PM             41 03-getTaskDetails-10000.txt
--a----        10/24/2026   2:15 PM             41 03-getTaskDetails-2.txt
--a----        10/24/2026   2:15 PM          68788 04-getEORData.txt
--a----        10/24/2026   2:15 PM           6845 05-getAllChecklists-ss01.xml
--a----        10/24/2026   2:15 PM           3270 06-em_show_report-CHECKLIST.html
--a----        10/24/2026   2:15 PM         110339 PROBE-REPORT.txt
-
-
-PS C:\Users\YYQTP0\Desktop\emars-pm-probe-20261024-141529>
-
-
-
-PS C:\Users\YYQTP0\Desktop> .\test-emars-layer.ps1
-At C:\Users\YYQTP0\Desktop\test-emars-layer.ps1:53 char:22
-+     if ($Url -match 'getAChecklist') {
-+                      ~~~~~~~~~~~~~~~~~
-Unexpected token 'getAChecklist') {
-        if ($Url -match 'p_trackno=99999') { return '<?xml' in expression or statement.
-At C:\Users\YYQTP0\Desktop\test-emars-layer.ps1:63 char:11
-+     <STEP>&#60;p&#62;&#60;b&#62;Vacuum&#47;clean&#32;top&#32;of&#32;R ...
-+           ~
-The ampersand (&) character is not allowed. The & operator is reserved for future use; wrap an ampersand in double
-quotation marks ("&") to pass it as part of a string.
-At C:\Users\YYQTP0\Desktop\test-emars-layer.ps1:83 char:11
-+     <STEP>&#60;p&#62;&#60;b&#62;Run&#32;system.&#60;&#47;b&#62;&#60;& ...
-+           ~
-The ampersand (&) character is not allowed. The & operator is reserved for future use; wrap an ampersand in double
-quotation marks ("&") to pass it as part of a string.
-At C:\Users\YYQTP0\Desktop\test-emars-layer.ps1:103 char:11
-+     <STEP>&#60;p&#62;&#60;b&#62;Grease&#32;bearings.&#60;&#47;b&#62;& ...
-+           ~
-The ampersand (&) character is not allowed. The & operator is reserved for future use; wrap an ampersand in double
-quotation marks ("&") to pass it as part of a string.
-At C:\Users\YYQTP0\Desktop\test-emars-layer.ps1:128 char:9
-+     <C2>&#60;p&#62;&#60;b&#62;Vacuum&#47;clean&#32;top&#32;of&#32;Rea ...
-+         ~
-The ampersand (&) character is not allowed. The & operator is reserved for future use; wrap an ampersand in double
-quotation marks ("&") to pass it as part of a string.
-At C:\Users\YYQTP0\Desktop\test-emars-layer.ps1:135 char:9
-+     <C2>&#60;p&#62;&#60;b&#62;Run&#32;system.&#60;&#47;b&#62;&#60;&#4 ...
-+         ~
-The ampersand (&) character is not allowed. The & operator is reserved for future use; wrap an ampersand in double
-quotation marks ("&") to pass it as part of a string.
-At C:\Users\YYQTP0\Desktop\test-emars-layer.ps1:142 char:9
-+     <C2>&#60;p&#62;&#60;b&#62;Grease&#32;bearings.&#60;&#47;b&#62;&#6 ...
-+         ~
-The ampersand (&) character is not allowed. The & operator is reserved for future use; wrap an ampersand in double
-quotation marks ("&") to pass it as part of a string.
-At C:\Users\YYQTP0\Desktop\test-emars-layer.ps1:151 char:22
-+     if ($Url -match 'getBypassCodes') {
-+                      ~~~~~~~~~~~~~~~~~~
-Unexpected token 'getBypassCodes') {
-        return @'' in expression or statement.
-At C:\Users\YYQTP0\Desktop\test-emars-layer.ps1:162 char:22
-+     if ($Url -match 'getMachineDesc') {
-+                      ~~~~~~~~~~~~~~~~~~
-Unexpected token 'getMachineDesc') {
-        return 'DBCS' in expression or statement.
-    + CategoryInfo          : ParserError: (:) [], ParseException
-    + FullyQualifiedErrorId : UnexpectedToken
+Windows PowerShell
+Copyright (C) Microsoft Corporation. All rights reserved.
+                                                                                                                        Loading personal and system profiles took 616ms.                                                                        PS C:\Users\YYQTP0> cd .\Desktop\                                                                                       PS C:\Users\YYQTP0\Desktop> .\WO.ps1                                                                                    2026-10-30 12:30:47 - Loading config from C:\Users\YYQTP0\Desktop\PartsMgmt\Config.json
+2026-10-30 12:30:47 - Window: 2026-10-23 .. 2026-10-30   Filter: Closed
+2026-10-30 12:30:47 - Statuses: E,A,B,C,D,W   Site: 345   Register filter: '<none>'
+2026-10-30 12:30:47 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWOData?pSite=345&pWOStatus=E&pRegNo=&pWONo=
+2026-10-30 12:31:03 - GET done in 16s -- 20556456 bytes
+2026-10-30 12:31:03 - ConvertFrom-WoSearchResponse[empty_E]: 20556455 bytes
+2026-10-30 12:31:04 - ConvertFrom-WoSearchResponse[empty_E]: 144205 <param> element(s) in 436ms
+2026-10-30 12:31:04 - ConvertFrom-WoSearchResponse[empty_E]: columns = Reg No | WO No | WC | Acronym | CC | Equip No | Stts | Crew | Dt Issued | Dt Due | WO Description
+2026-10-30 12:31:04 - FATAL: Specified argument was out of the range of valid values.
+Parameter name: index
+FATAL: Specified argument was out of the range of valid values.
+Parameter name: index
+PS C:\Users\YYQTP0\Desktop>
