@@ -1,3 +1,17 @@
+Windows PowerShell
+Copyright (C) Microsoft Corporation. All rights reserved.
+                                                                                                                        Loading personal and system profiles took 616ms.                                                                        PS C:\Users\YYQTP0> cd .\Desktop\                                                                                       PS C:\Users\YYQTP0\Desktop> .\WO.ps1                                                                                    2026-10-30 12:30:47 - Loading config from C:\Users\YYQTP0\Desktop\PartsMgmt\Config.json
+2026-10-30 12:30:47 - Window: 2026-10-23 .. 2026-10-30   Filter: Closed
+2026-10-30 12:30:47 - Statuses: E,A,B,C,D,W   Site: 345   Register filter: '<none>'
+2026-10-30 12:30:47 - GET http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_getWOData?pSite=345&pWOStatus=E&pRegNo=&pWONo=
+2026-10-30 12:31:03 - GET done in 16s -- 20556456 bytes
+2026-10-30 12:31:03 - ConvertFrom-WoSearchResponse[empty_E]: 20556455 bytes
+2026-10-30 12:31:04 - ConvertFrom-WoSearchResponse[empty_E]: 144205 <param> element(s) in 436ms
+2026-10-30 12:31:04 - ConvertFrom-WoSearchResponse[empty_E]: columns = Reg No | WO No | WC | Acronym | CC | Equip No | Stts | Crew | Dt Issued | Dt Due | WO Description
+2026-10-30 12:31:04 - FATAL: Specified argument was out of the range of valid values.
+Parameter name: index
+FATAL: Specified argument was out of the range of valid values.
+Parameter name: index
 PS C:\Users\YYQTP0\Desktop> .\WO.ps1 -From 2026-10-23 -To 2026-10-30 -Status E -FilterBy Due -MaxRows 500
 2026-10-30 13:11:46 - Loading config from C:\Users\YYQTP0\Desktop\PartsMgmt\Config.json
 2026-10-30 13:11:46 - Window: 2026-10-23 .. 2026-10-30   Filter: Due
@@ -14,3 +28,19 @@ PS C:\Users\YYQTP0\Desktop> .\WO.ps1 -From 2026-10-23 -To 2026-10-30 -Status E -
 2026-10-30 13:14:18 - ConvertFrom-WoSearchResponse[empty_E]: processed 40000 / 144189 row(s), kept so far: 0
 2026-10-30 13:14:50 - ConvertFrom-WoSearchResponse[empty_E]: processed 50000 / 144189 row(s), kept so far: 0
 2026-10-30 13:15:21 - ConvertFrom-WoSearchResponse[empty_E]: processed 60000 / 144189 row(s), kept so far: 0
+2026-10-30 13:15:56 - ConvertFrom-WoSearchResponse[empty_E]: processed 70000 / 144189 row(s), kept so far: 0
+2026-10-30 13:16:30 - ConvertFrom-WoSearchResponse[empty_E]: processed 80000 / 144189 row(s), kept so far: 0
+2026-10-30 13:17:01 - ConvertFrom-WoSearchResponse[empty_E]: processed 90000 / 144189 row(s), kept so far: 0
+2026-10-30 13:17:34 - ConvertFrom-WoSearchResponse[empty_E]: processed 100000 / 144189 row(s), kept so far: 0
+2026-10-30 13:18:06 - ConvertFrom-WoSearchResponse[empty_E]: processed 110000 / 144189 row(s), kept so far: 0
+2026-10-30 13:18:32 - ConvertFrom-WoSearchResponse[empty_E]: processed 120000 / 144189 row(s), kept so far: 0
+2026-10-30 13:19:06 - ConvertFrom-WoSearchResponse[empty_E]: processed 130000 / 144189 row(s), kept so far: 0
+2026-10-30 13:19:43 - ConvertFrom-WoSearchResponse[empty_E]: processed 140000 / 144189 row(s), kept so far: 318
+2026-10-30 13:20:02 - ConvertFrom-WoSearchResponse[empty_E]: kept 571 row(s) after pre-filter (dropped 143618)
+2026-10-30 13:20:02 - Get-EmarsWorkOrdersAll: empty-reg status 'E' -> 571 WO(s) after pre-filter
+2026-10-30 13:20:02 - Total distinct WOs after search + pre-filter: 545
+2026-10-30 13:20:02 - Local Jobs.json hours per WO in window: 10 WO(s)
+2026-10-30 13:20:02 - [1/545] detail for WO #14137 (wo_ptr='')
+2026-10-30 13:20:02 - FATAL: Cannot bind argument to parameter 'WoPtr' because it is an empty string.
+FATAL: Cannot bind argument to parameter 'WoPtr' because it is an empty string.
+PS C:\Users\YYQTP0\Desktop>
