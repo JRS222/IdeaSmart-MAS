@@ -469,7 +469,20 @@ function Rescale-ResponsiveSplitters {
 # BackColor and ForeColor are mapped independently (e.g., white button text
 # stays white in every theme).
 
+# ============================================================
+# BUILD-TIME THEME CONSTANT
+# The line right after this block ($script:theme = ...) is the ONLY
+# place a theme is chosen.  The Settings-tab theme picker was removed:
+# re-theming a live PowerShell/WinForms window is too slow.  Each theme
+# ships as its own hardcoded script, generated from this file:
+#   UI-Script.ps1          -> 'Default'
+#   UI-Script-Dark.ps1     -> 'Dark'
+#   UI-Script-Postal.ps1   -> 'Postal'
+# After editing this file, regenerate the themed copies:
+#   .\Build-ThemedScripts.ps1
+# ============================================================
 $script:theme = 'Default'
+
 # Remembers every control's DESIGN-TIME colors so themes always translate from
 # the original palette (switching Dark -> XP -> Default never compounds).
 $script:themeBase = @{}
@@ -643,6 +656,16 @@ $script:themeLvItemDraw = {
         } else {
             $back = $item.BackColor
             if ($back.ToArgb() -eq 0) { $back = $sender.BackColor }
+            elseif ($script:theme -eq 'Dark') {
+                # Status-tint rows (orange/green/yellow/white) are authored
+                # for light surfaces; on the dark list they would sit behind
+                # light text unreadably, so blend them toward the dark surface.
+                $lum = (0.299 * $back.R + 0.587 * $back.G + 0.114 * $back.B)
+                if ($lum -gt 140) {
+                    $back = [System.Drawing.Color]::FromArgb(
+                        [int]($back.R * 0.30), [int]($back.G * 0.30), [int]($back.B * 0.30))
+                }
+            }
             $b = New-Object System.Drawing.SolidBrush($back)
             $g.FillRectangle($b, $r)
             $b.Dispose()
@@ -678,6 +701,17 @@ $script:themeLvSubItemDraw = {
         $r = $e.Bounds
         $txtColor = $sub.ForeColor
         if ($txtColor.ToArgb() -eq 0) { $txtColor = $sender.ForeColor }
+        elseif ($script:theme -eq 'Dark') {
+            # Dark accent text (navy values, blue links, red flags) becomes
+            # unreadable on the dark list surface — lighten it.
+            $lum = (0.299 * $txtColor.R + 0.587 * $txtColor.G + 0.114 * $txtColor.B)
+            if ($lum -lt 130) {
+                $txtColor = [System.Drawing.Color]::FromArgb(
+                    [int](255 - (255 - $txtColor.R) * 0.45),
+                    [int](255 - (255 - $txtColor.G) * 0.45),
+                    [int](255 - (255 - $txtColor.B) * 0.45))
+            }
+        }
         if ($e.Item.Selected -and $txtColor.ToArgb() -eq $sender.ForeColor.ToArgb()) {
             $txtColor = [System.Drawing.Color]::White
         }
@@ -930,13 +964,13 @@ function Apply-UiTheme {
 }
 
 function Set-UiTheme {
+    # DELETED — themes are now build-time constants (see the BUILD-TIME
+    # THEME CONSTANT block).  The live theme picker was removed because
+    # re-theming a running WinForms window in PowerShell is too slow;
+    # run the themed script copy (UI-Script-Dark.ps1 / UI-Script-Postal.ps1)
+    # instead.
     param([string]$Name)
-    if ($Name -notin @('Default','Dark','Postal')) { $Name = 'Default' }
-    $script:theme = $Name
-    if ($script:config) {
-        $script:config | Add-Member -NotePropertyName 'UiTheme' -NotePropertyValue $Name -Force
-    }
-    Apply-UiTheme
+    throw "Runtime theme switching is not supported. Run the themed script build instead."
 }
 
 ################################################################################
@@ -1202,11 +1236,9 @@ function Initialize-Config {
 
 $config = Initialize-Config
 $global:PMConfig = $config
-if ($config.PSObject.Properties['UiTheme'] -and "$($config.UiTheme)" -ne '') {
-    $script:theme = "$($config.UiTheme)"
-    # Migration: the old WindowsXP theme became the Postal theme.
-    if ($script:theme -eq 'WindowsXP') { $script:theme = 'Postal' }
-}
+# Theme is a build-time constant (see the BUILD-TIME THEME CONSTANT block);
+# any UiTheme value in Config.json is deliberately ignored so each themed
+# script copy stays fixed to its theme.
 Write-Log "Active UI theme: $script:theme"
 
 # Helper function to create buttons with optional color styles
@@ -14078,7 +14110,7 @@ function Load-WtSettingsValues {
     $c.EmarsFacBox.Text     = if ($wt.EmarsFacId)         { "$($wt.EmarsFacId)" }          else { '' }
     $c.ThresholdBox.Value = if ($wt.ReactiveToWorkOrderMinutes) { [int]$wt.ReactiveToWorkOrderMinutes } else { 15 }
     if ($c.ThemeBox) {
-        $c.ThemeBox.SelectedItem = if ("$script:theme" -in @('Dark','Postal')) { "$script:theme" } else { 'Default' }
+        $c.ThemeBox.Text = "$script:theme (fixed in this build)"
     }
 
     Write-Log "Load-WtSettingsValues: techName='$($c.TechNameBox.Text)' email='$($c.EmailBox.Text)'"
@@ -14179,14 +14211,12 @@ function Setup-SettingsTab {
     $emailBox.Size = New-Object System.Drawing.Size(440, 24)
     New-SettingRow -Parent $gIdentity -Top 62 -LabelText "Supervisor Email:" -InputControl $emailBox
 
-    $themeBox = New-Object System.Windows.Forms.ComboBox
-    $themeBox.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
-    $themeBox.Size = New-Object System.Drawing.Size(200, 24)
-    [void]$themeBox.Items.AddRange(@('Default','Dark','Postal'))
-    $themeBox.SelectedItem = if ("$script:theme" -in @('Dark','Postal')) { "$script:theme" } else { 'Default' }
-    $themeBox.Add_SelectedIndexChanged({
-        try { Set-UiTheme -Name "$($themeBox.SelectedItem)" } catch { }
-    }.GetNewClosure())
+    $themeBox = New-Object System.Windows.Forms.Label
+    $themeBox.Text = "$script:theme (fixed in this build)"
+    $themeBox.Size = New-Object System.Drawing.Size(320, 24)
+    $themeBox.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+    $themeBox.AutoEllipsis = $true
+    $themeBox.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
     New-SettingRow -Parent $gIdentity -Top 96 -LabelText "UI Theme:" -InputControl $themeBox
 
     # --- Work Tracking group ---
