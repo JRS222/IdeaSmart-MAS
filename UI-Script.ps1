@@ -3521,12 +3521,6 @@ function Update-AllFiles {
 #                          Parts Management                                    #
 ################################################################################
 
-# Function to take a part out
-function Take-PartOut {
-    Write-Log "Taking a part out..."
-    [System.Windows.Forms.MessageBox]::Show("Take Part Out process not implemented yet.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-}
-
 # Simple helper function to get quantity
 function Get-PartQuantity {
     param(
@@ -3591,18 +3585,6 @@ function Get-PartQuantity {
 ################################################################################
 #                     External Systems Integration                             #
 ################################################################################
-
-# Function to request a part order
-function Request-PartOrder {
-    Write-Log "Requesting a part order..."
-    [System.Windows.Forms.MessageBox]::Show("Part Order Request process not implemented yet.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-}
-
-# Function to request a work order
-function Request-WorkOrder {
-    Write-Log "Requesting a work order..."
-    [System.Windows.Forms.MessageBox]::Show("Work Order Request process not implemented yet.", "Information", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-}
 
 # Function to make an MTSC ticket
 function Make-MTSCTicket {
@@ -6019,6 +6001,666 @@ function Get-EmarsMachineDesc {
     $desc = [System.Net.WebUtility]::HtmlDecode($desc)
     $desc = ($desc -replace '\s+', ' ').Trim()
     return $desc
+}
+
+function Get-EmarsWoColIndex {
+    # Column index for the first header name present in $Idx.
+    param($Idx, [string[]]$Names)
+    foreach ($n in $Names) { if ($Idx.ContainsKey($n)) { return [int]$Idx[$n] } }
+    return -1
+}
+
+function ConvertFrom-EmarsWoSearchResponse {
+    # Parses the em_work_pkg.em_getWOData response: an applet-<param> page
+    # where each grid row is <param name="rowNtext" value="..."> with
+    # delimiter-separated cells, colheadertext carries the column names,
+    # and cell 14 (0-indexed) is the 18-char Oracle ROWID used by
+    # em_getWO?p_rowid= for the full record.
+    param(
+        [string]$Content,
+        [string]$SiteId,
+        [string]$Tag = 'search',
+        [string]$FilterMode = 'Due',
+        [DateTime]$WindowFrom = [DateTime]::MinValue,
+        [DateTime]$WindowTo   = [DateTime]::MinValue,
+        [int]$MaxRows = 0
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Content)) { return ,@() }
+    $Content = "$Content".Trim()
+
+    $paramMatches = [regex]::Matches(
+        $Content,
+        '(?is)<param\b[^>]*?\bname\s*=\s*["''](?<name>[^"'']+)["''][^>]*?\bvalue\s*=\s*["''](?<val>[^"'']*)["'']'
+    )
+    if ($paramMatches.Count -eq 0) {
+        Write-Log "ConvertFrom-EmarsWoSearchResponse[$Tag]: no <param> elements ($($Content.Length) bytes)"
+        Save-DebugHtml -Html $Content -Tag "WoSearch_$Tag" | Out-Null
+        return ,@()
+    }
+
+    $rowParams = @{}
+    $headers   = @()
+    $keyParams = @{}
+    foreach ($m in $paramMatches) {
+        $pname = $m.Groups['name'].Value.Trim()
+        $pval  = [System.Net.WebUtility]::HtmlDecode($m.Groups['val'].Value)
+        if ($pname -match '^row(\d+)text$') {
+            $rowParams[[int]$matches[1]] = $pval
+        } elseif ($pname -ieq 'colheadertext') {
+            $headers = @($pval -split ',' | ForEach-Object { $_.Trim() })
+        } else {
+            $keyParams[$pname] = $pval
+        }
+    }
+    if ($rowParams.Count -eq 0) { return ,@() }
+
+    $headerCount = $headers.Count
+    $sortedKeys  = @($rowParams.Keys | Sort-Object { [int]$_ })
+
+    # ---- Delimiter detection ----
+    $separator = $null
+    foreach ($sk in (@($sortedKeys | Select-Object -First 10))) {
+        $rawTest = "$($rowParams[$sk])"
+        foreach ($sep in @(',', '|', ';', '~', "`t")) {
+            if (@($rawTest -split [regex]::Escape($sep)).Count -ge $headerCount) { $separator = $sep; break }
+        }
+        if ($separator) { break }
+    }
+    if (-not $separator) { $separator = ',' }
+
+    # ---- Column index map ----
+    $idx = @{}
+    for ($i = 0; $i -lt $headerCount; $i++) { $idx[$headers[$i]] = $i }
+    $colReg    = Get-EmarsWoColIndex $idx @('Reg No')
+    $colWoNo   = Get-EmarsWoColIndex $idx @('WO No')
+    $colWC     = Get-EmarsWoColIndex $idx @('WC')
+    $colAcro   = Get-EmarsWoColIndex $idx @('Acronym')
+    $colCC     = Get-EmarsWoColIndex $idx @('CC')
+    $colEquip  = Get-EmarsWoColIndex $idx @('Equip No')
+    $colStts   = Get-EmarsWoColIndex $idx @('Stts')
+    $colCrew   = Get-EmarsWoColIndex $idx @('Crew')
+    $colIssued = Get-EmarsWoColIndex $idx @('Dt Issued')
+    $colDue    = Get-EmarsWoColIndex $idx @('Dt Due')
+    $colDesc   = Get-EmarsWoColIndex $idx @('WO Description')
+
+    $filterCol = -1
+    if ($FilterMode -eq 'Due')    { $filterCol = $colDue }
+    if ($FilterMode -eq 'Issued') { $filterCol = $colIssued }
+    $applyFilter = ($filterCol -ge 0 -and $WindowFrom -ne [DateTime]::MinValue -and $WindowTo -ne [DateTime]::MinValue)
+    $winFrom = $WindowFrom.Date
+    $winTo   = $WindowTo.Date
+
+    # ---- Parse loop ----
+    $out = @()
+    $total = $sortedKeys.Count
+    $processed = 0
+    $preFiltered = 0
+
+    foreach ($rowIdx in $sortedKeys) {
+        $processed++
+        if (($processed % 50000) -eq 0) {
+            Write-Log "ConvertFrom-EmarsWoSearchResponse[$Tag]: processed $processed / $total, kept $($out.Count)"
+        }
+
+        $raw = "$($rowParams[$rowIdx])"
+        $cells = @($raw -split [regex]::Escape($separator))
+        if ($cells.Count -lt 3) { continue }
+
+        # Fast date filter while parsing (the full grid can be 140K+ rows).
+        if ($applyFilter -and $filterCol -lt $cells.Count) {
+            $dtStr = "$($cells[$filterCol])".Trim()
+            if ($dtStr.Length -lt 6) { $preFiltered++; continue }
+            $dt = $dtStr -as [DateTime]
+            if ($null -eq $dt) { $preFiltered++; continue }
+            if ($dt.Date -lt $winFrom -or $dt.Date -gt $winTo) { $preFiltered++; continue }
+        }
+
+        # WoPtr: cell 14 (0-indexed) = 18-char Oracle ROWID; fall back to
+        # scanning the hidden tail cells (11..N).
+        $woPtr = ''
+        if ($cells.Count -ge 15) {
+            $c14 = "$($cells[14])".Trim()
+            if ($c14 -match '^[A-Za-z0-9+/=]{10,}$') { $woPtr = $c14 }
+        }
+        if (-not $woPtr -and $cells.Count -gt 11) {
+            for ($i = $cells.Count - 1; $i -ge 11; $i--) {
+                $cv = "$($cells[$i])".Trim()
+                if ($cv -match '^[A-Za-z0-9+/=]{15,}$') { $woPtr = $cv; break }
+            }
+        }
+
+        $out += [PSCustomObject]@{
+            WoPtr       = $woPtr
+            RegisterNo  = if ($colReg    -ge 0 -and $colReg    -lt $cells.Count) { "$($cells[$colReg])".Trim()    } else { '' }
+            WorkOrderNo = if ($colWoNo   -ge 0 -and $colWoNo   -lt $cells.Count) { "$($cells[$colWoNo])".Trim()   } else { '' }
+            WorkCode    = if ($colWC     -ge 0 -and $colWC     -lt $cells.Count) { "$($cells[$colWC])".Trim()     } else { '' }
+            Acronym     = if ($colAcro   -ge 0 -and $colAcro   -lt $cells.Count) { "$($cells[$colAcro])".Trim()   } else { '' }
+            ClassCode   = if ($colCC     -ge 0 -and $colCC     -lt $cells.Count) { "$($cells[$colCC])".Trim()     } else { '' }
+            Equipment   = if ($colEquip  -ge 0 -and $colEquip  -lt $cells.Count) { "$($cells[$colEquip])".Trim()  } else { '' }
+            Status      = if ($colStts   -ge 0 -and $colStts   -lt $cells.Count) { "$($cells[$colStts])".Trim()   } else { '' }
+            Crew        = if ($colCrew   -ge 0 -and $colCrew   -lt $cells.Count) { "$($cells[$colCrew])".Trim()   } else { '' }
+            DateIssued  = if ($colIssued -ge 0 -and $colIssued -lt $cells.Count) { "$($cells[$colIssued])".Trim() } else { '' }
+            DueDate     = if ($colDue    -ge 0 -and $colDue    -lt $cells.Count) { "$($cells[$colDue])".Trim()    } else { '' }
+            Description = if ($colDesc   -ge 0 -and $colDesc   -lt $cells.Count) { "$($cells[$colDesc])".Trim()   } else { '' }
+            SiteId      = $SiteId
+            RawCells    = $cells
+        }
+
+        if ($MaxRows -gt 0 -and $out.Count -ge $MaxRows) {
+            Write-Log "ConvertFrom-EmarsWoSearchResponse[$Tag]: MaxRows ($MaxRows) reached"
+            break
+        }
+    }
+
+    Write-Log "ConvertFrom-EmarsWoSearchResponse[$Tag]: kept $($out.Count) / $processed (dropped $preFiltered by date filter)"
+    return $out
+}
+
+function Get-EmarsWorkOrders {
+    # Searches em_getWOData for one status and optional register / WO number.
+    # Date-window and machine filters are applied client-side.
+    param(
+        [string]$SiteId,
+        [string[]]$Status = @('E'),
+        [string]$Register = '',
+        [string]$WONo = '',
+        [string]$FilterMode = 'Due',
+        [DateTime]$WindowFrom = [DateTime]::MinValue,
+        [DateTime]$WindowTo   = [DateTime]::MinValue,
+        [int]$MaxRows = 3000
+    )
+
+    $site = "$SiteId".Trim()
+    if ([string]::IsNullOrWhiteSpace($site)) { $site = Get-EmarsSetting -Name 'EmarsSite' }
+    if ([string]::IsNullOrWhiteSpace($site)) {
+        throw "eMARS Site ID is not configured. Set it under Settings -> Work Tracking."
+    }
+
+    $out = @()
+    $seen = @{}
+    foreach ($st in $Status) {
+        $q = "pSite=$site&pWOStatus=$st&pRegNo=$Register&pWONo=$WONo"
+        $content = Invoke-PmHttpGet -Url "$(Get-EmarsBaseUrl)/em_work_pkg.em_getWOData?$q" -TimeoutSec 90
+        foreach ($wo in @(ConvertFrom-EmarsWoSearchResponse -Content $content -SiteId $site -Tag "ui_${st}" -FilterMode $FilterMode -WindowFrom $WindowFrom -WindowTo $WindowTo -MaxRows $MaxRows)) {
+            if ([string]::IsNullOrWhiteSpace($wo.WorkOrderNo)) { continue }
+            if ($seen.ContainsKey($wo.WorkOrderNo)) { continue }
+            $seen[$wo.WorkOrderNo] = $true
+            $out += $wo
+            if ($MaxRows -gt 0 -and $out.Count -ge $MaxRows) { break }
+        }
+        if ($MaxRows -gt 0 -and $out.Count -ge $MaxRows) { break }
+    }
+    return $out
+}
+
+function Get-EmarsWoDetailFields {
+    # em_getWO?p_rowid=<ROWID>&pSiteID=<site> -> XML ROWSET.  Every element
+    # child of the ROW is a form field (lowercased widget name).
+    # Returns a hashtable name -> value, or $null when there is no pointer.
+    param([string]$WoPtr, [string]$SiteId, [string]$WoNo = '')
+
+    if ([string]::IsNullOrWhiteSpace($WoPtr)) { return $null }
+
+    $site = "$SiteId".Trim()
+    if ([string]::IsNullOrWhiteSpace($site)) { $site = Get-EmarsSetting -Name 'EmarsSite' }
+
+    $rowid = [uri]::EscapeDataString("$WoPtr".Trim())
+    $xml = Invoke-EmarsXmlGet -Proc 'em_work_pkg.em_getWO' -Query "p_rowid=$rowid&pSiteID=$site" -Label "Work order $(if ($WoNo) { $WoNo } else { 'detail' })"
+    $rows = Get-EmarsRows -Doc $xml
+    if ($rows.Count -eq 0) { throw "No record returned for this work order." }
+
+    $fields = @{}
+    foreach ($child in $rows[0].ChildNodes) {
+        if ($child.NodeType -eq [System.Xml.XmlNodeType]::Element) {
+            $fields[$child.Name.ToLower()] = "$($child.InnerText)".Trim()
+        }
+    }
+    return $fields
+}
+
+function Show-EmarsWoDetailDialog {
+    # Read-only field grid for one work order's em_getWO record.
+    param($WoRow, $Fields)
+
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = "Work Order $($WoRow.WorkOrderNo) — Details"
+    $form.Size = New-Object System.Drawing.Size(560, 620)
+    $form.MinimumSize = New-Object System.Drawing.Size(480, 420)
+    $form.StartPosition = 'CenterParent'
+    $form.FormBorderStyle = 'Sizable'
+    $form.MaximizeBox = $false
+    $form.MinimizeBox = $false
+    $form.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $form.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+
+    $lv = New-Object System.Windows.Forms.ListView
+    $lv.Dock = 'Fill'
+    Set-ListViewStyle -ListView $lv
+    $lv.Columns.Add("Field", 210) | Out-Null
+    $lv.Columns.Add("Value", 320) | Out-Null
+    $lv.FullRowSelect = $true
+    $form.Controls.Add($lv)
+
+    $btnBar = New-Object System.Windows.Forms.Panel
+    $btnBar.Dock = 'Bottom'
+    $btnBar.Height = 52
+    $form.Controls.Add($btnBar)
+
+    $closeBtn = New-Object System.Windows.Forms.Button
+    $closeBtn.Text = "Close"
+    $closeBtn.Size = New-Object System.Drawing.Size(100, 32)
+    $closeBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $closeBtn.FlatAppearance.BorderSize = 0
+    $closeBtn.BackColor = [System.Drawing.Color]::FromArgb(189,195,199)
+    $closeBtn.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $closeBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $closeBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $closeBtn.Location = New-Object System.Drawing.Point(12, 10)
+    $closeBtn.Add_Click({ $form.Close() })
+    $btnBar.Controls.Add($closeBtn)
+
+    # Field order mirrors the form: identity first, then logistics, then audit.
+    $order = @('wo_no','reg_no','subsite_id','standing_flag','wo_status','acronym','equip_no','class_code',
+               'wo_desc','work_code','priority_code','crew_id','dept_code','project_id','whep_fac_id',
+               'date_issued','date_due','date_closed','est_hours','hours_to_date','wo_comment',
+               'past_due_reason_code','modification_no','react_id','cm_active',
+               'create_user','create_date','mod_user','mod_date','wo_ptr')
+    $seen = @{}
+    foreach ($key in $order) {
+        if ($Fields.ContainsKey($key)) { $seen[$key] = $true }
+    }
+    foreach ($key in (@($Fields.Keys | Sort-Object))) {
+        if (-not $seen.ContainsKey($key)) { $order += $key; $seen[$key] = $true }
+    }
+    foreach ($key in $order) {
+        if (-not $Fields.ContainsKey($key)) { continue }
+        $it = New-Object System.Windows.Forms.ListViewItem($key)
+        $it.SubItems.Add("$($Fields[$key])") | Out-Null
+        $lv.Items.Add($it) | Out-Null
+    }
+
+    $form.ShowDialog() | Out-Null
+}
+
+function Add-EmarsWoToJobLog {
+    # Opens the job editor pre-filled from an eMARS work order, saves the
+    # job into Jobs.json, and syncs today's weekly worksheet so the WO
+    # shows up on the daily worksheet tab.  Returns $true on save.
+    param($WoRow, $DetailFields)
+
+    $machineId = "$($WoRow.Acronym) $($WoRow.Equipment)"
+    if ($DetailFields) {
+        if (-not [string]::IsNullOrWhiteSpace("$($DetailFields['acronym'])")) {
+            $machineId = "$($DetailFields['acronym']) $($DetailFields['equip_no'])"
+        }
+    }
+    $canon = Format-MachineId "$machineId"
+    $machineId = if ($canon) { $canon.Canonical } else { "$machineId".Trim() }
+
+    $job = New-JobObject -Kind 'workorder'
+    $job.machineId   = $machineId
+    $job.workOrderNo = "$($WoRow.WorkOrderNo)"
+    if ($DetailFields -and -not [string]::IsNullOrWhiteSpace("$($DetailFields['wo_no'])")) {
+        $job.workOrderNo = "$($DetailFields['wo_no'])"
+    }
+    $desc = "$($WoRow.Description)"
+    if ($DetailFields -and -not [string]::IsNullOrWhiteSpace("$($DetailFields['wo_desc'])")) {
+        $desc = "$($DetailFields['wo_desc'])"
+    }
+    $job.description = $desc
+
+    $result = Show-JobEditor -Job $job -Kind 'workorder'
+    if ($null -eq $result -or $result.Action -ne 'save') { return $false }
+    $newJob = $result.Job
+
+    # Duplicate guard: same WO# already logged for today?
+    $today = (Get-Date).Date
+    $existingJobs = Get-Jobs
+    if ($null -eq $existingJobs) { $existingJobs = @() }
+    foreach ($j in @($existingJobs)) {
+        if ([string]::IsNullOrWhiteSpace("$($newJob.workOrderNo)")) { continue }
+        if ("$($j.workOrderNo)" -ne "$($newJob.workOrderNo)") { continue }
+        $jd = $null
+        if ($j.createdAt) { try { $jd = ([DateTime]$j.createdAt).Date } catch { } }
+        if ($jd -and $jd -eq $today) {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Work order $($newJob.workOrderNo) is already in the job log for today.",
+                "Work Order Lookup", "OK", "Information")
+            return $false
+        }
+    }
+
+    $jobs = Get-Jobs
+    if ($null -eq $jobs) { $jobs = @() }
+    $jobs += $newJob
+    Save-Jobs -Jobs $jobs | Out-Null
+    Refresh-JobLogList
+    Refresh-WorkBudget
+
+    # Land it on the daily worksheet tab too (via the normal sync path).
+    try {
+        $ws = Get-WeeklyWorksheet -Date $today
+        if ($null -ne $ws -and $ws.Rows) {
+            Sync-WorksheetJobHours -Worksheet $ws -Date $today
+            Save-WeeklyWorksheet -Date $today -Worksheet $ws | Out-Null
+            $script:wsWorksheet = $ws
+            if ($script:wsDatePicker) { $script:wsDatePicker.Value = $today }
+            Refresh-WeeklyWorksheetList
+            Write-Log "Work Order Lookup: WO $($newJob.workOrderNo) synced to today's worksheet."
+        }
+    } catch {
+        Write-Log "Work Order Lookup: worksheet sync failed: $($_.Exception.Message)"
+    }
+    return $true
+}
+
+function Show-WorkOrderLookupDialog {
+    # Actions-tab entry point: search eMARS work orders and add one to the
+    # job log + daily worksheet.
+    if ([string]::IsNullOrWhiteSpace((Get-EmarsSetting -Name 'EmarsSite'))) {
+        [System.Windows.Forms.MessageBox]::Show(
+            "eMARS Site ID is not configured.`r`n`r`nSet it under Settings -> Work Tracking, then save.",
+            "Work Order Lookup", "OK", "Information")
+        return
+    }
+
+    $form = New-Object System.Windows.Forms.Form
+    $form.Text = "Look Up Work Orders (eMARS)"
+    $form.Size = New-Object System.Drawing.Size(1000, 640)
+    $form.MinimumSize = New-Object System.Drawing.Size(820, 520)
+    $form.StartPosition = 'CenterParent'
+    $form.FormBorderStyle = 'Sizable'
+    $form.MaximizeBox = $false
+    $form.MinimizeBox = $false
+    $form.BackColor = [System.Drawing.Color]::FromArgb(245,247,250)
+    $form.Font = New-Object System.Drawing.Font("Segoe UI", 9)
+
+    # --- top bar -------------------------------------------------------
+    $topBar = New-Object System.Windows.Forms.Panel
+    $topBar.Dock = 'Top'
+    $topBar.Height = 128
+    $topBar.BackColor = [System.Drawing.Color]::White
+    $topBar.Padding = New-Object System.Windows.Forms.Padding(12, 10, 12, 0)
+    # Added to the form LAST (after Fill + Bottom) — see the note in
+    # Show-PmFetchEmarsDialog: a Top panel added first gets overlapped
+    # by the Fill control and its contents become invisible.
+
+    $lblFrom = New-Object System.Windows.Forms.Label
+    $lblFrom.Text = "From:"; $lblFrom.Location = New-Object System.Drawing.Point(12, 16); $lblFrom.Size = New-Object System.Drawing.Size(36, 24); $lblFrom.TextAlign = 'MiddleLeft'
+    $topBar.Controls.Add($lblFrom)
+
+    $dtpFrom = New-Object System.Windows.Forms.DateTimePicker
+    $dtpFrom.Format = [System.Windows.Forms.DateTimePickerFormat]::Short
+    $dtpFrom.Value = (Get-Date).Date.AddDays(-7)
+    $dtpFrom.Location = New-Object System.Drawing.Point(50, 16)
+    $dtpFrom.Size = New-Object System.Drawing.Size(110, 24)
+    $topBar.Controls.Add($dtpFrom)
+
+    $lblTo = New-Object System.Windows.Forms.Label
+    $lblTo.Text = "To:"; $lblTo.Location = New-Object System.Drawing.Point(170, 16); $lblTo.Size = New-Object System.Drawing.Size(26, 24); $lblTo.TextAlign = 'MiddleLeft'
+    $topBar.Controls.Add($lblTo)
+
+    $dtpTo = New-Object System.Windows.Forms.DateTimePicker
+    $dtpTo.Format = [System.Windows.Forms.DateTimePickerFormat]::Short
+    $dtpTo.Value = (Get-Date).Date
+    $dtpTo.Location = New-Object System.Drawing.Point(200, 16)
+    $dtpTo.Size = New-Object System.Drawing.Size(110, 24)
+    $topBar.Controls.Add($dtpTo)
+
+    $lblFilter = New-Object System.Windows.Forms.Label
+    $lblFilter.Text = "Filter by:"; $lblFilter.Location = New-Object System.Drawing.Point(322, 16); $lblFilter.Size = New-Object System.Drawing.Size(52, 24); $lblFilter.TextAlign = 'MiddleLeft'
+    $topBar.Controls.Add($lblFilter)
+
+    $cmbFilter = New-Object System.Windows.Forms.ComboBox
+    $cmbFilter.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
+    $cmbFilter.Items.AddRange(@('Due','Issued'))
+    $cmbFilter.SelectedIndex = 0
+    $cmbFilter.Location = New-Object System.Drawing.Point(376, 16)
+    $cmbFilter.Size = New-Object System.Drawing.Size(90, 24)
+    $topBar.Controls.Add($cmbFilter)
+
+    $lblStatus = New-Object System.Windows.Forms.Label
+    $lblStatus.Text = "Status:"; $lblStatus.Location = New-Object System.Drawing.Point(476, 16); $lblStatus.Size = New-Object System.Drawing.Size(44, 24); $lblStatus.TextAlign = 'MiddleLeft'
+    $topBar.Controls.Add($lblStatus)
+
+    $cmbStatus = New-Object System.Windows.Forms.ComboBox
+    $cmbStatus.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
+    $cmbStatus.Items.AddRange(@('E','C','O','W','L'))
+    $cmbStatus.SelectedIndex = 0
+    $cmbStatus.Location = New-Object System.Drawing.Point(522, 16)
+    $cmbStatus.Size = New-Object System.Drawing.Size(70, 24)
+    $topBar.Controls.Add($cmbStatus)
+
+    $lblReg = New-Object System.Windows.Forms.Label
+    $lblReg.Text = "Register:"; $lblReg.Location = New-Object System.Drawing.Point(12, 48); $lblReg.Size = New-Object System.Drawing.Size(52, 24); $lblReg.TextAlign = 'MiddleLeft'
+    $topBar.Controls.Add($lblReg)
+
+    $txtReg = New-Object System.Windows.Forms.TextBox
+    $txtReg.Location = New-Object System.Drawing.Point(66, 48)
+    $txtReg.Size = New-Object System.Drawing.Size(80, 24)
+    $topBar.Controls.Add($txtReg)
+
+    $lblWo = New-Object System.Windows.Forms.Label
+    $lblWo.Text = "WO #:"; $lblWo.Location = New-Object System.Drawing.Point(156, 48); $lblWo.Size = New-Object System.Drawing.Size(38, 24); $lblWo.TextAlign = 'MiddleLeft'
+    $topBar.Controls.Add($lblWo)
+
+    $txtWo = New-Object System.Windows.Forms.TextBox
+    $txtWo.Location = New-Object System.Drawing.Point(196, 48)
+    $txtWo.Size = New-Object System.Drawing.Size(80, 24)
+    $topBar.Controls.Add($txtWo)
+
+    $lblMach = New-Object System.Windows.Forms.Label
+    $lblMach.Text = "Machine:"; $lblMach.Location = New-Object System.Drawing.Point(286, 48); $lblMach.Size = New-Object System.Drawing.Size(54, 24); $lblMach.TextAlign = 'MiddleLeft'
+    $topBar.Controls.Add($lblMach)
+
+    $txtMach = New-Object System.Windows.Forms.TextBox
+    $txtMach.Location = New-Object System.Drawing.Point(342, 48)
+    $txtMach.Size = New-Object System.Drawing.Size(140, 24)
+    $topBar.Controls.Add($txtMach)
+
+    $searchBtn = New-Object System.Windows.Forms.Button
+    $searchBtn.Text = "Search"
+    $searchBtn.Location = New-Object System.Drawing.Point(522, 46)
+    $searchBtn.Size = New-Object System.Drawing.Size(110, 28)
+    $searchBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $searchBtn.FlatAppearance.BorderSize = 0
+    $searchBtn.BackColor = [System.Drawing.Color]::FromArgb(52,152,219)
+    $searchBtn.ForeColor = [System.Drawing.Color]::White
+    $searchBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $searchBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $topBar.Controls.Add($searchBtn)
+
+    $statusLabel = New-Object System.Windows.Forms.Label
+    $statusLabel.Text = "Leave Register and WO # blank to search everything, then narrow with the date window and machine filter."
+    $statusLabel.Location = New-Object System.Drawing.Point(12, 82)
+    $statusLabel.Size = New-Object System.Drawing.Size(960, 24)
+    $statusLabel.ForeColor = [System.Drawing.Color]::FromArgb(120,130,145)
+    $topBar.Controls.Add($statusLabel)
+
+    # --- results grid ---------------------------------------------------
+    $lv = New-Object System.Windows.Forms.ListView
+    $lv.Dock = 'Fill'
+    Set-ListViewStyle -ListView $lv
+    $lv.Columns.Add("WO No", 70)     | Out-Null
+    $lv.Columns.Add("Reg", 60)       | Out-Null
+    $lv.Columns.Add("Acronym", 90)   | Out-Null
+    $lv.Columns.Add("Equip", 80)     | Out-Null
+    $lv.Columns.Add("Stts", 50)      | Out-Null
+    $lv.Columns.Add("Crew", 60)      | Out-Null
+    $lv.Columns.Add("Dt Issued", 90) | Out-Null
+    $lv.Columns.Add("Dt Due", 90)    | Out-Null
+    $lv.Columns.Add("Description", 380) | Out-Null
+    $lv.FullRowSelect = $true
+    $form.Controls.Add($lv)
+
+    # --- bottom bar -----------------------------------------------------
+    $btnBar = New-Object System.Windows.Forms.Panel
+    $btnBar.Dock = 'Bottom'
+    $btnBar.Height = 52
+    $form.Controls.Add($btnBar)
+
+    # Dock order: Fill first, then Bottom, then Top LAST.
+    $form.Controls.Add($topBar)
+
+    $detailBtn = New-Object System.Windows.Forms.Button
+    $detailBtn.Text = "View Details"
+    $detailBtn.Size = New-Object System.Drawing.Size(130, 32)
+    $detailBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $detailBtn.FlatAppearance.BorderSize = 0
+    $detailBtn.BackColor = [System.Drawing.Color]::FromArgb(52,152,219)
+    $detailBtn.ForeColor = [System.Drawing.Color]::White
+    $detailBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $detailBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $detailBtn.Location = New-Object System.Drawing.Point(12, 10)
+    $detailBtn.Enabled = $false
+    $btnBar.Controls.Add($detailBtn)
+
+    $addBtn = New-Object System.Windows.Forms.Button
+    $addBtn.Text = "Add to Job Log"
+    $addBtn.Size = New-Object System.Drawing.Size(150, 32)
+    $addBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $addBtn.FlatAppearance.BorderSize = 0
+    $addBtn.BackColor = [System.Drawing.Color]::FromArgb(39,174,96)
+    $addBtn.ForeColor = [System.Drawing.Color]::White
+    $addBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $addBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $addBtn.Location = New-Object System.Drawing.Point(152, 10)
+    $addBtn.Enabled = $false
+    $btnBar.Controls.Add($addBtn)
+
+    $cancelBtn = New-Object System.Windows.Forms.Button
+    $cancelBtn.Text = "Close"
+    $cancelBtn.Size = New-Object System.Drawing.Size(90, 32)
+    $cancelBtn.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
+    $cancelBtn.FlatAppearance.BorderSize = 0
+    $cancelBtn.BackColor = [System.Drawing.Color]::FromArgb(189,195,199)
+    $cancelBtn.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
+    $cancelBtn.Font = New-Object System.Drawing.Font("Segoe UI", 9, [System.Drawing.FontStyle]::Bold)
+    $cancelBtn.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $cancelBtn.Location = New-Object System.Drawing.Point(880, 10)
+    $cancelBtn.Anchor = [System.Windows.Forms.AnchorStyles]::Top -bor [System.Windows.Forms.AnchorStyles]::Right
+    $cancelBtn.Add_Click({ $form.Close() })
+    $btnBar.Controls.Add($cancelBtn)
+
+    # --- wiring ---------------------------------------------------------
+    $script:woLookupRows = @()
+
+    $lv.Add_SelectedIndexChanged({
+        $hasSel = ($lv.SelectedItems.Count -gt 0)
+        $detailBtn.Enabled = $hasSel
+        $addBtn.Enabled   = $hasSel
+    })
+
+    $searchBtn.Add_Click({
+        $lv.Items.Clear()
+        $detailBtn.Enabled = $false
+        $addBtn.Enabled = $false
+        $script:woLookupRows = @()
+
+        $fromDate = $dtpFrom.Value.Date
+        $toDate   = $dtpTo.Value.Date
+        if ($toDate -lt $fromDate) { $toDate = $fromDate }
+        $statusLabel.Text = "Searching eMARS... (a full search can take ~15 s)"
+        $form.Refresh()
+
+        try {
+            $rows = @(Get-EmarsWorkOrders `
+                        -Status @("$($cmbStatus.SelectedItem)") `
+                        -Register "$($txtReg.Text)".Trim() `
+                        -WONo "$($txtWo.Text)".Trim() `
+                        -FilterMode "$($cmbFilter.SelectedItem)" `
+                        -WindowFrom $fromDate -WindowTo $toDate)
+        } catch {
+            $statusLabel.Text = "Search failed: $($_.Exception.Message)"
+            Write-Log "Work Order Lookup: search failed — $($_.Exception.Message)"
+            return
+        }
+
+        $machineFilter = "$($txtMach.Text)".Trim()
+        $shown = 0
+        foreach ($row in $rows) {
+            if ($machineFilter) {
+                $mid = "$($row.Acronym) $($row.Equipment)"
+                if ($mid -notmatch [regex]::Escape($machineFilter)) { continue }
+            }
+            $it = New-Object System.Windows.Forms.ListViewItem("$($row.WorkOrderNo)")
+            $it.SubItems.Add("$($row.RegisterNo)") | Out-Null
+            $it.SubItems.Add("$($row.Acronym)")    | Out-Null
+            $it.SubItems.Add("$($row.Equipment)")  | Out-Null
+            $it.SubItems.Add("$($row.Status)")     | Out-Null
+            $it.SubItems.Add("$($row.Crew)")       | Out-Null
+            $it.SubItems.Add("$($row.DateIssued)") | Out-Null
+            $it.SubItems.Add("$($row.DueDate)")    | Out-Null
+            $it.SubItems.Add("$($row.Description)")| Out-Null
+            $it.Tag = $row
+            $lv.Items.Add($it) | Out-Null
+            $script:woLookupRows += $row
+            $shown++
+        }
+        $statusLabel.Text = "$shown work order(s) in window. Double-click to view details, or select one and Add to Job Log."
+    })
+
+    $lv.Add_DoubleClick({
+        if ($lv.SelectedItems.Count -eq 0) { return }
+        $row = $lv.SelectedItems[0].Tag
+        if ($null -eq $row) { return }
+        try {
+            $fields = Get-EmarsWoDetailFields -WoPtr $row.WoPtr -SiteId $row.SiteId -WoNo $row.WorkOrderNo
+            if ($null -eq $fields) {
+                [System.Windows.Forms.MessageBox]::Show(
+                    "This work order has no database pointer, so its detail cannot be fetched.",
+                    "Work Order Lookup", "OK", "Warning")
+                return
+            }
+            Show-EmarsWoDetailDialog -WoRow $row -Fields $fields
+        } catch {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Detail fetch failed:`r`n$($_.Exception.Message)",
+                "Work Order Lookup", "OK", "Error")
+            Write-Log "Work Order Lookup: detail failed for WO $($row.WorkOrderNo) — $($_.Exception.Message)"
+        }
+    })
+
+    $detailBtn.Add_Click({
+        if ($lv.SelectedItems.Count -eq 0) { return }
+        $row = $lv.SelectedItems[0].Tag
+        if ($null -eq $row) { return }
+        try {
+            $fields = Get-EmarsWoDetailFields -WoPtr $row.WoPtr -SiteId $row.SiteId -WoNo $row.WorkOrderNo
+            if ($null -eq $fields) {
+                [System.Windows.Forms.MessageBox]::Show(
+                    "This work order has no database pointer, so its detail cannot be fetched.",
+                    "Work Order Lookup", "OK", "Warning")
+                return
+            }
+            Show-EmarsWoDetailDialog -WoRow $row -Fields $fields
+        } catch {
+            [System.Windows.Forms.MessageBox]::Show(
+                "Detail fetch failed:`r`n$($_.Exception.Message)",
+                "Work Order Lookup", "OK", "Error")
+            Write-Log "Work Order Lookup: detail failed for WO $($row.WorkOrderNo) — $($_.Exception.Message)"
+        }
+    })
+
+    $addBtn.Add_Click({
+        if ($lv.SelectedItems.Count -eq 0) { return }
+        $row = $lv.SelectedItems[0].Tag
+        if ($null -eq $row) { return }
+
+        # Fetch the detail first so the job editor is pre-filled with the
+        # authoritative record (fall back to the search row if that fails).
+        $fields = $null
+        try { $fields = Get-EmarsWoDetailFields -WoPtr $row.WoPtr -SiteId $row.SiteId -WoNo $row.WorkOrderNo } catch {
+            Write-Log "Work Order Lookup: detail prefill failed for WO $($row.WorkOrderNo) — $($_.Exception.Message)"
+        }
+
+        if (Add-EmarsWoToJobLog -WoRow $row -DetailFields $fields) {
+            $statusLabel.Text = "Work order $($row.WorkOrderNo) added to the job log (and today's worksheet if it exists)."
+        }
+    })
+
+    $form.ShowDialog() | Out-Null
 }
 
 function Test-EmarsConnection {
@@ -9551,7 +10193,10 @@ function Show-PmFetchEmarsDialog {
     $topBar.Height = 104
     $topBar.BackColor = [System.Drawing.Color]::White
     $topBar.Padding = New-Object System.Windows.Forms.Padding(12, 10, 12, 0)
-    $form.Controls.Add($topBar)
+    # NOTE: topBar is added to the form LAST (after the Fill ListView and the
+    # Bottom bar).  WinForms docks controls in reverse add-order, so adding a
+    # Top panel BEFORE a Fill control makes the Fill control overlap it and
+    # the panel (and its buttons) become invisible/unclickable.
 
     $loadBtn = New-Object System.Windows.Forms.Button
     $loadBtn.Text = "Load Worksheet PMs"
@@ -9641,6 +10286,9 @@ function Show-PmFetchEmarsDialog {
     $cancelBtn.Add_Click({ $form.Tag = $null; $form.Close() })
     $btnBar.Controls.Add($cancelBtn)
 
+    # Dock order: Fill first, then Bottom, then Top LAST (see note above).
+    $form.Controls.Add($topBar)
+
     # --- wiring ----------------------------------------------------------
     $doFetchOne = {
         $sel = $lv.SelectedItems
@@ -9711,7 +10359,7 @@ function Show-PmFetchEmarsDialog {
         }
     }
 
-    $loadBtn.Add_Click({
+    $doLoad = {
         $status.ForeColor = [System.Drawing.Color]::FromArgb(44,62,80)
         $status.Text = "Reading Weekly Worksheet for $filterDateStr ..."
         $form.Refresh()
@@ -9780,7 +10428,12 @@ function Show-PmFetchEmarsDialog {
             if ($unmatched -gt 0) { $status.Text += "  ($unmatched could not be matched to eMARS)" }
             $status.Text += ". Select one and Fetch Selected, or Fetch All Listed."
         }
-    })
+    }
+
+    $loadBtn.Add_Click($doLoad)
+    # Auto-populate the list the moment the window opens so the dialog is
+    # never empty and dead — the worksheet rows load without a manual click.
+    $form.Add_Shown({ & $doLoad })
 
     $lv.Add_ItemSelectionChanged({
         $fetchBtn.Enabled = ($lv.SelectedItems.Count -gt 0)
@@ -16338,18 +16991,14 @@ function Show-MainForm {
         @{Text="Update Files";                   Action={ Update-AllFiles };                                      Style='Success' }
         @{Text="Update Parts Books";             Action={ Update-PartsBooks };                                    Style='Primary' }
         @{Text="Update Parts Room";              Action={ Update-PartsRoom };                                     Style='Primary' }
-        @{Text="Take a Part Out";                Action={ Take-PartOut };                                         Style='Primary' }
+        @{Text="Look Up Work Orders";            Action={ Show-WorkOrderLookupDialog };                           Style='Primary' }
         @{Text="Search for a Part";              Action={ $tabControl.SelectedTab = $searchTab };                 Style='Primary' }
-        @{Text="Request a Part to be Ordered";   Action={ Request-PartOrder };                                    Style='Secondary' }
-        @{Text="Request a Work Order";           Action={ Request-WorkOrder };                                    Style='Secondary' }
         @{Text="Make an MTSC Ticket";            Action={ Make-MTSCTicket };                                      Style='Secondary' }
         @{Text="Search Knowledge Base";          Action={ Search-KnowledgeBase };                                 Style='Secondary' }
         @{Text="Add Parts Book";                 Action={ Add-PartsBookFromCatalog -config $config };             Style='Success' }
         @{Text="Remove Parts Book";              Action={ Remove-PartsBook -config $config };                     Style='Danger' }
         @{Text="Add Same Day Parts Room";        Action={ Add-SameDayPartsRoom };                                 Style='Success' }
         @{Text="Remove Same Day Parts Room";     Action={ Remove-SameDayPartsRoom -config $config };              Style='Danger' }
-        @{Text="Add 1-Day Parts Room";           Action={ [System.Windows.Forms.MessageBox]::Show("Not yet implemented.") }; Style='Ghost' }
-        @{Text="Add 2-Day Parts Room";           Action={ [System.Windows.Forms.MessageBox]::Show("Not yet implemented.") }; Style='Ghost' }
     )
 
     foreach ($actionButton in $actionButtons) {

@@ -1,0 +1,494 @@
+// --- Begin Date Validations ---
+
+   var err;
+
+   var errMsg = new Array;
+   errMsg[0] = 'No error.';
+   errMsg[1] = 'Invalid date.  Please enter a date in the format MM/DD/YYYY.';   
+   errMsg[2] = 'Please specify the DAY as a number.';   
+   errMsg[3] = 'Please specify a month number between 1 and 12 or the english spelling of a month.';   
+   errMsg[4] = 'Please specify the YEAR as a 4-digit number in the format: YYYY.';   
+   errMsg[5] = 'Please specify the MONTH number between 1 and 12.';   
+   errMsg[6] = 'Please specify a DAY value between 1 and 31.';   
+   errMsg[7] = 'Please specify a DAY value between 1 and 30.';
+   errMsg[8] = 'Please specify a DAY value greater than 1.';   
+   errMsg[9] = 'Please specify a DAY value between 1 and 29.';
+   errMsg[10] = 'Please specify a DAY value between 1 and 28.';
+   errMsg[11] = 'Unknown Error.  Please try again.';   
+
+
+function checkdate(objName) {
+   var datefield = objName;
+   var cdResult
+   var fieldLength = objName.value.length;
+
+   if (fieldLength>0) {
+      cdResult = chkdate(objName);
+      if (cdResult > 10 || cdResult < 0) {
+         cdResult = 11;
+      }
+      if ( cdResult > 0) {
+         datefield.select();
+         // alert("That date is invalid.  Please try again.");
+         alert(cdResult+': '+errMsg[cdResult]);
+         datefield.focus();
+         return false;
+      } else {
+        try { localvalidate(field.name); } catch(e) { }
+         //return true;
+      }
+   }
+}
+
+
+function chkdate(field) {
+// dd mon yy
+ var ddmonyyyy=/(^\d{1,2})\s(\D{3})\s(\d{2}$|\d{4}$)/;
+// mm-dd-yyyy and validates leap year
+ var mmddyyyy=/^(?:(?:(?:0?[13578]|1[02])(\/|-)31)|(?:(?:0?[1,3-9]|1[0-2])(\/|-)(?:29|30)))(\/|-)(?:[1-9]\d\d\d|\d[1-9]\d\d|\d\d[1-9]\d|\d\d\d[1-9])$|^(?:(?:0?[1-9]|1[0-2])(\/|-)(?:0?[1-9]|1\d|2[0-8]))(\/|-)(?:[1-9]\d\d\d|\d[1-9]\d\d|\d\d[1-9]\d|\d\d\d[1-9])$|^(0?2(\/|-)29)(\/|-)(?:(?:0[48]00|[13579][26]00|[2468][048]00)|(?:\d\d)?(?:0[48]|[2468][048]|[13579][26]))$/;
+// ddmmyyyy, no separator
+ var alldigits=/(^\d{2})(\d{2})(\d{2}$|\d{4}$)/;
+ var mmddyy=/(^\d{1,2})\D(\d{1,2})\D(\d{2})$/;
+// simple mm/dd/yyyy to force "/" as separator
+ var dateSlashes=/(^\d{1})\D(\d{1,2})\D(\d{4})/;
+ var monAR = new Array("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec");
+ var moStr='';
+ var moNum=0;
+ var yrStr='';
+ 
+ var fieldStr=field.value;
+ 
+  if (fieldStr.match(ddmonyyyy)) {
+     fieldStr=fieldStr.toLowerCase();
+     moStr=fieldStr.replace(ddmonyyyy,"$2");
+     yrStr=fieldStr.replace(ddmonyyyy,"$3");
+     for (d=0; d<monAR.length; d++) {
+        if (moStr==monAR[d].toLowerCase()) {
+           moNum=d+1;
+        }
+     }
+    if (yrStr.length==2) {
+       yrStr='20'+yrStr;
+    }
+    fieldStr=fieldStr.replace(ddmonyyyy,moNum+"/"+"$1/"+yrStr);
+  }
+  if (fieldStr.match(alldigits)) {
+    var dNow = new Date();
+    var numYear = dNow.getYear();
+    yrStr=fieldStr.replace(alldigits,"$3");
+    if (yrStr.length==2) {
+       yrStr='20'+yrStr;
+    }
+    fieldStr=fieldStr.replace(alldigits,"$1/$2/"+yrStr);
+  } 
+  if (fieldStr.match(mmddyy)) {
+    yrStr=fieldStr.replace(mmddyy,"$3");
+    yrStr='20'+yrStr;
+    fieldStr=fieldStr.replace(mmddyy,"$1/$2/"+yrStr);
+  }
+  if (fieldStr.match(dateSlashes)) {
+    fieldStr=fieldStr.replace(dateSlashes,"0$1/0$2/$3");
+  }
+  if (fieldStr.match(mmddyyyy)) {
+    fieldStr=fieldStr.replace(/\D/g,"/");
+    field.value=fieldStr;
+    try {
+       createDateTitle(field,fieldStr);
+    } catch(e) { field.title='error doing title'; }
+    return 0;
+  }
+   return 1;
+}
+
+function createDateTitle(field,fieldStr) {
+   var finalDate=/(^\d{1,2})\D(\d{1,2})\D(\d{4}$)/;
+   var m=eval(fieldStr.replace(finalDate,"$1"));
+   var d=fieldStr.replace(finalDate,"$2");
+   var y=fieldStr.replace(finalDate,"$3");
+   var monthAR = new Array("none","January","February","March","April","May","June","July","August","September","October","November","December");
+   var dateString='';
+   dateString=monthAR[m]+' '+d+', '+y;
+   field.title=dateString;   
+ 
+}
+
+function LeapYear(intYear) {
+      if (intYear % 100 == 0) {
+         if (intYear % 400 == 0) { return true; }
+      } else {
+         if ((intYear % 4) == 0) { return true; }
+      }
+      return false;
+   }
+
+
+   function doDateCheck(from, to) 
+   {
+      if (Date.parse(from.value) <= Date.parse(to.value)) {
+         alert("The dates are valid.");
+      } else {
+         if (from.value == "" || to.value == "") {
+            alert("Both dates must be entered.");
+         } else {
+            alert("To date must occur after the from date.");
+         }
+      }
+   }
+
+// --- End Date Validations ---
+
+
+// --- Begin Text Only and Numeric Only validation
+function validateTextNum(field,dType) {
+   if (field.value.length==0) {
+      return;
+   }
+
+   var widget_name=field.name;
+   var widget_dtype='';
+   var widget_label='';
+   var vAlpha = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+   var vNumeric = "0123456789.-"
+   var vName = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ .-();:><_,/";
+   var vNSN = "0123456789-"
+   var vNumberOnly = "0123456789";
+   var valid;
+   var errMsg;
+   var ok = true;
+   var temp;
+   
+   
+   if (dType!=null) {
+      widget_label=field.name;
+      widget_dtype=dType;
+   } else {
+      widget_label=getWidgetAttrib(widget_name,'label');
+      widget_dtype=getWidgetAttrib(widget_name,'datatype');
+   } 
+   if (widget_label=='' || widget_label==null) {
+      widget_label=widget_name.toUpperCase();
+   }
+
+   if (debugMode=='on') {
+      alert('debugMode is on.\nFIELD VALIDATION\n\nwidget: ' + widget_name + '\ndata type: ' + widget_dtype);
+   }
+
+   if (widget_dtype=='T') {
+      try { localvalidate(field.name); } catch(e) {}     
+      ok=true;
+   } else if (widget_dtype=='N') {
+      valid = vNumeric;
+      errMsg = 'The "' + widget_label + '" field is a Numeric-Only field.';
+   } else if (widget_dtype=='A') {
+      valid = vAlpha;
+      errMsg = 'The "' + widget_label + '" field is a Text-Only field.';
+   } else if (widget_dtype=='R') {  //Robbie added for alpha numeric,space and . - allowed
+      valid = vName;
+      errMsg = 'The "' + widget_label + '" field is a Text-Numbers -./()<>:;_ only field.';  
+   } else if (widget_dtype=='W') {  //Robbie added for whoel numbers only
+      valid = vNumberOnly;
+      errMsg = 'The "' + widget_label + '" field is a Whole Number only field.';
+   } else if (widget_dtype=='S') {
+      if (!checkNSNformat(field)) {
+         ok=false;
+      } else {
+         field.value=field.value.substr(0,16);
+         ok=true;
+      }
+      //chris added grammar correction in error msg
+      errMsg = 'The NSN field must be in the format "9999-99-999-9999".';
+   } else if (widget_dtype=='C') {
+      valid = vAlpha + vNumberOnly;
+      errMsg = 'Only letters and numbers are allowed in the "' + widget_label + '" field.';
+   } else if (widget_dtype=='E') {
+      try { localvalidate(field.name); } catch(e) {}  
+      ok=true;
+   } else if (widget_dtype=='P') {
+      try { localvalidate(field.name); } catch(e) {}  
+      ok=true;
+   } else if (widget_dtype=='Z') {
+      try { localvalidate(field.name); } catch(e) {}  
+      ok=true;
+   } else if (widget_dtype=='D') {
+      checkdate(field);
+      ok=true;
+   }
+   
+   if (widget_dtype=='N' || widget_dtype=='A' || widget_dtype=='C'|| widget_dtype=='R' || widget_dtype=='W') {
+      for (var i=0; i<field.value.length; i++) {
+         temp = "" + field.value.substring(i, i+1);
+         if (valid.indexOf(temp) == "-1") {
+            ok = false;
+         }
+      }
+   }
+
+   if (!ok) {
+      alert(errMsg);
+      field.focus();
+      field.select();
+      return false;
+   } 
+
+//alert('DEBUG\n\nPassed regular validation.\n\nNow run localvalidate()');
+
+   try { localvalidate(field.name); } catch(e) {}  
+}
+
+//02-03-05 cprice added comments to this function
+function checkNSNformat(field) {
+   //match for any non-digit (anything that's not 0-9)
+   var nonNum = /\D+/;
+   //a pattern for matching a 13 character long pattern -- digits only.
+   var pattern = /(\d{4})(\d{2})(\d{3})(\d{4})/g;
+   
+   //var nsnPattern=/(\d{4,4})(-(\d{2})-(\d{3})-(\d{4})){0,1}/g;
+   
+   // matches patterns in either of the following formats
+   // 1) XXXX (where X is any valid digit 0-9)
+   // 2) XXXX-XX-XXX-XXXX (where X is any valid digit 0-9)
+   //var nsnPattern=/(\d{4})(-(\d{2})-(\d{3})-(\d{4})){0,1}/g;
+   
+   var nsnPattern1 = /(\d{4})/;
+   var nsnPattern2 = /(\d{4})-(\d{2})-(\d{3})-(\d{4})/;
+   var nsnPattern3 = /(\d{4})-(\d{2})/;
+   
+   //fieldStr will be whatever value was typed in
+   var fieldStr = field.value;
+   var newStr = "";
+   
+   if (fieldStr.length > 0) {
+      if (fieldStr.match(nsnPattern1) && fieldStr.length == 4) {
+          return true;
+      } else if (fieldStr.match(nsnPattern2) && fieldStr.length == 16) {
+          return true;
+      } else if (fieldStr.match(nsnPattern3) && fieldStr.length == 7) {
+          return true;
+      } else {
+         //split the passed in string at all the non-digit positions, if any exist.
+         pieces = fieldStr.split(nonNum);
+         fieldStr = "";
+         
+         //now put fieldStr back together as a concatenation of all the parts (basically removing any non-digit characters).
+         for (i=0; i<pieces.length; i++) {
+            fieldStr = fieldStr+pieces[i];
+         }
+
+         //now if fieldStr matches the pattern format above (13 char digit-only string)
+         if (fieldStr.match(pattern)) {
+            newStr = fieldStr.replace(pattern,"$1-$2-$3-$4");
+            //02-03-2005 cprice added second = sign to make the correct comparison
+            //if the length is 16, then replace the field on screen with the new (formatted) value
+            if (newStr.length == 16) {
+               field.value = newStr;
+            } else {
+               return false;
+            }
+         } else {
+            return false;
+         }
+      }
+   }
+   
+   return true;
+}
+
+function formatNSN(field) {
+   var fieldStr=field.value;
+   var valid = "0123456789"
+   var newChar = fieldStr.substring(fieldStr.length-1);
+   var thisIndex=0;
+   var nsnPattern=/(\d{4,4})(-(\d{2})-(\d{3})-(\d{4})){0,1}/g;
+
+
+      if (fieldStr.indexOf('-')>0){
+         var tempAR=fieldStr.split('-');
+         fieldStr='';
+         for (x=0; x<tempAR.length;x++) {
+            fieldStr=fieldStr+tempAR[x];
+         }
+      }
+      var fLen=fieldStr.length;
+      var temp;
+
+      if ( fLen>13) {//valid.indexOf(newChar) == -1 ||
+         fieldStr=fieldStr.substring(0,fieldStr.length-1);
+      }
+      if (fLen>9) {
+         temp=fieldStr.substring(0,4) + '-' + fieldStr.substring(4,6) + '-' + fieldStr.substring(6,9) + 
+           '-' + fieldStr.substring(9,fLen);
+         if (fLen==13) {
+            getNextElement(field.name);
+         } else if (fLen>13) {
+            fieldStr=fieldStr.substring(0,16);
+            getNextElement(field.name);
+         }
+      } else if (fLen>6) {
+         temp=fieldStr.substring(0,4) + '-' + fieldStr.substring(4,6) + '-' + fieldStr.substring(6,fLen);
+      } else if (fLen>4) {
+         temp=fieldStr.substring(0,4) + '-' + fieldStr.substring(4,fLen);
+      } else {
+         temp=fieldStr;
+      }
+      
+
+      field.value=temp;
+      fieldStr='';
+
+}
+
+/** cprice replaced this function 09-08-2004 */
+
+function enforceTimeFormat(field) {
+// Checks if time is in HH:MM:SS AM/PM format.
+// The seconds and AM/PM are optional.
+
+var timePat = /^(\d{1,2}):(\d{2})(:(\d{2}))?(\s?(AM|am|PM|pm))?$/;
+var timeStr = field.value;
+
+  if (timeStr == '' || timeStr == null) {
+    return true;
+  }
+
+  /**if (timeStr.length == 2 && (timeStr >= 0 && timeStr <= 23)) {
+    timeStr = timeStr + ":00";
+    field.value = timeStr + ":00";
+  }*/
+
+var matchArray = timeStr.match(timePat);
+
+  if (matchArray == null) {
+     alert('Please enter a valid time (HH:MM format) in the ' + field.name.toUpperCase().replace('_',' ') + ' field.');
+     field.focus();
+     return false;
+  }
+
+  hour = matchArray[1];
+  minute = matchArray[2];
+
+  if (hour < 0  || hour > 23) {
+     alert('Please enter a valid time (HH:MM format) in the ' + field.name.toUpperCase().replace('_',' ') + ' field.');
+     field.focus();
+     return false;
+  }
+
+  if (minute < 0 || minute > 59) {
+     alert('Please enter a valid time (HH:MM format) in the ' + field.name.toUpperCase().replace('_',' ') + ' field.');
+     field.focus();
+     return false;
+  }
+  
+  return true;
+}
+
+/**function enforceTimeFormat(field) {
+   var fieldStr=field.value;
+   var valid = "0123456789"
+   var newChar = fieldStr.substring(fieldStr.length-1);
+
+   if (fieldStr.indexOf(':')>0){
+      var tempAR=fieldStr.split(':');
+      if (eval(tempAR[0])>23 || eval(tempAR[1])>59) {
+         alert('Please enter a valid time in the ' + field.name.toUpperCase().replace('_',' ') + ' field.');
+         field.focus();
+         return false;
+      }
+      fieldStr='';
+      for (x=0; x<tempAR.length;x++) {
+         fieldStr=fieldStr+tempAR[x];
+      }
+   }
+   var fLen=fieldStr.length;
+   var temp;
+
+   if (valid.indexOf(newChar) == "-1" || fLen>4) {
+      fieldStr=fieldStr.substring(0,fieldStr.length-1);
+   }
+   if (fLen>2) {
+      temp=fieldStr.substring(0,2) + ':' + fieldStr.substring(2,4);
+   } else {
+      temp=fieldStr;
+   }
+   field.value=temp;
+   fieldStr='';
+   
+   return true;
+}*/
+
+function testOnKeyUp() {
+    alert('onKeyUp test works');
+}
+
+function isValidTime(fieldName) {
+   var field=d[fieldName];
+   var val=field.value;
+   var isValid=true;
+   
+   if (val.indexOf(":")>0){
+      var timeAR=val.split(":");
+      if (isNumeric(timeAR[0]) && isNumeric(timeAR[1])) {
+         var hr=parseInt(timeAR[0]);
+         var mi=parseInt(timeAR[1]);
+         if (hr>59 || mi>59) {
+            isValid=false;
+         }
+      } else {
+         isValid=false;
+      }
+   } else {
+      isValid=false;
+   }
+   return isValid;  
+}
+
+/****************************************************
+ 01/22/2004: New Function to format ZIP+4
+****************************************************/
+function formatZIP(field) {
+   var fieldStr=field.value;
+   var valid = "0123456789"
+   var newChar = fieldStr.substring(fieldStr.length-1);
+   var thisIndex=0;
+
+      if (fieldStr.indexOf('-')>0){
+         var tempAR=fieldStr.split('-');
+         fieldStr='';
+         for (x=0; x<tempAR.length;x++) {
+            fieldStr=fieldStr+tempAR[x];
+         }
+      }
+      var fLen=fieldStr.length;
+      var temp;
+
+      if ( fLen>9) {//valid.indexOf(newChar) == -1 ||
+         fieldStr=fieldStr.substring(0,fieldStr.length-1);
+      }
+      if (fLen>5) {
+         temp=fieldStr.substring(0,5) + '-' + fieldStr.substring(5,fLen);
+         if (fLen==9) {
+            getNextElement(field.name);
+         } else if (fLen>9) {
+            fieldStr=fieldStr.substring(0,16);
+            getNextElement(field.name);
+         }
+      } else {
+         temp=fieldStr;
+      }
+      
+
+      field.value=temp;
+      fieldStr='';
+}
+
+//02-22-05 cprice.  Added this validation function specifically for equipment number validation as per Issue #156.
+//Will only allow values with alpha, numeric, underscore, dash, or spaces.
+
+    function validateBasicChars(v) {
+      var nonValid = /[^a-zA-Z0-9_\-\x20]/g;
+      
+      if (v.match(nonValid)) {
+        return false;
+      }
+      
+      return true;
+    }

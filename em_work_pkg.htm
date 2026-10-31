@@ -1,0 +1,195 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<!-- saved from url=(0102)http://emarssu3.eng.usps.gov/pemars/em_work_pkg.em_woSearchDialog -->
+<HTML><HEAD><META content="IE=5.0000" http-equiv="X-UA-Compatible">
+
+<META content="text/html; charset=iso-8859-1" http-equiv=Content-Type>
+<META name=GENERATOR content="MSHTML 11.00.10570.1001"></HEAD>
+<BODY onload=loadFunc() bgColor=silver scroll=no>
+<STYLE>.captionMsmall {
+	FONT-SIZE: 12px; FONT-FAMILY: arial; FONT-WEIGHT: normal
+}
+</STYLE>
+
+<SCRIPT language=javascript>
+function loadFunc() {document.all.reg_no.focus();}
+window.status="Ready to begin work order search."
+function clickFunction(col,row) { 
+   var srow=document.all.wogrid.getSelRow();
+   if (srow==0) { return } 
+   var vThisRow=document.all.wogrid.getCellText(15, srow);
+   opener.go1(vThisRow);
+   self.close();
+}
+function go1() {  
+
+                if(isNaN(document.all.wonum.value)){
+                    alert('Numeric only please! ');
+
+                    document.all.wonum.value = '';
+                    document.all.wonum.focus();
+                    return;
+                }
+            window.staus="Searching...One Moment Please";
+   vURL="em_work_pkg.em_getWOData?pSite=345&pWOStatus=E&pRegNo="+document.all.reg_no.value+"&pWONo="+document.all.wonum.value;
+   objHTTP = new ActiveXObject("Microsoft.XMLHttp");
+   objHTTP.open("GET", vURL, false);
+   document.all.wodiv.innerHTML="<br><br>Searching...One Moment Please..."
+   objHTTP.send();
+   document.all.wodiv.innerHTML=objHTTP.responseText
+   setTimeout("setRowCount()", 500);
+}
+
+            var tString = "";
+            function typeAhead() {
+                 var thisfield=window.event.srcElement;
+                 if(window.event && window.event.keyCode == 13) {
+                    document.all.wonum.focus();
+                    return false;
+                 }
+
+                  // Global Variables
+                  var i = 0;
+                  var success = false;
+                  var elem = event.srcElement;
+                  var tLowElemText = "";
+                  // Get the unicode char of the keypress
+                  var eCode = event.keyCode;
+                  // Check if it's a vaid ASCII Character
+                  if (eCode == 27){
+                     tString = "";
+                     elem.selectedIndex = 0;
+                     try {
+                        elem.onchange();
+                     } catch(e) {}
+                  } else if ( (eCode >= 32) && (eCode < 122)) {
+                  // Convert the Code to the corresponding character and add to searchstring
+                  tString += String.fromCharCode(eCode);
+                  // ... and perform the search starting from the top element in the listbox
+                     while (success == false)
+                     {
+                     i = 0;
+                     // Convert everything to lowercase; allows an easy comparison
+                     var tLowString = tString.toLowerCase();
+                     // Compose the regexp searchstring ...
+                     var rExpr = eval("/^" +  tLowString + "/");
+                        while ((i < elem.length)&& (success == false) )
+                        {
+                           tLowElemText = elem.options[i].text.toLowerCase();
+                           // success: Position the listbox on the (first) found element
+                           if (tLowElemText.search(rExpr) != -1)
+                            {
+                              elem.selectedIndex = i;
+                              try {
+                                elem.onchange();
+                              } catch(e) {}
+                              success = true;
+                           }
+                           else {
+                              i++; }
+                        } // while i < elem.length
+                        // if nothing is found in the entire list, the last character of the searstring is
+                        // removed to allow typing the correct "next" character
+                        if (success == false) {
+                           tString = tString.substr(0, tString.length-1);
+                        }
+                     }   // while success = false
+                  }
+                  //   Just for demo use: updates the span displaying the typed
+                  //     characters; remove from code before re-using
+                  //   lchr.innerText =String.fromCharCode(eCode);
+                  //   tsf.innerText = tString;
+                  window.event.returnValue = false;
+                  window.event.cancelBubble = true;            }
+
+            function enterhit() {
+
+                 var thisfield=window.event.srcElement;
+                 if(window.event && window.event.keyCode == 13) {
+                    document.all.btnGo.focus();
+                    return false;
+                 }
+            }
+      
+function setRowCount() {
+  window.status=document.all.wogrid.getNumRows()+" work orders found."
+}
+</SCRIPT>
+
+<DIV class=captionMsmall style="OVERFLOW: scroll; MARGIN: 2px 4px 8px" 
+name="searchdiv">
+<FIELDSET><LEGEND><FONT size=2 face=arial>Search Criteria</LEGEND>
+<TABLE cellPadding=3>
+  <TBODY>
+  <TR>
+    <TD class=captionMsmall><FONT size=2 face=arial><B>Register:</B></FONT></TD>
+    <TD><SELECT onchange="document.all.wonum.value='';" onkeypress=typeAhead() 
+      class=captionmsmall name=reg_no> <OPTION selected value=798>798-SHOPPING 
+        CART</OPTION> <OPTION value=797>797-CW</OPTION> <OPTION 
+        value=796>796-MMO</OPTION> <OPTION value=795>795-SMO</OPTION> <OPTION 
+        value=794>794-MSB</OPTION> <OPTION value=793>793-MWO</OPTION> <OPTION 
+        value=792>792-DOMO</OPTION> <OPTION value=787>787-CW STA-BRA</OPTION> 
+        <OPTION value=786>786-MMO STA-BRA</OPTION> <OPTION value=785>785-SMO 
+        STA-BRA</OPTION> <OPTION value=784>784-MSB STA-BRA</OPTION> <OPTION 
+        value=783>783-MWO STA-BRA</OPTION> <OPTION value=782>782-DOMO 
+        STA-BRA</OPTION> <OPTION value=780>780-RECYCLING</OPTION> <OPTION 
+        value=777>777-CW AO</OPTION> <OPTION value=776>776-MMO AO</OPTION> 
+        <OPTION value=775>775-SMO AO</OPTION> <OPTION value=774>774-MSB 
+        AO</OPTION> <OPTION value=773>773-MWO AO</OPTION> <OPTION 
+        value=769>769-AT RISK</OPTION> <OPTION value=767>767-PMO</OPTION> 
+        <OPTION value=750>750-STATIONS AND BRANCHES</OPTION> <OPTION 
+        value=726>726-WATER TESTING</OPTION> <OPTION value=719>719-TACS</OPTION> 
+        <OPTION value=716>716-LAN-DATA-COMM</OPTION> <OPTION 
+        value=713>713-MISC</OPTION> <OPTION value=712>712-TRAINING</OPTION> 
+        <OPTION value=709>709-OPMS</OPTION> <OPTION value=705>705-MOPE</OPTION> 
+        <OPTION value=704>704-ADMIN</OPTION> <OPTION value=702>702-BLDG 
+        EQUIP</OPTION> <OPTION value=701>701-MPE</OPTION> <OPTION 
+        value=698>698-SHOPPING CART</OPTION> <OPTION value=697>697-CW</OPTION> 
+        <OPTION value=696>696-MMO</OPTION> <OPTION value=695>695-SMO</OPTION> 
+        <OPTION value=694>694-MSB</OPTION> <OPTION value=693>693-MWO</OPTION> 
+        <OPTION value=692>692-DOMO</OPTION> <OPTION value=687>687-CW 
+        STA-BRA</OPTION> <OPTION value=686>686-MMO STA-BRA</OPTION> <OPTION 
+        value=685>685-SMO STA-BRA</OPTION> <OPTION value=684>684-MSB 
+        STA-BRA</OPTION> <OPTION value=683>683-MWO STA-BRA</OPTION> <OPTION 
+        value=682>682-DOMO STA-BRA</OPTION> <OPTION 
+        value=680>680-RECYCLING</OPTION> <OPTION value=677>677-CW AO</OPTION> 
+        <OPTION value=676>676-MMO AO</OPTION> <OPTION value=675>675-SMO 
+        AO</OPTION> <OPTION value=674>674-MSB AO</OPTION> <OPTION 
+        value=673>673-MWO AO</OPTION> <OPTION value=672>672-DOMO FMO</OPTION> 
+        <OPTION value=669>669-AT RISK</OPTION> <OPTION 
+        value=667>667-PMO</OPTION> <OPTION value=650>650-STATIONS AND 
+        BRANCHES</OPTION> <OPTION value=626>626-WATER TESTING</OPTION> <OPTION 
+        value=619>619-TACS</OPTION> <OPTION 
+        value=616>616-LAN-DATA-COMM-PDC</OPTION> <OPTION 
+        value=613>613-MISC</OPTION> <OPTION value=612>612-TRAINING</OPTION> 
+        <OPTION value=609>609-OPMS</OPTION> <OPTION value=605>605-MOPE</OPTION> 
+        <OPTION value=604>604-ADMIN</OPTION> <OPTION value=602>602-BLDG 
+        EQUIP</OPTION> <OPTION value=601>601-MPE</OPTION> <OPTION 
+        value=598>598-SHOPPING CART</OPTION> <OPTION value=597>597-CW</OPTION> 
+        <OPTION value=596>596-MMO</OPTION> <OPTION value=595>595-SMO</OPTION> 
+        <OPTION value=594>594-MSB</OPTION> <OPTION value=593>593-MWO</OPTION> 
+        <OPTION value=592>592-DOMO</OPTION> <OPTION value=587>587-CW 
+        STA-BRA</OPTION> <OPTION value=586>586-MMO STA-BRA</OPTION> <OPTION 
+        value=585>585-SMO STA-BRA</OPTION> <OPTION value=584>584-MSB 
+        STA-BRA</OPTION> <OPTION value=583>583-MWO STA-BRA</OPTION> <OPTION 
+        value=582>582-DOMO STA-BRA</OPTION> <OPTION 
+        value=580>580-RECYCLING</OPTION> <OPTION value=577>577-CW AO</OPTION> 
+        <OPTION value=576>576-MMO AO</OPTION> <OPTION value=575>575-SMO 
+        AO</OPTION> <OPTION value=574>574-MSB AO</OPTION> <OPTION 
+        value=573>573-MWO AO</OPTION> <OPTION value=572>572-DOMO FMO</OPTION> 
+        <OPTION value=569>569-AT RISK</OPTION> <OPTION 
+        value=567>567-PMO</OPTION> <OPTION value=550>550-STATIONS AND 
+        BRANCHES</OPTION> <OPTION value=519>519-TACS</OPTION> <OPTION 
+        value=516>516-LAN-DATA-COMM-PDC</OPTION> <OPTION 
+        value=513>513-MISC</OPTION> <OPTION value=512>512-TRAINING</OPTION> 
+        <OPTION value=509>509-OPMS</OPTION> <OPTION value=505>505-MOPE</OPTION> 
+        <OPTION value=504>504-ADMIN</OPTION> <OPTION value=502>502-BLDG 
+        EQUIP</OPTION> <OPTION value=501>501-MPE</OPTION></SELECT> </TD>
+    <TD class=area><FONT size=2 face=arial><B>WO Number:</B></FONT></TD>
+    <TD><INPUT onkeypress=enterhit() size=8 name=wonum maxval="8"></INPUT> </TD>
+    <TD><FONT size=2 face=arial><B><BUTTON onclick=go1() name=btnGo 
+      value="GO">GO</BUTTON></B></FONT></TD></TR></TBODY></TABLE></FIELDSET> </DIV>
+<DIV id=wodiv 
+style="FONT-SIZE: x-small; OVERFLOW: scroll; FONT-FAMILY: arial; TEXT-ALIGN: left" 
+name="wodiv"><BR>Select a register you wish to search, or the register plus the 
+work order number if known, then click "GO" to begin searching. 
+</DIV></FONT></BODY></HTML>

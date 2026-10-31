@@ -931,3 +931,47 @@ Step 3 — full run (only if Step 2 succeeded):
 ```
 
 All 571 WOs, ~10 minutes at ~1s per SWIL fetch. If that's too slow, run it overnight or in batches.
+
+---
+
+# 2026-10-31 — SOLVED: the detail route is em_getWO, not SWIL
+
+Reverse-engineered from the form's own JavaScript (`03-EM_WORK_MAINT_001.js`, `go1(rowid)` at line 2313):
+
+```
+XMLDOM.load("em_work_pkg.em_getWO?p_rowid=" + rowid + "&pSiteID=" + currentSite)
+```
+
+Every element child of the returned ROW is a form field (lowercased widget name →
+value). The SWIL route (`!vm_main_pkg.main` with `pparamxml`) was a dead end — it
+returns a 10014-byte JS-bootstrap shell with 0 widgets no matter which key is
+used. The grid's cell 15 pointer (0-indexed cell 14) is the p_rowid. **URL-encode
+the ROWID** (it can contain + and /).
+
+Also found:
+- `em_work_pkg.em_wono9?pSiteID=&p_wo=<wono>&p_regno=<reg>` → `<WONO9>` = ROWID (WO#→pointer bridge)
+- `em_work_pkg.em_esthours_prc?pSiteID=&pWoPtr=<ptr>` → `<ESTHOUR>` (estimate for 'ALL'-equipment WOs)
+- `em_work_pkg.em_check_parts?pSiteID=&pWOPtr=<ptr>` → `<PARTS>'4'</PARTS>` = parts exist
+- `em_work_pkg.em_getXMLRegisterListAll?pSiteID=` (not em_getXMLRegisterList)
+- Search parser validated against 5 live runs in WorkOrderHistory.log: headers,
+  delimiter ',', numcols=15, cell-14 ROWID — all confirmed.
+
+**The script now lives in `WO.ps1`** (this file's code block is superseded).
+Changes vs. this file's version:
+- Detail route = `em_getWO` XML (SWIL removed entirely)
+- ROWID URL-encoded; `em_wono9` bridge helper added
+- `em_esthours_prc` enrichment for `equip_no == 'ALL'`
+- Register list endpoint corrected to `em_getXMLRegisterListAll`
+- `-Site`, `-WONo`, `-Config` parameters added
+- Fixed PowerShell comma-return pitfall (`return ,$x` breaks `@()` consumers)
+
+First real run:
+
+```powershell
+.\WO.ps1 -DiscoverEndpoints   # search probe + em_getWO test against live server
+.\WO.ps1 -From 2026-10-23 -To 2026-10-30 -Status E -MaxRows 0   # full run
+```
+
+The one thing not yet captured live is the em_getWO XML itself — DiscoverEndpoints
+now dumps/logs it. Field names are extracted generically (any child element), so
+the parser needs no changes even if the field list differs from the JS.

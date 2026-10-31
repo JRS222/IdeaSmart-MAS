@@ -1,0 +1,634 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<!-- saved from url=(0105)http://emarssu3.eng.usps.gov/pemars/!vm_main_pkg.main -->
+<HTML><HEAD><META content="IE=5.0000" http-equiv="X-UA-Compatible">
+<TITLE>Corrective Maintenance Work Orders (EM_WORK_MAINT_001 User: 1601089 Site: 345)</TITLE>
+<META content="text/html; charset=iso-8859-1" http-equiv=Content-Type>
+<META content="IE=EmulateIE8; charset=UTF-8" http-equiv=x-ua-compatible>
+<META content=no-cache http-equiv=Pragma>
+<META content=-1 http-equiv=Expires>
+<STYLE>BODY {
+	FONT-SIZE: 12px; FONT-FAMILY: arial
+}
+TD {
+	FONT-SIZE: 12px; FONT-FAMILY: arial
+}
+DIV {
+	FONT-SIZE: 12px; FONT-FAMILY: arial
+}
+SPAN {
+	FONT-SIZE: 12px; FONT-FAMILY: arial
+}
+P {
+	FONT-SIZE: 12px; FONT-FAMILY: arial
+}
+LI {
+	FONT-SIZE: 12px; FONT-FAMILY: arial
+}
+BODY {
+	CURSOR: wait; FONT-WEIGHT: bold; MARGIN: 2px; BACKGROUND-COLOR: #336699
+}
+.hiddenItem {
+	BORDER-TOP: 0px; HEIGHT: 0px; BORDER-RIGHT: 0px; WIDTH: 0px; BORDER-BOTTOM: 0px; PADDING-BOTTOM: 0px; PADDING-TOP: 0px; PADDING-LEFT: 0px; BORDER-LEFT: 0px; MARGIN: 0px; PADDING-RIGHT: 0px
+}
+.legend {
+	FONT-SIZE: 12px; FONT-FAMILY: arial; FONT-WEIGHT: normal; TEXT-ALIGN: center
+}
+INPUT {
+	FONT-SIZE: 11px; TEXT-TRANSFORM: uppercase
+}
+.FIXEDLENGTH {
+	FONT-SIZE: 10px; FONT-FAMILY: courier; TEXT-TRANSFORM: uppercase
+}
+INPUT.btn {
+	BACKGROUND: #dddddd
+}
+TEXT {
+	FONT-SIZE: 12px; WORD-SPACING: 10px
+}
+.uitable {
+	FONT-SIZE: 10px; BORDER-TOP: black 1px outset; BORDER-RIGHT: black 1px outset; BORDER-BOTTOM: black 1px outset; FONT-WEIGHT: normal; EMPTY-CELLS: show; BORDER-SPACING: 1; BORDER-LEFT: black 1px outset; BACKGROUND-COLOR: white
+}
+.infolabel {
+	BORDER-TOP-STYLE: none; FONT-SIZE: 10px; BORDER-LEFT-STYLE: none; HEIGHT: 12px; BORDER-BOTTOM-STYLE: none; BORDER-RIGHT-STYLE: none; BACKGROUND-COLOR: #dcdcdc
+}
+TABLE {
+	FONT-SIZE: 12px; BORDER-TOP: white 2px outset; BORDER-RIGHT: white 2px outset; BORDER-BOTTOM: white 2px outset; FONT-WEIGHT: bold; BORDER-LEFT: white 2px outset; BACKGROUND-COLOR: #336699
+}
+.fieldset {
+	BORDER-TOP-STYLE: none; FONT-SIZE: 11px; BORDER-LEFT-STYLE: none; BORDER-BOTTOM-STYLE: none; BORDER-RIGHT-STYLE: none; BACKGROUND-COLOR: #dcdcdc
+}
+TD {
+	WHITE-SPACE: pre
+}
+TH {
+	FONT-SIZE: 12px; FONT-WEIGHT: bold; COLOR: white; TEXT-ALIGN: left; BACKGROUND-COLOR: navy
+}
+.activetab {
+	FONT-SIZE: small; BORDER-BOTTOM-STYLE: hidden; POSITION: relative; FONT-WEIGHT: bold; COLOR: white; Z-INDEX: 0
+}
+.inactivetab {
+	FONT-SIZE: 12px; POSITION: relative; COLOR: black; Z-INDEX: 0; BACKGROUND-COLOR: #dcdcdc
+}
+.tabheading {
+	FONT-SIZE: 22px; FONT-WEIGHT: bold; COLOR: navy; TEXT-ALIGN: center; BACKGROUND-COLOR: #dcdcdc
+}
+.area {
+	BORDER-TOP-STYLE: outset; FONT-SIZE: 12px; BORDER-LEFT-STYLE: outset; BORDER-BOTTOM-STYLE: outset; FONT-WEIGHT: bold; BORDER-RIGHT-STYLE: outset; BACKGROUND-COLOR: #dcdcdc
+}
+.smallheading {
+	FONT-SIZE: 20px; FONT-WEIGHT: bold; COLOR: maroon; TEXT-ALIGN: center; BACKGROUND-COLOR: #dcdcdc
+}
+SELECT {
+	FONT-SIZE: 12px; TEXT-TRANSFORM: uppercase
+}
+.tablerow {
+	BORDER-TOP-STYLE: none; FONT-SIZE: 12px; BORDER-LEFT-STYLE: none; BORDER-BOTTOM-STYLE: none; BORDER-RIGHT-STYLE: none; PADDING-LEFT: 0px; PADDING-RIGHT: 0px; BACKGROUND-COLOR: #dcdcdc
+}
+.tablerowdark {
+	FONT-SIZE: 12px; TEXT-TRANSFORM: none; FONT-WEIGHT: bold
+}
+.controlrow {
+	BORDER-TOP-STYLE: none; FONT-SIZE: 12px; BORDER-LEFT-STYLE: none; WIDTH: 0px; VERTICAL-ALIGN: bottom; BORDER-BOTTOM-STYLE: none; BORDER-RIGHT-STYLE: none; PADDING-LEFT: 6px; PADDING-RIGHT: 6px; BACKGROUND-COLOR: #dcdcdc
+}
+.captionxsmall {
+	FONT-SIZE: 12px; FONT-FAMILY: arial
+}
+BUTTON {
+	FONT-SIZE: 12px; FONT-FAMILY: arial; WIDTH: 100px; TEXT-TRANSFORM: uppercase; FONT-WEIGHT: bold; PADDING-LEFT: 8px; PADDING-RIGHT: 8px
+}
+.finderButton {
+	FONT-SIZE: 12px; WIDTH: 55px; COLOR: white; TEXT-ALIGN: center; BACKGROUND-COLOR: green
+}
+.goButton {
+	FONT-SIZE: 12px; WIDTH: 25px; COLOR: white; TEXT-ALIGN: center; PADDING-LEFT: 2px; BACKGROUND-COLOR: #000099
+}
+.blueButton {
+	FONT-SIZE: 12px; COLOR: white; TEXT-ALIGN: center; PADDING-LEFT: 2px
+}
+.maroonButton {
+	FONT-SIZE: 12px; TEXT-ALIGN: center
+}
+.maroonBtnSmall {
+	FONT-SIZE: 10px; COLOR: white; TEXT-ALIGN: center; BACKGROUND-COLOR: maroon
+}
+.fineButton {
+	FONT-SIZE: 12px; FONT-WEIGHT: normal
+}
+.enhancedButton {
+	FONT-SIZE: 12px
+}
+.captionMsmall {
+	FONT-SIZE: 11px; FONT-FAMILY: arial; FONT-WEIGHT: normal
+}
+.row {
+	PADDING-BOTTOM: 4px
+}
+.captionsmall {
+	FONT-SIZE: 12px; FONT-FAMILY: arial
+}
+.captionmedium {
+	FONT-SIZE: 14px; FONT-FAMILY: arial
+}
+.captionlarge {
+	FONT-SIZE: 18px; FONT-FAMILY: arial; FONT-WEIGHT: bold
+}
+.buttonrow {
+	BORDER-TOP-STYLE: none; FONT-SIZE: 12px; BORDER-LEFT-STYLE: none; FONT-FAMILY: arial; BORDER-BOTTOM-STYLE: none; FONT-WEIGHT: bold; BORDER-RIGHT-STYLE: none; BACKGROUND-COLOR: #336699
+}
+.group {
+	BORDER-TOP-STYLE: none; FONT-SIZE: 12px; BORDER-LEFT-STYLE: none; FONT-FAMILY: arial; BORDER-BOTTOM-STYLE: none; FONT-WEIGHT: bold; BORDER-RIGHT-STYLE: none; BACKGROUND-COLOR: #dcdcdc
+}
+.radio {
+	BACKGROUND-COLOR: #dcdcdc
+}
+.grid {
+	BORDER-TOP-STYLE: none; BORDER-LEFT-STYLE: none; BORDER-BOTTOM-STYLE: none; BORDER-RIGHT-STYLE: none; BACKGROUND-COLOR: white; border-size: 1
+}
+.imagebutton {
+	CURSOR: hand; BORDER-TOP: 2px outset; HEIGHT: 35px; BORDER-RIGHT: 2px outset; WIDTH: 35px; VERTICAL-ALIGN: middle; BORDER-BOTTOM: 2px outset; PADDING-BOTTOM: 0px; TEXT-ALIGN: center; PADDING-TOP: 0px; PADDING-LEFT: 0px; BORDER-LEFT: 2px outset; PADDING-RIGHT: 0px; BACKGROUND-COLOR: #dcdcdc
+}
+.imgBtnNoBorder {
+	CURSOR: hand; BORDER-TOP: 0px; HEIGHT: 35px; BORDER-RIGHT: 0px; WIDTH: 35px; VERTICAL-ALIGN: middle; BORDER-BOTTOM: 0px; PADDING-BOTTOM: 0px; TEXT-ALIGN: center; PADDING-TOP: 0px; PADDING-LEFT: 0px; BORDER-LEFT: 0px; PADDING-RIGHT: 0px; BACKGROUND-COLOR: #dcdcdc
+}
+.alignment {
+	BORDER-TOP: 0px; BORDER-RIGHT: 0px; BORDER-BOTTOM: 0px; BORDER-LEFT: 0px; BACKGROUND-COLOR: #dcdcdc
+}
+.alignright {
+	FONT-SIZE: 12px; BORDER-TOP: 0px; FONT-FAMILY: arial; BORDER-RIGHT: 0px; BORDER-BOTTOM: 0px; FONT-WEIGHT: bold; TEXT-ALIGN: right; BORDER-LEFT: 0px
+}
+.aligncenter {
+	FONT-SIZE: 12px; BORDER-TOP: 0px; FONT-FAMILY: arial; BORDER-RIGHT: 0px; BORDER-BOTTOM: 0px; FONT-WEIGHT: bold; TEXT-ALIGN: center; BORDER-LEFT: 0px
+}
+.alignleft {
+	FONT-SIZE: 12px; BORDER-TOP: 0px; FONT-FAMILY: arial; BORDER-RIGHT: 0px; WIDTH: 14px; BORDER-BOTTOM: 0px; FONT-WEIGHT: bold; TEXT-ALIGN: left; BORDER-LEFT: 0px; calbutton: 12
+}
+.disabledcontrol {
+	FONT-SIZE: 12px; FONT-FAMILY: arial; disabled: disabled
+}
+.disabledlabel {
+	FONT-SIZE: 12px; FONT-FAMILY: arial; COLOR: silver
+}
+.enabledcontrol {
+	FONT-SIZE: 12px; WIDTH: 100px; BACKGROUND-COLOR: silver
+}
+.disabledlabel {
+	FONT-FAMILY: arial; COLOR: silver
+}
+.disabledField {
+	BACKGROUND: #eaeaea; COLOR: #666666; disabled: disabled
+}
+.enabledField {
+	BACKGROUND: #ffffff; COLOR: #000000
+}
+.whiteTD {
+	FONT-SIZE: 12px; BORDER-TOP: white 2px outset; BORDER-RIGHT: white 2px outset; WIDTH: 112px; BORDER-BOTTOM: white 2px outset; FONT-WEIGHT: normal; BORDER-LEFT: white 2px outset; BACKGROUND-COLOR: white
+}
+.noBorder {
+	BORDER-TOP: 0px; BORDER-RIGHT: 0px; BORDER-BOTTOM: 0px; BORDER-LEFT: 0px
+}
+.infoTable {
+	BORDER-TOP: black 1px solid; BORDER-RIGHT: black 1px solid; BORDER-BOTTOM: black 1px solid; PADDING-BOTTOM: 0px; PADDING-TOP: 0px; PADDING-LEFT: 0px; BORDER-LEFT: black 1px solid; MARGIN: 2px; PADDING-RIGHT: 0px; BACKGROUND-COLOR: #d6d6d6
+}
+.trBorder {
+	BORDER-TOP: white 2px outset; BORDER-RIGHT: white 2px outset; BORDER-BOTTOM: white 2px outset; PADDING-BOTTOM: 2px; PADDING-TOP: 2px; PADDING-LEFT: 2px; BORDER-LEFT: white 2px outset; PADDING-RIGHT: 2px
+}
+.tightTable {
+	BORDER-TOP: white 2px inset; BORDER-RIGHT: white 2px inset; BORDER-BOTTOM: white 2px inset; PADDING-BOTTOM: 0px; PADDING-TOP: 0px; PADDING-LEFT: 0px; BORDER-LEFT: white 2px inset; MARGIN: 0px; PADDING-RIGHT: 0px
+}
+.tightCell {
+	BORDER-TOP: 0px; BORDER-RIGHT: 0px; BORDER-BOTTOM: 0px; PADDING-BOTTOM: 0px; PADDING-TOP: 0px; PADDING-LEFT: 0px; BORDER-LEFT: 0px; MARGIN: 0px; PADDING-RIGHT: 0px
+}
+.calButtonOn {
+	FONT-SIZE: 16px; HEIGHT: 52px; FONT-FAMILY: arial black, arial; WIDTH: 56px; BACKGROUND: #dddddd; COLOR: red; MARGIN: 0px
+}
+.calButtonOff {
+	FONT-SIZE: 16px; HEIGHT: 52px; FONT-FAMILY: arial black, arial; WIDTH: 56px; BACKGROUND: #dddddd; COLOR: black; MARGIN: 0px
+}
+.calButtonDisabled {
+	FONT-SIZE: 16px; HEIGHT: 52px; FONT-FAMILY: arial black, arial; WIDTH: 56px; BACKGROUND: #dddddd; COLOR: #aaaaaa; MARGIN: 0px
+}
+.dataNavButton {
+	WIDTH: 45px; BACKGROUND: #dddddd; MARGIN: 0px
+}
+.plannerTitle {
+	FONT-SIZE: 18px; FONT-WEIGHT: bold; MARGIN: 10px
+}
+.whiteTable {
+	BORDER-TOP: 0px; BORDER-RIGHT: 0px; BORDER-BOTTOM: 0px; BORDER-LEFT: 0px; BACKGROUND-COLOR: white
+}
+.ltgrayTable {
+	BACKGROUND-COLOR: #eeeeee
+}
+.editableDiv {
+	OVERFLOW: auto; BORDER-TOP: white inset; BORDER-RIGHT: white inset; BACKGROUND: white; BORDER-BOTTOM: white inset; FONT-WEIGHT: normal; PADDING-BOTTOM: 3px; PADDING-TOP: 3px; PADDING-LEFT: 3px; BORDER-LEFT: white inset; PADDING-RIGHT: 3px
+}
+.whitebg {
+	BACKGROUND-COLOR: white
+}
+.whitebgs {
+	BACKGROUND-COLOR: #eff3a5
+}
+.ltbluebg {
+	BACKGROUND-COLOR: #afcae4
+}
+.ltbluebgs {
+	BACKGROUND-COLOR: #eff3a5
+}
+.tTable {
+	BORDER-TOP: 0px; BORDER-RIGHT: 0px; BORDER-BOTTOM: 0px; PADDING-BOTTOM: 0px; PADDING-TOP: 0px; PADDING-LEFT: 0px; BORDER-LEFT: 0px; MARGIN: 2px; PADDING-RIGHT: 0px; BACKGROUND-COLOR: #d6d6d6
+}
+.tHead {
+	BORDER-TOP: white 1px outset; BORDER-RIGHT: white 1px outset; BACKGROUND: #003366; BORDER-BOTTOM: white 1px outset; FONT-WEIGHT: normal; COLOR: white; PADDING-BOTTOM: 2px; PADDING-TOP: 2px; PADDING-LEFT: 2px; BORDER-LEFT: white 1px outset; PADDING-RIGHT: 2px
+}
+.tCell {
+	BORDER-TOP: white 1px outset; BORDER-RIGHT: white 1px outset; BORDER-BOTTOM: white 1px outset; FONT-WEIGHT: normal; PADDING-BOTTOM: 2px; PADDING-TOP: 2px; PADDING-LEFT: 2px; BORDER-LEFT: white 1px outset; PADDING-RIGHT: 2px
+}
+.requiredField {
+	FONT-WEIGHT: bold; COLOR: navy; PADDING-RIGHT: 8px
+}
+.areaTitle {
+	FONT-SIZE: 12px; MARGIN-BOTTOM: 9px; FONT-FAMILY: courier; COLOR: maroon
+}
+.collapsible {
+	FONT-SIZE: 15px; CURSOR: pointer; BORDER-TOP: medium none; BORDER-RIGHT: medium none; WIDTH: 100%; BORDER-BOTTOM: medium none; COLOR: white; OUTLINE-WIDTH: medium; PADDING-BOTTOM: 18px; TEXT-ALIGN: left; PADDING-TOP: 18px; OUTLINE-STYLE: none; PADDING-LEFT: 18px; BORDER-LEFT: medium none; OUTLINE-COLOR: invert; PADDING-RIGHT: 18px; BACKGROUND-COLOR: #777
+}
+.active {
+	BACKGROUND-COLOR: #555
+}
+.collapsible:hover {
+	BACKGROUND-COLOR: #555
+}
+.content {
+	OVERFLOW: hidden; PADDING-BOTTOM: 0px; PADDING-TOP: 0px; PADDING-LEFT: 18px; DISPLAY: none; PADDING-RIGHT: 18px; BACKGROUND-COLOR: #f1f1f1
+}
+.danger {
+	BORDER-LEFT: #f44336 6px solid; BACKGROUND-COLOR: #ffdddd
+}
+.success {
+	BORDER-LEFT: #4caf50 6px solid; BACKGROUND-COLOR: #ddffdd
+}
+.info {
+	BORDER-LEFT: #2196f3 6px solid; BACKGROUND-COLOR: #e7f3fe
+}
+.warning {
+	BORDER-LEFT: #ffeb3b 6px solid; BACKGROUND-COLOR: #ffffcc
+}
+.dot {
+	HEIGHT: 25px; WIDTH: 25px; DISPLAY: inline-block; BACKGROUND-COLOR: #bbb; border-radius: 50%
+}
+DIV.sticky {
+	FONT-SIZE: 10px; PADDING-BOTTOM: 3px; PADDING-TOP: 3px; PADDING-LEFT: 3px; TOP: 0px; PADDING-RIGHT: 3px; BACKGROUND-COLOR: yellow
+}
+#myDIV {
+	WIDTH: 100%; MARGIN-TOP: 20px; PADDING-BOTTOM: 50px; TEXT-ALIGN: center; PADDING-TOP: 50px; PADDING-LEFT: 0px; PADDING-RIGHT: 0px; BACKGROUND-COLOR: lightblue
+}
+.flip-box {
+	BORDER-TOP: #f1f1f1 1px solid; HEIGHT: 200px; BORDER-RIGHT: #f1f1f1 1px solid; WIDTH: 300px; BORDER-BOTTOM: #f1f1f1 1px solid; BORDER-LEFT: #f1f1f1 1px solid; BACKGROUND-COLOR: transparent; perspective: 1000px
+}
+.flip-box-inner {
+	HEIGHT: 100%; WIDTH: 100%; POSITION: relative; TEXT-ALIGN: center; transition: transform 0.8s; transform-style: preserve-3d
+}
+.flip-box:hover .flip-box-inner {
+	transform: rotateX(180deg)
+}
+.flip-box-front {
+	HEIGHT: 100%; WIDTH: 100%; POSITION: absolute; backface-visibility: hidden
+}
+.flip-box-back {
+	HEIGHT: 100%; WIDTH: 100%; POSITION: absolute; backface-visibility: hidden
+}
+.flip-box-front {
+	COLOR: black; BACKGROUND-COLOR: #bbb
+}
+.flip-box-back {
+	COLOR: white; BACKGROUND-COLOR: dodgerblue; transform: rotateX(180deg)
+}
+</STYLE>
+
+<SCRIPT language=javascript>
+ 
+// default SWIL variables for areas
+   var swil_all_areas = new Array('AREAKey','BlankAREA','FindAREA','AREAMain','AREAIssue','AREAMatGrid','AREAMat','AREAFooter');
+   var swil_default_areas = new Array();
+ 
+// area/key widget arrays
+   var swil_AREAKey_keylist = new Array('prtrpt','reg_no_key','module_from','ecbm_view_only','wo_ptr');
+   var swil_AREAMain_keylist = new Array('reg_no');
+ 
+   var fieldtypes= new Array("input","select","text","select-one","select-multiple","textarea","checkbox","radio","button");
+</SCRIPT>
+
+<META name=GENERATOR content="MSHTML 11.00.10570.1001"></HEAD>
+<BODY onload=initSwilScreen() onbeforeunload=closePrompt();>
+<DIV id=mainpagediv name="mainpagediv">
+<P style="COLOR: white" align=center><BR><BR><BR>LOADING . . . &nbsp;ONE MOMENT 
+PLEASE . . .</P>
+<P align=center><IMG 
+src="Corrective%20Maintenance%20Work%20Orders%20(EM_WORK_MAINT_001%20User%201601089%20Site%20345)_files/ani.gif" 
+width=426 height=84></P></DIV><xml id=mainpagexml name="mainpagexml">
+<screen>
+<module>EM_WORK_MAINT_001</module>
+<site>345</site>
+<user>1601089</user>
+<xsl>http://emarssu3.eng.usps.gov:80/emars-html/vmstyle.xsl</xsl>
+<form name="mainform">
+<controlrow_nofs style="z-index: -1; position: absolute; top: 100px; left: 100px; display:none">
+<area class="hiddenItem" width="" height="" name="HiddenUserSiteArea">
+<widget class="hiddenItem" name="currentUser" type="hidden" value="" tag="" keyval ="N" />
+<widget class="hiddenItem" name="currentSite" type="hidden" value="" tag="" keyval ="N" />
+</area>
+</controlrow_nofs>
+<tabheading>Corrective Maintenance Work Orders</tabheading>
+<area style="text-align:center" width="400" height="35" name="AREAKey">
+<controlrow_nofs style="">
+<fieldset name="fssWOStart" legend="Work Order Selection">
+<widget name="fy_key" type="select" subtype="" label="" onChange="" size="" domain="" keyval="N" taborder="1" style="display:none" tsave="Y" label_side="T" tag="" addmode="N" datatype="T" class ="captionmsmall" required="N" widget_menu_sql="http://emarssu3.eng.usps.gov:80/pemars/em_work_pkg.em_getXMLFYList" widget_tabindex="1">
+</widget>
+<widget name="prtrpt" type="hidden" value="" tag="" keyval ="Y" >
+</widget>
+<widget name="reg_no_key" type="input" subtype="" label="Register" size="4" style="width: 130" maxlength="" tsave ="N" keyval ="Y" class="captionmsmall" onClick="" onChange="" onKeyUp="" title="" label_side="T" tag="" datatype="T" addmode="N" calproc="" validation="" taborder="3" required="N" value="" widget_tabindex="1" />
+<widget name="wo_no_key" type="input" subtype="" label="Work Order No" size="10" style="" maxlength="8" tsave ="N" keyval ="N" class="captionmsmall" onClick="" onChange="" onKeyUp="" title="" label_side="T" tag="" datatype="T" addmode="N" calproc="" validation="" taborder="4" required="N" value="" widget_tabindex="1" />
+<widget name="wo_desc_key" type="input" subtype="" label="Work Order Description" size="55" style="" maxlength="50" tsave ="Y" keyval ="N" class="captionmsmall" onClick="" onChange="" onKeyUp="" title="" label_side="T" tag="" datatype="R" addmode="N" calproc="" validation="" taborder="5" required="N" value="" widget_tabindex="1" />
+<widget name="module_from" type="hidden" value="EM_WORK_MAINT_001" tag="" keyval ="Y" >
+</widget>
+<widget name="btnFind" type="button" class="finderButton" style="" value="" caption="FIND" title="" taborder="7" onClick="find()" widget_tabindex="1" />
+</fieldset>
+<widget name="ecbm_view_only" type="hidden" value="" tag="" keyval ="Y" >
+</widget>
+<widget name="wo_ptr" type="hidden" value="" tag="" keyval ="Y" >
+</widget>
+</controlrow_nofs>
+</area>
+<area style="" width="400" height="365" name="BlankAREA">
+<rowset width="100%" style="background-color: '#DCDCDC';">
+<tr>
+<td style="" colspan="" >
+<widget name="capHint" type="caption" label="Click ''Find'' to select an existing record, or click the ''ADD'' button to add a new record." tag="" keyval ="N" style="height: 260; width: 500" class="captionmsmall" widget_tabindex="-1" />
+</td>
+</tr>
+</rowset>
+</area>
+<area style="display:none" width="400" height="35" name="FindAREA">
+<rowset width="100%" style="background-color: '#DCDCDC';">
+<tr>
+<td style="" colspan="" >
+<widget name="findsubsite_id" type="label" label="SubSite" size="2" style="background-color:#DCDCDC" class="captionmsmall" onClick="" keyval ="N" title="" label_side="T" tag="" value="" widget_tabindex="-1" />
+</td>
+<td style="" colspan="" >
+<widget name="findclass" type="label" label="Class Code" size="2" style="background-color:#DCDCDC" class="captionmsmall" onClick="" keyval ="N" title="" label_side="T" tag="" value="" widget_tabindex="-1" />
+</td>
+<td style="" colspan="" >
+<widget name="findacronym" type="label" label="Acronym" size="5" style="background-color:#DCDCDC" class="captionmsmall" onClick="" keyval ="N" title="" label_side="T" tag="" value="" widget_tabindex="-1" />
+</td>
+<td style="" colspan="" >
+<widget name="findequip_no" type="label" label="Equip No" size="5" style="background-color:#DCDCDC" class="captionmsmall" onClick="" keyval ="N" title="" label_side="T" tag="" value="" widget_tabindex="-1" />
+</td>
+</tr>
+</rowset>
+</area>
+<area style="display :none; text-align:center; height:405" width="400" height="450" name="AREAMain">
+<controlrow_nofs style="">
+</controlrow_nofs>
+<controlrow_nofs style="">
+<widget name="capDiv" type="division" style="text-transform: uppercase; font-family: courier; font-size:large; color:maroon" class="" tag="" value="Work Order Details" widget_menu_sql="" onkeyup="" taborder="0" editable="N" /><widget name="partDiv" type="division" style="text-transform: uppercase; font-family: courier; font-size:large; color:Red" class="" tag="" value="" widget_menu_sql="" onkeyup="" taborder="1" editable="N" /></controlrow_nofs>
+<controlrow_nofs style="">
+<widget name="mod_user" type="hidden" value="" tag="" keyval ="N" >
+</widget>
+<widget name="mod_date" type="hidden" value="" tag="" keyval ="N" >
+</widget>
+<widget name="class_ptr" type="hidden" value="" tag="" keyval ="N" >
+</widget>
+<widget name="create_user" type="hidden" value="" tag="" keyval ="N" >
+</widget>
+<widget name="create_date" type="hidden" value="" tag="" keyval ="N" >
+</widget>
+<widget name="reg_no" type="select" subtype="" label="Register" onChange="onChange_RegisterNo();onREGChange();" size="" domain="" keyval="Y" taborder="7" style="width: 180" tsave="N" label_side="T" tag="" addmode="N" datatype="T" class ="" required="Y" widget_menu_sql="http://emarssu3.eng.usps.gov:80/pemars/em_work_pkg.em_getXMLRegisterList?pSiteID=" widget_tabindex="1">
+</widget>
+<widget name="subsite_id" type="select" subtype="" label="Subsite" onChange="" size="" domain="" keyval="N" taborder="8" style="text-align:left; width:130" tsave="Y" label_side="T" tag="" addmode="N" datatype="T" class ="captionmsmall" required="Y" widget_menu_sql="" widget_tabindex="1">
+</widget>
+<widget name="standing_flag" type="select" subtype="" label="Standing" onChange="sfchange();" size="" domain="" keyval="N" taborder="9" style="" tsave="Y" label_side="T" tag="" addmode="N" datatype="T" class ="captionmsmall" required="Y" widget_menu_sql="http://emarssu3.eng.usps.gov:80/pemars/em_work_pkg.em_getXMLStanding" widget_tabindex="1">
+</widget>
+<widget name="wo_status" type="select" subtype="" label="WO Status" onChange="" size="" domain="" keyval="N" taborder="10" style="" tsave="N" label_side="T" tag="" addmode="N" datatype="T" class ="" required="N" widget_menu_sql="http://emarssu3.eng.usps.gov:80/pemars/em_work_pkg.em_getStatus" widget_tabindex="1">
+</widget>
+<widget name="divwono" type="division" style="" class="captionmsmall" tag="" value="" widget_menu_sql="" onkeyup="" taborder="11" editable="N" /><widget name="wo_desc" type="input" subtype="" label="Work Order Description" size="30" style="" maxlength="50" tsave ="N" keyval ="N" class="" onClick="" onChange="" onKeyUp="" title="" label_side="T" tag="" datatype="R" addmode="N" calproc="" validation="" taborder="12" required="Y" value="" widget_tabindex="1" />
+</controlrow_nofs>
+<controlrow_nofs style="">
+<widget name="acronym" type="select" subtype="" label="Acronym - F4772 Req't" onChange="acroChange();" size="" domain="" keyval="N" taborder="13" style="text-align:left;width:150" tsave="Y" label_side="T" tag="" addmode="N" datatype="T" class ="captionmsmall" required="Y" widget_menu_sql="" widget_tabindex="1">
+</widget>
+<widget name="divEquipNo" type="division" style="" class="captionmsmall" tag="" value="" widget_menu_sql="" onkeyup="" taborder="14" editable="N" /><widget name="divClass" type="division" style="" class="captionmsmall" tag="" value="" widget_menu_sql="" onkeyup="" taborder="15" editable="N" /><widget name="req_4772" type="hidden" value="" tag="" keyval ="N" >
+</widget>
+<widget name="class_code_h" type="hidden" value="" tag="" keyval ="N" >
+</widget>
+<widget name="p_acbm_ind" type="checkbox" value="" id="p_acbm_ind" tag="" keyval ="N" label ="ACBM" style ="" taborder="18" class ="" widget_tabindex="1" onClick="acbmClicked();" />
+<widget name="p_acbm_lbl" type="division" style="" class="" tag="" value="" widget_menu_sql="" onkeyup="" taborder="19" editable="N" /></controlrow_nofs>
+<controlrow_nofs style="">
+<widget name="label_fssp_call" type="caption" label="Enter FSSP Call #, MPE, or VENDING:" tag="" keyval ="N" style="" class="captionmsmall" widget_tabindex="-1" />
+<widget name="txt_fssp_call" type="input" subtype="" label="FSSP Call #" size="10" style="" maxlength="10" tsave ="N" keyval ="N" class="" onClick="" onChange="" onKeyUp="" title="" label_side="T" tag="" datatype="N" addmode="N" calproc="" validation="" taborder="21" required="N" value="" widget_tabindex="1" />
+<widget name="caption_fssp_problem" type="hidden" value="" tag="" keyval ="N" >
+</widget>
+<widget name="txt_fssp_problem" type="input" subtype="" label="FSSP Problem #" size="7" style="" maxlength="7" tsave ="N" keyval ="N" class="" onClick="" onChange="" onKeyUp="" title="" label_side="T" tag="" datatype="N" addmode="N" calproc="" validation="" taborder="23" required="N" value="" widget_tabindex="1" />
+<widget name="txt_fssp_zip" type="input" subtype="" label="ZIP + 4" size="10" style="" maxlength="10" tsave ="N" keyval ="N" class="" onClick="" onChange="" onKeyUp="f_onKeyUp(this.name);" title="" label_side="T" tag="" datatype="T" addmode="N" calproc="" validation="" taborder="24" required="N" value="" widget_tabindex="1" />
+<widget name="h_fssp_call" type="hidden" value="" tag="" keyval ="N" >
+</widget>
+<widget name="h_fssp_problem" type="hidden" value="" tag="" keyval ="N" >
+</widget>
+<widget name="h_fssp_zip" type="hidden" value="" tag="" keyval ="N" >
+</widget>
+<widget name="txt_fssmaid" type="input" subtype="" label="" size="" style="visibility: hidden;" maxlength="" tsave ="N" keyval ="N" class="" onClick="" onChange="" onKeyUp="" title="" label_side="T" tag="" datatype="T" addmode="N" calproc="" validation="" taborder="28" required="N" value="for FSS only" widget_tabindex="1" />
+</controlrow_nofs>
+<controlrow_nofs style="">
+<widget name="date_closed" type="hidden" value="" tag="" keyval ="N" >
+</widget>
+<widget name="priority_code" type="select" subtype="" label="Priority" onChange="prioritychng();" size="" domain="" keyval="N" taborder="30" style="" tsave="Y" label_side="T" tag="" addmode="N" datatype="T" class ="captionmsmall" required="Y" widget_menu_sql="http://emarssu3.eng.usps.gov:80/pemars/em_work_pkg.em_getXMLPriorityCodes" widget_tabindex="1">
+</widget>
+<widget name="work_code" type="select" subtype="" label="Work Code" onChange="workCodeChange();" size="" domain="" keyval="N" taborder="31" style="" tsave="Y" label_side="T" tag="" addmode="N" datatype="T" class ="captionmsmall" required="Y" widget_menu_sql="http://emarssu3.eng.usps.gov:80/pemars/em_work_pkg.em_getXMLCmWorkCodeList" widget_tabindex="1">
+</widget>
+<widget name="crew_id" type="select" subtype="" label="Crew ID/Supervisor/Desc" onChange="" size="" domain="" keyval="N" taborder="32" style="" tsave="Y" label_side="T" tag="" addmode="N" datatype="T" class ="captionmsmall" required="Y" widget_menu_sql="http://emarssu3.eng.usps.gov:80/pemars/em_work_pkg.em_crew_list?pSiteID=" widget_tabindex="1">
+</widget>
+<div name="divalltxt" style="" class="captionmsmall">
+<widget name="modification_no" type="hidden" value="" tag="" keyval ="N" >
+</widget>
+</div>
+</controlrow_nofs>
+<controlrow_nofs style="">
+<widget name="nm_selBulletin_3Alpha" type="select" subtype="" label="Bulletin Type" onChange="" size="" domain="" keyval="N" taborder="36" style="" tsave="N" label_side="T" tag="" addmode="N" datatype="T" class ="" required="N" widget_menu_sql="" widget_tabindex="1">
+</widget>
+<widget name="nm_txtBulletin_3Num" type="input" subtype="" label="Number" size="3" style="" maxlength="3" tsave ="N" keyval ="N" class="" onClick="" onChange="" onKeyUp="onKeyUp_Ctrl(this.name);" title="" label_side="T" tag="" datatype="T" addmode="N" calproc="" validation="" taborder="37" required="N" value="" widget_tabindex="1" />
+<widget name="nm_selBulletin_2Num" type="select" subtype="" label="Year" onChange="" size="" domain="" keyval="N" taborder="38" style="" tsave="N" label_side="T" tag="" addmode="N" datatype="T" class ="" required="N" widget_menu_sql="" widget_tabindex="1">
+</widget>
+<widget name="past_due_reason_code" type="select" subtype="" label="Past Due Reason" onChange="" size="" domain="" keyval="N" taborder="39" style="" tsave="N" label_side="T" tag="" addmode="N" datatype="T" class ="" required="N" widget_menu_sql="" widget_tabindex="1">
+</widget>
+</controlrow_nofs>
+<controlrow_nofs style="">
+<widget name="dept_code" type="select" subtype="" label="Department" onChange="" size="" domain="" keyval="N" taborder="40" style="" tsave="Y" label_side="T" tag="" addmode="N" datatype="T" class ="captionmsmall" required="Y" widget_menu_sql="http://emarssu3.eng.usps.gov:80/pemars/em_office_pkg.em_getXMLDeptList" widget_tabindex="1">
+</widget>
+<widget name="date_issued" type="input" subtype="" label="Date Issued" size="11" style="" maxlength="10" tsave ="Y" keyval ="N" class="captionmsmall" onClick="" onChange="datevalidate();" onKeyUp="" title="" label_side="T" tag="" datatype="D" addmode="N" calproc="calproc('mainform.date_issued')" validation="" taborder="41" required="Y" value="" widget_tabindex="1" />
+<widget name="date_due" type="input" subtype="" label="Date Due" size="11" style="" maxlength="10" tsave ="Y" keyval ="N" class="captionmsmall" onClick="" onChange="" onKeyUp="" title="" label_side="T" tag="" datatype="D" addmode="N" calproc="calproc('mainform.date_due')" validation="" taborder="42" required="N" value="" widget_tabindex="1" />
+<widget name="est_hours" type="input" subtype="" label="Est Work Hours" size="5" style="" maxlength="5" tsave ="Y" keyval ="N" class="captionmsmall" onClick="" onChange="esthours_onChange();" onKeyUp="" title="" label_side="T" tag="" datatype="N" addmode="N" calproc="" validation="" taborder="43" required="N" value="" widget_tabindex="1" />
+<widget name="hours_to_date" type="label" label="Hours-To-Date" size="10" style="" class="captionmsmall" onClick="" keyval ="N" title="" label_side="T" tag="" value="0" widget_tabindex="-1" />
+</controlrow_nofs>
+<controlrow_nofs style="">
+<widget name="wo_comment" type="input" subtype="" label="Work Order Comment" size="50" style="" maxlength="255" tsave ="Y" keyval ="N" class="captionmsmall" onClick="" onChange="wo_onChange();" onKeyUp="" title="Work Order Comment" label_side="T" tag="" datatype="R" addmode="N" calproc="" validation="" taborder="45" required="N" value="" widget_tabindex="1" />
+<widget name="project_id" type="select" subtype="" label="Project" onChange="" size="" domain="" keyval="N" taborder="46" style="" tsave="N" label_side="T" tag="" addmode="N" datatype="T" class ="" required="N" widget_menu_sql="http://emarssu3.eng.usps.gov:80/pemars/em_work_pkg.em_XMLProjectIdList_no?pSiteID=" widget_tabindex="1">
+</widget>
+<widget name="whep_fac_id" type="select" subtype="" label="Facility" onChange="" size="" domain="" keyval="N" taborder="47" style="" tsave="N" label_side="T" tag="" addmode="N" datatype="T" class ="" required="N" widget_menu_sql="http://emarssu3.eng.usps.gov:80/pemars/em_work_pkg.getXMLFacility_whep_fac_id?pSiteID=" widget_tabindex="1">
+</widget>
+</controlrow_nofs>
+<controlrow_nofs style="">
+<widget name="equip_no_h" type="hidden" value="" tag="" keyval ="N" >
+</widget>
+<widget name="wo_no_h" type="input" subtype="" label="" size="" style="display:none" maxlength="" tsave ="N" keyval ="N" class="" onClick="" onChange="" onKeyUp="" title="" label_side="T" tag="" datatype="T" addmode="N" calproc="" validation="" taborder="49" required="N" value="" widget_tabindex="1" />
+<widget name="btnMTSC" type="button" class="captionmsmall" style="font-family: arial; color: #4169E1; size: 100; width: 125;  display: none;" value="" caption="OPEN MTSC TICKET" title="" taborder="50" onClick="launchModalModule('EM_MTSC_TICKET',700,500)" widget_tabindex="1" />
+<widget name="btnReport" type="button" class="" style="font-family: arial; color: red; size: 100; width: 140;" value="" caption="Print Work Order" title="" taborder="51" onClick="launchModalModule('EM_WORK_MAINT_002',700,500)" widget_tabindex="1" />
+<widget name="btnInfo" type="button" class="" style="font-family: arial; color: red; size: 100; width: 115" value="" caption="Information" title="" taborder="52" onClick="allInfo();" widget_tabindex="1" />
+<widget name="btnRegistersAdd" type="button" class="" style="font-family: arial; color: red; size: 100; width: 100" value="" caption="REGISTERS" title="" taborder="53" onClick="register()" widget_tabindex="1" />
+<widget name="btnMaterialsAdd" type="button" class="" style="font-family: arial; color: red; size: 100; width: 100" value="" caption="MATERIALS" title="" taborder="54" onClick="material()" widget_tabindex="1" />
+<widget name="btnCertify" type="button" class="" style="font-family: arial; color: red; size: 100; width: 175;display:none;" value="" caption="Certify This Work Order" title="" taborder="55" onClick="f_btnCertify_OnClick();" widget_tabindex="1" />
+</controlrow_nofs>
+</area>
+<area style="display: none" width="400" height="250" name="AREAIssue">
+<controlrow style="">
+<widget name="materialrowid" type="hidden" value="" tag="" keyval ="N" >
+</widget>
+<widget name="chkstocked" type="hidden" value="" tag="" keyval ="N" >
+</widget>
+<div name="stockeddiv" style="" class="captionmsmall">
+<fieldset name="fssCatalog" legend="">
+<table align="left" class="group" style="border: none"><tr>
+<widget name="stocked" type="radio" label="Item in Catalog" value="Y" keyval ="N" tag="" taborder="4" onClick="stocked_onClick()" checked="checked" widget_tabindex="1" />
+<widget name="stocked" type="radio" label="Item not in Catalog" value="N" keyval ="N" tag="" taborder="5" onClick="stocked_onClick()" checked="unchecked" widget_tabindex="1" />
+</tr></table>
+</fieldset>
+</div>
+</controlrow>
+<controlrow style="">
+<div name="selectdiv" style="" class="captionmsmall">
+<fieldset name="fenom" legend="Search By">
+<widget name="nomen" type="input" subtype="" label="Nomenclature" size="30" style="" maxlength="" tsave ="N" keyval ="N" class="captionmsmall" onClick="" onChange="" onKeyUp="" title="" label_side="T" tag="" datatype="T" addmode="N" calproc="" validation="" taborder="11" required="N" value="" widget_tabindex="1" />
+<widget name="nomengo" type="button" class="captionmsmall" style="width:50" value="" caption="GO" title="" taborder="12" onClick="nomengo1()" widget_tabindex="1" />
+</fieldset>
+<widget name="or" type="caption" label="OR" tag="" keyval ="N" style="" class="captionmsmall" widget_tabindex="-1" />
+<fieldset name="fsfsc" legend="Search By">
+<widget name="fsccode" type="input" subtype="" label="NSN" size="" style="" maxlength="" tsave ="N" keyval ="N" class="captionmsmall" onClick="" onChange="" onKeyUp="formatNSN(this)" title="" label_side="T" tag="" datatype="T" addmode="N" calproc="" validation="" taborder="16" required="N" value="" widget_tabindex="1" />
+<widget name="fscgo" type="button" class="captionmsmall" style="width:50" value="" caption="GO" title="" taborder="17" onClick="fscgo1()" widget_tabindex="1" />
+</fieldset>
+</div>
+<div name="inpdiv" style="" class="captionmsmall">
+<widget name="nsn" type="input" subtype="" label="NSN*" size="" style="" maxlength="" tsave ="N" keyval ="N" class="captionmsmall" onClick="" onChange="" onKeyUp="" title="" label_side="T" tag="" datatype="T" addmode="N" calproc="" validation="" taborder="21" required="N" value="" widget_tabindex="1" />
+<widget name="nom" type="input" subtype="" label="Nomenclature*" size="" style="" maxlength="" tsave ="N" keyval ="N" class="captionmsmall" onClick="" onChange="" onKeyUp="" title="" label_side="T" tag="" datatype="T" addmode="N" calproc="" validation="" taborder="22" required="N" value="" widget_tabindex="1" />
+</div>
+</controlrow>
+<controlrow style="">
+<div name="nsnnomdiv" style="" class="captionmsmall">
+<widget name="nsnnom" type="select" subtype="" label="NSN/Nomenclature/Room ID*" onChange="nsnnomchange();" size="5" domain="" keyval="N" taborder="25" style="text-align:left; width:570" tsave="N" label_side="T" tag="" addmode="N" datatype="S" class ="FIXEDLENGTH" required="N" widget_menu_sql="" widget_tabindex="1">
+</widget>
+</div>
+</controlrow>
+<controlrow style="">
+<div name="divboh" style="" class="">
+<widget name="boh" type="label" label="BOH" size="8" style="background-color:#DCDCDC" class="captionmsmall" onClick="" keyval ="N" title="" label_side="T" tag="" value="" widget_tabindex="-1" />
+</div>
+<widget name="required_date" type="input" subtype="" label="Date Required" size="11" style="" maxlength="10" tsave ="N" keyval ="N" class="captionmsmall" onClick="" onChange="" onKeyUp="" title="" label_side="T" tag="" datatype="D" addmode="N" calproc="calproc('mainform.required_date')" validation="" taborder="30" required="N" value="" widget_tabindex="1" />
+<widget name="qty_req" type="input" subtype="" label="Quantity Required*" size="8" style="" maxlength="8" tsave ="N" keyval ="N" class="captionmsmall" onClick="" onChange="" onKeyUp="" title="" label_side="T" tag="" datatype="N" addmode="N" calproc="" validation="" taborder="31" required="N" value="" widget_tabindex="1" />
+</controlrow>
+<controlrow style="">
+<widget name="matCancelAdd" type="button" class="captionmsmall" style="" value="" caption="Cancel" title="" taborder="32" onClick="cancelAdd()" widget_tabindex="1" />
+<widget name="matSave" type="button" class="captionmsmall" style="" value="" caption="Save" title="" taborder="33" onClick="saveMaterial('Material')" widget_tabindex="1" />
+</controlrow>
+</area>
+<area style="display:none" width="400" height="35" name="AREAMatGrid">
+<controlrow style="">
+<!-- SQL=select 1 from dual -->
+<widget name="grdMaterial" type="GRID" height="300" width="650">
+<param name="numcols" value="8"/>
+<param name="colheadertext" value="Route Pointer,SubSite,Acronym,Status,Desc"/>
+<param name="colwidths" value="70,70,100,250,50,70,0,0"/>
+<param name="sortcolumns" value="1,2,3,4,5,6,7,"/>
+<param name="multiple" value="yes"/>
+<param name="flags" value="rowselection,resizecolumns,autoresizecols,useattributes,resizerows,rownumbers,rowlines,collines,rowheader,colheader,vscroll,hscroll,threedborder,sortrowheaders,autoresizecols"/>
+<param name="clickfunction" value="grdMaterial_onClick" />
+<param name="doubleclickfunction" value="grdMaterial_DoubleClick" />
+<param   name="row1text" value="1"/>
+<param name ="numrows" value ="1"/>
+</widget>
+<!-- Time=0-->
+</controlrow>
+<controlrow style="">
+<widget name="GridAdd" type="button" class="captionmsmall" style="" value="" caption="Add" title="" taborder="1" onClick="noPerm()" widget_tabindex="1" />
+<widget name="GridEdit" type="button" class="captionmsmall" style="" value="" caption="Edit" title="" taborder="2" onClick="noPerm()" widget_tabindex="1" />
+<widget name="GridDelete" type="button" class="captionmsmall" style="" value="" caption="Delete" title="" taborder="3" onClick="noPerm()" widget_tabindex="1" />
+</controlrow>
+</area>
+<area style="" width="400" height="35" name="AREAMat">
+<rowset width="100%" style="background-color: '#DCDCDC';">
+<tr>
+<td style="" colspan="" >
+<widget name="btnRegisters" type="button" class="captionmsmall" style="width: 250" value="" caption="Registers" title="" taborder="0" onClick="launchModalModule('EM_REGISTER_001',450,414)" widget_tabindex="1" />
+</td>
+<td style="" colspan="" >
+<widget name="btnMaterial" type="button" class="captionmsmall" style="width: 250;display:none;" value="" caption="Materials" title="" taborder="1" onClick="material()" widget_tabindex="1" />
+</td>
+</tr>
+</rowset>
+</area>
+<area style="" width="400" height="35" name="AREAFooter">
+<rowset width="100%" style="background-color: '#DCDCDC';">
+<tr>
+<td style="" colspan="" >
+<widget name="btnSave" type="button" class="captionmsmall" style="" value="" caption="SAVE" title="" taborder="0" onClick="noPerm()" widget_tabindex="1" />
+</td>
+<td style="" colspan="" >
+<widget name="btnAdd" type="button" class="captionmsmall" style="" value="" caption="ADD" title="" taborder="1" onClick="noPerm()" widget_tabindex="1" />
+</td>
+<td style="" colspan="" >
+<widget name="btnDelete" type="button" class="captionmsmall" style="" value="" caption="DELETE" title="" taborder="2" onClick="noPerm()" widget_tabindex="1" />
+</td>
+<td style="" colspan="" >
+<widget name="btnCertifyAllWos" type="button" class="captionmsmall" style="display:none;width:170;" value="" caption="CERTIFY ALL WORK ORDERS" title="" taborder="3" onClick="btnCertifyAllWos_onClick();" widget_tabindex="1" />
+</td>
+<td style="" colspan="" >
+<widget name="btnClose" type="button" class="captionmsmall" style="" value="" caption="EXIT" title="" taborder="4" onClick="bodyOnUnLoad()" widget_tabindex="1" />
+</td>
+</tr>
+</rowset>
+</area>
+</form>
+</screen>
+</xml><XML name="selectListsXML">
+</XML>
+<SCRIPT language=javascript>
+</SCRIPT>
+
+<SCRIPT language=vbscript type=text/vbscript 
+src="Corrective%20Maintenance%20Work%20Orders%20(EM_WORK_MAINT_001%20User%201601089%20Site%20345)_files/em_dialog.vbs"></SCRIPT>
+
+<SCRIPT language=javascript 
+src="Corrective%20Maintenance%20Work%20Orders%20(EM_WORK_MAINT_001%20User%201601089%20Site%20345)_files/em_dialog.js"></SCRIPT>
+
+<SCRIPT language=javascript 
+src="Corrective%20Maintenance%20Work%20Orders%20(EM_WORK_MAINT_001%20User%201601089%20Site%20345)_files/em_show_code.js"></SCRIPT>
+
+<SCRIPT language=javascript>
+  currentDate="10/30/2026"
+  currentAP="02"
+  currentWK="1"
+  currentRole="MU"
+  currentDefSS="00"
+  currentPerm="N"
+  currentRight="R"
+  debugMode='off' 
+  doSelects(1)
+//     show_displayScreenCode() ;
+</SCRIPT>
+
+<SCRIPT language=javascript src=""></SCRIPT>
+
+<SCRIPT language=javascript 
+src="Corrective%20Maintenance%20Work%20Orders%20(EM_WORK_MAINT_001%20User%201601089%20Site%20345)_files/datepicker.js"></SCRIPT>
+
+<SCRIPT language=javascript 
+src="Corrective%20Maintenance%20Work%20Orders%20(EM_WORK_MAINT_001%20User%201601089%20Site%20345)_files/em_validations.js"></SCRIPT>
+<!-- Screen evocation Scripts from vm_utility_pkg.tbl_script are not necessary any 
+     more since the module evocation is now done with a generic javascript function 
+     launchModalModule(). -->
+<META content=NO-CACHE http-equiv=PRAGMA></BODY></HTML>

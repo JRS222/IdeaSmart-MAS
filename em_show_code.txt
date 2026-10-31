@@ -1,0 +1,55 @@
+var ggWinCode;
+
+function BuildIt() {
+   var vCode = "";
+   ggWinCode.document.open();
+   ggWinCode.document.writeln("<plaintext>");
+   ggWinCode.document.writeln("\n<!--\nThis is the transformed SWIL XML in HTML format.\n-->\n\n\n\n");
+   var scrCode = document.all.mainpagediv.innerHTML.replace('>','>\n');
+   ggWinCode.document.writeln(scrCode);
+   ggWinCode.document.close();
+}
+
+function show_displayScreenCode() {
+   var thishost=document.location.hostname;
+   var thisport=document.location.port;
+   var env=thishost+":"+thisport;
+   //alert(env);
+   if (env=="eagnmnsu023:81") {
+      vWinCode = window.open("", "displayScreenCode", "width=800,height=600,status=no,resizable=yes,toobar=yes,scrollbars=yes");
+      vWinCode.opener = self;
+      ggWinCode = vWinCode;
+      BuildIt();
+   }
+}
+
+
+// this is an example of opening a modal dialog window instead of the window.open above
+function modalWindowExample(pModule,mWidth,mHeight) {
+   var keyxml=genKeyXML();
+   var v_modalWin=showModalDialog("<url>", "<windowObject>", "dialogWidth:400px; dialogHeight:200px; center:yes; status:no; resizeable:no; scroll:no;");
+   try { doModalResult(v_modalWin); } catch(e) {}
+}
+
+var winObj;
+
+function yesNoModal(question) {
+   var vCode = "";
+   vWinCode = showModalDialog('', 'yesNoWin', 'dialogWidth:300px; dialogHeight:150px; center:yes; status:no; resizeable:no; scroll:no;');
+   vWinCode.opener = self;
+   winObj = vWinCode;
+   winObj.document.open();
+   winObj.document.writeln('<html>\n<body background="#D4D0C8">\n');
+   winObj.document.writeln('<table cellspacing="2" cellpadding="2" border="0">\n');
+   winObj.document.writeln('<tr>\n<td><img src="'+getServerPath()+'emars-img/alert.gif"></td>\n');
+   winObj.document.writeln('<td>'+question+'</td>\n</tr>\n');
+   winObj.document.writeln('<tr>\n<td>');
+   winObj.document.writeln('<table cellpadding="0" cellspacing="4" border="0">');
+   winObj.document.writeln('<tr>\n');
+   winObj.document.writeln('<td><button name="yesBtn" onclick="window.returnValue=\'y\'; window.close();" value="y">Yes</button></td>\n');
+   winObj.document.writeln('<td><button name="noBtn" onclick="window.returnValue=\'n\'; window.close();" value="n">No</button></td>\n');
+   winObj.document.writeln('</tr>\n</table>\n');
+   winObj.document.writeln('</td>\n</tr>\n</table>\n');  
+   winObj.document.writeln('</body>\n</html>\n');
+   winObj.document.close();
+}
